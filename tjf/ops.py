@@ -21,7 +21,7 @@ from toolforge_weld.kubernetes import parse_quantity
 from tjf.error import TjfError, TjfValidationError
 from tjf.k8s_errors import create_error_from_k8s_response
 from tjf.labels import labels_selector
-from tjf.job import Job, validate_jobname
+from tjf.job import Job, JobKind, validate_jobname
 from tjf.user import User
 import tjf.utils as utils
 from tjf.ops_status import refresh_job_short_status, refresh_job_long_status
@@ -88,13 +88,15 @@ def delete_job(user: User, jobname: str):
         # invalid job name, ignore
         return
 
-    for object in ["jobs", "cronjobs", "deployments"]:
+    for kind in JobKind:
         user.kapi.delete_objects(
-            object, label_selector=labels_selector(jobname, user.name, object)
+            str(kind), label_selector=labels_selector(jobname, user.name, kind)
         )
 
     # extra explicit cleanup of jobs (may have been created by cronjobs)
-    user.kapi.delete_objects("jobs", label_selector=labels_selector(jobname, user.name, None))
+    user.kapi.delete_objects(
+        str(JobKind.JOBS), label_selector=labels_selector(jobname, user.name, None)
+    )
 
     # extra explicit cleanup of pods
     user.kapi.delete_objects("pods", label_selector=labels_selector(jobname, user.name, None))
@@ -117,7 +119,7 @@ def list_all_jobs(user: User, jobname: str):
 
     job_list = []
 
-    for kind in ["jobs", "cronjobs", "deployments"]:
+    for kind in JobKind:
         label_selector = labels_selector(jobname=jobname, username=user.name, type=kind)
         for k8s_obj in user.kapi.get_objects(kind, label_selector=label_selector):
             job = Job.from_k8s_object(object=k8s_obj, kind=kind)
@@ -143,11 +145,11 @@ def _wait_for_pod_exit(user: User, job: Job, timeout: int = 30):
 def _launch_manual_cronjob(user: User, job: Job):
     validate_job_limits(user, job)
 
-    cronjob = user.kapi.get_object("cronjobs", job.jobname)
+    cronjob = user.kapi.get_object(str(JobKind.CRONJOBS), job.jobname)
     metadata = utils.dict_get_object(cronjob, "metadata")
 
     try:
-        user.kapi.create_object("jobs", job.get_k8s_single_run_object(metadata["uid"]))
+        user.kapi.create_object(str(JobKind.JOBS), job.get_k8s_single_run_object(metadata["uid"]))
     except requests.exceptions.HTTPError as e:
         raise create_error_from_k8s_response(e, job, user)
 
@@ -155,9 +157,9 @@ def _launch_manual_cronjob(user: User, job: Job):
 def restart_job(user: User, job: Job):
     label_selector = labels_selector(job.jobname, user.name, job.k8s_type)
 
-    if job.k8s_type == "cronjobs":
+    if job.k8s_type == JobKind.CRONJOBS:
         # Delete currently running jobs to avoid duplication
-        user.kapi.delete_objects("jobs", label_selector=label_selector)
+        user.kapi.delete_objects(str(JobKind.JOBS), label_selector=label_selector)
         user.kapi.delete_objects("pods", label_selector=label_selector)
 
         # Wait until the currently running job stops
@@ -165,10 +167,10 @@ def restart_job(user: User, job: Job):
 
         # Launch it manually
         _launch_manual_cronjob(user, job)
-    elif job.k8s_type == "deployments":
+    elif job.k8s_type == JobKind.DEPLOYMENTS:
         # Simply delete the pods and let Kubernetes re-create them
         user.kapi.delete_objects("pods", sellabel_selectorector=label_selector)
-    elif job.k8s_type == "jobs":
+    elif job.k8s_type == JobKind.JOBS:
         raise TjfValidationError("Unable to restart a single job")
     else:
         raise TjfError(f"Unable to restart unknown job type: {job}")

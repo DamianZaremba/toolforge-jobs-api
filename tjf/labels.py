@@ -16,13 +16,14 @@
 
 
 from typing import Dict
+from tjf.jobkind import JobKind
 
 
 def generate_labels(
     *,
     jobname: str,
     username: str,
-    type: str,
+    type: JobKind,
     filelog: bool,
     emails: str,
     version: bool = True,
@@ -37,7 +38,7 @@ def generate_labels(
         obj["app.kubernetes.io/version"] = "2"
 
     if type is not None:
-        obj["app.kubernetes.io/component"] = type
+        obj["app.kubernetes.io/component"] = str(type)
 
     if jobname is not None:
         obj["app.kubernetes.io/name"] = jobname
@@ -51,7 +52,7 @@ def generate_labels(
     return obj
 
 
-def labels_selector(jobname: str, username: str, type: str) -> Dict[str, str]:
+def labels_selector(jobname: str, username: str, type: JobKind) -> Dict[str, str]:
     return generate_labels(
         jobname=jobname,
         username=username,
