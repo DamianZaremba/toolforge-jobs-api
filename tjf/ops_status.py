@@ -6,6 +6,7 @@ from typing import Optional
 from tjf.error import TjfError
 from tjf.labels import labels_selector
 from tjf.job import Job
+from tjf.jobkind import JobKind
 from tjf.user import User
 from tjf.utils import KUBERNETES_DATE_FORMAT
 import tjf.utils as utils
@@ -77,7 +78,7 @@ def _refresh_status_cronjob_from_restarted_cronjob(
         return None
 
     label_selector = labels_selector(
-        jobname=original_cronjob.jobname, username=user.name, type="cronjobs"
+        jobname=original_cronjob.jobname, username=user.name, type=str(JobKind.CRONJOBS)
     )
     all_cronjob_jobs = user.kapi.get_objects("jobs", label_selector=label_selector)
     for maybe_manual_job_data in all_cronjob_jobs:
@@ -112,7 +113,7 @@ def _refresh_status_cronjob_from_restarted_cronjob(
         if not matching_reference:
             continue
 
-        maybe_job = Job.from_k8s_object(maybe_manual_job_data, "jobs")
+        maybe_job = Job.from_k8s_object(maybe_manual_job_data, JobKind.JOBS)
         if maybe_job.command != original_cronjob.command:
             continue
 
@@ -198,11 +199,11 @@ def _refresh_status_job(user: User, job: Job):
 
 
 def refresh_job_short_status(user: User, job: Job):
-    if job.k8s_type == "cronjobs":
+    if job.k8s_type == JobKind.CRONJOBS:
         _refresh_status_cronjob(user, job)
-    elif job.k8s_type == "deployments":
+    elif job.k8s_type == JobKind.DEPLOYMENTS:
         _refresh_status_dp(user, job)
-    elif job.k8s_type == "jobs":
+    elif job.k8s_type == JobKind.JOBS:
         _refresh_status_job(user, job)
     else:
         raise TjfError(f"Unable to refresh status for unknown job type: {job}")

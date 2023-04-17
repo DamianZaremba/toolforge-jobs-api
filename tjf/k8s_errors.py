@@ -19,6 +19,7 @@ import requests
 from tjf.error import TjfError, TjfValidationError
 
 from tjf.job import Job
+from tjf.jobkind import JobKind
 from tjf.user import User
 
 
@@ -31,13 +32,13 @@ def _is_out_of_quota(e: requests.exceptions.HTTPError, job: Job, user: User) -> 
 
     resource_quota = user.kapi.get_objects("resourcequotas")[0]
 
-    if job.k8s_type == "cronjobs":
+    if job.k8s_type == JobKind.CRONJOBS:
         quota = resource_quota["status"]["hard"]["count/cronjobs.batch"]
         used = resource_quota["status"]["used"]["count/cronjobs.batch"]
-    elif job.k8s_type == "deployments":
+    elif job.k8s_type == JobKind.DEPLOYMENTS:
         quota = resource_quota["status"]["hard"]["count/deployments.apps"]
         used = resource_quota["status"]["used"]["count/deployments.apps"]
-    elif job.k8s_type == "jobs":
+    elif job.k8s_type == JobKind.JOBS:
         quota = resource_quota["status"]["hard"]["count/jobs.batch"]
         used = resource_quota["status"]["used"]["count/jobs.batch"]
     else:

@@ -24,6 +24,7 @@ from tjf.images import Image, image_by_container_url
 import tjf.utils as utils
 from tjf.labels import generate_labels
 from tjf.command import Command
+from tjf.jobkind import JobKind
 
 # This is a restriction by Kubernetes:
 # a lowercase RFC 1123 subdomain must consist of lower case alphanumeric
@@ -95,11 +96,11 @@ class Job:
             self.emails = "none"
 
         if self.schedule is not None:
-            self.k8s_type = "cronjobs"
+            self.k8s_type = JobKind.CRONJOBS
         elif self.cont is True:
-            self.k8s_type = "deployments"
+            self.k8s_type = JobKind.DEPLOYMENTS
         else:
-            self.k8s_type = "jobs"
+            self.k8s_type = JobKind.JOBS
 
         validate_jobname(self.jobname)
         validate_emails(self.emails)
@@ -107,11 +108,11 @@ class Job:
         utils.validate_kube_quant(self.cpu)
 
     @classmethod
-    def from_k8s_object(cls, object: dict, kind: str):
+    def from_k8s_object(cls, object: dict, kind: JobKind):
         spec = utils.dict_get_object(object, "spec")
         metadata = utils.dict_get_object(object, "metadata")
 
-        if kind == "cronjobs":
+        if kind == JobKind.CRONJOBS:
             if "annotations" in metadata:
                 configured_schedule = metadata["annotations"].get(
                     "jobs.toolforge.org/cron-expression", spec["schedule"]
@@ -123,14 +124,13 @@ class Job:
                 actual=spec["schedule"],
                 configured=configured_schedule,
             )
-
             cont = False
             podspec = spec["jobTemplate"]["spec"]
-        elif kind == "deployments":
+        elif kind == JobKind.DEPLOYMENTS:
             schedule = None
             cont = True
             podspec = spec
-        elif kind == "jobs":
+        elif kind == JobKind.JOBS:
             schedule = None
             cont = False
             podspec = spec
@@ -245,7 +245,7 @@ class Job:
             emails=self.emails,
         )
         obj = {
-            "apiVersion": K8sClient.VERSIONS["cronjobs"],
+            "apiVersion": K8sClient.VERSIONS[JobKind.CRONJOBS],
             "kind": "CronJob",
             "metadata": {
                 "name": self.jobname,
@@ -280,7 +280,7 @@ class Job:
         )
         obj = {
             "kind": "Deployment",
-            "apiVersion": K8sClient.VERSIONS["deployments"],
+            "apiVersion": K8sClient.VERSIONS[JobKind.DEPLOYMENTS],
             "metadata": {
                 "name": self.jobname,
                 "namespace": self.ns,
@@ -320,10 +320,10 @@ class Job:
         return obj
 
     def get_k8s_object(self):
-        if self.k8s_type == "cronjobs":
+        if self.k8s_type == JobKind.CRONJOBS:
             return self._get_k8s_cronjob_object()
 
-        if self.k8s_type == "deployments":
+        if self.k8s_type == JobKind.DEPLOYMENTS:
             return self._get_k8s_deployment_object()
 
         return self._get_k8s_job_object()
@@ -342,7 +342,7 @@ class Job:
         k8s_job_object["metadata"]["annotations"] = {"cronjob.kubernetes.io/instantiate": "manual"}
         k8s_job_object["metadata"]["ownerReferences"] = [
             {
-                "apiVersion": K8sClient.VERSIONS["cronjobs"],
+                "apiVersion": K8sClient.VERSIONS[JobKind.CRONJOBS],
                 "kind": "CronJob",
                 "name": self.jobname,
                 "uid": cronjob_uid,

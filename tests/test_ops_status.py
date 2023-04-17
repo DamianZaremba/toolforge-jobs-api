@@ -1,6 +1,7 @@
 import pytest
 import tests.fake_k8s as fake_k8s
 from tjf.job import Job
+from tjf.jobkind import JobKind
 from tjf.ops_status import _get_quota_error, refresh_job_short_status
 
 
@@ -45,6 +46,6 @@ def test_refresh_job_short_status_cronjob(cronjob, job, status_short):
         return FakeUser()
 
     user = setup_user()
-    _job = Job.from_k8s_object(cronjob, "cronjobs")
+    _job = Job.from_k8s_object(cronjob, JobKind.CRONJOBS)
     refresh_job_short_status(user, _job)
     assert status_short in _job.status_short
