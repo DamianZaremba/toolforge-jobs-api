@@ -41,7 +41,7 @@ spec:
           name: harbor-config
           readOnly: true
       - name: nginx
-        image: {{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}
+        image: {{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.nginxTag }}
         imagePullPolicy: Always
         ports:
         - containerPort: 8443

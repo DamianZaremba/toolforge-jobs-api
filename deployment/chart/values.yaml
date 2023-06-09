@@ -4,12 +4,13 @@ replicas: 2
 webservice:
   image:
     repository: docker-registry.tools.wmflabs.org/toolforge-jobs-framework-api
-    tag: "a5eb7dc"
+    tag: OVERWRITTEN_BY_CI
     pullpolicy: Always
 nginx:
   image:
     repository: docker-registry.tools.wmflabs.org/nginx
-    tag: latest
+    # tag is used by the ci to set the image tag
+    nginxTag: latest
     pullpolicy: Always
 
 certificates:

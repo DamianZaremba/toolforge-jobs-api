@@ -1,0 +1,16 @@
+include:
+  - project: "repos/cloud/cicd/gitlab-ci"
+    file: "toolforge-cd/only_image_publish.yaml"
+  - project: "repos/cloud/cicd/gitlab-ci"
+    file: "toolforge-cd/only_helm_publish.yaml"
+    ref: enforce_image_tag_same_as_chart_version
+  - project: "repos/cloud/cicd/gitlab-ci"
+    file: "py3.9-bullseye-tox/gitlab-ci.yaml"
+
+variables:
+  PROJECT_NAME: jobs-api
+
+stages:
+  - test
+  - publish
+  - deployment
