@@ -1,0 +1,21 @@
+# base values file
+replicas: 2
+
+webservice:
+  image:
+    # name and tag are used by the ci to set the image repo and tag accordingly
+    name: tools-harbor.wmcloud.org/toolforge/jobs-api
+    tag: OVERWRITTEN_BY_CI
+    pullpolicy: Always
+nginx:
+  image:
+    name: docker-registry.tools.wmflabs.org/nginx
+    # tag is used by the ci to set the image tag
+    nginxTag: latest
+    pullpolicy: Always
+
+certificates:
+  apiGatewayCa:
+    name: api-gateway-backend-ca
+    kind: ClusterIssuer
+    group: cert-manager.io
