@@ -26,5 +26,3 @@ $ DOCKER=$(docker port kind-control-plane | grep 6443 | awk -F'> ' '{print $2}')
 $ python3 api.py
 $ CURL_HDR="ssl-client-subject-dn: CN=test,0=Toolforge" CURL_URL="http://localhost:8080/api/v1" CURL_ARGS="" tests/cmd-checklist-runner.py --config-file tests/cmd-checklist.yaml
 ```
-
-

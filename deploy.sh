@@ -1,21 +1,21 @@
 #!/bin/bash
+# local deployment only
+set -o errexit
+set -o nounset
+set -o pipefail
 
-set -eu
+# explicitly find and specify path to helmfile to allow invoking
+# this script without having to cd to the deployment directory
+BASE_DIR=$(dirname "$(realpath -s "$0")")
+cd "$BASE_DIR"
 
-BASE_DIR=$(dirname $(realpath -s $0))
-HELMCHART=${BASE_DIR}/helmchart
-deploy_environment=${1:-}
-
-if [ -z "${deploy_environment}" ] ; then
-    project=$(cat /etc/wmcs-project 2>/dev/null || echo "local")
-    deploy_environment=$project
-fi
-
-maybe_values_file=${BASE_DIR}/deployment/values/${deploy_environment}.yaml
-if [ -r $maybe_values_file ] ; then
-    values_file="-f $maybe_values_file"
+# use -i (interactive) to ask for confirmation for changing
+# live cluster state if stdin is a tty
+if [[ -t 0 ]]; then
+	INTERACTIVE_PARAM="-i"
 else
-    values_file=""
+	INTERACTIVE_PARAM=""
 fi
 
-helm upgrade --install -n jobs-api --create-namespace --force jobs-api ${HELMCHART} ${values_file}
+# helmfile apply will show a diff before doing changes
+helmfile -e local --file "./deployment/helmfile.yaml" $INTERACTIVE_PARAM apply
