@@ -1,0 +1,21 @@
+# ONLY FOR LOCAL DEVELOPMENT, use the deployment repository for non-local, and MR review
+releases:
+  - name: jobs-api
+    chart: ./chart/
+
+    namespace: jobs-api
+    createNamespace: true
+
+    values:
+      - replicas: 1
+        webservice:
+          image:
+            repository: jobs-api
+            tag: dev
+            pullpolicy: Never
+
+        harbor:
+          host: toolsbeta-harbor.wmcloud.org
+
+environments:
+  local: {}

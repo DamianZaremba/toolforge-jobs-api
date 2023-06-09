@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
       - name: webservice
-        image: {{ .Values.webservice.image.repository }}:{{ .Values.webservice.image.tag }}
+        image: {{ .Values.webservice.image.name }}:{{ .Values.webservice.image.tag }}
         imagePullPolicy: {{ .Values.webservice.image.pullpolicy }}
         resources: {}
         volumeMounts:
@@ -41,7 +41,7 @@ spec:
           name: harbor-config
           readOnly: true
       - name: nginx
-        image: {{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}
+        image: {{ .Values.nginx.image.name }}:{{ .Values.nginx.image.nginxTag }}
         imagePullPolicy: Always
         ports:
         - containerPort: 8443
