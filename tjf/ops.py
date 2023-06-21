@@ -167,7 +167,7 @@ def restart_job(user: User, job: Job):
         _launch_manual_cronjob(user, job)
     elif job.k8s_type == "deployments":
         # Simply delete the pods and let Kubernetes re-create them
-        user.kapi.delete_objects("pods", sellabel_selectorector=label_selector)
+        user.kapi.delete_objects("pods", label_selector=label_selector)
     elif job.k8s_type == "jobs":
         raise TjfValidationError("Unable to restart a single job")
     else:
