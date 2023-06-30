@@ -27,6 +27,10 @@ spec:
       - name: webservice
         image: {{ .Values.webservice.image.name }}:{{ .Values.webservice.image.tag }}
         imagePullPolicy: {{ .Values.webservice.image.pullpolicy }}
+        # Needed to be able to read the NFS homes for certificates
+        securityContext:
+          runAsUser: 0
+          allowPrivilegeEscalation: false
         resources: {}
         volumeMounts:
         - mountPath: /data/project
