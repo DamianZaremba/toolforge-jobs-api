@@ -186,7 +186,7 @@ def _refresh_status_dp(user: User, job: Job):
                     "terminated" in container_status["state"]
                     and container_status["state"]["terminated"]["reason"] == "Error"
                 ):
-                    job.status_short = "Fails to start"
+                    job.status_short = "Specified command fails to run"
 
 
 def _refresh_status_job(user: User, job: Job):
