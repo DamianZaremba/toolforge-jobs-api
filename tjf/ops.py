@@ -88,16 +88,10 @@ def delete_job(user: User, jobname: str):
         # invalid job name, ignore
         return
 
-    for object in ["jobs", "cronjobs", "deployments"]:
-        user.kapi.delete_objects(
-            object, label_selector=labels_selector(jobname, user.name, object)
-        )
+    label_selector = labels_selector(jobname, user.name, None)
 
-    # extra explicit cleanup of jobs (may have been created by cronjobs)
-    user.kapi.delete_objects("jobs", label_selector=labels_selector(jobname, user.name, None))
-
-    # extra explicit cleanup of pods
-    user.kapi.delete_objects("pods", label_selector=labels_selector(jobname, user.name, None))
+    for object in ["cronjobs", "deployments", "jobs", "pods"]:
+        user.kapi.delete_objects(object, label_selector=label_selector)
 
 
 def find_job(user: User, jobname: str):
