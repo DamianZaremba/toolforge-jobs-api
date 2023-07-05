@@ -38,6 +38,10 @@ class TjfValidationError(TjfClientError):
     pass
 
 
+class TjfJobParsingError(TjfError):
+    """Custom error class for issues with loading jobs from the cluster."""
+
+
 def tjf_error_from_weld_error(error: ToolforgeError) -> TjfError:
     error_class = TjfError
     if isinstance(error, ToolforgeUserError):

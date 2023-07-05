@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import random
 from typing import Dict, List, Optional
-from tjf.error import TjfValidationError
+from tjf.error import TjfJobParsingError, TjfValidationError
 
 
 class CronParsingError(TjfValidationError):
@@ -160,7 +160,14 @@ class CronExpression:
 
     @classmethod
     def from_job(cls, actual: str, configured: str) -> "CronExpression":
+        parts = [part for part in actual.strip().split(" ") if part != ""]
+
+        if len(parts) != 5:
+            raise TjfJobParsingError(
+                f"Failed to parse cron expression '{actual}': expected to find 5 space-separated values, found {len(parts)}"
+            )
+
         return cls(
             configured,
-            *actual.split(" "),
+            *parts,
         )
