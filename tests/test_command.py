@@ -1,6 +1,7 @@
 import subprocess
 from pathlib import Path
 
+import json
 import pytest
 
 import tests.fake_k8s as fake_k8s
@@ -126,7 +127,9 @@ def test_generate_command_filelog(tmp_path_factory):
         ],
         [
             "cmdname with-arguments 'other argument with spaces'",
-            fake_k8s.JOB_CONT_BUILDPACK_NO_EMAILS_ARRAY,
+            # file generated with:
+            # toolforge jobs run --image tool-django-test/tool-django-test:latest --command "cmdname with-arguments 'other argument with spaces'" --no-filelog migrate --continuous ; kubectl get deployment -o json ; toolforge jobs flush
+            "deployment-simple-buildpack.json",
             False,
             None,
             None,
@@ -155,12 +158,15 @@ def test_generate_command_filelog(tmp_path_factory):
     ],
 )
 def test_command_array_parsing_from_k8s(
-    user_command, object, filelog, filelog_stdout, filelog_stderr
+    fixtures_path: Path, user_command, object, filelog, filelog_stdout, filelog_stderr
 ):
+    if isinstance(object, str):
+        object = json.loads((fixtures_path / "jobs" / object).read_text())
+
     k8s_metadata = utils.dict_get_object(object, "metadata")
     spec = utils.dict_get_object(object, "spec")
     k8s_command = spec["template"]["spec"]["containers"][0]["command"]
-    k8s_arguments = spec["template"]["spec"]["containers"][0].get("arguments", None)
+    k8s_arguments = spec["template"]["spec"]["containers"][0].get("args", None)
 
     command = Command.from_k8s(
         k8s_metadata=k8s_metadata, k8s_command=k8s_command, k8s_arguments=k8s_arguments
