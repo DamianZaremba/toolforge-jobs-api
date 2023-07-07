@@ -1,21 +1,7 @@
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
 default_language_version:
   python: python3
 
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-        exclude: "^tests/.*"
-      - id: check-toml
-      - id: check-shebang-scripts-are-executable
-      - id: check-executables-have-shebangs
-      - id: check-merge-conflict
-
   - repo: https://github.com/psf/black
     rev: 23.1.0
     hooks:
@@ -34,3 +20,39 @@ repos:
     rev: 5.0.4 # do not update this until our CI runner uses Python >=3.8.1
     hooks:
       - id: flake8
+        # E121, E123, E126, E133, E226, E241, E242, E704 and W503 are default ignores
+        # E124: closing bracket does not match visual indentation
+        # E203: non-pep8 compliant brainfart of flake8
+        args:
+          [
+            "--max-line-length=9999",
+            "--ignore=E121,E123,E126,E133,E203,E226,E241,E242,E704,W503,E124",
+          ]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.0.0
+    hooks:
+      - id: mypy
+        exclude: ^tests/
+        verbose: true
+        args: [--show-error-codes, --ignore-missing-imports]
+        additional_dependencies:
+          ["types-requests", "types-PyYAML", "types-flask", "toolforge-weld"]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-toml
+      - id: check-yaml
+        exclude: cmd-checklist.yaml$
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: pytest
+        language: system
+        pass_filenames: false
+        always_run: true

@@ -15,7 +15,7 @@ def _get_quota_error(message: str) -> str:
     keyword = "limited: "
     if keyword in message:
         quota_types = [
-            utils.remove_prefixes(entry.split("=")[0], ("requests.", "limits."))
+            utils.remove_prefixes(entry.split("=")[0], {"requests.", "limits."})
             for entry in message[message.rindex(keyword) + len(keyword) :].split(",")
         ]
     else:
@@ -61,6 +61,8 @@ def _get_job_object_status(user: User, job: dict, for_complete=False) -> Optiona
                 message += f", {_get_quota_error(event_message)}"
 
             return message
+
+    return None
 
 
 def _refresh_status_cronjob_from_restarted_cronjob(
@@ -120,6 +122,8 @@ def _refresh_status_cronjob_from_restarted_cronjob(
         job_status = _get_job_object_status(user, maybe_manual_job_data)
         if job_status:
             return job_status
+
+    return None
 
 
 def _refresh_status_cronjob(user: User, job: Job):
