@@ -78,6 +78,8 @@ class Command:
         """Parse from kubernetes object and return a new Command class instance."""
         jobname = k8s_metadata["name"]
         labels = k8s_metadata["labels"]
+        if k8s_arguments is None:
+            k8s_arguments = []
 
         filelog = labels.get("jobs.toolforge.org/filelog", "no") == "yes"
 

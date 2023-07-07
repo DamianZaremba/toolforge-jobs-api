@@ -155,6 +155,13 @@ def test_generate_command_filelog(tmp_path_factory):
             "/dev/null",
             "logs/customlog.err",
         ],
+        [
+            "noargs",
+            fake_k8s.JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT_STDERR_NO_ARGS,
+            False,
+            None,
+            None,
+        ],
     ],
 )
 def test_command_array_parsing_from_k8s(

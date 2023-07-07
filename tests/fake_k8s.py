@@ -964,6 +964,68 @@ LIMIT_RANGE_OBJECT = {
     },
 }
 
+JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT_STDERR_NO_ARGS = {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "annotations": {"deployment.kubernetes.io/revision": "1"},
+        "labels": {
+            "app.kubernetes.io/component": "deployments",
+            "app.kubernetes.io/created-by": "test",
+            "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+            "app.kubernetes.io/name": "myjob",
+            "app.kubernetes.io/version": "2",
+            "jobs.toolforge.org/emails": "none",
+            "jobs.toolforge.org/filelog": "no",
+            "jobs.toolforge.org/command-new-format": "yes",
+            "toolforge": "tool",
+        },
+        "name": "myjob",
+        "namespace": "test-tool",
+    },
+    "spec": {
+        "selector": {
+            "matchLabels": {
+                "app.kubernetes.io/component": "deployments",
+                "app.kubernetes.io/created-by": "test",
+                "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+                "app.kubernetes.io/name": "myjob",
+                "app.kubernetes.io/version": "2",
+                "jobs.toolforge.org/emails": "none",
+                "jobs.toolforge.org/filelog": "yes",
+                "jobs.toolforge.org/command-new-format": "yes",
+                "toolforge": "tool",
+            }
+        },
+        "template": {
+            "metadata": {
+                "labels": {
+                    "app.kubernetes.io/component": "deployments",
+                    "app.kubernetes.io/created-by": "test",
+                    "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+                    "app.kubernetes.io/name": "myjob",
+                    "app.kubernetes.io/version": "2",
+                    "jobs.toolforge.org/emails": "none",
+                    "jobs.toolforge.org/filelog": "yes",
+                    "jobs.toolforge.org/command-new-format": "yes",
+                    "toolforge": "tool",
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "command": ["noargs"],
+                        "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+                        "imagePullPolicy": "Always",
+                        "name": "myjob",
+                        "workingDir": "/data/project/test",
+                    }
+                ],
+            },
+        },
+    },
+}
+
 
 class FakeJob:
     def __init__(
