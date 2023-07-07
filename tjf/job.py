@@ -154,9 +154,13 @@ class Job:
             k8s_metadata=metadata, k8s_command=k8s_command, k8s_arguments=k8s_arguments
         )
 
+        maybe_image = image_by_container_url(image)
+        if not maybe_image:
+            raise TjfError("Unable to find image in the supported list or harbor", data={"image": image})
+
         return cls(
             command=command,
-            image=image_by_container_url(image),
+            image=maybe_image,
             jobname=jobname,
             ns=namespace,
             username=user,

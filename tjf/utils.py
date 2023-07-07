@@ -72,7 +72,7 @@ def validate_kube_quant(string: str):
     raise TjfValidationError(f"{string} is not a valid Kubernetes quantity")
 
 
-def format_duration(seconds: int) -> int:
+def format_duration(seconds: int) -> str:
     m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
     d, h = divmod(h, 24)

@@ -15,16 +15,16 @@
 #
 
 
-from typing import Dict
+from typing import Dict, Optional
 
 
 def generate_labels(
     *,
-    jobname: str,
+    jobname: Optional[str],
     username: str,
-    type: str,
+    type: Optional[str],
     filelog: bool,
-    emails: str,
+    emails: Optional[str],
     version: bool = True,
 ) -> Dict[str, str]:
     obj = {
@@ -51,7 +51,7 @@ def generate_labels(
     return obj
 
 
-def labels_selector(jobname: str, username: str, type: str) -> Dict[str, str]:
+def labels_selector(jobname: str, username: str, type: Optional[str]) -> Dict[str, str]:
     return generate_labels(
         jobname=jobname,
         username=username,
