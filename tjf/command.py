@@ -73,7 +73,7 @@ class Command:
 
     @classmethod
     def from_k8s(
-        cls, *, k8s_metadata: dict, k8s_command: List[str], k8s_arguments: Optional[List[str]]
+        cls, *, k8s_metadata: dict, k8s_command: List[str], k8s_arguments: List[str]
     ) -> "Command":
         """Parse from kubernetes object and return a new Command class instance."""
         jobname = k8s_metadata["name"]

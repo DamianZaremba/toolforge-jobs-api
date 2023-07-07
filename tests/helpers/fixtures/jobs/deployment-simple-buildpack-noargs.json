@@ -1,0 +1,109 @@
+{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "annotations": {
+      "deployment.kubernetes.io/revision": "1"
+    },
+    "creationTimestamp": "2023-07-06T14:42:30Z",
+    "generation": 1,
+    "labels": {
+      "app.kubernetes.io/component": "deployments",
+      "app.kubernetes.io/created-by": "majavah-test",
+      "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+      "app.kubernetes.io/name": "migrate",
+      "app.kubernetes.io/version": "2",
+      "jobs.toolforge.org/emails": "none",
+      "toolforge": "tool"
+    },
+    "name": "migrate",
+    "namespace": "tool-majavah-test",
+    "resourceVersion": "1274949315",
+    "uid": "bfe8129b-ae3a-4a35-a2e8-009d4f121d1d"
+  },
+  "spec": {
+    "progressDeadlineSeconds": 600,
+    "replicas": 1,
+    "revisionHistoryLimit": 10,
+    "selector": {
+      "matchLabels": {
+        "app.kubernetes.io/component": "deployments",
+        "app.kubernetes.io/created-by": "majavah-test",
+        "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+        "app.kubernetes.io/name": "migrate",
+        "app.kubernetes.io/version": "2",
+        "jobs.toolforge.org/emails": "none",
+        "toolforge": "tool"
+      }
+    },
+    "strategy": {
+      "rollingUpdate": {
+        "maxSurge": "25%",
+        "maxUnavailable": "25%"
+      },
+      "type": "RollingUpdate"
+    },
+    "template": {
+      "metadata": {
+        "creationTimestamp": null,
+        "labels": {
+          "app.kubernetes.io/component": "deployments",
+          "app.kubernetes.io/created-by": "majavah-test",
+          "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+          "app.kubernetes.io/name": "migrate",
+          "app.kubernetes.io/version": "2",
+          "jobs.toolforge.org/emails": "none",
+          "toolforge": "tool"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "command": ["cmdname"],
+            "env": [
+              {
+                "name": "NO_HOME",
+                "value": "a buildservice pod does not need a home env"
+              }
+            ],
+            "image": "tools-harbor.wmcloud.org/tool-django-test/tool-django-test:latest",
+            "imagePullPolicy": "Always",
+            "name": "job",
+            "resources": {},
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File"
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "terminationGracePeriodSeconds": 30
+      }
+    }
+  },
+  "status": {
+    "conditions": [
+      {
+        "lastTransitionTime": "2023-07-06T14:42:30Z",
+        "lastUpdateTime": "2023-07-06T14:42:30Z",
+        "message": "Deployment does not have minimum availability.",
+        "reason": "MinimumReplicasUnavailable",
+        "status": "False",
+        "type": "Available"
+      },
+      {
+        "lastTransitionTime": "2023-07-06T14:42:30Z",
+        "lastUpdateTime": "2023-07-06T14:42:31Z",
+        "message": "ReplicaSet \"migrate-f9799977f\" is progressing.",
+        "reason": "ReplicaSetUpdated",
+        "status": "True",
+        "type": "Progressing"
+      }
+    ],
+    "observedGeneration": 1,
+    "replicas": 1,
+    "unavailableReplicas": 1,
+    "updatedReplicas": 1
+  }
+}

@@ -149,7 +149,7 @@ class Job:
         cpu = resources_limits.get("cpu", JOB_DEFAULT_CPU)
 
         k8s_command = podspec["template"]["spec"]["containers"][0]["command"]
-        k8s_arguments = podspec["template"]["spec"]["containers"][0].get("args", None)
+        k8s_arguments = podspec["template"]["spec"]["containers"][0].get("args", [])
         command = Command.from_k8s(
             k8s_metadata=metadata, k8s_command=k8s_command, k8s_arguments=k8s_arguments
         )

@@ -155,6 +155,13 @@ def test_generate_command_filelog(tmp_path_factory):
             "/dev/null",
             "logs/customlog.err",
         ],
+        [
+            "cmdname",
+            "deployment-simple-buildpack-noargs.json",
+            False,
+            None,
+            None,
+        ],
     ],
 )
 def test_command_array_parsing_from_k8s(
@@ -166,7 +173,7 @@ def test_command_array_parsing_from_k8s(
     k8s_metadata = utils.dict_get_object(object, "metadata")
     spec = utils.dict_get_object(object, "spec")
     k8s_command = spec["template"]["spec"]["containers"][0]["command"]
-    k8s_arguments = spec["template"]["spec"]["containers"][0].get("args", None)
+    k8s_arguments = spec["template"]["spec"]["containers"][0].get("args", [])
 
     command = Command.from_k8s(
         k8s_metadata=k8s_metadata, k8s_command=k8s_command, k8s_arguments=k8s_arguments
