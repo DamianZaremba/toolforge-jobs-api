@@ -7,6 +7,9 @@ metadata:
 spec:
   commonName: jobs-api.{{ .Release.Namespace }}.svc
   secretName: {{ .Release.Name }}-api-gateway-server
+  dnsNames:
+    - "jobs-api.{{ .Release.Namespace }}.svc"
+    - "jobs-api.{{ .Release.Namespace }}.svc.cluster.local"
   usages:
     - server auth
   duration: "504h" # 21d
