@@ -1,10 +1,12 @@
 # base values file
 replicas: 2
+# Used by the toolforge-deploy repo too
+chartRepository: tools
 
 webservice:
   image:
     # name and tag are used by the ci to set the image repo and tag accordingly
-    name: tools-harbor.wmcloud.org/toolforge/jobs-api
+    name: "{{ .Values.chartRepository }}-harbor.wmcloud.org/toolforge/jobs-api"
     tag: OVERWRITTEN_BY_CI
     pullpolicy: Always
 nginx:
@@ -15,6 +17,8 @@ nginx:
     pullpolicy: Always
 
 certificates:
+  # this next value is needed to be able to use 'cluster' for the local deploys
+  internalClusterName: "{{ .Values.chartRepository }}"
   apiGatewayCa:
     name: api-gateway-backend-ca
     kind: ClusterIssuer

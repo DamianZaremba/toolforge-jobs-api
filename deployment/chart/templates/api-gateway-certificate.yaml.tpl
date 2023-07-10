@@ -8,7 +8,7 @@ spec:
   secretName: {{ .Release.Name }}-api-gateway-server
   dnsNames:
     - "jobs-api.{{ .Release.Namespace }}.svc"
-    - "jobs-api.{{ .Release.Namespace }}.svc.cluster.local"
+    - "jobs-api.{{ .Release.Namespace }}.svc.{{ .Values.certificates.internalClusterName }}.local"
   usages:
     - server auth
   duration: "504h" # 21d
