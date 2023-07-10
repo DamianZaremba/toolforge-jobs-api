@@ -16,6 +16,8 @@ releases:
 
         harbor:
           host: toolsbeta-harbor.wmcloud.org
+        certificates:
+          internalClusterDomain: cluster.local
 
 environments:
   local: {}
