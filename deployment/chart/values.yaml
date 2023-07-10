@@ -4,7 +4,7 @@ replicas: 2
 webservice:
   image:
     # name and tag are used by the ci to set the image repo and tag accordingly
-    name: tools-harbor.wmcloud.org/toolforge/jobs-api
+    name: "tools-harbor.wmcloud.org/toolforge/jobs-api"
     tag: OVERWRITTEN_BY_CI
     pullpolicy: Always
 nginx:
@@ -15,6 +15,7 @@ nginx:
     pullpolicy: Always
 
 certificates:
+  internalClusterDomain: "cluster.local"
   apiGatewayCa:
     name: api-gateway-backend-ca
     kind: ClusterIssuer
