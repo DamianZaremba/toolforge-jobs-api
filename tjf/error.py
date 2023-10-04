@@ -1,4 +1,7 @@
+from __future__ import annotations
 from typing import Any, Dict, Optional
+
+from flask import jsonify
 from toolforge_weld.errors import ToolforgeError, ToolforgeUserError
 
 
@@ -48,3 +51,21 @@ def tjf_error_from_weld_error(error: ToolforgeError) -> TjfError:
         error_class = TjfClientError
 
     return error_class(message=error.message, data=error.context)
+
+
+def error_handler(e: ToolforgeError | TjfError):
+    if isinstance(e, ToolforgeError):
+        cause = e.__cause__
+        e = tjf_error_from_weld_error(e)
+    elif isinstance(e, TjfError):
+        cause = e.__cause__
+    else:
+        # This should never happen
+        e = TjfError("Unknown error")
+        cause = None
+
+    message = str(e)
+    if cause:
+        message += f" ({str(cause)})"
+
+    return jsonify({"message": message, "data": e.data}), e.http_status_code

@@ -15,10 +15,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from flask import Flask, jsonify
+from flask import Flask
 from flask_restful import Api
 from toolforge_weld.errors import ToolforgeError
-from tjf.error import TjfError, tjf_error_from_weld_error
+from tjf.error import TjfError, error_handler
 from tjf.healthz import Healthz
 from tjf.metrics import metrics_init_app
 from tjf.quota import Quota
@@ -36,19 +36,10 @@ class TjfApi(Api):
 
     def handle_error(self, e):
         """Custom error handler."""
-        if isinstance(e, ToolforgeError):
-            cause = e.__cause__
-            e = tjf_error_from_weld_error(e)
-        elif isinstance(e, TjfError):
-            cause = e.__cause__
+        if isinstance(e, ToolforgeError) or isinstance(e, TjfError):
+            return error_handler(e)
         else:
             return super().handle_error(e)
-
-        message = str(e)
-        if cause:
-            message += f" ({str(cause)})"
-
-        return jsonify({"message": message, "data": e.data}), e.http_status_code
 
 
 def create_app(*, load_images=True):
