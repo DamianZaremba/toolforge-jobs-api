@@ -29,3 +29,4 @@ variants:
       - --plugin=python3
       - --mount=/=api:app
       - --master
+      - --workers=4
