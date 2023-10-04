@@ -23,7 +23,7 @@ of doing that. The author of this README recommends the lima-kilo project.
  1) Build the jobs-framework-api docker image
 
 ```
-$ docker build --tag jobs-api .
+$ docker build --target image -f .pipeline/blubber.yaml -t jobs-api:dev .
 ```
 
  2) Load the docker image into kind (or minikube)
@@ -32,7 +32,7 @@ $ docker build --tag jobs-api .
   docker registry.
 
 ```
-$ kind load docker-image jobs-api:latest -n toolforge
+$ kind load docker-image jobs-api:dev -n toolforge
 ```
 
  3) Deploy the component into your local kubernetes:
@@ -44,11 +44,9 @@ $ ./deploy.sh local
  4) At this point, hopefully, it should work:
 
 ```
-$ curl https://jobs.svc.toolsbeta.eqiad1.wikimedia.cloud:30001/api/v1/images/ \
-  -H "Host:jobs.svc.toolsbeta.eqiad1.wikimedia.cloud" \
-  --cert /data/project/tf-test/.toolskube/client.crt \
-  --key /data/project/tf-test/.toolskube/client.key \
-  --resolve jobs.svc.toolsbeta.eqiad1.wikimedia.cloud:30001:127.0.0.1
+$ curl -k "https://localhost:30003/jobs/api/v1/images/" \
+  --cert ~/.toolforge-lima-kilo/chroot/data/project/tf-test/.toolskube/client.crt \
+  --key ~/.toolforge-lima-kilo/chroot/data/project/tf-test/.toolskube/client.key
 ```
 
  5) Development iteration:
@@ -56,7 +54,7 @@ $ curl https://jobs.svc.toolsbeta.eqiad1.wikimedia.cloud:30001/api/v1/images/ \
  Make code changes, and follow from step 1 onwards. Probably something like this:
 
 ```
-$ docker build --tag jobs-api . ; kind load docker-image jobs-api:latest -n toolforge ; kubectl -n jobs-api rollout restart deployment/jobs-api
+$ docker build --target image -f .pipeline/blubber.yaml -t jobs-api:dev . ; kind load docker-image jobs-api:dev -n toolforge ; kubectl -n jobs-api rollout restart deployment/jobs-api
 ```
 
 ## Contributing
