@@ -20,6 +20,7 @@ from flask_restful import Api
 from toolforge_weld.errors import ToolforgeError
 from tjf.error import TjfError, error_handler
 from tjf.healthz import Healthz
+from tjf.logs import get_logs
 from tjf.metrics import metrics_init_app
 from tjf.quota import Quota
 from tjf.run import Run
@@ -47,6 +48,11 @@ def create_app(*, load_images=True):
     api = TjfApi(app)
 
     metrics_init_app(app)
+
+    # non-restful endpoints
+    app.register_error_handler(ToolforgeError, error_handler)
+    app.register_error_handler(TjfError, error_handler)
+    app.add_url_rule("/api/v1/logs/<name>", "get_logs", get_logs)
 
     api.add_resource(Healthz, "/healthz")
     api.add_resource(Run, "/api/v1/run/")

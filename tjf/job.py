@@ -30,6 +30,8 @@ from tjf.command import Command
 # characters, '-' or '.', and must start and end with an alphanumeric character
 JOBNAME_PATTERN = re.compile("^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
 
+JOB_CONTAINER_NAME = "job"
+
 
 def validate_jobname(jobname: str):
     if jobname is None:
@@ -227,7 +229,7 @@ class Job:
                     "restartPolicy": restartpolicy,
                     "containers": [
                         {
-                            "name": "job",
+                            "name": JOB_CONTAINER_NAME,
                             "image": self.image.container,
                             "workingDir": working_dir,
                             "env": env,
