@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-
+from __future__ import annotations
 
 from typing import Dict
 
@@ -22,9 +22,9 @@ def generate_labels(
     *,
     jobname: str,
     username: str,
-    type: str,
+    type: str | None,
     filelog: bool,
-    emails: str,
+    emails: str | None,
     version: bool = True,
 ) -> Dict[str, str]:
     obj = {
@@ -51,7 +51,7 @@ def generate_labels(
     return obj
 
 
-def labels_selector(jobname: str, username: str, type: str) -> Dict[str, str]:
+def labels_selector(jobname: str, username: str, type: str | None = None) -> Dict[str, str]:
     return generate_labels(
         jobname=jobname,
         username=username,
