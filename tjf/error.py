@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from flask import jsonify
+from flask.typing import ResponseReturnValue
 from toolforge_weld.errors import ToolforgeError, ToolforgeUserError
 
 
@@ -54,7 +55,7 @@ def tjf_error_from_weld_error(error: ToolforgeError) -> TjfError:
     return error_class(message=error.message, data=error.context)
 
 
-def error_handler(e: ToolforgeError | TjfError):
+def error_handler(e: ToolforgeError | TjfError) -> ResponseReturnValue:
     if isinstance(e, ToolforgeError):
         cause = e.__cause__
         e = tjf_error_from_weld_error(e)

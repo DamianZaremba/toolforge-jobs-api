@@ -24,8 +24,7 @@ def test_User_from_request_no_header(app, patch_kube_config_loading):
 
 
 invalid_cn_data = [
-    [None, "Failed to parse certificate name 'None'"],
-    ["", "Failed to parse certificate name ''"],
+    ["", "missing 'ssl-client-subject-dn' header"],
     ["O=toolforge", "Failed to load name for certificate 'O=toolforge'"],
     ["CN=first,CN=second", "Failed to load name for certificate 'CN=first,CN=second'"],
     [

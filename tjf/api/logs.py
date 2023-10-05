@@ -17,6 +17,7 @@ import json
 from typing import Iterator
 
 from flask import Response, request
+from flask.typing import ResponseReturnValue
 from toolforge_weld.logs import LogEntry
 from toolforge_weld.logs.kubernetes import KubernetesSource
 from toolforge_weld.utils import peek
@@ -46,7 +47,7 @@ def format_logs(logs: Iterator[LogEntry]) -> Iterator[str]:
 
 
 # flask_restful does not support streaming, so we must use standard Flask interfaces here.
-def get_logs(name):
+def get_logs(name: str) -> ResponseReturnValue:
     user = User.from_request()
 
     job = find_job(user=user, jobname=name)
@@ -62,8 +63,9 @@ def get_logs(name):
     lines = None
     if "lines" in request.args:
         try:
-            lines = int(request.args.get("lines"))
-        except ValueError as e:
+            # Ignore mypy, any type errors will be caught on the next line
+            lines = int(request.args.get("lines"))  # type: ignore[arg-type]
+        except (ValueError, TypeError) as e:
             raise TjfValidationError("Unable to parse lines as integer") from e
 
     log_source = KubernetesSource(client=user.kapi)

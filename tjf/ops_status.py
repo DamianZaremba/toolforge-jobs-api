@@ -30,6 +30,9 @@ def _get_job_object_status(user: User, job: dict, for_complete=False) -> Optiona
         return None
 
     status_dict = utils.dict_get_object(job, "status")
+    if status_dict is None:
+        return None
+
     conditions_dict = status_dict.get("conditions", [])
     for condition in conditions_dict:
         if condition["type"] == "Complete" and for_complete:
@@ -127,8 +130,10 @@ def _refresh_status_cronjob_from_restarted_cronjob(
     return None
 
 
-def _refresh_status_cronjob(user: User, job: Job):
+def _refresh_status_cronjob(user: User, job: Job) -> None:
     status_dict = utils.dict_get_object(job.k8s_object, "status")
+    if status_dict is None:
+        return None
 
     last = status_dict.get("lastScheduleTime", None)
     if last:
@@ -153,8 +158,11 @@ def _refresh_status_cronjob(user: User, job: Job):
         job.status_short = job_status
 
 
-def _refresh_status_dp(user: User, job: Job):
+def _refresh_status_dp(user: User, job: Job) -> None:
     status_dict = utils.dict_get_object(job.k8s_object, "status")
+    if status_dict is None:
+        return
+
     conditions_dict = status_dict.get("conditions", [])
     for condition in conditions_dict:
         if condition["type"] == "Available":
@@ -194,7 +202,7 @@ def _refresh_status_dp(user: User, job: Job):
                     job.status_short = "Specified command fails to run"
 
 
-def _refresh_status_job(user: User, job: Job):
+def _refresh_status_job(user: User, job: Job) -> None:
     job_status = _get_job_object_status(user, job.k8s_object, for_complete=True)
     if job_status:
         job.status_short = job_status
@@ -202,7 +210,7 @@ def _refresh_status_job(user: User, job: Job):
         job.status_short = "Unknown"
 
 
-def refresh_job_short_status(user: User, job: Job):
+def refresh_job_short_status(user: User, job: Job) -> None:
     if job.k8s_type == "cronjobs":
         _refresh_status_cronjob(user, job)
     elif job.k8s_type == "deployments":
@@ -213,7 +221,7 @@ def refresh_job_short_status(user: User, job: Job):
         raise TjfError(f"Unable to refresh status for unknown job type: {job}")
 
 
-def refresh_job_long_status(user: User, job: Job):
+def refresh_job_long_status(user: User, job: Job) -> None:
     label_selector = labels_selector(jobname=job.jobname, username=user.name, type=job.k8s_type)
     podlist = user.kapi.get_objects("pods", label_selector=label_selector)
 
