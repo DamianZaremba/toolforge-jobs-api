@@ -16,13 +16,23 @@
 
 from flask_restful import Resource
 
-from tjf.ops import list_all_jobs
+from tjf.error import TjfValidationError
+from tjf.ops import delete_job, find_job
 from tjf.user import User
 
 
-class List(Resource):
-    def get(self):
+class JobResource(Resource):
+    def get(self, name: str):
         user = User.from_request()
 
-        job_list = list_all_jobs(user=user, jobname=None)
-        return [j.get_api_object() for j in job_list]
+        job = find_job(user=user, jobname=name)
+        if not job:
+            raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
+
+        return job.get_api_object()
+
+    def delete(self, name: str):
+        user = User.from_request()
+
+        delete_job(user=user, jobname=name)
+        return "", 200

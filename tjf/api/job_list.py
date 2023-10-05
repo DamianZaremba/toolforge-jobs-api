@@ -21,30 +21,36 @@ from tjf.cron import CronExpression, CronParsingError
 from tjf.error import TjfError, TjfValidationError
 from tjf.images import image_by_name
 from tjf.job import Job
-from tjf.ops import create_job, find_job
+from tjf.ops import create_job, delete_job, find_job, list_all_jobs
 from tjf.user import User
 
 # arguments that the API understands
-parser = reqparse.RequestParser()
-parser.add_argument("cmd", required=True)
-parser.add_argument("imagename", required=True)
-parser.add_argument("schedule")
-parser.add_argument("continuous", type=bool, default=False)
-parser.add_argument("name", required=True)
-parser.add_argument("filelog", type=bool, default=False)
-parser.add_argument("filelog_stdout", type=str, required=False)
-parser.add_argument("filelog_stderr", type=str, required=False)
-parser.add_argument("retry", choices=[0, 1, 2, 3, 4, 5], type=int, default=0)
-parser.add_argument("memory")
-parser.add_argument("cpu")
-parser.add_argument("emails")
+run_parser = reqparse.RequestParser()
+run_parser.add_argument("cmd", required=True)
+run_parser.add_argument("imagename", required=True)
+run_parser.add_argument("schedule")
+run_parser.add_argument("continuous", type=bool, default=False)
+run_parser.add_argument("name", required=True)
+run_parser.add_argument("filelog", type=bool, default=False)
+run_parser.add_argument("filelog_stdout", type=str, required=False)
+run_parser.add_argument("filelog_stderr", type=str, required=False)
+run_parser.add_argument("retry", choices=[0, 1, 2, 3, 4, 5], type=int, default=0)
+run_parser.add_argument("memory")
+run_parser.add_argument("cpu")
+run_parser.add_argument("emails")
 
 
-class Run(Resource):
+class JobListResource(Resource):
+    def get(self):
+        user = User.from_request()
+
+        job_list = list_all_jobs(user=user, jobname=None)
+        return [j.get_api_object() for j in job_list]
+
     def post(self):
         user = User.from_request()
 
-        args = parser.parse_args()
+        args = run_parser.parse_args()
         image = image_by_name(args.imagename)
 
         if not image:
@@ -99,3 +105,9 @@ class Run(Resource):
         except Exception as e:
             raise TjfError("Unable to start job") from e
         return result
+
+    def delete(self):
+        user = User.from_request()
+
+        delete_job(user=user, jobname=None)
+        return "", 200

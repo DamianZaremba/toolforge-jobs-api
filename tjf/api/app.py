@@ -21,17 +21,14 @@ from toolforge_weld.errors import ToolforgeError
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig
 
-from tjf.api.delete import Delete
-from tjf.api.flush import Flush
 from tjf.api.healthz import healthz
 from tjf.api.images import Images
-from tjf.api.list import List
+from tjf.api.job import JobResource
+from tjf.api.job_list import JobListResource
 from tjf.api.logs import get_logs
 from tjf.api.metrics import metrics_init_app
 from tjf.api.quota import Quota
 from tjf.api.restart import Restart
-from tjf.api.run import Run
-from tjf.api.show import Show
 from tjf.error import TjfError, error_handler
 from tjf.images import update_available_images
 from tjf.utils import USER_AGENT
@@ -60,12 +57,24 @@ def create_app(*, load_images=True):
     app.add_url_rule("/api/v1/logs/<name>", "get_logs", get_logs)
     app.add_url_rule("/healthz", "healthz", healthz)
 
-    api.add_resource(Run, "/api/v1/run/")
-    api.add_resource(Show, "/api/v1/show/<name>")
-    api.add_resource(List, "/api/v1/list/")
-    api.add_resource(Delete, "/api/v1/delete/<name>")
+    api.add_resource(
+        JobListResource,
+        "/api/v1/jobs/",
+        # legacy routes to be removed
+        "/api/v1/list/",
+        "/api/v1/run/",
+        "/api/v1/flush/",
+    )
+
+    api.add_resource(
+        JobResource,
+        "/api/v1/jobs/<string:name>",
+        # legacy routes to be removed
+        "/api/v1/show/<string:name>",
+        "/api/v1/delete/<string:name>",
+    )
+
     api.add_resource(Restart, "/api/v1/restart/<name>")
-    api.add_resource(Flush, "/api/v1/flush/")
     api.add_resource(Images, "/api/v1/images/")
     api.add_resource(Quota, "/api/v1/quota/")
 
