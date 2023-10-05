@@ -14,8 +14,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from __future__ import annotations
+
 import re
-from typing import Set
+from typing import Set, TypeVar
 
 from tjf.error import TjfValidationError
 
@@ -24,14 +26,20 @@ USER_AGENT = "jobs-api"
 KUBERNETES_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
-def dict_get_object(dict, kind):
-    for o in dict:
+T = TypeVar("T")
+U = TypeVar("U")
+
+
+def dict_get_object(dict_in: dict[T, U], kind: T) -> U | None:
+    for o in dict_in:
         if o == kind:
-            return dict[o]
+            return dict_in[o]
+
+    return None
 
 
 # copied & adapted from toollabs-webservice scripts/webservice
-def validate_kube_quant(string: str):
+def validate_kube_quant(string: str | None) -> str:
     """
     A type for args that roughly matches up with Kubernetes' quantity.go
     General form is <number><suffix>
@@ -41,7 +49,7 @@ def validate_kube_quant(string: str):
     base1000: n | u | m | "" | k | M | G | T | P | E
     """
     if string is None or string == "":
-        return  # nothing to validate
+        return ""  # nothing to validate
 
     valid_suffixes = [
         "Ki",
