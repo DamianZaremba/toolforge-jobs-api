@@ -5,8 +5,8 @@ from tjf.ops import find_job, restart_job
 from tjf.user import User
 
 
-class Restart(Resource):
-    def post(self, name):
+class JobRestartResource(Resource):
+    def post(self, name: str):
         user = User.from_request()
 
         job = find_job(user=user, jobname=name)

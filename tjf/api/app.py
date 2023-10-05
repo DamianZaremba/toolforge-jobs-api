@@ -25,10 +25,10 @@ from tjf.api.healthz import healthz
 from tjf.api.images import Images
 from tjf.api.job import JobResource
 from tjf.api.job_list import JobListResource
+from tjf.api.job_restart import JobRestartResource
 from tjf.api.logs import get_logs
 from tjf.api.metrics import metrics_init_app
 from tjf.api.quota import Quota
-from tjf.api.restart import Restart
 from tjf.error import TjfError, error_handler
 from tjf.images import update_available_images
 from tjf.utils import USER_AGENT
@@ -54,7 +54,8 @@ def create_app(*, load_images=True):
     # non-restful endpoints
     app.register_error_handler(ToolforgeError, error_handler)
     app.register_error_handler(TjfError, error_handler)
-    app.add_url_rule("/api/v1/logs/<name>", "get_logs", get_logs)
+    app.add_url_rule("/api/v1/jobs/<string:name>/logs", "get_logs", get_logs)
+    app.add_url_rule("/api/v1/logs/<string:name>", "get_logs_legacy", get_logs)
     app.add_url_rule("/healthz", "healthz", healthz)
 
     api.add_resource(
@@ -74,7 +75,13 @@ def create_app(*, load_images=True):
         "/api/v1/delete/<string:name>",
     )
 
-    api.add_resource(Restart, "/api/v1/restart/<name>")
+    api.add_resource(
+        JobRestartResource,
+        "/api/v1/jobs/<string:name>/restart",
+        # legacy routes to be removed
+        "/api/v1/restart/<string:name>",
+    )
+
     api.add_resource(Images, "/api/v1/images/")
     api.add_resource(Quota, "/api/v1/quota/")
 
