@@ -18,18 +18,19 @@
 from flask import Flask
 from flask_restful import Api
 from toolforge_weld.errors import ToolforgeError
+
+from tjf.delete import Delete
 from tjf.error import TjfError, error_handler
+from tjf.flush import Flush
 from tjf.healthz import Healthz
+from tjf.images import Images, update_available_images
+from tjf.list import List
 from tjf.logs import get_logs
 from tjf.metrics import metrics_init_app
 from tjf.quota import Quota
+from tjf.restart import Restart
 from tjf.run import Run
 from tjf.show import Show
-from tjf.list import List
-from tjf.delete import Delete
-from tjf.restart import Restart
-from tjf.flush import Flush
-from tjf.images import Images, update_available_images
 
 
 class TjfApi(Api):

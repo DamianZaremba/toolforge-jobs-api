@@ -1,4 +1,5 @@
 import pytest
+
 from tjf.app import create_app
 from tjf.user import AUTH_HEADER, User, UserLoadingError
 

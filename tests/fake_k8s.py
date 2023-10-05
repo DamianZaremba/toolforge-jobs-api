@@ -2,7 +2,6 @@ from typing import Optional
 
 from tjf.job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY
 
-
 # TODO: replace most of this file with json/yaml files in helpers/fixtures
 
 FAKE_IMAGE_CONFIG = """

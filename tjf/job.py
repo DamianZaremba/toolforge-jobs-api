@@ -17,13 +17,15 @@
 import re
 import time
 from typing import Optional
+
 from toolforge_weld.kubernetes import K8sClient, parse_quantity
+
+import tjf.utils as utils
+from tjf.command import Command
 from tjf.cron import CronExpression
 from tjf.error import TjfError, TjfValidationError
 from tjf.images import Image, image_by_container_url
-import tjf.utils as utils
 from tjf.labels import generate_labels
-from tjf.command import Command
 
 # This is a restriction by Kubernetes:
 # a lowercase RFC 1123 subdomain must consist of lower case alphanumeric
@@ -158,7 +160,9 @@ class Job:
 
         maybe_image = image_by_container_url(image)
         if not maybe_image:
-            raise TjfError("Unable to find image in the supported list or harbor", data={"image": image})
+            raise TjfError(
+                "Unable to find image in the supported list or harbor", data={"image": image}
+            )
 
         return cls(
             command=command,

@@ -1,6 +1,6 @@
+import pytest
 from flask import Flask
 from flask_restful import Resource
-import pytest
 from toolforge_weld.errors import ToolforgeUserError
 
 from tjf.app import TjfApi

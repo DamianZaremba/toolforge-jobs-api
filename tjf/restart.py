@@ -1,7 +1,8 @@
 from flask_restful import Resource
+
 from tjf.error import TjfValidationError
-from tjf.user import User
 from tjf.ops import find_job, restart_job
+from tjf.user import User
 
 
 class Restart(Resource):

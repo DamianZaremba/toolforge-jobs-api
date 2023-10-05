@@ -17,12 +17,12 @@
 import functools
 import json
 import logging
+import urllib.parse
 from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional
 
 import requests
-import urllib.parse
 import yaml
 from flask_restful import Resource
 from toolforge_weld.kubernetes import K8sClient
@@ -31,7 +31,6 @@ from toolforge_weld.kubernetes_config import Kubeconfig
 from tjf.error import TjfError
 from tjf.user import User
 from tjf.utils import USER_AGENT
-
 
 LOGGER = logging.getLogger(__name__)
 

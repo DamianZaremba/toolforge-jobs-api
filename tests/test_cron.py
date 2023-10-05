@@ -1,4 +1,5 @@
 import pytest
+
 from tjf.cron import CronExpression, CronParsingError
 
 SEED = "asdf"

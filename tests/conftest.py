@@ -1,15 +1,14 @@
 import json
 from pathlib import Path
 
-import requests_mock
 import pytest
+import requests_mock
 from toolforge_weld.kubernetes_config import Kubeconfig, fake_kube_config
 
-from tests.fake_k8s import FAKE_HARBOR_HOST
 import tjf.images
-from tjf.user import AUTH_HEADER
+from tests.fake_k8s import FAKE_HARBOR_HOST
 from tjf.images import HarborConfig
-
+from tjf.user import AUTH_HEADER
 
 FAKE_VALID_TOOL_AUTH_HEADER = "O=toolforge,CN=some-tool"
 

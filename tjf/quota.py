@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from flask_restful import Resource
+
 from tjf.error import TjfError
 from tjf.user import User
 

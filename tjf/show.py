@@ -15,6 +15,7 @@
 #
 
 from flask_restful import Resource
+
 from tjf.error import TjfValidationError
 from tjf.ops import find_job
 from tjf.user import User

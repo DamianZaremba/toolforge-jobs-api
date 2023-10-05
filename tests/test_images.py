@@ -1,13 +1,14 @@
 import pytest
 from toolforge_weld.kubernetes_config import Kubeconfig
-from tests.fake_k8s import FAKE_HARBOR_HOST, FAKE_IMAGE_CONFIG
+
 import tjf.images
+from tests.fake_k8s import FAKE_HARBOR_HOST, FAKE_IMAGE_CONFIG
 from tjf.app import create_app
 from tjf.images import (
+    AVAILABLE_IMAGES,
+    image_by_container_url,
     image_by_name,
     update_available_images,
-    image_by_container_url,
-    AVAILABLE_IMAGES,
 )
 
 

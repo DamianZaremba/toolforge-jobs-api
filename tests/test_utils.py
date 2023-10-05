@@ -1,4 +1,5 @@
 import pytest
+
 from tjf.utils import format_duration
 
 

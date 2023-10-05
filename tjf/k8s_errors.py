@@ -16,8 +16,8 @@
 #
 
 import requests
-from tjf.error import TjfError, TjfValidationError
 
+from tjf.error import TjfError, TjfValidationError
 from tjf.job import Job
 from tjf.user import User
 

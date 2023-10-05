@@ -28,18 +28,19 @@
 #        stderr: "expected stderr from cmd2"
 #
 
-import os
-import socket
-import platform
-import sys
 import argparse
-import subprocess
-import yaml
 import logging
+import os
+import platform
+import socket
+import subprocess
+import sys
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Optional, List
 from pathlib import Path
+from typing import List, Optional
+
+import yaml
 
 
 class InvalidConfigError(Exception):

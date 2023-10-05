@@ -15,8 +15,9 @@
 #
 
 from flask_restful import Resource
-from tjf.user import User
+
 from tjf.ops import list_all_jobs
+from tjf.user import User
 
 
 class List(Resource):

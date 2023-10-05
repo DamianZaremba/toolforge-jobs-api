@@ -14,14 +14,15 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from flask_restful import Resource, reqparse
+
+from tjf.command import Command
 from tjf.cron import CronExpression, CronParsingError
 from tjf.error import TjfError, TjfValidationError
-from tjf.job import Job
-from flask_restful import Resource, reqparse
 from tjf.images import image_by_name
+from tjf.job import Job
+from tjf.ops import create_job, find_job
 from tjf.user import User
-from tjf.ops import find_job, create_job
-from tjf.command import Command
 
 # arguments that the API understands
 parser = reqparse.RequestParser()

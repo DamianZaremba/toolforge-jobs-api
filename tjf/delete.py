@@ -15,8 +15,9 @@
 #
 
 from flask_restful import Resource
-from tjf.user import User
+
 from tjf.ops import delete_job
+from tjf.user import User
 
 
 class Delete(Resource):

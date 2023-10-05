@@ -2,7 +2,7 @@
 
 import shlex
 from dataclasses import dataclass
-from typing import List, ClassVar, Optional
+from typing import ClassVar, List, Optional
 
 
 @dataclass(frozen=True)

@@ -21,11 +21,11 @@ from toolforge_weld.logs import LogEntry
 from toolforge_weld.logs.kubernetes import KubernetesSource
 from toolforge_weld.utils import peek
 
-from tjf.error import TjfValidationError, TjfClientError
+from tjf.error import TjfClientError, TjfValidationError
 from tjf.job import JOB_CONTAINER_NAME
 from tjf.labels import labels_selector
-from tjf.user import User
 from tjf.ops import find_job
+from tjf.user import User
 
 
 def format_logs(logs: Iterator[LogEntry]) -> Iterator[str]:

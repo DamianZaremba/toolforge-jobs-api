@@ -1,7 +1,7 @@
+import json
 import subprocess
 from pathlib import Path
 
-import json
 import pytest
 
 import tests.fake_k8s as fake_k8s
