@@ -73,7 +73,7 @@ HARBOR_CONFIG_PATH = "/etc/jobs-api/harbor.json"
 HARBOR_IMAGE_STATE = "stable"
 
 
-def update_available_images(client: K8sClient):
+def update_available_images(client: K8sClient) -> None:
     configmap = client.get_object("configmaps", "image-config")
     yaml_data = yaml.safe_load(configmap["data"]["images-v1.yaml"])
 

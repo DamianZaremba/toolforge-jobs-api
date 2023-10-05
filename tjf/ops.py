@@ -14,6 +14,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from __future__ import annotations
+
 import time
 
 import requests
@@ -28,7 +30,7 @@ from tjf.ops_status import refresh_job_long_status, refresh_job_short_status
 from tjf.user import User
 
 
-def validate_job_limits(user: User, job: Job):
+def validate_job_limits(user: User, job: Job) -> None:
     limits = user.kapi.get_object("limitranges", name=user.namespace)["spec"]["limits"]
 
     for limit in limits:
@@ -82,33 +84,35 @@ def create_job(user: User, job: Job):
         raise create_error_from_k8s_response(e, job, user)
 
 
-def delete_job(user: User, jobname: str):
-    try:
-        validate_jobname(jobname)
-    except TjfValidationError:
-        # invalid job name, ignore
-        return
+def delete_job(user: User, jobname: str | None) -> None:
+    if jobname:
+        try:
+            validate_jobname(jobname)
+        except TjfValidationError:
+            # invalid job name, ignore
+            return
 
     label_selector = labels_selector(jobname, user.name, None)
 
-    for object in ["cronjobs", "deployments", "jobs", "pods"]:
-        user.kapi.delete_objects(object, label_selector=label_selector)
+    for object_type in ["cronjobs", "deployments", "jobs", "pods"]:
+        user.kapi.delete_objects(object_type, label_selector=label_selector)
 
 
-def find_job(user: User, jobname: str):
-    list = list_all_jobs(user=user, jobname=jobname)
-
-    for job in list:
+def find_job(user: User, jobname: str) -> Job | None:
+    for job in list_all_jobs(user=user, jobname=jobname):
         if job.jobname == jobname:
             return job
 
+    return None
 
-def list_all_jobs(user: User, jobname: str):
-    try:
-        validate_jobname(jobname)
-    except TjfValidationError:
-        # invalid job name, ignore
-        return []
+
+def list_all_jobs(user: User, jobname: str | None = None) -> list[Job]:
+    if jobname:
+        try:
+            validate_jobname(jobname)
+        except TjfValidationError:
+            # invalid job name, ignore
+            return []
 
     job_list = []
 
@@ -123,7 +127,7 @@ def list_all_jobs(user: User, jobname: str):
     return job_list
 
 
-def _wait_for_pod_exit(user: User, job: Job, timeout: int = 30):
+def _wait_for_pod_exit(user: User, job: Job, timeout: int = 30) -> bool:
     """Wait for all pods belonging to a specific job to exit."""
     label_selector = labels_selector(jobname=job.jobname, username=user.name, type=job.k8s_type)
 
@@ -135,11 +139,13 @@ def _wait_for_pod_exit(user: User, job: Job, timeout: int = 30):
     return False
 
 
-def _launch_manual_cronjob(user: User, job: Job):
+def _launch_manual_cronjob(user: User, job: Job) -> None:
     validate_job_limits(user, job)
 
     cronjob = user.kapi.get_object("cronjobs", job.jobname)
     metadata = utils.dict_get_object(cronjob, "metadata")
+    if not metadata or "uid" not in metadata:
+        raise TjfError("Found CronJob does not have metadata", data={"k8s_object": cronjob})
 
     try:
         user.kapi.create_object("jobs", job.get_k8s_single_run_object(metadata["uid"]))
@@ -147,7 +153,7 @@ def _launch_manual_cronjob(user: User, job: Job):
         raise create_error_from_k8s_response(e, job, user)
 
 
-def restart_job(user: User, job: Job):
+def restart_job(user: User, job: Job) -> None:
     label_selector = labels_selector(job.jobname, user.name, job.k8s_type)
 
     if job.k8s_type == "cronjobs":
