@@ -1,6 +1,5 @@
-from flask_restful import Resource
+from flask import Response
 
 
-class Healthz(Resource):
-    def get(self):
-        return "OK"
+def healthz():
+    return Response("OK", content_type="text/plain; charset=utf8"), 200

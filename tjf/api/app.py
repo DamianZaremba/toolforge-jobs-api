@@ -23,7 +23,7 @@ from toolforge_weld.kubernetes_config import Kubeconfig
 
 from tjf.api.delete import Delete
 from tjf.api.flush import Flush
-from tjf.api.healthz import Healthz
+from tjf.api.healthz import healthz
 from tjf.api.images import Images
 from tjf.api.list import List
 from tjf.api.logs import get_logs
@@ -58,8 +58,8 @@ def create_app(*, load_images=True):
     app.register_error_handler(ToolforgeError, error_handler)
     app.register_error_handler(TjfError, error_handler)
     app.add_url_rule("/api/v1/logs/<name>", "get_logs", get_logs)
+    app.add_url_rule("/healthz", "healthz", healthz)
 
-    api.add_resource(Healthz, "/healthz")
     api.add_resource(Run, "/api/v1/run/")
     api.add_resource(Show, "/api/v1/show/<name>")
     api.add_resource(List, "/api/v1/list/")
