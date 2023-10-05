@@ -18,7 +18,7 @@ from tjf.error import TjfError
 from tjf.user import User
 
 
-class Quota(Resource):
+class QuotaResource(Resource):
     def get(self):
         user = User.from_request()
 

@@ -4,7 +4,7 @@ from tjf.images import AVAILABLE_IMAGES, get_harbor_images
 from tjf.user import User
 
 
-class Images(Resource):
+class ImageListResource(Resource):
     def get(self):
         user = User.from_request()
 

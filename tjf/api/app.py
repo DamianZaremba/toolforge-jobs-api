@@ -22,13 +22,13 @@ from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig
 
 from tjf.api.healthz import healthz
-from tjf.api.images import Images
+from tjf.api.image_list import ImageListResource
 from tjf.api.job import JobResource
 from tjf.api.job_list import JobListResource
 from tjf.api.job_restart import JobRestartResource
 from tjf.api.logs import get_logs
 from tjf.api.metrics import metrics_init_app
-from tjf.api.quota import Quota
+from tjf.api.quota import QuotaResource
 from tjf.error import TjfError, error_handler
 from tjf.images import update_available_images
 from tjf.utils import USER_AGENT
@@ -82,8 +82,8 @@ def create_app(*, load_images=True):
         "/api/v1/restart/<string:name>",
     )
 
-    api.add_resource(Images, "/api/v1/images/")
-    api.add_resource(Quota, "/api/v1/quota/")
+    api.add_resource(ImageListResource, "/api/v1/images/")
+    api.add_resource(QuotaResource, "/api/v1/quota/")
 
     if load_images:
         # before app startup!
