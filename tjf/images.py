@@ -24,13 +24,9 @@ from typing import List, Optional
 
 import requests
 import yaml
-from flask_restful import Resource
 from toolforge_weld.kubernetes import K8sClient
-from toolforge_weld.kubernetes_config import Kubeconfig
 
 from tjf.error import TjfError
-from tjf.user import User
-from tjf.utils import USER_AGENT
 
 LOGGER = logging.getLogger(__name__)
 
@@ -77,11 +73,7 @@ HARBOR_CONFIG_PATH = "/etc/jobs-api/harbor.json"
 HARBOR_IMAGE_STATE = "stable"
 
 
-def update_available_images():
-    client = K8sClient(
-        kubeconfig=Kubeconfig.from_container_service_account(namespace="tf-public"),
-        user_agent=USER_AGENT,
-    )
+def update_available_images(client: K8sClient):
     configmap = client.get_object("configmaps", "image-config")
     yaml_data = yaml.safe_load(configmap["data"]["images-v1.yaml"])
 
@@ -234,19 +226,3 @@ def image_by_container_url(url: str) -> Optional[Image]:
         )
 
     return None
-
-
-class Images(Resource):
-    def get(self):
-        user = User.from_request()
-
-        images = AVAILABLE_IMAGES + get_harbor_images(user.namespace)
-
-        return [
-            {
-                "shortname": image.canonical_name,
-                "image": image.container,
-            }
-            for image in sorted(images, key=lambda image: image.canonical_name)
-            if image.state == "stable"
-        ]

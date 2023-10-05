@@ -6,8 +6,8 @@ import requests_mock
 from toolforge_weld.kubernetes_config import Kubeconfig, fake_kube_config
 
 import tjf.images
-from tests.fake_k8s import FAKE_HARBOR_HOST
-from tjf.images import HarborConfig
+from tests.fake_k8s import FAKE_HARBOR_HOST, FAKE_IMAGE_CONFIG
+from tjf.images import HarborConfig, update_available_images
 from tjf.user import AUTH_HEADER
 
 FAKE_VALID_TOOL_AUTH_HEADER = "O=toolforge,CN=some-tool"
@@ -15,25 +15,25 @@ FAKE_VALID_TOOL_AUTH_HEADER = "O=toolforge,CN=some-tool"
 FIXTURES_PATH = Path(__file__).parent.resolve() / "helpers" / "fixtures"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def fixtures_path() -> Path:
     yield FIXTURES_PATH
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def monkeymodule():
     """Needed to use monkeypatch at module scope."""
     with pytest.MonkeyPatch.context() as mp:
         yield mp
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def requests_mock_module():
     with requests_mock.Mocker() as m:
         yield m
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def patch_kube_config_loading(monkeymodule):
     def load_fake(*args, **kwargs):
         return fake_kube_config()
@@ -41,12 +41,12 @@ def patch_kube_config_loading(monkeymodule):
     monkeymodule.setattr(Kubeconfig, "from_path", load_fake)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def fake_user(patch_kube_config_loading):
     yield {AUTH_HEADER: FAKE_VALID_TOOL_AUTH_HEADER}
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def fake_harbor_api(
     monkeymodule: pytest.MonkeyPatch,
     fixtures_path: Path,
@@ -75,3 +75,23 @@ def fake_harbor_api(
         f"https://{FAKE_HARBOR_HOST}/api/v2.0/projects/tool-some-tool/repositories",
         json=json.loads((fixtures_path / "harbor" / "repository-list-some-tool.json").read_text()),
     )
+
+
+@pytest.fixture(scope="session")
+def images_available(fake_harbor_api):
+    class FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
+        def get_object(self, kind, name):
+            if kind == "configmaps" and name == "image-config":
+                return {
+                    "kind": "ConfigMap",
+                    "apiVersion": "v1",
+                    # spec omitted, since it's not really relevant
+                    "data": {
+                        "images-v1.yaml": FAKE_IMAGE_CONFIG,
+                    },
+                }
+
+    update_available_images(FakeClient())

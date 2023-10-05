@@ -18,19 +18,23 @@
 from flask import Flask
 from flask_restful import Api
 from toolforge_weld.errors import ToolforgeError
+from toolforge_weld.kubernetes import K8sClient
+from toolforge_weld.kubernetes_config import Kubeconfig
 
-from tjf.delete import Delete
+from tjf.api.delete import Delete
+from tjf.api.flush import Flush
+from tjf.api.healthz import Healthz
+from tjf.api.images import Images
+from tjf.api.list import List
+from tjf.api.logs import get_logs
+from tjf.api.metrics import metrics_init_app
+from tjf.api.quota import Quota
+from tjf.api.restart import Restart
+from tjf.api.run import Run
+from tjf.api.show import Show
 from tjf.error import TjfError, error_handler
-from tjf.flush import Flush
-from tjf.healthz import Healthz
-from tjf.images import Images, update_available_images
-from tjf.list import List
-from tjf.logs import get_logs
-from tjf.metrics import metrics_init_app
-from tjf.quota import Quota
-from tjf.restart import Restart
-from tjf.run import Run
-from tjf.show import Show
+from tjf.images import update_available_images
+from tjf.utils import USER_AGENT
 
 
 class TjfApi(Api):
@@ -67,6 +71,11 @@ def create_app(*, load_images=True):
 
     if load_images:
         # before app startup!
-        update_available_images()
+        tf_public_client = K8sClient(
+            kubeconfig=Kubeconfig.from_container_service_account(namespace="tf-public"),
+            user_agent=USER_AGENT,
+        )
+
+        update_available_images(tf_public_client)
 
     return app

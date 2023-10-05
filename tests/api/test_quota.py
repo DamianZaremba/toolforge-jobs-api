@@ -19,7 +19,7 @@ from typing import Dict
 import pytest
 from flask.testing import FlaskClient
 
-from tjf.app import create_app
+from tjf.api.app import create_app
 from tjf.user import User
 
 

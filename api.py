@@ -15,7 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from tjf.app import create_app
+from tjf.api.app import create_app
 
 app = create_app()
 

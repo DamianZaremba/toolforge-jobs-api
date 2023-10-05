@@ -3,7 +3,7 @@ from flask import Flask
 from flask_restful import Resource
 from toolforge_weld.errors import ToolforgeUserError
 
-from tjf.app import TjfApi
+from tjf.api.app import TjfApi
 from tjf.error import TjfClientError, TjfError
 
 

@@ -1,44 +1,7 @@
 import pytest
-from toolforge_weld.kubernetes_config import Kubeconfig
 
-import tjf.images
-from tests.fake_k8s import FAKE_HARBOR_HOST, FAKE_IMAGE_CONFIG
-from tjf.app import create_app
-from tjf.images import (
-    AVAILABLE_IMAGES,
-    image_by_container_url,
-    image_by_name,
-    update_available_images,
-)
-
-
-@pytest.fixture
-def fake_k8s_client(monkeypatch):
-    class FakeClient:
-        def __init__(self, **kwargs):
-            pass
-
-        def get_object(self, kind, name):
-            if kind == "configmaps" and name == "image-config":
-                return {
-                    "kind": "ConfigMap",
-                    "apiVersion": "v1",
-                    # spec omitted, since it's not really relevant
-                    "data": {
-                        "images-v1.yaml": FAKE_IMAGE_CONFIG,
-                    },
-                }
-
-    def noop(**kwargs):
-        return True
-
-    monkeypatch.setattr(tjf.images, "K8sClient", FakeClient)
-    monkeypatch.setattr(Kubeconfig, "from_container_service_account", noop)
-
-
-@pytest.fixture
-def images_available(fake_k8s_client, fake_harbor_api):
-    update_available_images()
+from tests.fake_k8s import FAKE_HARBOR_HOST
+from tjf.images import AVAILABLE_IMAGES, image_by_container_url, image_by_name
 
 
 def test_available_images_len(images_available):
@@ -80,25 +43,3 @@ def test_image_by_container_url(images_available, name, url):
     image = image_by_container_url(url)
     assert image is not None
     assert image.canonical_name == name or name in image.aliases
-
-
-@pytest.fixture()
-def client(fake_k8s_client):
-    return create_app().test_client()
-
-
-def test_get_images_endpoint(images_available, client, fake_user):
-    response = client.get("/api/v1/images/", headers=fake_user)
-    assert response.status_code == 200
-
-    image_names = [image["shortname"] for image in response.json]
-    assert "node16" in image_names
-
-    assert "php7.4" in image_names
-    assert "tf-php74" not in image_names
-    assert "php7.3" not in image_names
-
-    assert "tool-some-tool/some-container:latest" in image_names
-    assert "tool-some-tool/some-container:stable" in image_names
-    # other tools are not listed here
-    assert "tool-other/tagged:example" not in image_names
