@@ -47,13 +47,14 @@ class User:
         )
 
     @classmethod
-    def from_request(self):
-        if AUTH_HEADER not in request.headers:
+    def from_request(cls) -> "User":
+        name_raw = request.headers.get(AUTH_HEADER)
+
+        if not name_raw:
             raise UserLoadingError(f"missing '{AUTH_HEADER}' header")
 
         # we are expecting something like 'CN=user,O=Toolforge'
         try:
-            name_raw = request.headers.get(AUTH_HEADER)
             name = x509.Name.from_rfc4514_string(name_raw)
         except Exception as e:
             raise UserLoadingError(f"Failed to parse certificate name '{name_raw}'") from e
@@ -74,4 +75,4 @@ class User:
             )
 
         common_name = cn[0].value
-        return self(name=common_name)
+        return cls(name=common_name)

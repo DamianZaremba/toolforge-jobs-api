@@ -51,7 +51,7 @@ def generate_labels(
     return obj
 
 
-def labels_selector(jobname: str, username: str, type: Optional[str] = None) -> Dict[str, str]:
+def labels_selector(jobname: str | None, username: str, type: str | None = None) -> Dict[str, str]:
     return generate_labels(
         jobname=jobname,
         username=username,

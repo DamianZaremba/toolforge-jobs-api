@@ -14,9 +14,11 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from __future__ import annotations
+
 import re
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from toolforge_weld.kubernetes import K8sClient, parse_quantity
 
@@ -34,8 +36,10 @@ JOBNAME_PATTERN = re.compile("^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-
 
 JOB_CONTAINER_NAME = "job"
 
+K8S_OBJECT_TYPE = dict[str, Any]
 
-def validate_jobname(jobname: str):
+
+def validate_jobname(jobname: str) -> None:
     if jobname is None:
         # nothing to validate
         return
@@ -46,7 +50,7 @@ def validate_jobname(jobname: str):
         )
 
 
-def validate_emails(emails: str):
+def validate_emails(emails: str) -> None:
     if emails is None:
         # nothing to validate
         return
@@ -79,7 +83,7 @@ class Job:
         memory: str,
         cpu: str,
         emails: str,
-    ):
+    ) -> None:
         self.command = command
         self.image = image
         self.jobname = jobname
@@ -111,9 +115,19 @@ class Job:
         utils.validate_kube_quant(self.cpu)
 
     @classmethod
-    def from_k8s_object(cls, object: dict, kind: str):
+    def from_k8s_object(cls, object: dict, kind: str) -> "Job":
+        # TODO: why not just index the dict directly instead of dict_get_object?
         spec = utils.dict_get_object(object, "spec")
+        if not spec:
+            raise TjfError(
+                "Invalid k8s object, did not contain a spec", data={"k8s_object": object}
+            )
+
         metadata = utils.dict_get_object(object, "metadata")
+        if not metadata:
+            raise TjfError(
+                "Invalid k8s object, did not contain metadata", data={"k8s_object": object}
+            )
 
         if kind == "cronjobs":
             if "annotations" in metadata:
@@ -179,9 +193,9 @@ class Job:
             emails=emails,
         )
 
-    def _generate_container_resources(self):
+    def _generate_container_resources(self) -> dict[str, Any]:
         # this function was adapted from toollabs-webservice toolsws/backends/kubernetes.py
-        container_resources = {}
+        container_resources: dict[str, Any] = {}
 
         if self.memory or self.cpu:
             container_resources = {"limits": {}, "requests": {}}
@@ -204,7 +218,7 @@ class Job:
 
         return container_resources
 
-    def _get_k8s_podtemplate(self, restartpolicy):
+    def _get_k8s_podtemplate(self, *, restart_policy: str) -> dict[str, Any]:
         labels = generate_labels(
             jobname=self.jobname,
             username=self.username,
@@ -227,26 +241,27 @@ class Job:
             ]
 
         return {
-            "template": {
-                "metadata": {"labels": labels},
-                "spec": {
-                    "restartPolicy": restartpolicy,
-                    "containers": [
-                        {
-                            "name": JOB_CONTAINER_NAME,
-                            "image": self.image.container,
-                            "workingDir": working_dir,
-                            "env": env,
-                            "command": generated_command.command,
-                            "args": generated_command.args,
-                            "resources": self._generate_container_resources(),
-                        }
-                    ],
-                },
-            }
+            "metadata": {"labels": labels},
+            "spec": {
+                "restartPolicy": restart_policy,
+                "containers": [
+                    {
+                        "name": JOB_CONTAINER_NAME,
+                        "image": self.image.container,
+                        "workingDir": working_dir,
+                        "env": env,
+                        "command": generated_command.command,
+                        "args": generated_command.args,
+                        "resources": self._generate_container_resources(),
+                    }
+                ],
+            },
         }
 
-    def _get_k8s_cronjob_object(self):
+    def _get_k8s_cronjob_object(self) -> K8S_OBJECT_TYPE:
+        if not self.schedule:
+            raise TjfError("CronJob requires a schedule")
+
         labels = generate_labels(
             jobname=self.jobname,
             username=self.username,
@@ -271,16 +286,19 @@ class Job:
                 "failedJobsHistoryLimit": 0,
                 "concurrencyPolicy": "Forbid",
                 "startingDeadlineSeconds": 30,
-                "jobTemplate": {"spec": self._get_k8s_podtemplate(restartpolicy="Never")},
+                "jobTemplate": {
+                    "spec": {
+                        "template": self._get_k8s_podtemplate(restart_policy="Never"),
+                        "ttlSecondsAfterFinished": JOB_TTLAFTERFINISHED,
+                        "backoffLimit": self.retry,
+                    }
+                },
             },
         }
 
-        obj["spec"]["jobTemplate"]["spec"]["ttlSecondsAfterFinished"] = JOB_TTLAFTERFINISHED
-        obj["spec"]["jobTemplate"]["spec"]["backoffLimit"] = self.retry
-
         return obj
 
-    def _get_k8s_deployment_object(self):
+    def _get_k8s_deployment_object(self) -> K8S_OBJECT_TYPE:
         labels = generate_labels(
             jobname=self.jobname,
             username=self.username,
@@ -296,17 +314,18 @@ class Job:
                 "namespace": self.ns,
                 "labels": labels,
             },
-            "spec": self._get_k8s_podtemplate(restartpolicy="Always"),
-        }
-
-        obj["spec"]["replicas"] = 1
-        obj["spec"]["selector"] = {
-            "matchLabels": labels,
+            "spec": {
+                "template": self._get_k8s_podtemplate(restart_policy="Always"),
+                "replicas": 1,
+                "selector": {
+                    "matchLabels": labels,
+                },
+            },
         }
 
         return obj
 
-    def _get_k8s_job_object(self):
+    def _get_k8s_job_object(self) -> K8S_OBJECT_TYPE:
         labels = generate_labels(
             jobname=self.jobname,
             username=self.username,
@@ -322,14 +341,16 @@ class Job:
                 "namespace": self.ns,
                 "labels": labels,
             },
-            "spec": self._get_k8s_podtemplate(restartpolicy="Never"),
+            "spec": {
+                "template": self._get_k8s_podtemplate(restart_policy="Never"),
+                "ttlSecondsAfterFinished": JOB_TTLAFTERFINISHED,
+                "backoffLimit": self.retry,
+            },
         }
-        obj["spec"]["ttlSecondsAfterFinished"] = JOB_TTLAFTERFINISHED
-        obj["spec"]["backoffLimit"] = self.retry
 
         return obj
 
-    def get_k8s_object(self):
+    def get_k8s_object(self) -> K8S_OBJECT_TYPE:
         if self.k8s_type == "cronjobs":
             return self._get_k8s_cronjob_object()
 
@@ -338,7 +359,7 @@ class Job:
 
         return self._get_k8s_job_object()
 
-    def get_k8s_single_run_object(self, cronjob_uid):
+    def get_k8s_single_run_object(self, cronjob_uid) -> K8S_OBJECT_TYPE:
         """Returns a Kubernetes manifest to run this CronJob once."""
         # This is largely based on kubectl code
         # https://github.com/kubernetes/kubernetes/blob/985c9202ccd250a5fe22c01faf0d8f83d804b9f3/staging/src/k8s.io/kubectl/pkg/cmd/create/create_job.go#L261
@@ -361,7 +382,7 @@ class Job:
 
         return k8s_job_object
 
-    def get_api_object(self):
+    def get_api_object(self) -> dict[str, Any]:
         obj = {
             "name": self.jobname,
             "cmd": self.command.user_command,

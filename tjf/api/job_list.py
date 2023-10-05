@@ -46,7 +46,7 @@ class JobListResource(Resource):
     def get(self):
         user = User.from_request()
 
-        job_list = list_all_jobs(user=user, jobname=None)
+        job_list = list_all_jobs(user=user)
         return [j.get_api_object() for j in job_list]
 
     def post(self):
