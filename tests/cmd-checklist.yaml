@@ -8,7 +8,6 @@
       CONTJOBNAME: "continuousjob"
       # this must have state: stable
       IMG: "bookworm"
-      SLEEP: "10"
       KUBECTL_ARGS: -n tool-tf-test
       LOG_JOB: logjob
       CUSTOM_LOG_FILE: custom-log-file
@@ -33,19 +32,35 @@
 #
 - name: invalid job names aren't allowed when running a new job
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=./wrongname" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}" -f
+    - cmd: curl -s --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -f
+      json_stdin:
+        name: "./wrongname"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
       retcode: 22
       stdout: ""
       stderr: ""
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=wrong_name" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}" -f
+    - cmd: curl -s --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -f
+      json_stdin:
+        name: "wrong_name"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
       retcode: 22
       stdout: ""
       stderr: ""
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=wrongname@" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}" -f
+    - cmd: curl -s --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -f
+      json_stdin:
+        name: "wrongname@"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
       retcode: 22
       stdout: ""
       stderr: ""
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=Wrongname" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}" -f
+    - cmd: curl -s --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -f
+      json_stdin:
+        name: "Wrongname"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
       retcode: 22
       stdout: ""
       stderr: ""
@@ -78,14 +93,22 @@
 
 - name: "create normal job"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${JOBNAME}" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${JOBNAME}"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
 
 - name: "create duplicated normal job should fail"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${JOBNAME}" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}" -f
+    - cmd: curl -s --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -f
+      json_stdin:
+        name: "${JOBNAME}"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
       # the server returns 500 (because k8s returns 409) and curl returns 22
       retcode: 22
       stdout: ""
@@ -100,8 +123,8 @@
             && echo "$response" | grep -q '"image": "${IMG}"' \
             && echo "$response" | grep -q '"image_state": "stable"' \
             && echo "$response" | grep -q '"filelog": "False"' \
-            && echo "$response" | grep -q '"filelog_stdout": "/dev/null"' \
-            && echo "$response" | grep -q '"filelog_stderr": "/dev/null"' \
+            && echo "$response" | grep -q '"filelog_stdout": null' \
+            && echo "$response" | grep -q '"filelog_stderr": null' \
             && echo "$response" | grep -q '"retry": 0' \
             && echo "$response" | grep -q "status_short" \
             && echo "$response" | grep -q "status_long" \
@@ -123,8 +146,6 @@
       retcode: 0
       stdout: "\"\""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
 - name: "show normal job should fail because we just deleted it"
   tests:
@@ -133,23 +154,32 @@
       retcode: 22
       stdout: ""
       stderr: ""
+      retry_attempts: 10
 
 - name: "create 2 normal jobs"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${JOBNAME}" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${JOBNAME}"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${JOBNAME}2" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${JOBNAME}2"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
     # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "image" | wc -l
       retcode: 0
       stdout: "4"
       stderr: ""
+      retry_attempts: 10
 
 - name: delete 2 normal jobs one by one
   tests:
@@ -158,11 +188,11 @@
       stdout: "\"\""
       stderr: ""
     # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "image" | wc -l
       retcode: 0
       stdout: "2"
       stderr: ""
+      retry_attempts: 10
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${JOBNAME}2" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
       stdout: "\"\""
@@ -174,7 +204,12 @@
 
 - name: "create retried job with with retry not within acceptable values should fail"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${JOBNAME}" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}" -d "retry=10" -f
+    - cmd: curl -s --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -f
+      json_stdin:
+        name: "${JOBNAME}"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
+        retry: 10
       # the server returns HTTP 400 and curl returns 22
       retcode: 22
       stdout: ""
@@ -187,9 +222,14 @@
 
 - name: "create retried job"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${JOBNAME}" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}" -d "retry=4"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${JOBNAME}"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
+        retry: 4
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
 
 - name: "show retried job (check the 'retry' property)"
@@ -214,8 +254,6 @@
       retcode: 0
       stdout: "\"\""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
 - name: "show retried job should fail because we just deleted it"
   tests:
@@ -224,6 +262,7 @@
       retcode: 22
       stdout: ""
       stderr: ""
+      retry_attempts: 10
 
 #
 # cronjobs
@@ -231,12 +270,15 @@
 
 - name: "create cronjob"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CRONJOBNAME}" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}" -d "schedule=*/10 * * * *"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CRONJOBNAME}"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
+        schedule: "*/10 * * * *"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
 - name: "list jobs, only cronjob is present"
   tests:
@@ -249,22 +291,29 @@
              "cmd" : "./sleep40.sh",
              "emails" : "none",
              "filelog" : "False",
-             "filelog_stderr" : "/dev/null",
-             "filelog_stdout" : "/dev/null",
+             "filelog_stderr" : null,
+             "filelog_stdout" : null,
              "image" : "bookworm",
              "image_state" : "stable",
              "name" : "cronjob",
              "retry" : 0,
              "schedule" : "*/10 * * * *",
+             "schedule_actual" : "*/10 * * * *",
              "status_long" : "No pods were created for this job.",
              "status_short" : "Waiting for scheduled time"
           }
        ]
       stderr: ""
+      retry_attempts: 10
 
 - name: "create duplicated cronjob should fail"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CRONJOBNAME}" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}" -d "schedule=*/10 * * * *" -f
+    - cmd: curl -s --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -f
+      json_stdin:
+        name: "${CRONJOBNAME}"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
+        schedule: "*/10 * * * *"
       # the server returns 409 (because k8s returns 409) and curl returns 22
       retcode: 22
       stdout: ""
@@ -272,7 +321,12 @@
 
 - name: "create cronjob with wrong schedule should fail"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CRONJOBNAME}" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}" -d "schedule=wrong" -f
+    - cmd: curl -s --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -f
+      json_stdin:
+        name: "${CRONJOBNAME}wrong"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
+        schedule: "wrong"
       # the server returns 400 (because k8s returns 422) and curl returns 22
       retcode: 22
       stdout: ""
@@ -287,8 +341,8 @@
             && echo "$response" | grep -q '"image": "${IMG}"' \
             && echo "$response" | grep -q '"image_state": "stable"' \
             && echo "$response" | grep -q '"filelog": "False"' \
-            && echo "$response" | grep -q '"filelog_stdout": "/dev/null"' \
-            && echo "$response" | grep -q '"filelog_stderr": "/dev/null"' \
+            && echo "$response" | grep -q '"filelog_stdout": null' \
+            && echo "$response" | grep -q '"filelog_stderr": null' \
             && echo "$response" | grep -q '"retry": 0' \
             && echo "$response" | grep -q "status_short" \
             && echo "$response" | grep -q "status_long" \
@@ -304,8 +358,6 @@
       retcode: 0
       stdout: "\"\""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
 - name: "show cronjob should fail because we just deleted it"
   tests:
@@ -314,34 +366,45 @@
       retcode: 22
       stdout: ""
       stderr: ""
+      retry_attempts: 10
 
 - name: "create 2 cronjobs jobs and delete one by one"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CRONJOBNAME}" -d "imagename=${IMG}" -d "cmd=true" -d "schedule=*/10 * * * *"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CRONJOBNAME}"
+        imagename: "${IMG}"
+        cmd: "true"
+        schedule: "*/10 * * * *"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CRONJOBNAME}2" -d "imagename=${IMG}" -d "cmd=true" -d "schedule=*/9 * * * *"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CRONJOBNAME}2"
+        imagename: "${IMG}"
+        cmd: "true"
+        schedule: "*/9 * * * *"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
-    - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "schedule" | wc -l
+    - cmd: sleep 10
+      # start with a quote to not match 'Waiting for scheduled time' in the status field
+    - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "\"schedule" | wc -l
       retcode: 0
       stdout: "4"
       stderr: ""
-    - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${CRONJOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
+      retry_attempts: 10
+    - cmd: curl -s -X DELETE ${CURL_URL}/jobs/${CRONJOBNAME} -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
       stdout: "\"\""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
-    - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "schedule" | wc -l
+    - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "\"schedule" | wc -l
       retcode: 0
       stdout: "2"
       stderr: ""
-    - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${CRONJOBNAME}2" -H "${CURL_HDR}" ${CURL_ARGS}
+      retry_attempts: 10
+    - cmd: curl -s -X DELETE ${CURL_URL}/jobs/${CRONJOBNAME}2 -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
       stdout: "\"\""
       stderr: ""
@@ -352,16 +415,24 @@
 
 - name: "create continuous job"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}" -d "imagename=${IMG}" -d "cmd=true" -d "continuous=true"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CONTJOBNAME}"
+        imagename: "${IMG}"
+        cmd: "true"
+        continuous: true
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
 - name: "create duplicated continuous job should fail"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}" -d "imagename=${IMG}" -d "cmd=true" -d "continuous=true"
+    - cmd: curl -s --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CONTJOBNAME}"
+        imagename: "${IMG}"
+        cmd: "true"
+        continuous: true
       retcode: 0
       stdout: '{"data":{},"message":"A job with the same name exists already"}'
       stderr: ""
@@ -375,8 +446,8 @@
             && echo "$response" | grep -q '"image": "${IMG}"' \
             && echo "$response" | grep -q '"image_state": "stable"' \
             && echo "$response" | grep -q '"filelog": "False"' \
-            && echo "$response" | grep -q '"filelog_stdout": "/dev/null"' \
-            && echo "$response" | grep -q '"filelog_stderr": "/dev/null"' \
+            && echo "$response" | grep -q '"filelog_stdout": null' \
+            && echo "$response" | grep -q '"filelog_stderr": null' \
             && echo "$response" | grep -q '"retry": 0' \
             && echo "$response" | grep -q "status_short" \
             && echo "$response" | grep -q "status_long" \
@@ -403,8 +474,6 @@
       retcode: 0
       stdout: "\"\""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
 - name: "show continuous job should fail because we just deleted it"
   tests:
@@ -413,33 +482,42 @@
       retcode: 22
       stdout: ""
       stderr: ""
+      retry_attempts: 10
 
 - name: "create 2 continuous jobs and delete one by one"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}" -d "imagename=${IMG}" -d "cmd=true" -d "continuous=true"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CONTJOBNAME}"
+        imagename: "${IMG}"
+        cmd: "true"
+        continuous: true
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}2" -d "imagename=${IMG}" -d "cmd=true" -d "continuous=true"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CONTJOBNAME}2"
+        imagename: "${IMG}"
+        cmd: "true"
+        continuous: true
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "image" | wc -l
       retcode: 0
       stdout: "4"
       stderr: ""
+      retry_attempts: 10
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${CONTJOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
       stdout: "\"\""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "image" | wc -l
       retcode: 0
       stdout: "2"
       stderr: ""
+      retry_attempts: 10
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${CONTJOBNAME}2" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
       stdout: "\"\""
@@ -451,20 +529,32 @@
 
 - name: "create all 3 types of jobs"
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CRONJOBNAME}" -d "imagename=${IMG}" -d "cmd=true" -d "schedule=*/5 * * * *"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CRONJOBNAME}"
+        imagename: "${IMG}"
+        cmd: "true"
+        schedule: "*/10 * * * *"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${JOBNAME}" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${JOBNAME}"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}" -d "imagename=${IMG}" -d "cmd=true" -d "continuous=true"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CONTJOBNAME}"
+        imagename: "${IMG}"
+        cmd: "true"
+        continuous: true
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
 - name: "list jobs, all 3 types are present"
   tests:
@@ -472,6 +562,7 @@
       retcode: 0
       stdout: "3"
       stderr: ""
+      retry_attempts: 10
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep -q schedule
       retcode: 0
       stdout: ""
@@ -487,19 +578,21 @@
       retcode: 0
       stdout: "\"\""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "image" | wc -l
       retcode: 0
       stdout: "4"
       stderr: ""
+      retry_attempts: 10
     # create again the cronjob to do the reverse test
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CRONJOBNAME}" -d "imagename=${IMG}" -d "cmd=true" -d "schedule=*/5 * * * *"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CRONJOBNAME}"
+        imagename: "${IMG}"
+        cmd: "true"
+        schedule: "*/10 * * * *"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
 - name: "delete normaljob, make sure it doesn't remove the others"
   tests:
@@ -507,19 +600,20 @@
       retcode: 0
       stdout: "\"\""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "image" | wc -l
       retcode: 0
       stdout: "4"
       stderr: ""
+      retry_attempts: 10
     # create again the normaljob to continue with tests
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${JOBNAME}" -d "imagename=${IMG}" -d "cmd=${SLEEP_CMD}"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${JOBNAME}"
+        imagename: "${IMG}"
+        cmd: "${SLEEP_CMD}"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
 - name: "delete continuousjob, make sure it doesn't remove the others"
   tests:
@@ -527,12 +621,11 @@
       retcode: 0
       stdout: "\"\""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "image" | wc -l
       retcode: 0
       stdout: "4"
       stderr: ""
+      retry_attempts: 10
 
 #
 # commands, filelogs, etc
@@ -547,36 +640,40 @@
             echo error-canary >&2
             EOF
     - cmd: chmod a+x ${TOOLHOME}/${LOG_JOB_CMD}
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${LOG_JOB}" -d "imagename=${IMG}" -d "cmd=./${LOG_JOB_CMD}" -d "filelog=true"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${LOG_JOB}"
+        imagename: "${IMG}"
+        cmd: "./${LOG_JOB_CMD}"
+        filelog: true
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # wait for the job to run
-    - cmd: |
-            sleep ${SLEEP}
-            sleep ${SLEEP}
-            sleep ${SLEEP}
     # verify that canary string has been logged to output log
     - cmd: grep -q "canary" ${TOOLHOME}/${LOG_JOB}.out
       retcode: 0
+      retry_attempts: 10
     # verify that error-canary string has been logged to error log
     - cmd: grep -q "error-canary" ${TOOLHOME}/${LOG_JOB}.err
       retcode: 0
 
 - name: job should log canary and error-canary strings to custom-log-file.out
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${LOG_JOB}2" -d "imagename=${IMG}" -d "cmd=./${LOG_JOB_CMD}" -d "filelog=true" -d "filelog_stdout=${CUSTOM_LOG_FILE}.out" -d "filelog_stderr=${CUSTOM_LOG_FILE}.out"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${LOG_JOB}2"
+        imagename: "${IMG}"
+        cmd: "./${LOG_JOB_CMD}"
+        filelog: true
+        filelog_stdout: "${CUSTOM_LOG_FILE}.out"
+        filelog_stderr: "${CUSTOM_LOG_FILE}.out"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # wait for the job to run
-    - cmd: |
-            sleep ${SLEEP}
-            sleep ${SLEEP}
-            sleep ${SLEEP}
     # verify that both canary and error-canary strings were logged to custom-log-file.out
     - cmd: grep -q "canary" ${TOOLHOME}/${CUSTOM_LOG_FILE}.out
       retcode: 0
+      retry_attempts: 10
     - cmd: grep -q "error-canary" ${TOOLHOME}/${CUSTOM_LOG_FILE}.out
       retcode: 0
     # verify that custom-log-file.err wasn't created
@@ -586,18 +683,21 @@
 - name: job should log stdout and stderr to custom log files
   tests:
     # run a job that logs canary string to custom-log-file2.out and error-canary string to custom-log-file.err
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${LOG_JOB}3" -d "imagename=${IMG}" -d "cmd=./${LOG_JOB_CMD}" -d "filelog=true" -d "filelog_stdout=${CUSTOM_LOG_FILE}2.out" -d "filelog_stderr=${CUSTOM_LOG_FILE}.err"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${LOG_JOB}3"
+        imagename: "${IMG}"
+        cmd: "./${LOG_JOB_CMD}"
+        filelog: true
+        filelog_stdout: "${CUSTOM_LOG_FILE}2.out"
+        filelog_stderr: "${CUSTOM_LOG_FILE}.err"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # wait for the job to run
-    - cmd: |
-            sleep ${SLEEP}
-            sleep ${SLEEP}
-            sleep ${SLEEP}
     # verify that canary string was logged to custom-log-file2.out
     - cmd: grep -q "canary" ${TOOLHOME}/${CUSTOM_LOG_FILE}2.out
       retcode: 0
+      retry_attempts: 10
     # verify that error-canary string was logged to custom-log-file.err
     - cmd: grep -q "error-canary" ${TOOLHOME}/${CUSTOM_LOG_FILE}.err
       retcode: 0
@@ -605,15 +705,16 @@
 - name: job should not produce logs
   tests:
     # verify that a job that uses no_logfile doesn't log
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${LOG_JOB}4" -d "imagename=${IMG}" -d "cmd=./${LOG_JOB_CMD}"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${LOG_JOB}4"
+        imagename: "${IMG}"
+        cmd: "./${LOG_JOB_CMD}"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
     # wait for the job to run
-    - cmd: |
-            sleep ${SLEEP}
-            sleep ${SLEEP}
-            sleep ${SLEEP}
+    - cmd: sleep 60
     # verify the logfiles weren't created
     - cmd: ls ${TOOLHOME}/${LOG_JOB}4.out
       retcode: 2
@@ -625,54 +726,70 @@
 #
 - name: job should be detected as crashing
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}" -d "imagename=${IMG}" -d "cmd=exit 1" -d "continuous=true"
-      retcode: 0
-      stdout: "201"
-      stderr: ""
-
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
-    - cmd: sleep ${SLEEP}
-
-    - cmd: |
-            response=$(curl -s ${CURL_URL}/jobs/${CONTJOBNAME} -H "${CURL_HDR}" ${CURL_ARGS})
-            echo "$response" | grep -q '"status_short": "Fails to start"'
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CONTJOBNAME}"
+        imagename: "${IMG}"
+        cmd: "exit 1"
+        continuous: true
       retcode: 0
       stdout: ""
       stderr: ""
+
+    - cmd: |
+            response=$(curl -s ${CURL_URL}/jobs/${CONTJOBNAME} -H "${CURL_HDR}" ${CURL_ARGS})
+            echo "$response" | grep -q '"status_short": "Specified command fails to run"'
+      retcode: 0
+      stdout: ""
+      stderr: ""
+      retry_attempts: 10
 
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${CONTJOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
       stdout: "\"\""
       stderr: ""
     # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
+    - cmd: sleep 60
 
 #
 # quota errors
 #
 - name: quota error reporting
   tests:
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}1" -d "imagename=${IMG}" -d "cmd=true" -d "continuous=true"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CONTJOBNAME}1"
+        imagename: "${IMG}"
+        cmd: "true"
+        continuous: true
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}2" -d "imagename=${IMG}" -d "cmd=true" -d "continuous=true"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CONTJOBNAME}2"
+        imagename: "${IMG}"
+        cmd: "true"
+        continuous: true
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}3" -d "imagename=${IMG}" -d "cmd=true" -d "continuous=true"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CONTJOBNAME}3"
+        imagename: "${IMG}"
+        cmd: "true"
+        continuous: true
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
     # quota for continuous jobs created in faketoolforge is 3, this should fail
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}4" -d "imagename=${IMG}" -d "cmd=true" -d "continuous=true" | jq -r '.message'
+    - cmd: curl -s --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | jq -r '.message'
+      json_stdin:
+        name: "${CONTJOBNAME}4"
+        imagename: "${IMG}"
+        cmd: "true"
+        continuous: true
       retcode: 0
       stdout: >-
         Out of quota for this kind of job. Please see https://w.wiki/6YLP for details.
@@ -682,32 +799,44 @@
       stdout: "\"\""
       stderr: ""
     # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
+    - cmd: sleep 60
 
 - name: quota job start failures
   tests:
     # 3x4Gi is more than the 8Gi maximum by default
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}-q1" -d "imagename=${IMG}" -d "cmd=sleep 3600" -d "continuous=true" -d "memory=4Gi"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CONTJOBNAME}-q1"
+        imagename: "${IMG}"
+        cmd: "sleep 3600"
+        continuous: true
+        memory: "4Gi"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}-q2" -d "imagename=${IMG}" -d "cmd=sleep 3600" -d "continuous=true" -d "memory=4Gi"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CONTJOBNAME}-q2"
+        imagename: "${IMG}"
+        cmd: "sleep 3600"
+        continuous: true
+        memory: "4Gi"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
     #
     # Continuous job
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${CONTJOBNAME}-q3" -d "imagename=${IMG}" -d "cmd=sleep 3600" -d "continuous=true" -d "memory=4Gi"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${CONTJOBNAME}-q3"
+        imagename: "${IMG}"
+        cmd: "sleep 3600"
+        continuous: true
+        memory: "4Gi"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
     - cmd: |
             response=$(curl -s ${CURL_URL}/jobs/${CONTJOBNAME}-q3 -H "${CURL_HDR}" ${CURL_ARGS})
@@ -715,16 +844,19 @@
       retcode: 0
       stdout: ""
       stderr: ""
+      retry_attempts: 10
 
     #
     # Normal job
-    - cmd: sleep ${SLEEP}
-    - cmd: curl -s -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} -d "name=${JOBNAME}" -d "imagename=${IMG}" -d "cmd=sleep 3600" -d "memory=4Gi"
+    - cmd: curl -s -o /dev/null --json @- -X POST ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
+      json_stdin:
+        name: "${JOBNAME}"
+        imagename: "${IMG}"
+        cmd: "sleep 3600"
+        memory: "4Gi"
       retcode: 0
-      stdout: "201"
+      stdout: ""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
     - cmd: |
             response=$(curl -s ${CURL_URL}/jobs/${JOBNAME} -H "${CURL_HDR}" ${CURL_ARGS})
@@ -732,13 +864,12 @@
       retcode: 0
       stdout: ""
       stderr: ""
+      retry_attempts: 10
 
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
       stdout: "\"\""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
 
 #
 # cleanup
@@ -749,20 +880,13 @@
       retcode: 0
       stdout: "\"\""
       stderr: ""
-    # give k8s a chance to do its thing
-    - cmd: sleep ${SLEEP}
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
       stdout: "[]"
       stderr: ""
-    # give k8s a chance to do its thing. Pods in terminating state can take a long time to go away
-    - cmd: |
-            sleep ${SLEEP}
-            sleep ${SLEEP}
-            sleep ${SLEEP}
-            sleep ${SLEEP}
-            sleep ${SLEEP}
+      retry_attempts: 10
     - cmd: kubectl ${KUBECTL_ARGS} get all
       retcode: 0
       stdout: ""
       stderr: "No resources found in tool-tf-test namespace."
+      retry_attempts: 10
