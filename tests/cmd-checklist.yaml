@@ -65,26 +65,25 @@
       stdout: ""
       stderr: ""
 
-- name: when deleting a job with an invalid name, it is ignored
+- name: deleting jobs with invalid names fails
   tests:
-    - cmd: curl -s -X DELETE ${CURL_URL}/jobs/wrong.name ${CURL_ARGS}
-      retcode: 0
-      stdout: "{}"
-      stderr: ""
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/wrong_name ${CURL_ARGS}
       retcode: 0
-      stdout: "{}"
+      stdout: "{\"data\":{},\"message\":\"Invalid job name. See the documentation for the naming rules: https://w.wiki/6YL8\"}"
       stderr: ""
 
 - name: can't show a job with an invalid name
   tests:
-    - cmd: curl -s ${CURL_URL}/jobs/invalid_name ${CURL_ARGS} -f
-      retcode: 22
-      stdout: ""
+    - cmd: curl -s ${CURL_URL}/jobs/invalid_name ${CURL_ARGS}
+      retcode: 0
+      stdout: "{\"data\":{},\"message\":\"Invalid job name. See the documentation for the naming rules: https://w.wiki/6YL8\"}"
       stderr: ""
-    - cmd: curl -s ${CURL_URL}/jobs/invalid.name ${CURL_ARGS} -f
-      retcode: 22
-      stdout: ""
+
+- name: can't show job that does not eixst
+  tests:
+    - cmd: curl -s ${CURL_URL}/jobs/nonexistent ${CURL_ARGS}
+      retcode: 0
+      stdout: "{\"data\":{},\"message\":\"Job 'nonexistent' does not exist\"}"
       stderr: ""
 
 #

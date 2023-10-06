@@ -88,15 +88,17 @@ def create_job(user: User, job: Job) -> None:
         raise create_error_from_k8s_response(e, job, user)
 
 
-def delete_job(user: User, jobname: str | None) -> None:
-    if jobname:
-        try:
-            validate_jobname(jobname)
-        except TjfValidationError:
-            # invalid job name, ignore
-            return
+def delete_job(user: User, job: Job) -> None:
+    """Deletes a specified job."""
+    user.kapi.delete_object(job.k8s_type, job.jobname)
+    user.kapi.delete_objects(
+        "pods", label_selector=labels_selector(job.jobname, user.name, job.k8s_type)
+    )
 
-    label_selector = labels_selector(jobname, user.name, None)
+
+def delete_all_jobs(user: User) -> None:
+    """Deletes all jobs for a user."""
+    label_selector = labels_selector(None, user.name, None)
 
     for object_type in ["cronjobs", "deployments", "jobs", "pods"]:
         user.kapi.delete_objects(object_type, label_selector=label_selector)
@@ -112,11 +114,7 @@ def find_job(user: User, jobname: str) -> Job | None:
 
 def list_all_jobs(user: User, jobname: str | None = None) -> list[Job]:
     if jobname:
-        try:
-            validate_jobname(jobname)
-        except TjfValidationError:
-            # invalid job name, ignore
-            return []
+        validate_jobname(jobname)
 
     job_list = []
 

@@ -21,7 +21,7 @@ from tjf.cron import CronExpression, CronParsingError
 from tjf.error import TjfError, TjfValidationError
 from tjf.images import image_by_name
 from tjf.job import Job
-from tjf.ops import create_job, delete_job, find_job, list_all_jobs
+from tjf.ops import create_job, delete_all_jobs, find_job, list_all_jobs
 from tjf.user import User
 
 # arguments that the API understands
@@ -112,5 +112,5 @@ class JobListResource(Resource):
     def delete(self):
         user = User.from_request()
 
-        delete_job(user=user, jobname=None)
+        delete_all_jobs(user=user)
         return {}, 200
