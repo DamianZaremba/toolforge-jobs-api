@@ -18,9 +18,9 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Any, Optional
+from typing import Any
 
-from toolforge_weld.kubernetes import K8sClient, parse_quantity
+from toolforge_weld.kubernetes import K8sClient, MountOption, parse_quantity
 
 import tjf.utils as utils
 from tjf.command import Command
@@ -76,13 +76,14 @@ class Job:
         jobname,
         ns,
         username,
-        schedule: Optional[CronExpression],
+        schedule: CronExpression | None,
         cont,
         k8s_object,
         retry: int,
         memory: str,
         cpu: str,
         emails: str,
+        mount: MountOption,
     ) -> None:
         self.command = command
         self.image = image
@@ -98,6 +99,7 @@ class Job:
         self.cpu = cpu
         self.emails = emails
         self.retry = retry
+        self.mount = mount
 
         if self.emails is None:
             self.emails = "none"
@@ -172,6 +174,8 @@ class Job:
             k8s_metadata=metadata, k8s_command=k8s_command, k8s_arguments=k8s_arguments
         )
 
+        mount = MountOption.parse_labels(metadata["labels"])
+
         maybe_image = image_by_container_url(image)
         if not maybe_image:
             raise TjfError(
@@ -191,6 +195,7 @@ class Job:
             memory=memory,
             cpu=cpu,
             emails=emails,
+            mount=mount,
         )
 
     def _generate_container_resources(self) -> dict[str, Any]:
@@ -225,6 +230,7 @@ class Job:
             type=self.k8s_type,
             filelog=self.command.filelog,
             emails=self.emails,
+            mount=self.mount,
         )
         generated_command = self.command.generate_for_k8s()
 
@@ -268,6 +274,7 @@ class Job:
             type=self.k8s_type,
             filelog=self.command.filelog,
             emails=self.emails,
+            mount=self.mount,
         )
         obj = {
             "apiVersion": K8sClient.VERSIONS["cronjobs"],
@@ -305,6 +312,7 @@ class Job:
             type=self.k8s_type,
             filelog=self.command.filelog,
             emails=self.emails,
+            mount=self.mount,
         )
         obj = {
             "kind": "Deployment",
@@ -332,6 +340,7 @@ class Job:
             type=self.k8s_type,
             filelog=self.command.filelog,
             emails=self.emails,
+            mount=self.mount,
         )
         obj = {
             "apiVersion": K8sClient.VERSIONS["jobs"],
@@ -395,6 +404,7 @@ class Job:
             "status_long": self.status_long,
             "emails": self.emails,
             "retry": self.retry,
+            "mount": str(self.mount),
         }
 
         if self.schedule is not None:

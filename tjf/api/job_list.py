@@ -15,11 +15,12 @@
 #
 
 from flask_restful import Resource, reqparse
+from toolforge_weld.kubernetes import MountOption
 
 from tjf.command import Command
 from tjf.cron import CronExpression, CronParsingError
 from tjf.error import TjfError, TjfValidationError
-from tjf.images import image_by_name
+from tjf.images import ImageType, image_by_name
 from tjf.job import Job
 from tjf.ops import create_job, delete_all_jobs, find_job, list_all_jobs
 from tjf.user import User
@@ -40,6 +41,15 @@ run_parser.add_argument(
 run_parser.add_argument("memory", type=str, location=["json"])
 run_parser.add_argument("cpu", type=str, location=["json"])
 run_parser.add_argument("emails", type=str, location=["json"])
+run_parser.add_argument(
+    "mount",
+    type=MountOption.parse,
+    choices=list(MountOption),
+    # TODO: remove default from the API
+    default=MountOption.ALL,
+    required=False,
+    location=["json"],
+)
 
 
 class JobListResource(Resource):
@@ -63,8 +73,12 @@ class JobListResource(Resource):
                 "A job with the same name exists already", http_status_code=409
             )
 
+        if args.mount.supports_non_buildservice and image.type != ImageType.BUILDPACK:
+            raise TjfValidationError(
+                f"Mount type {image.type} is only supported for build service images"
+            )
         if args.filelog and not image.type.supports_file_logs():
-            raise TjfValidationError("Buildpack images do not support file logs")
+            raise TjfValidationError("Build service images do not support file logs")
 
         command = Command.from_api(
             user_command=args.cmd,
@@ -99,6 +113,7 @@ class JobListResource(Resource):
                 memory=args.memory,
                 cpu=args.cpu,
                 emails=args.emails,
+                mount=args.mount,
             )
 
             create_job(user=user, job=job)

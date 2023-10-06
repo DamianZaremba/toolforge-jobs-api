@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import Dict, Optional
 
+from toolforge_weld.kubernetes import MountOption
+
 
 def generate_labels(
     *,
@@ -26,6 +28,7 @@ def generate_labels(
     filelog: bool,
     emails: Optional[str],
     version: bool = True,
+    mount: MountOption | None = None,
 ) -> Dict[str, str]:
     obj = {
         "toolforge": "tool",
@@ -47,6 +50,9 @@ def generate_labels(
 
     if emails is not None:
         obj["jobs.toolforge.org/emails"] = emails
+
+    if mount:
+        obj.update(mount.labels)
 
     return obj
 
