@@ -1,8 +1,7 @@
 ---
 - envvars:
-    - CURL_URL: "https://api.svc.toolsbeta.eqiad1.wikimedia.cloud:30003/jobs/api/v1"
-      CURL_HDR: "Host:api.svc.toolsbeta.eqiad1.wikimedia.cloud"
-      CURL_ARGS: "--cert ~/.local/toolforge-lima-kilo/chroot/data/project/tf-test/.toolskube/client.crt --key ~/.local/toolforge-lima-kilo/chroot/data/project/tf-test/.toolskube/client.key --resolve api.svc.toolsbeta.eqiad1.wikimedia.cloud:30003:127.0.0.1 -k"
+    - CURL_URL: "https://localhost:30003/jobs/api/v1"
+      CURL_ARGS: "--cert ~/.toolforge-lima-kilo/chroot/data/project/tf-test/.toolskube/client.crt --key ~/.toolforge-lima-kilo/chroot/data/project/tf-test/.toolskube/client.key -k"
       JOBNAME: "normaljob"
       SLEEP_CMD: ./sleep40.sh
       CRONJOBNAME: "cronjob"
@@ -14,7 +13,7 @@
       LOG_JOB: logjob
       CUSTOM_LOG_FILE: custom-log-file
       LOG_JOB_CMD: log.sh
-      TOOLHOME: ~/.local/toolforge-lima-kilo/chroot/data/project/tf-test
+      TOOLHOME: ~/.toolforge-lima-kilo/chroot/data/project/tf-test
 ---
 - name: "flush everything"
   tests:
