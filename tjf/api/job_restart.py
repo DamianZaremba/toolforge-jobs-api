@@ -15,4 +15,4 @@ class JobRestartResource(Resource):
 
         restart_job(user=user, job=job)
 
-        return "", 200
+        return {}, 200
