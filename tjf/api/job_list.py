@@ -26,18 +26,20 @@ from tjf.user import User
 
 # arguments that the API understands
 run_parser = reqparse.RequestParser()
-run_parser.add_argument("cmd", required=True)
-run_parser.add_argument("imagename", required=True)
-run_parser.add_argument("schedule")
-run_parser.add_argument("continuous", type=bool, default=False)
-run_parser.add_argument("name", required=True)
-run_parser.add_argument("filelog", type=bool, default=False)
-run_parser.add_argument("filelog_stdout", type=str, required=False)
-run_parser.add_argument("filelog_stderr", type=str, required=False)
-run_parser.add_argument("retry", choices=[0, 1, 2, 3, 4, 5], type=int, default=0)
-run_parser.add_argument("memory")
-run_parser.add_argument("cpu")
-run_parser.add_argument("emails")
+run_parser.add_argument("cmd", type=str, required=True, location=["json"])
+run_parser.add_argument("imagename", type=str, required=True, location=["json"])
+run_parser.add_argument("schedule", type=str, location=["json"])
+run_parser.add_argument("continuous", type=bool, default=False, location=["json"])
+run_parser.add_argument("name", type=str, required=True, location=["json"])
+run_parser.add_argument("filelog", type=bool, default=False, location=["json"])
+run_parser.add_argument("filelog_stdout", type=str, required=False, location=["json"])
+run_parser.add_argument("filelog_stderr", type=str, required=False, location=["json"])
+run_parser.add_argument(
+    "retry", choices=[0, 1, 2, 3, 4, 5], type=int, default=0, location=["json"]
+)
+run_parser.add_argument("memory", type=str, location=["json"])
+run_parser.add_argument("cpu", type=str, location=["json"])
+run_parser.add_argument("emails", type=str, location=["json"])
 
 
 class JobListResource(Resource):
