@@ -76,10 +76,14 @@ def validate_job_limits(user: User, job: Job) -> None:
                     )
 
 
-def create_job(user: User, job: Job):
+def create_job(user: User, job: Job) -> None:
     validate_job_limits(user, job)
     try:
-        return user.kapi.create_object(job.k8s_type, job.get_k8s_object())
+        k8s_result = user.kapi.create_object(job.k8s_type, job.get_k8s_object())
+        job.k8s_object = k8s_result
+
+        refresh_job_short_status(user, job)
+        refresh_job_long_status(user, job)
     except requests.exceptions.HTTPError as e:
         raise create_error_from_k8s_response(e, job, user)
 

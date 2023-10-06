@@ -101,12 +101,13 @@ class JobListResource(Resource):
                 emails=args.emails,
             )
 
-            result = create_job(user=user, job=job)
+            create_job(user=user, job=job)
         except TjfError as e:
             raise e
         except Exception as e:
             raise TjfError("Unable to start job") from e
-        return result
+
+        return job.get_api_object(), 201
 
     def delete(self):
         user = User.from_request()
