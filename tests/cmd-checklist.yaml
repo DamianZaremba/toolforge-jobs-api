@@ -7,7 +7,7 @@
       CRONJOBNAME: "cronjob"
       CONTJOBNAME: "continuousjob"
       # this must have state: stable
-      IMG: "bullseye"
+      IMG: "bookworm"
       SLEEP: "10"
       KUBECTL_ARGS: -n tool-tf-test
       LOG_JOB: logjob
@@ -251,7 +251,7 @@
              "filelog" : "False",
              "filelog_stderr" : "/dev/null",
              "filelog_stdout" : "/dev/null",
-             "image" : "bullseye",
+             "image" : "bookworm",
              "image_state" : "stable",
              "name" : "cronjob",
              "retry" : 0,
