@@ -65,15 +65,11 @@
       stdout: ""
       stderr: ""
 
-- name: when deleting a job with an invalid name, it is ignored
+- name: deleting jobs with invalid names fails
   tests:
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/wrong.name -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "{}"
-      stderr: ""
-    - cmd: curl -s -X DELETE ${CURL_URL}/jobs/wrong_name -H "${CURL_HDR}" ${CURL_ARGS}
-      retcode: 0
-      stdout: "{}"
+      stdout: "{\"data\":{},\"message\":\"Job 'wrong.name' does not exist\"}"
       stderr: ""
 
 - name: can't show a job with an invalid name

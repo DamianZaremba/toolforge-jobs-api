@@ -34,5 +34,8 @@ class JobResource(Resource):
     def delete(self, name: str):
         user = User.from_request()
 
-        delete_job(user=user, jobname=name)
-        return {}, 200
+        job = find_job(user=user, jobname=name)
+        if not job:
+            raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
+
+        delete_job(user=user, job=job)
