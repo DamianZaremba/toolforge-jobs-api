@@ -27,14 +27,17 @@
 #        stdout: "expected stdout from cmd2"
 #        stderr: "expected stderr from cmd2"
 #
+from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import platform
 import socket
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
@@ -63,9 +66,11 @@ class Command:
     """Class to represent a command to be executed."""
 
     cmd: str
+    json_stdin: Optional[dict[str, str | int | bool]]
     retcode: Optional[int]
     stdout: Optional[str]
     stderr: Optional[str]
+    retry_attempts: int = 0
 
 
 @dataclass()
@@ -211,9 +216,11 @@ def stage_validate_config(args) -> Runner:
                     validate_dictionary(test, ["cmd"])
                     cmd = Command(
                         cmd=test.get("cmd"),
+                        json_stdin=test.get("json_stdin", None),
                         retcode=test.get("retcode", None),
                         stdout=test.get("stdout", None),
                         stderr=test.get("stderr", None),
+                        retry_attempts=test.get("retry_attempts", 0),
                     )
 
                     test_cmds.append(cmd)
@@ -231,19 +238,30 @@ def stage_validate_config(args) -> Runner:
     )
 
 
-def cmd_run(command: Command) -> bool:
+def cmd_run(command: Command, level: int) -> bool:
     success = True
 
     expanded_cmd = os.path.expandvars(command.cmd)
+    stdin = None
+    if command.json_stdin:
+        stdin = json.dumps(
+            {
+                key: os.path.expandvars(value) if isinstance(value, str) else value
+                for key, value in command.json_stdin.items()
+            }
+        ).encode("utf-8")
+
     logging.debug(f"running command: {expanded_cmd}")
-    r = subprocess.run(expanded_cmd, capture_output=True, shell=True)
+
+    r = subprocess.run(expanded_cmd, capture_output=True, shell=True, input=stdin)
 
     expected_retcode = command.retcode
     if expected_retcode is not None:
         if r.returncode != expected_retcode:
-            logging.warning(
+            logging.log(
+                level,
                 f"cmd '{expanded_cmd}', expected return code '{expected_retcode}', "
-                f"but got '{r.returncode}'"
+                f"but got '{r.returncode}'",
             )
             success = False
     else:
@@ -253,8 +271,9 @@ def cmd_run(command: Command) -> bool:
     if expected_stdout is not None:
         stdout = r.stdout.decode("utf-8").strip()
         if stdout != expected_stdout:
-            logging.warning(
-                f"cmd '{expanded_cmd}', expected stdout '{expected_stdout}', but got '{stdout}'"
+            logging.log(
+                level,
+                f"cmd '{expanded_cmd}', expected stdout '{expected_stdout}', but got '{stdout}'",
             )
             success = False
     else:
@@ -264,8 +283,9 @@ def cmd_run(command: Command) -> bool:
     if expected_stderr is not None:
         stderr = r.stderr.decode("utf-8").strip()
         if stderr != expected_stderr:
-            logging.warning(
-                f"cmd '{expanded_cmd}', expected stderr '{expected_stderr}', but got '{stderr}'"
+            logging.log(
+                level,
+                f"cmd '{expanded_cmd}', expected stderr '{expected_stderr}', but got '{stderr}'",
             )
             success = False
     else:
@@ -278,12 +298,18 @@ def test_run(test: Test):
     logging.info(f"running: {test.name}")
 
     for command in test.spec:
-        if cmd_run(command):
-            continue
+        cmd_ok = False
+        for i in range(command.retry_attempts + 1):
+            if cmd_run(command, logging.WARNING if i == command.retry_attempts else logging.DEBUG):
+                cmd_ok = True
+                break
 
-        logging.warning(f"failed test: {test.name}")
-        test.result = TestResult.FAILED
-        return
+            time.sleep(10)
+
+        if not cmd_ok:
+            logging.warning(f"failed test: {test.name}")
+            test.result = TestResult.FAILED
+            return
 
     test.result = TestResult.OK
 
