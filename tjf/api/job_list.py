@@ -113,4 +113,4 @@ class JobListResource(Resource):
         user = User.from_request()
 
         delete_job(user=user, jobname=None)
-        return "", 200
+        return {}, 200

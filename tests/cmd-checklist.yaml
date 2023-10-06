@@ -18,7 +18,7 @@
   tests:
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
     - cmd: rm -f ${TOOLHOME}/${LOG_JOB_CMD}
       retcode: 0
@@ -69,11 +69,11 @@
   tests:
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/wrong.name -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/wrong_name -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
 
 - name: can't show a job with an invalid name
@@ -144,7 +144,7 @@
   tests:
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${JOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
 
 - name: "show normal job should fail because we just deleted it"
@@ -185,7 +185,7 @@
   tests:
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${JOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
     # give k8s a chance to do its thing
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "image" | wc -l
@@ -195,7 +195,7 @@
       retry_attempts: 10
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${JOBNAME}2" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
 
 #
@@ -252,7 +252,7 @@
   tests:
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${JOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
 
 - name: "show retried job should fail because we just deleted it"
@@ -356,7 +356,7 @@
   tests:
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${CRONJOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
 
 - name: "show cronjob should fail because we just deleted it"
@@ -397,7 +397,7 @@
       retry_attempts: 10
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/${CRONJOBNAME} -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "\"schedule" | wc -l
       retcode: 0
@@ -406,7 +406,7 @@
       retry_attempts: 10
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/${CRONJOBNAME}2 -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
 
 #
@@ -472,7 +472,7 @@
   tests:
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${CONTJOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
 
 - name: "show continuous job should fail because we just deleted it"
@@ -511,7 +511,7 @@
       retry_attempts: 10
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${CONTJOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "image" | wc -l
       retcode: 0
@@ -520,7 +520,7 @@
       retry_attempts: 10
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${CONTJOBNAME}2" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
 
 #
@@ -576,7 +576,7 @@
   tests:
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${CRONJOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "image" | wc -l
       retcode: 0
@@ -598,7 +598,7 @@
   tests:
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${JOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "image" | wc -l
       retcode: 0
@@ -619,7 +619,7 @@
   tests:
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${CONTJOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS} | json_pp | grep "image" | wc -l
       retcode: 0
@@ -746,7 +746,7 @@
 
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/"${CONTJOBNAME}" -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
     # give k8s a chance to do its thing
     - cmd: sleep 60
@@ -796,7 +796,7 @@
       stderr: ""
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
     # give k8s a chance to do its thing
     - cmd: sleep 60
@@ -868,7 +868,7 @@
 
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
 
 #
@@ -878,7 +878,7 @@
   tests:
     - cmd: curl -s -X DELETE ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
-      stdout: "\"\""
+      stdout: "{}"
       stderr: ""
     - cmd: curl -s ${CURL_URL}/jobs/ -H "${CURL_HDR}" ${CURL_ARGS}
       retcode: 0
