@@ -73,9 +73,9 @@ class JobListResource(Resource):
                 "A job with the same name exists already", http_status_code=409
             )
 
-        if image.type != ImageType.BUILDPACK and not args.mount.supports_non_buildservice:
+        if args.mount.supports_non_buildservice and image.type != ImageType.BUILDPACK:
             raise TjfValidationError(
-                f"Mount type {args.mount.value} is only supported for build service images"
+                f"Mount type {image.type} is only supported for build service images"
             )
         if args.filelog and not image.type.supports_file_logs():
             raise TjfValidationError("Build service images do not support file logs")
