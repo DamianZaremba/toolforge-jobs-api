@@ -174,7 +174,7 @@ def get_harbor_images(namespace: str) -> List[Image]:
         )
         response.raise_for_status()
     except requests.exceptions.HTTPError as e:
-        if e.response.status_code != 401:
+        if (not e.response) or e.response.status_code != 401:
             # You seem to get a 401 when the namespace does not exist for whatever reason
             # don't log those, they are usually typos
             LOGGER.warning(
