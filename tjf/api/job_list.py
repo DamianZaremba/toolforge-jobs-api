@@ -68,6 +68,11 @@ class JobListResource(Resource):
         if not image:
             raise TjfValidationError(f"No such image '{args.imagename}'")
 
+        if args.schedule and args.continuous:
+            raise TjfValidationError(
+                "Only one of 'continuous' and 'schedule' can be set at the same time"
+            )
+
         if find_job(user=user, jobname=args.name) is not None:
             raise TjfValidationError(
                 "A job with the same name exists already", http_status_code=409
