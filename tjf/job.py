@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 import time
+from enum import Enum
 from typing import Any
 
 from toolforge_weld.kubernetes import K8sClient, MountOption, parse_quantity
@@ -37,6 +38,58 @@ JOBNAME_PATTERN = re.compile("^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-
 JOB_CONTAINER_NAME = "job"
 
 K8S_OBJECT_TYPE = dict[str, Any]
+
+
+class KubernetesJobObjectKind(Enum):
+    """
+    Represents a Kubernetes object type that a jobs framework managed job can
+    use. The value is the formal Kubernetes object kind name.
+    """
+
+    CRON_JOB = "CronJob"
+    JOB = "Job"
+    DEPLOYMENT = "Deployment"
+
+    @property
+    def api_path_name(self) -> str:
+        """The name used in K8s API URLs, for example 'cronjobs'."""
+        if self == KubernetesJobObjectKind.CRON_JOB:
+            return "cronjobs"
+        elif self == KubernetesJobObjectKind.JOB:
+            return "jobs"
+        elif self == KubernetesJobObjectKind.DEPLOYMENT:
+            return "deployments"
+        else:
+            raise Exception(f"invalid self {self}")
+
+    @property
+    def api_version(self) -> str:
+        return K8sClient.VERSIONS[self.api_path_name]
+
+
+class JobType(Enum):
+    """
+    Represents types of jobs exposed to users. In practice each user-facing job
+    type has an 1:1 match with a Kubernetes object type, however those two
+    concepts should not be used interchangeably to keep the API flexible for
+    any possible future changes.
+    """
+
+    ONE_OFF = "one-off"
+    SCHEDULED = "scheduled"
+    CONTINUOUS = "continuous"
+
+    @property
+    def k8s_type(self) -> KubernetesJobObjectKind:
+        """The Kubernetes object kind used to represent jobs with this type."""
+        if self == JobType.ONE_OFF:
+            return KubernetesJobObjectKind.JOB
+        elif self == JobType.SCHEDULED:
+            return KubernetesJobObjectKind.CRON_JOB
+        elif self == JobType.CONTINUOUS:
+            return KubernetesJobObjectKind.DEPLOYMENT
+        else:
+            raise Exception(f"invalid self {self}")
 
 
 def validate_jobname(jobname: str) -> None:
@@ -71,6 +124,7 @@ JOB_TTLAFTERFINISHED = 30
 class Job:
     def __init__(
         self,
+        job_type: JobType,
         command: Command,
         image: Image,
         jobname,
@@ -85,6 +139,8 @@ class Job:
         emails: str,
         mount: MountOption,
     ) -> None:
+        self.job_type = job_type
+
         self.command = command
         self.image = image
         self.jobname = jobname
@@ -103,13 +159,6 @@ class Job:
 
         if self.emails is None:
             self.emails = "none"
-
-        if self.schedule is not None:
-            self.k8s_type = "cronjobs"
-        elif self.cont is True:
-            self.k8s_type = "deployments"
-        else:
-            self.k8s_type = "jobs"
 
         validate_jobname(self.jobname)
         validate_emails(self.emails)
@@ -132,6 +181,7 @@ class Job:
             )
 
         if kind == "cronjobs":
+            job_type = JobType.SCHEDULED
             if "annotations" in metadata:
                 configured_schedule = metadata["annotations"].get(
                     "jobs.toolforge.org/cron-expression", spec["schedule"]
@@ -147,10 +197,12 @@ class Job:
             cont = False
             podspec = spec["jobTemplate"]["spec"]
         elif kind == "deployments":
+            job_type = JobType.CONTINUOUS
             schedule = None
             cont = True
             podspec = spec
         elif kind == "jobs":
+            job_type = JobType.ONE_OFF
             schedule = None
             cont = False
             podspec = spec
@@ -183,6 +235,7 @@ class Job:
             )
 
         return cls(
+            job_type=job_type,
             command=command,
             image=maybe_image,
             jobname=jobname,
@@ -197,6 +250,10 @@ class Job:
             emails=emails,
             mount=mount,
         )
+
+    @property
+    def k8s_type(self) -> str:
+        return self.job_type.k8s_type.api_path_name
 
     def _generate_container_resources(self) -> dict[str, Any]:
         # this function was adapted from toollabs-webservice toolsws/backends/kubernetes.py

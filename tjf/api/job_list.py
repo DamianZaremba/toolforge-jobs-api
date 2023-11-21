@@ -21,7 +21,7 @@ from tjf.command import Command
 from tjf.cron import CronExpression, CronParsingError
 from tjf.error import TjfError, TjfValidationError
 from tjf.images import ImageType, image_by_name
-from tjf.job import Job
+from tjf.job import Job, JobType
 from tjf.ops import create_job, delete_all_jobs, find_job, list_all_jobs
 from tjf.user import User
 
@@ -95,6 +95,7 @@ class JobListResource(Resource):
         )
 
         if args.schedule:
+            job_type = JobType.SCHEDULED
             try:
                 schedule = CronExpression.parse(args.schedule, f"{user.namespace} {args.name}")
             except CronParsingError as e:
@@ -104,8 +105,11 @@ class JobListResource(Resource):
         else:
             schedule = None
 
+            job_type = JobType.CONTINUOUS if args.continuous else JobType.ONE_OFF
+
         try:
             job = Job(
+                job_type=job_type,
                 command=command,
                 image=image,
                 jobname=args.name,
