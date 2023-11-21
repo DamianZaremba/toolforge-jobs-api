@@ -23,7 +23,7 @@ from toolforge_weld.kubernetes import parse_quantity
 
 import tjf.utils as utils
 from tjf.error import TjfError, TjfValidationError
-from tjf.job import Job, validate_jobname
+from tjf.job import Job, JobType, validate_jobname
 from tjf.k8s_errors import create_error_from_k8s_response
 from tjf.labels import labels_selector
 from tjf.ops_status import refresh_job_long_status, refresh_job_short_status
@@ -114,11 +114,18 @@ def find_job(user: User, jobname: str) -> Job | None:
 
 def list_all_jobs(user: User, jobname: str | None = None) -> list[Job]:
     if jobname:
-        validate_jobname(jobname)
+        validate_jobname(jobname, job_type=None)
 
     job_list = []
 
-    for kind in ["jobs", "cronjobs", "deployments"]:
+    for job_type in JobType:
+        if jobname:
+            try:
+                validate_jobname(jobname, job_type=job_type)
+            except TjfValidationError:
+                continue
+
+        kind = job_type.k8s_type.api_path_name
         label_selector = labels_selector(jobname=jobname, username=user.name, type=kind)
         for k8s_obj in user.kapi.get_objects(kind, label_selector=label_selector):
             job = Job.from_k8s_object(object=k8s_obj, kind=kind)

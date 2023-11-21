@@ -66,6 +66,17 @@ class KubernetesJobObjectKind(Enum):
     def api_version(self) -> str:
         return K8sClient.VERSIONS[self.api_path_name]
 
+    @property
+    def max_name_length(self) -> int:
+        if self == KubernetesJobObjectKind.CRON_JOB:
+            # Cron jobs have a hard limit of 52 characters.
+            return 52
+        else:
+            # Jobs have a hard limit of 63 characters.
+            # As far as I can tell, deployments don't actually have a k8s-enforced limit.
+            # But this seems like a reasonable limit on this side.
+            return 63
+
 
 class JobType(Enum):
     """
@@ -92,14 +103,21 @@ class JobType(Enum):
             raise Exception(f"invalid self {self}")
 
 
-def validate_jobname(jobname: str) -> None:
-    if jobname is None:
+def validate_jobname(job_name: str, job_type: JobType | None) -> None:
+    if job_name is None:
         # nothing to validate
         return
 
-    if not JOBNAME_PATTERN.match(jobname):
+    if not JOBNAME_PATTERN.match(job_name):
         raise TjfValidationError(
             "Invalid job name. See the documentation for the naming rules: https://w.wiki/6YL8"
+        )
+
+    if job_type and len(job_name) > job_type.k8s_type.max_name_length:
+        type_name = "Cron job" if job_type == JobType.SCHEDULED else "Job"
+        raise TjfValidationError(
+            f"Invalid job name. {type_name} names can't be longer than {job_type.k8s_type.max_name_length} characters. "
+            "See the documentation for the naming rules: https://w.wiki/6YL8"
         )
 
 
@@ -160,7 +178,7 @@ class Job:
         if self.emails is None:
             self.emails = "none"
 
-        validate_jobname(self.jobname)
+        validate_jobname(job_name=self.jobname, job_type=self.job_type)
         validate_emails(self.emails)
         utils.validate_kube_quant(self.memory)
         utils.validate_kube_quant(self.cpu)
