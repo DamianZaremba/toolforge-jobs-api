@@ -24,7 +24,7 @@ from tjf.user import User
 
 def _is_out_of_quota(e: requests.exceptions.HTTPError, job: Job, user: User) -> bool:
     """Returns True if the user is out of quota for a given job type."""
-    if not e.response:
+    if e.response is None:
         return False
     if e.response.status_code != 403:
         return False
@@ -60,8 +60,13 @@ def create_error_from_k8s_response(
         "k8s_error": str(e),
     }
 
-    if e.response:
-        error_data["k8s_error"] = {"status_code": e.response.status_code, "body": e.response.text}
+    if e.response is None:
+        return TjfError(
+            "Failed to create a job, likely an internal bug in the jobs framework.",
+            data=error_data,
+        )
+
+    error_data["k8s_error"] = {"status_code": e.response.status_code, "body": e.response.text}
 
     if _is_out_of_quota(e, job, user):
         return TjfValidationError(
@@ -70,9 +75,7 @@ def create_error_from_k8s_response(
         )
 
     # hope k8s doesn't change this behavior too often
-    if e.response and (
-        e.response.status_code == 409 or str(e).startswith("409 Client Error: Conflict for url")
-    ):
+    if e.response.status_code == 409 or str(e).startswith("409 Client Error: Conflict for url"):
         return TjfValidationError(
             "An object with the same name exists already", http_status_code=409, data=error_data
         )
