@@ -352,8 +352,8 @@ class Job:
             mount=self.mount,
         )
         obj = {
-            "apiVersion": K8sClient.VERSIONS["cronjobs"],
-            "kind": "CronJob",
+            "apiVersion": KubernetesJobObjectKind.CRON_JOB.api_version,
+            "kind": KubernetesJobObjectKind.CRON_JOB.value,
             "metadata": {
                 "name": self.jobname,
                 "namespace": self.ns,
@@ -390,8 +390,8 @@ class Job:
             mount=self.mount,
         )
         obj = {
-            "kind": "Deployment",
-            "apiVersion": K8sClient.VERSIONS["deployments"],
+            "apiVersion": KubernetesJobObjectKind.DEPLOYMENT.api_version,
+            "kind": KubernetesJobObjectKind.DEPLOYMENT.value,
             "metadata": {
                 "name": self.jobname,
                 "namespace": self.ns,
@@ -418,8 +418,8 @@ class Job:
             mount=self.mount,
         )
         obj = {
-            "apiVersion": K8sClient.VERSIONS["jobs"],
-            "kind": "Job",
+            "apiVersion": KubernetesJobObjectKind.JOB.api_version,
+            "kind": KubernetesJobObjectKind.JOB.value,
             "metadata": {
                 "name": self.jobname,
                 "namespace": self.ns,
@@ -435,15 +435,16 @@ class Job:
         return obj
 
     def get_k8s_object(self) -> K8S_OBJECT_TYPE:
-        if self.k8s_type == "cronjobs":
+        if self.job_type.k8s_type == KubernetesJobObjectKind.CRON_JOB:
             return self._get_k8s_cronjob_object()
-
-        if self.k8s_type == "deployments":
+        elif self.job_type.k8s_type == KubernetesJobObjectKind.DEPLOYMENT:
             return self._get_k8s_deployment_object()
+        elif self.job_type.k8s_type == KubernetesJobObjectKind.JOB:
+            return self._get_k8s_job_object()
+        else:
+            raise TjfError(f"Invalid k8s job type {self.job_type} {self.job_type.k8s_type}")
 
-        return self._get_k8s_job_object()
-
-    def get_k8s_single_run_object(self, cronjob_uid) -> K8S_OBJECT_TYPE:
+    def get_k8s_single_run_object(self, cronjob_uid: str) -> K8S_OBJECT_TYPE:
         """Returns a Kubernetes manifest to run this CronJob once."""
         # This is largely based on kubectl code
         # https://github.com/kubernetes/kubernetes/blob/985c9202ccd250a5fe22c01faf0d8f83d804b9f3/staging/src/k8s.io/kubectl/pkg/cmd/create/create_job.go#L261
@@ -457,8 +458,8 @@ class Job:
         k8s_job_object["metadata"]["annotations"] = {"cronjob.kubernetes.io/instantiate": "manual"}
         k8s_job_object["metadata"]["ownerReferences"] = [
             {
-                "apiVersion": K8sClient.VERSIONS["cronjobs"],
-                "kind": "CronJob",
+                "apiVersion": KubernetesJobObjectKind.CRON_JOB.api_version,
+                "kind": KubernetesJobObjectKind.CRON_JOB.value,
                 "name": self.jobname,
                 "uid": cronjob_uid,
             }
