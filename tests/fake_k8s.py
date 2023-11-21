@@ -51,6 +51,7 @@ php7.4:
 """
 
 FAKE_HARBOR_HOST = "harbor.example.org"
+FAKE_K8S_HOST = "k8s.example.org"
 
 CRONJOB_NOT_RUN_YET = {
     "apiVersion": "batch/v1",

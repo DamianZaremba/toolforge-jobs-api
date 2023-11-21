@@ -1,0 +1,14 @@
+{
+  "kind": "Status",
+  "apiVersion": "v1",
+  "metadata": {},
+  "status": "Failure",
+  "message": "jobs.batch \"aa\" already exists",
+  "reason": "AlreadyExists",
+  "details": {
+    "name": "aa",
+    "group": "batch",
+    "kind": "jobs"
+  },
+  "code": 409
+}

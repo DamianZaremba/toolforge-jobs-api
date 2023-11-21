@@ -8,7 +8,7 @@ from toolforge_weld.kubernetes_config import Kubeconfig, fake_kube_config
 import tjf.images
 from tests.fake_k8s import FAKE_HARBOR_HOST, FAKE_IMAGE_CONFIG
 from tjf.images import HarborConfig, update_available_images
-from tjf.user import AUTH_HEADER
+from tjf.user import AUTH_HEADER, User
 
 FAKE_VALID_TOOL_AUTH_HEADER = "O=toolforge,CN=some-tool"
 
@@ -44,6 +44,11 @@ def patch_kube_config_loading(monkeymodule):
 @pytest.fixture(scope="session")
 def fake_user(patch_kube_config_loading):
     yield {AUTH_HEADER: FAKE_VALID_TOOL_AUTH_HEADER}
+
+
+@pytest.fixture(scope="session")
+def fake_user_object(patch_kube_config_loading) -> User:
+    return User(name="some-tool")
 
 
 @pytest.fixture(scope="session")
