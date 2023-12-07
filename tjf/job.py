@@ -137,6 +137,12 @@ JOB_DEFAULT_MEMORY = "512Mi"
 JOB_DEFAULT_CPU = "500m"
 # tell kubernetes to delete jobs this many seconds after they finish
 JOB_TTLAFTERFINISHED = 30
+# k8s default is 30s, but our HTTP request timeout is also 30s and
+# on the restart command we need to delete things, wait for them to be
+# gone, and then start a new thing. a lower timeout will ensure that
+# the entire restart cycle can happen within a single request while
+# still giving some grace for jobs to quit after the initial SIGTERM.
+JOB_TERMINATION_GRACE_PERIOD = 15
 
 
 class Job:
@@ -325,6 +331,7 @@ class Job:
             "metadata": {"labels": labels},
             "spec": {
                 "restartPolicy": restart_policy,
+                "terminationGracePeriodSeconds": JOB_TERMINATION_GRACE_PERIOD,
                 "containers": [
                     {
                         "name": JOB_CONTAINER_NAME,
