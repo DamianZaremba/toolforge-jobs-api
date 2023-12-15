@@ -39,10 +39,6 @@ class ImageType(Enum):
         """Check if the command using this image type should be executed via a shell wrapper."""
         return self != ImageType.BUILDPACK
 
-    def supports_file_logs(self) -> bool:
-        """Check if this image type supports file logs."""
-        return self != ImageType.BUILDPACK
-
     def use_standard_nfs(self) -> bool:
         return self != ImageType.BUILDPACK
 

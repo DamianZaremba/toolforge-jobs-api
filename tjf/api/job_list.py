@@ -82,8 +82,8 @@ class JobListResource(Resource):
                 f"Mount type {args.mount.value} is only supported for build service images"
             )
         if args.filelog:
-            if not image.type.supports_file_logs():
-                raise TjfValidationError("Build service images do not support file logs")
+            if args.mount != MountOption.ALL:
+                raise TjfValidationError("File logging is only available with --mount=all")
 
             filelog_stdout = resolve_filelog_path(
                 args.filelog_stdout, user.home, f"{args.name}.out"
