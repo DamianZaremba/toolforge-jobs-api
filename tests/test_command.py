@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import subprocess
 from pathlib import Path
@@ -6,7 +8,7 @@ import pytest
 
 import tests.fake_k8s as fake_k8s
 import tjf.utils as utils
-from tjf.command import Command
+from tjf.command import Command, resolve_filelog_path
 
 
 def test_generate_command_no_wrapper(tmp_path_factory):
@@ -21,7 +23,6 @@ def test_generate_command_no_wrapper(tmp_path_factory):
         filelog=False,
         filelog_stdout=None,
         filelog_stderr=None,
-        jobname="test",
     )
 
     generated = cmd.generate_for_k8s()
@@ -48,7 +49,6 @@ def test_generate_command_no_filelog(tmp_path_factory):
         filelog=False,
         filelog_stdout=None,
         filelog_stderr=None,
-        jobname="test",
     )
 
     generated = cmd.generate_for_k8s()
@@ -68,13 +68,15 @@ def test_generate_command_filelog(tmp_path_factory):
 
     script_path = Path(__file__).parent / "helpers" / "gen-output" / "both.sh"
 
+    stdout_file = directory / "test.out"
+    stderr_file = directory / "test.err"
+
     cmd = Command.from_api(
         user_command=f"{script_path.absolute()} yesfilelog",
         use_wrapper=True,
         filelog=True,
-        filelog_stdout="test.out",
-        filelog_stderr="test.err",
-        jobname="test",
+        filelog_stdout=stdout_file,
+        filelog_stderr=stderr_file,
     )
 
     generated = cmd.generate_for_k8s()
@@ -85,11 +87,9 @@ def test_generate_command_filelog(tmp_path_factory):
     assert result.stdout == ""
     assert result.stderr == ""
 
-    stdout_file = directory / "test.out"
     assert stdout_file.exists()
     assert stdout_file.read_text() == "this text has no meaningful content yesfilelog,\n"
 
-    stderr_file = directory / "test.err"
     assert stderr_file.exists()
     assert stderr_file.read_text() == "it is just an example\n"
 
@@ -165,8 +165,13 @@ def test_generate_command_filelog(tmp_path_factory):
     ],
 )
 def test_command_array_parsing_from_k8s(
-    fixtures_path: Path, user_command, object, filelog, filelog_stdout, filelog_stderr
-):
+    fixtures_path: Path,
+    user_command,
+    object,
+    filelog: bool,
+    filelog_stdout: str | None,
+    filelog_stderr: str | None,
+) -> None:
     if isinstance(object, str):
         object = json.loads((fixtures_path / "jobs" / object).read_text())
 
@@ -182,5 +187,20 @@ def test_command_array_parsing_from_k8s(
     assert command
     assert command.user_command == user_command
     assert command.filelog == filelog
-    assert command.filelog_stdout == filelog_stdout
-    assert command.filelog_stderr == filelog_stderr
+    assert command.filelog_stdout == (Path(filelog_stdout) if filelog_stdout else None)
+    assert command.filelog_stderr == (Path(filelog_stderr) if filelog_stderr else None)
+
+
+@pytest.mark.parametrize(
+    "param, expected",
+    [
+        ["/tmp/foo", "/tmp/foo"],
+        ["bar", "/data/project/foo/bar"],
+        ["aa/bb", "/data/project/foo/aa/bb"],
+        [None, "/data/project/foo/default"],
+        ["", "/data/project/foo/default"],
+    ],
+)
+def test_resolve_filelog_path(param: str | None, expected: str) -> None:
+    """Test test_resolve_filelog_path resolves paths."""
+    assert str(resolve_filelog_path(param, Path("/data/project/foo"), "default")) == expected

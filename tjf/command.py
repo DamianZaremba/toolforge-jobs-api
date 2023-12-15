@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+from __future__ import annotations
 
 import shlex
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, ClassVar, List, Optional
 
 
@@ -22,8 +24,8 @@ class Command:
     user_command: str
     use_wrapper: bool
     filelog: bool
-    filelog_stdout: Optional[str]
-    filelog_stderr: Optional[str]
+    filelog_stdout: Path | None
+    filelog_stderr: Path | None
 
     def generate_for_k8s(self) -> GeneratedCommand:
         """Generate the command array for the kubernetes object."""
@@ -51,24 +53,16 @@ class Command:
         user_command: str,
         use_wrapper: bool,
         filelog: bool,
-        filelog_stdout: Optional[str],
-        filelog_stderr: Optional[str],
-        jobname: str,
+        filelog_stdout: Path | None,
+        filelog_stderr: Path | None,
     ) -> "Command":
         """Create a new Command class instance from TJF API parameters."""
-        if filelog:
-            actual_filelog_stdout = filelog_stdout if filelog_stdout else f"{jobname}.out"
-            actual_filelog_stderr = filelog_stderr if filelog_stderr else f"{jobname}.err"
-        else:
-            actual_filelog_stdout = None
-            actual_filelog_stderr = None
-
         return cls(
             user_command=user_command,
             use_wrapper=use_wrapper,
             filelog=filelog,
-            filelog_stdout=actual_filelog_stdout,
-            filelog_stderr=actual_filelog_stderr,
+            filelog_stdout=filelog_stdout,
+            filelog_stderr=filelog_stderr,
         )
 
     @classmethod
@@ -129,6 +123,15 @@ class Command:
             user_command=user_command,
             use_wrapper=use_wrapper,
             filelog=filelog,
-            filelog_stdout=filelog_stdout,
-            filelog_stderr=filelog_stderr,
+            filelog_stdout=Path(filelog_stdout) if filelog_stdout else None,
+            filelog_stderr=Path(filelog_stderr) if filelog_stderr else None,
         )
+
+
+def resolve_filelog_path(param: str | None, home: Path, default: str) -> Path:
+    if not param:
+        return home / default
+    path = Path(param)
+    if path.is_absolute():
+        return path
+    return home / path

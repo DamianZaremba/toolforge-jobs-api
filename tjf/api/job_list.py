@@ -13,11 +13,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-
 from flask_restful import Resource, reqparse
 from toolforge_weld.kubernetes import MountOption
 
-from tjf.command import Command
+from tjf.command import Command, resolve_filelog_path
 from tjf.cron import CronExpression, CronParsingError
 from tjf.error import TjfError, TjfValidationError
 from tjf.images import ImageType, image_by_name
@@ -82,16 +81,25 @@ class JobListResource(Resource):
             raise TjfValidationError(
                 f"Mount type {args.mount.value} is only supported for build service images"
             )
-        if args.filelog and not image.type.supports_file_logs():
-            raise TjfValidationError("Build service images do not support file logs")
+        if args.filelog:
+            if not image.type.supports_file_logs():
+                raise TjfValidationError("Build service images do not support file logs")
+
+            filelog_stdout = resolve_filelog_path(
+                args.filelog_stdout, user.home, f"{args.name}.out"
+            )
+            filelog_stderr = resolve_filelog_path(
+                args.filelog_stderr, user.home, f"{args.name}.err"
+            )
+        else:
+            filelog_stdout = filelog_stderr = None
 
         command = Command.from_api(
             user_command=args.cmd,
             use_wrapper=image.type.use_command_wrapper(),
             filelog=args.filelog,
-            filelog_stdout=args.filelog_stdout,
-            filelog_stderr=args.filelog_stderr,
-            jobname=args.name,
+            filelog_stdout=filelog_stdout,
+            filelog_stderr=filelog_stderr,
         )
 
         if args.schedule:
