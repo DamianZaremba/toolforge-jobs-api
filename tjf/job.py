@@ -481,8 +481,12 @@ class Job:
             "image": self.image.canonical_name,
             "image_state": self.image.state,
             "filelog": f"{self.command.filelog}",
-            "filelog_stdout": self.command.filelog_stdout,
-            "filelog_stderr": self.command.filelog_stderr,
+            "filelog_stdout": (
+                str(self.command.filelog_stdout) if self.command.filelog_stdout else None
+            ),
+            "filelog_stderr": (
+                str(self.command.filelog_stderr) if self.command.filelog_stderr else None
+            ),
             "status_short": self.status_short,
             "status_long": self.status_long,
             "emails": self.emails,
