@@ -5,8 +5,6 @@ variants:
   image:
     lives:
       in: /app
-    apt:
-      packages: [uwsgi-plugin-python3]
     builders:
       - custom:
           command:
@@ -17,16 +15,15 @@ variants:
           version: "python3"
           requirements: ["requirements.txt"]
     runs:
-      # needed for prometheus to write things
+      # needed to read k8s credentials from tool home dirs
       insecurely: true
       environment:
         PROMETHEUS_MULTIPROC_DIR: /app/prometheus-multiproc
     copies:
       - local
     entrypoint:
-      - uwsgi
-      - --socket=127.0.0.1:8000
-      - --plugin=python3
-      - --mount=/=api:app
-      - --master
+      - gunicorn
+      - --bind=127.0.0.1:8000
       - --workers=4
+      - --config=config.py
+      - api:app

@@ -29,12 +29,10 @@ data:
             ssl_ciphers            HIGH:!aNULL:!MD5;
 
             location / {
-                include uwsgi_params;
-                uwsgi_pass 127.0.0.1:8000;
+                proxy_pass http://127.0.0.1:8000;
                 # If the app passes X-Accel-Buffering to disable nginx response buffering,
                 # we also need to pass that to the api-gateway nginx instance.
-                # https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_pass_header
-                uwsgi_pass_header "X-Accel-Buffering";
+                proxy_pass_header "X-Accel-Buffering";
             }
         }
 
@@ -42,13 +40,11 @@ data:
             listen 9000;
 
             location = /metrics {
-                include uwsgi_params;
-                uwsgi_pass 127.0.0.1:8000;
+                proxy_pass http://127.0.0.1:9200;
             }
 
             location = /healthz {
-                include uwsgi_params;
-                uwsgi_pass 127.0.0.1:8000;
+                proxy_pass http://127.0.0.1:8000;
             }
         }
     }
