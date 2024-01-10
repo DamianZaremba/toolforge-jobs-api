@@ -3,10 +3,12 @@ from pathlib import Path
 
 import pytest
 import requests_mock
+from flask import Flask
 from toolforge_weld.kubernetes_config import Kubeconfig, fake_kube_config
 
 import tjf.images
 from tests.fake_k8s import FAKE_HARBOR_HOST, FAKE_IMAGE_CONFIG
+from tjf.api.app import create_app
 from tjf.images import HarborConfig, update_available_images
 from tjf.user import AUTH_HEADER, User
 
@@ -100,3 +102,8 @@ def images_available(fake_harbor_api):
                 }
 
     update_available_images(FakeClient())
+
+
+@pytest.fixture(scope="session")
+def app() -> Flask:
+    return create_app(load_images=False, init_metrics=False)

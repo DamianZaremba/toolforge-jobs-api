@@ -13,14 +13,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import pytest
+from flask import Flask
 from flask.testing import FlaskClient
-
-from tjf.api.app import create_app
 
 
 @pytest.fixture
-def client() -> FlaskClient:
-    return create_app(load_images=False).test_client()
+def client(app: Flask) -> FlaskClient:
+    return app.test_client()
 
 
 def test_healthz(client: FlaskClient):

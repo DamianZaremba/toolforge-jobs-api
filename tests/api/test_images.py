@@ -1,11 +1,11 @@
 import pytest
-
-from tjf.api.app import create_app
+from flask import Flask
+from flask.testing import FlaskClient
 
 
 @pytest.fixture()
-def client():
-    return create_app(load_images=False).test_client()
+def client(app: Flask) -> FlaskClient:
+    return app.test_client()
 
 
 def test_get_images_endpoint(images_available, client, fake_user):

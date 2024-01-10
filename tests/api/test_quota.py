@@ -17,15 +17,15 @@ from pathlib import Path
 from typing import Dict
 
 import pytest
+from flask import Flask
 from flask.testing import FlaskClient
 
-from tjf.api.app import create_app
 from tjf.user import User
 
 
 @pytest.fixture
-def client() -> FlaskClient:
-    return create_app(load_images=False).test_client()
+def client(app: Flask) -> FlaskClient:
+    return app.test_client()
 
 
 @pytest.fixture

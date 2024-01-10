@@ -1,12 +1,6 @@
 import pytest
 
-from tjf.api.app import create_app
 from tjf.user import AUTH_HEADER, User, UserLoadingError
-
-
-@pytest.fixture()
-def app():
-    return create_app(load_images=False)
 
 
 def test_User_from_request_successful(app, patch_kube_config_loading):

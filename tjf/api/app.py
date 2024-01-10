@@ -45,11 +45,12 @@ class TjfApi(Api):
             return super().handle_error(e)
 
 
-def create_app(*, load_images=True):
+def create_app(*, load_images: bool = True, init_metrics: bool = True) -> Flask:
     app = Flask(__name__)
     api = TjfApi(app)
 
-    metrics_init_app(app)
+    if init_metrics:
+        metrics_init_app(app)
 
     # non-restful endpoints
     app.register_error_handler(ToolforgeError, error_handler)
