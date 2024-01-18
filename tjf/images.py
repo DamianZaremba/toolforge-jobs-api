@@ -55,6 +55,7 @@ class Image:
 @dataclass(frozen=True)
 class HarborConfig:
     host: str
+    protocol: str = "https"
 
 
 # The ConfigMap is only read at startup. Restart the webservice to reload the available images
@@ -100,6 +101,7 @@ def get_harbor_config() -> HarborConfig:
         data = json.load(f)
     return HarborConfig(
         host=data["host"],
+        protocol=data.get("protocol", HarborConfig.protocol),
     )
 
 
@@ -111,7 +113,7 @@ def get_harbor_images_for_name(namespace: str, name: str) -> List[Image]:
 
     try:
         response = requests.get(
-            f"https://{config.host}/api/v2.0/projects/{encoded_namespace}/repositories/{encoded_name}/artifacts",
+            f"{config.protocol}://{config.host}/api/v2.0/projects/{encoded_namespace}/repositories/{encoded_name}/artifacts",
             params={
                 # TODO: pagination if needed
                 "page": "1",
@@ -156,7 +158,7 @@ def get_harbor_images(namespace: str) -> List[Image]:
 
     try:
         response = requests.get(
-            f"https://{config.host}/api/v2.0/projects/{encoded_namespace}/repositories",
+            f"{config.protocol}://{config.host}/api/v2.0/projects/{encoded_namespace}/repositories",
             params={
                 "with_tag": "true",
                 # TODO: pagination if needed
