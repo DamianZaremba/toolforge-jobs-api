@@ -81,6 +81,10 @@ class JobListResource(Resource):
             raise TjfValidationError(
                 f"Mount type {args.mount.value} is only supported for build service images"
             )
+        if image.type == ImageType.BUILDPACK and not args.cmd.startswith("launcher"):
+            # this allows using either a procfile entry point or any command as command
+            # for a buildservice-based job
+            args.cmd = f"launcher {args.cmd}"
         if args.filelog:
             if args.mount != MountOption.ALL:
                 raise TjfValidationError("File logging is only available with --mount=all")
