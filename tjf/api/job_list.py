@@ -100,7 +100,6 @@ class JobListResource(Resource):
 
         command = Command.from_api(
             user_command=args.cmd,
-            use_wrapper=image.type.use_command_wrapper(),
             filelog=args.filelog,
             filelog_stdout=filelog_stdout,
             filelog_stderr=filelog_stderr,

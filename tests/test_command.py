@@ -11,32 +11,6 @@ import tjf.utils as utils
 from tjf.command import Command, resolve_filelog_path
 
 
-def test_generate_command_no_wrapper(tmp_path_factory):
-    # this is provided by a pytest fixture, https://docs.pytest.org/en/7.1.x/how-to/tmp_path.html
-    directory = tmp_path_factory.mktemp("testcmd")
-
-    script_path = Path(__file__).parent / "helpers" / "gen-output" / "both.sh"
-
-    cmd = Command.from_api(
-        user_command=f"{script_path.absolute()} nowrapper",
-        use_wrapper=False,
-        filelog=False,
-        filelog_stdout=None,
-        filelog_stderr=None,
-    )
-
-    generated = cmd.generate_for_k8s()
-
-    result = subprocess.run(
-        generated.command + generated.args, capture_output=True, text=True, cwd=directory
-    )
-
-    assert result.stdout == "this text has no meaningful content nowrapper,\n"
-    assert result.stderr == "it is just an example\n"
-
-    assert not any(directory.glob("*"))
-
-
 def test_generate_command_no_filelog(tmp_path_factory):
     # this is provided by a pytest fixture, https://docs.pytest.org/en/7.1.x/how-to/tmp_path.html
     directory = tmp_path_factory.mktemp("testcmd")
@@ -45,7 +19,6 @@ def test_generate_command_no_filelog(tmp_path_factory):
 
     cmd = Command.from_api(
         user_command=f"{script_path.absolute()} nofilelog",
-        use_wrapper=True,
         filelog=False,
         filelog_stdout=None,
         filelog_stderr=None,
@@ -73,7 +46,6 @@ def test_generate_command_filelog(tmp_path_factory):
 
     cmd = Command.from_api(
         user_command=f"{script_path.absolute()} yesfilelog",
-        use_wrapper=True,
         filelog=True,
         filelog_stdout=stdout_file,
         filelog_stderr=stderr_file,

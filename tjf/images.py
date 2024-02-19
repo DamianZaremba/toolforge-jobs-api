@@ -35,10 +35,6 @@ class ImageType(Enum):
     STANDARD = "standard"
     BUILDPACK = "buildpack"
 
-    def use_command_wrapper(self) -> bool:
-        """Check if the command using this image type should be executed via a shell wrapper."""
-        return self != ImageType.BUILDPACK
-
     def use_standard_nfs(self) -> bool:
         return self != ImageType.BUILDPACK
 

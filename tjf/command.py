@@ -22,17 +22,12 @@ class Command:
     _STDERR_PREFIX: ClassVar[str] = "exec 2>>"
 
     user_command: str
-    use_wrapper: bool
     filelog: bool
     filelog_stdout: Path | None
     filelog_stderr: Path | None
 
     def generate_for_k8s(self) -> GeneratedCommand:
         """Generate the command array for the kubernetes object."""
-        if not self.use_wrapper:
-            splitted = shlex.split(self.user_command)
-            return GeneratedCommand(command=[splitted[0]], args=splitted[1:])
-
         ret = self._WRAPPER.copy()
 
         command = ""
@@ -51,7 +46,6 @@ class Command:
         cls,
         *,
         user_command: str,
-        use_wrapper: bool,
         filelog: bool,
         filelog_stdout: Path | None,
         filelog_stderr: Path | None,
@@ -59,7 +53,6 @@ class Command:
         """Create a new Command class instance from TJF API parameters."""
         return cls(
             user_command=user_command,
-            use_wrapper=use_wrapper,
             filelog=filelog,
             filelog_stdout=filelog_stdout,
             filelog_stderr=filelog_stderr,
@@ -87,25 +80,21 @@ class Command:
 
         if command_new_format:
             if filelog or job_version == 1:
-                use_wrapper = True
                 items = command_spec.split(";")
-                # support user-specied command in the form 'x ; y ; z'
+                # support user-specified command in the form 'x ; y ; z'
                 user_command = ";".join(items[2:])
                 filelog_stdout = items[0].replace(cls._STDOUT_PREFIX, "")
                 filelog_stderr = items[1].replace(cls._STDERR_PREFIX, "")
             else:
                 if len(k8s_command) == len(cls._WRAPPER) + 1 and k8s_command[:-1] == cls._WRAPPER:
-                    use_wrapper = True
                     user_command = command_spec
                 else:
-                    use_wrapper = False
                     user_command = shlex.join(k8s_command + k8s_arguments)
 
                 filelog_stdout = None
                 filelog_stderr = None
         else:
             user_command = command_spec[: command_spec.rindex(" 1>")]
-            use_wrapper = True
             # there can't be jobs with the old command array layout with custom logfiles, so this
             # is rather simple
             if filelog:
@@ -121,7 +110,6 @@ class Command:
 
         return cls(
             user_command=user_command,
-            use_wrapper=use_wrapper,
             filelog=filelog,
             filelog_stdout=Path(filelog_stdout) if filelog_stdout else None,
             filelog_stderr=Path(filelog_stderr) if filelog_stderr else None,
