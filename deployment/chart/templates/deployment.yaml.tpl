@@ -23,6 +23,8 @@ spec:
         name: jobs-api
         {{- include "jobs-api.selectorLabels" . | nindent 8 }}
     spec:
+      nodeSelector:
+        kubernetes.wmcloud.org/nfs-mounted: "true"
       containers:
       - name: webservice
         image: {{ .Values.webservice.image.name }}:{{ .Values.webservice.image.tag }}
