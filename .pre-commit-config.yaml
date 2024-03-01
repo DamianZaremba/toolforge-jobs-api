@@ -3,21 +3,19 @@ default_language_version:
 
 repos:
   - repo: https://github.com/psf/black
-    rev: 23.1.0
+    rev: 24.1.1
     hooks:
       - id: black
-        args: ["--check", "--diff"]
 
   - repo: https://github.com/PyCQA/isort
-    rev: 5.11.5 # do not update this until our CI runner uses Python >=3.8.1
+    rev: 5.13.2
     hooks:
       - id: isort
-        args: ["--check", "--diff"]
         additional_dependencies: [toml]
         files: \.py$
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 5.0.4 # do not update this until our CI runner uses Python >=3.8.1
+    rev: 7.0.0
     hooks:
       - id: flake8
         # E121, E123, E126, E133, E226, E241, E242, E704 and W503 are default ignores
@@ -30,7 +28,7 @@ repos:
           ]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.0.0
+    rev: v1.8.0
     hooks:
       - id: mypy
         exclude: ^tests/
@@ -50,12 +48,3 @@ repos:
       - id: check-shebang-scripts-are-executable
       - id: check-executables-have-shebangs
       - id: check-merge-conflict
-
-  - repo: local
-    hooks:
-      - id: pytest
-        name: pytest
-        entry: pytest
-        language: system
-        pass_filenames: false
-        always_run: true
