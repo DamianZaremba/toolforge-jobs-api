@@ -19,6 +19,7 @@ from toolforge_weld.kubernetes import MountOption
 from tjf.command import Command, resolve_filelog_path
 from tjf.cron import CronExpression, CronParsingError
 from tjf.error import TjfError, TjfValidationError
+from tjf.health_check import AVAILABLE_HEALTH_CHECKS
 from tjf.images import ImageType, image_by_name
 from tjf.job import Job, JobType
 from tjf.ops import create_job, delete_all_jobs, find_job, list_all_jobs
@@ -49,6 +50,7 @@ run_parser.add_argument(
     required=False,
     location=["json"],
 )
+run_parser.add_argument("health_check", type=dict, required=False, location=["json"])
 
 
 class JobListResource(Resource):
@@ -98,13 +100,6 @@ class JobListResource(Resource):
         else:
             filelog_stdout = filelog_stderr = None
 
-        command = Command.from_api(
-            user_command=args.cmd,
-            filelog=args.filelog,
-            filelog_stdout=filelog_stdout,
-            filelog_stderr=filelog_stderr,
-        )
-
         if args.schedule:
             job_type = JobType.SCHEDULED
             try:
@@ -117,6 +112,23 @@ class JobListResource(Resource):
             schedule = None
 
             job_type = JobType.CONTINUOUS if args.continuous else JobType.ONE_OFF
+
+        command = Command.from_api(
+            user_command=args.cmd,
+            filelog=args.filelog,
+            filelog_stdout=filelog_stdout,
+            filelog_stderr=filelog_stderr,
+        )
+
+        health_check = None
+        # in case it's value is None in the dict
+        health_check_data = args.get("health_check", {}) or {}
+        check_type = health_check_data.get("type", None)
+        for health_check_cls in AVAILABLE_HEALTH_CHECKS:
+            if health_check_cls.handles_type(check_type=check_type):
+                health_check = health_check_cls.from_api(
+                    health_check=health_check_data,
+                )
 
         try:
             job = Job(
@@ -134,6 +146,7 @@ class JobListResource(Resource):
                 cpu=args.cpu,
                 emails=args.emails,
                 mount=args.mount,
+                health_check=health_check,
             )
 
             create_job(user=user, job=job)

@@ -15,13 +15,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from flask import Flask
+from flask import Flask, Response
+from flask.typing import ResponseReturnValue
 from flask_restful import Api
 from toolforge_weld.errors import ToolforgeError
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig
 
-from tjf.api.healthz import healthz
 from tjf.api.image_list import ImageListResource
 from tjf.api.job import JobResource
 from tjf.api.job_list import JobListResource
@@ -44,6 +44,10 @@ class TjfApi(Api):
             return error_handler(e)
         else:
             return super().handle_error(e)
+
+
+def healthz() -> ResponseReturnValue:
+    return Response("OK", content_type="text/plain; charset=utf8"), 200
 
 
 def create_app(*, load_images: bool = True, init_metrics: bool = True) -> Flask:

@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 import time
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 from toolforge_weld.kubernetes import K8sClient, MountOption, parse_quantity
 
@@ -27,6 +27,7 @@ import tjf.utils as utils
 from tjf.command import Command
 from tjf.cron import CronExpression
 from tjf.error import TjfError, TjfValidationError
+from tjf.health_check import HealthCheck, HealthCheckType, ScriptHealthCheck
 from tjf.images import Image, image_by_container_url
 from tjf.labels import generate_labels
 
@@ -156,6 +157,7 @@ class Job:
         cpu: str,
         emails: str,
         mount: MountOption,
+        health_check: Optional[HealthCheck],
     ) -> None:
         self.job_type = job_type
 
@@ -174,6 +176,7 @@ class Job:
         self.emails = emails
         self.retry = retry
         self.mount = mount
+        self.health_check = health_check
 
         if self.emails is None:
             self.emails = "none"
@@ -243,6 +246,14 @@ class Job:
         command = Command.from_k8s(
             k8s_metadata=metadata, k8s_command=k8s_command, k8s_arguments=k8s_arguments
         )
+        container_spec = podspec["template"]["spec"]["containers"][0]
+        health_check = None
+        if container_spec.get("startupProbe", None):
+            if container_spec["startupProbe"].get("exec", None):
+                script = container_spec["startupProbe"]["exec"]["command"][2]
+                health_check = ScriptHealthCheck(
+                    health_check_type=HealthCheckType.SCRIPT, script=script
+                )
 
         mount = MountOption.parse_labels(metadata["labels"])
 
@@ -267,6 +278,7 @@ class Job:
             cpu=cpu,
             emails=emails,
             mount=mount,
+            health_check=health_check,
         )
 
     @property
@@ -321,6 +333,9 @@ class Job:
                 }
             ]
 
+        # only add health-check to continuous jobs for now
+        probes = self.health_check.for_k8s() if self.health_check and self.cont else {}
+
         return {
             "metadata": {"labels": labels},
             "spec": {
@@ -335,6 +350,7 @@ class Job:
                         "command": generated_command.command,
                         "args": generated_command.args,
                         "resources": self._generate_container_resources(),
+                        **probes,
                     }
                 ],
             },
@@ -486,6 +502,7 @@ class Job:
             "emails": self.emails,
             "retry": self.retry,
             "mount": str(self.mount),
+            "health_check": self.health_check.for_api() if self.health_check else None,
         }
 
         if self.schedule is not None:

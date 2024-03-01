@@ -236,6 +236,17 @@ components:
                       type: string
     JobLogs:
       type: string
+    ScriptHealthCheck:
+      type: object
+      description: "Health check implemented as a script that runs inside the container"
+      required:
+        - type
+        - script
+      properties:
+        type:
+          type: string
+        script:
+          type: string
     # job as created by the user
     NewJob:
       type: object
@@ -312,6 +323,15 @@ components:
           type: string
           description: "Job CPU resource limit."
           example: "1"
+        health_check:
+          type: object
+          description: "Health check configuration for the job."
+          oneOf:
+            - $ref: "#/components/schemas/ScriptHealthCheck"
+          discriminator:
+            propertyName: type
+            mapping:
+              script: "#/components/schemas/ScriptHealthCheck"
     # job, once defined, as reported by the API
     DefinedJob:
       allOf:
