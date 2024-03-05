@@ -11,7 +11,7 @@ from tjf.job import JobType, validate_jobname
         "underscores_are_not_valid_in_dns",
         "nor..are..double..dots",
         ".or-starting-with-dots",
-        "a" * 65,
+        "a" * 53,
     ],
 )
 def test_invalid_jobname(name: str) -> None:
@@ -24,7 +24,7 @@ def test_invalid_jobname(name: str) -> None:
     [
         "totally-valid",
         "so.is.this",
-        "a" * 63,
+        "a" * 52,
     ],
 )
 def test_valid_jobname(name: str) -> None:

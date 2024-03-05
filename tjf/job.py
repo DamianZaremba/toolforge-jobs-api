@@ -35,6 +35,12 @@ from tjf.labels import generate_labels
 # characters, '-' or '.', and must start and end with an alphanumeric character
 JOBNAME_PATTERN = re.compile("^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
 
+# Cron jobs have a hard limit of 52 characters.
+# Jobs have a hard limit of 63 characters.
+# As far as I can tell, deployments don't actually have a k8s-enforced limit.
+# to make the whole thing consistent, use the min()
+JOBNAME_MAX_LENGTH = 52
+
 JOB_CONTAINER_NAME = "job"
 
 K8S_OBJECT_TYPE = dict[str, Any]
@@ -65,17 +71,6 @@ class KubernetesJobObjectKind(Enum):
     @property
     def api_version(self) -> str:
         return K8sClient.VERSIONS[self.api_path_name]
-
-    @property
-    def max_name_length(self) -> int:
-        if self == KubernetesJobObjectKind.CRON_JOB:
-            # Cron jobs have a hard limit of 52 characters.
-            return 52
-        else:
-            # Jobs have a hard limit of 63 characters.
-            # As far as I can tell, deployments don't actually have a k8s-enforced limit.
-            # But this seems like a reasonable limit on this side.
-            return 63
 
 
 class JobType(Enum):
@@ -113,10 +108,9 @@ def validate_jobname(job_name: str, job_type: JobType | None) -> None:
             "Invalid job name. See the documentation for the naming rules: https://w.wiki/6YL8"
         )
 
-    if job_type and len(job_name) > job_type.k8s_type.max_name_length:
-        type_name = "Cron job" if job_type == JobType.SCHEDULED else "Job"
+    if len(job_name) > JOBNAME_MAX_LENGTH:
         raise TjfValidationError(
-            f"Invalid job name. {type_name} names can't be longer than {job_type.k8s_type.max_name_length} characters. "
+            f"Invalid job name, it can't be longer than {JOBNAME_MAX_LENGTH} characters. "
             "See the documentation for the naming rules: https://w.wiki/6YL8"
         )
 
