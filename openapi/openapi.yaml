@@ -1,0 +1,337 @@
+---
+openapi: "3.1.0"
+info:
+  title: "Toolforge jobs framework API"
+  version: "1.0.0"
+servers:
+  - url: "https://api.svc.tools.eqiad1.wikimedia.cloud:30003/jobs"
+paths:
+  /api/v1/images:
+    get:
+      operationId: "images"
+      description: "Returns the list of available container images that you can use to create a new job."
+      tags: [ "Context" ]
+      security: &security
+       - toolforge_tool_client_certificate: []
+      responses:
+        "200":
+          description: "The response contains a list of available container images."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Images"
+        "401": &unauthorized_error
+          description: "Unauthorized error."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/quota:
+    get:
+      operationId: "quota"
+      description: "Returns information on the tool account quotas in Toolforge."
+      tags: [ "Context" ]
+      security: *security
+      responses:
+        "200":
+          description: "The response contains the quota details."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quota"
+        "401": *unauthorized_error
+  /api/v1/jobs:
+    get:
+      operationId: "list"
+      description: "Returns the list of jobs defined for this Toolforge tool account."
+      tags: [ "Operations" ]
+      security: *security
+      responses:
+        "200":
+          description: "The list of jobs is returned."
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DefinedJob"
+        "401": *unauthorized_error
+    post:
+      operationId: "create"
+      description: "Create a new job in this Toolforge tool account."
+      tags: [ "Operations" ]
+      security: *security
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/NewJob"
+      responses:
+        "200":
+          description: "A new job was created."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefinedJob"
+        "400": &bad_parameters_error
+          description: "Bad parameters error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401": *unauthorized_error
+    delete:
+      operationId: "flush"
+      description: "Stop and delete all defined jobs from this Toolforge tool account."
+      tags: [ "Operations" ]
+      security: *security
+      responses:
+        "200":
+          description: "All jobs were flushed"
+        "401": *unauthorized_error
+  /api/v1/jobs/{id}:
+    get:
+      operationId: "show"
+      description: "Show information about a given job for this Toolforge tool account."
+      tags: [ "Operations" ]
+      security: *security
+      parameters: &job_id_parameters
+        - name: id
+          in: path
+          description: "Job name."
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Job was found."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefinedJob"
+        "400": *bad_parameters_error
+        "401": *unauthorized_error
+        "404": &not_found_error
+          description: "Object not found error."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: "delete"
+      description: "Stop and delete the specified job from this Toolforge tool account."
+      tags: [ "Operations" ]
+      security: *security
+      parameters: *job_id_parameters
+      responses:
+        "200":
+          description: "Job was deleted."
+        "400": *bad_parameters_error
+        "401": *unauthorized_error
+        "404": *not_found_error
+  /api/v1/jobs/{id}/logs:
+    get:
+      operationId: "get_logs"
+      description: "Get logs for a given job in this Toolforge tool account."
+      tags: [ "Operations" ]
+      security: *security
+      parameters: *job_id_parameters
+      responses:
+        "200":
+          description: "Job logs are served."
+          content:
+            text/plain:
+              schema:
+                $ref: "#/components/schemas/JobLogs"
+        "400": *bad_parameters_error
+        "401": *unauthorized_error
+        "404": *not_found_error
+  /api/v1/jobs/{id}/restart:
+    post:
+      operationId: "restart"
+      description: "Restart a given job. If the job is a cronjob, execute it right now."
+      tags: [ "Operations" ]
+      security: *security
+      parameters: *job_id_parameters
+      responses:
+        "200":
+          description: "Job has been restarted."
+        "400": *bad_parameters_error
+        "401": *unauthorized_error
+        "404": *not_found_error
+  /healthz:
+    get:
+      operationId: "healthcheck"
+      description: "Endpoint that can be used to know the health status of the API itself."
+      tags: [ "API system" ]
+      responses:
+        "200":
+          description: "The health status of the service is well known."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+      security: []
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - OK
+            - ERROR
+        message:
+          type: string
+    Images:
+      type: array
+      items:
+        type: object
+        properties:
+          shortname:
+            type: string
+          image:
+            type: string
+    Quota:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              items:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    limit:
+                      type: string
+                    used:
+                      type: string
+    JobLogs:
+      type: string
+    # job as created by the user
+    NewJob:
+      type: object
+      required:
+        - name
+        - cmd
+        - image
+      properties:
+        name:
+          type: string
+          description: "Unique name that identifies the job."
+          # This is a restriction by Kubernetes:
+          # a lowercase RFC 1123 subdomain must consist of lower case alphanumeric
+          # characters, '-' or '.', and must start and end with an alphanumeric character
+          pattern: "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          minLength: 1
+          maxLength: 52
+          example: "my-job"
+        cmd:
+          type: string
+          description: "Command that this job is executing."
+          example: "./some-command.sh --with-args"
+        image:
+          type: string
+          description: "Container image the job uses."
+          example: "tool-my-tool/tool-my-tool:latest"
+        filelog:
+          type: boolean
+          description: "Whether this job uses filelog or not."
+          example: false
+        filelog_stdout:
+          type: string
+          description: "Path to the stdout file log."
+          example: "logs/my-job.out"
+        filelog_stderr:
+          type: string
+          description: "Path to the stderr file log."
+          example: "logs/my-job.err"
+        emails:
+          type: string
+          description: "Job emails setting."
+          enum:
+            - "none"
+            - "all"
+            - "onfinish"
+            - "onfailure"
+          example: "all"
+        retry:
+          type: integer
+          description: "Job retry policy. Zero means don't retry at all (the default)"
+          minimum: 0
+          maximum: 5
+          example: 0
+        mount:
+          type: string
+          description: "NFS mount configuration for the job."
+          enum:
+            - "all"
+            - "none"
+          example: "none"
+        schedule:
+          type: string
+          description: "If the job is a cronjob, execution schedule."
+          example: "@hourly"
+        continuous:
+          type: boolean
+          description: "If a job should be always running."
+          example: false
+        mem:
+          type: string
+          description: "Job memory resource limit."
+          example: "1G"
+        cpu:
+          type: string
+          description: "Job CPU resource limit."
+          example: "1"
+    # job, once defined, as reported by the API
+    DefinedJob:
+      allOf:
+        - $ref: "#/components/schemas/NewJob"
+        - type: object
+          properties:
+            image_state:
+              type: string
+              description: "Information about the image state, i.e, if it is stable, deprecated, or something else."
+              example: "stable"
+            status_short:
+              type: string
+              description: "Job status, short text."
+              example: "Running."
+            status_long:
+              type: string
+              description: "Job status, extended text."
+              example: "Running since 30 seconds ago."
+            schedule_actual:
+              type: string
+              description: "If the job is a cronjob, actual execution schedule."
+              example: "15 * * * *"
+  securitySchemes:
+    toolforge_tool_client_certificate:
+      type: "mutualTLS"
+      description: "This API requires a client certificate generated for the Toolforge tool account."
+tags:
+  - name: "Operations"
+    description: "Common operations on Toolforge jobs."
+    externalDocs:
+      url: "https://wikitech.wikimedia.org/wiki/Help:Toolforge/Jobs_framework"
+  - name: "Context"
+    description: "Relevant context for Toolforge jobs."
+  - name: "API system"
+    description: "Information about the API system itself."
