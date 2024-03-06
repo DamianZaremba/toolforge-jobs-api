@@ -28,6 +28,7 @@ from tjf.api.job_list import JobListResource
 from tjf.api.job_restart import JobRestartResource
 from tjf.api.logs import get_logs
 from tjf.api.metrics import metrics_init_app
+from tjf.api.openapi import openapi
 from tjf.api.quota import QuotaResource
 from tjf.error import TjfError, error_handler
 from tjf.images import update_available_images
@@ -58,6 +59,7 @@ def create_app(*, load_images: bool = True, init_metrics: bool = True) -> Flask:
     app.add_url_rule("/api/v1/jobs/<string:name>/logs", "get_logs", get_logs)
     app.add_url_rule("/api/v1/logs/<string:name>", "get_logs_legacy", get_logs)
     app.add_url_rule("/healthz", "healthz", healthz)
+    app.add_url_rule("/openapi.json", "openapi", openapi)
 
     api.add_resource(
         JobListResource,

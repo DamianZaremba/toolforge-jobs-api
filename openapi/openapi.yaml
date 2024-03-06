@@ -162,6 +162,18 @@ paths:
         "400": *bad_parameters_error
         "401": *unauthorized_error
         "404": *not_found_error
+  /openapi.json:
+    get:
+      operationId: "openapi"
+      description: "Endpoint to access this openapi definition document."
+      tags: [ "API system" ]
+      responses:
+        "200":
+          description: "Returns the openapi definition."
+          content:
+            application/json:
+              schema:
+                type: object
   /healthz:
     get:
       operationId: "healthcheck"
