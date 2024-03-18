@@ -20,7 +20,6 @@ import logging
 import urllib.parse
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional
 
 import requests
 import yaml
@@ -43,7 +42,7 @@ class ImageType(Enum):
 class Image:
     type: ImageType
     canonical_name: str
-    aliases: List[str]
+    aliases: list[str]
     container: str
     state: str
 
@@ -55,7 +54,7 @@ class HarborConfig:
 
 
 # The ConfigMap is only read at startup. Restart the webservice to reload the available images
-AVAILABLE_IMAGES: List[Image] = []
+AVAILABLE_IMAGES: list[Image] = []
 
 
 CONFIG_VARIANT_KEY = "jobs-framework"
@@ -101,7 +100,7 @@ def get_harbor_config() -> HarborConfig:
     )
 
 
-def get_harbor_images_for_name(namespace: str, name: str) -> List[Image]:
+def get_harbor_images_for_name(namespace: str, name: str) -> list[Image]:
     config = get_harbor_config()
 
     encoded_namespace = urllib.parse.quote_plus(namespace)
@@ -125,7 +124,7 @@ def get_harbor_images_for_name(namespace: str, name: str) -> List[Image]:
         LOGGER.warning("Failed to load Harbor tags for %s/%s", namespace, name, exc_info=True)
         return []
 
-    images: List[Image] = []
+    images: list[Image] = []
     for artifact in response.json():
         if artifact["type"] != "IMAGE":
             continue
@@ -147,7 +146,7 @@ def get_harbor_images_for_name(namespace: str, name: str) -> List[Image]:
     return images
 
 
-def get_harbor_images(namespace: str) -> List[Image]:
+def get_harbor_images(namespace: str) -> list[Image]:
     config = get_harbor_config()
 
     encoded_namespace = urllib.parse.quote_plus(namespace)
@@ -176,7 +175,7 @@ def get_harbor_images(namespace: str) -> List[Image]:
             )
         return []
 
-    images: List[Image] = []
+    images: list[Image] = []
 
     for repository in response.json():
         name = repository["name"][len(namespace) + 1 :]
@@ -185,7 +184,7 @@ def get_harbor_images(namespace: str) -> List[Image]:
     return images
 
 
-def image_by_name(name: str) -> Optional[Image]:
+def image_by_name(name: str) -> Image | None:
     for image in AVAILABLE_IMAGES:
         if image.canonical_name == name or name in image.aliases:
             return image
@@ -201,7 +200,7 @@ def image_by_name(name: str) -> Optional[Image]:
     return None
 
 
-def image_by_container_url(url: str) -> Optional[Image]:
+def image_by_container_url(url: str) -> Image | None:
     for image in AVAILABLE_IMAGES:
         if image.container == url:
             return image

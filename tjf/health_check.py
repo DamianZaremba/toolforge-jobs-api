@@ -1,27 +1,12 @@
 from abc import ABC, abstractmethod
-from enum import Enum, auto
-from typing import Any, Dict, Optional, Type, TypeVar
-
-from tjf.error import TjfValidationError
+from enum import Enum
+from typing import Any, Type, TypeVar
 
 T = TypeVar("T", bound="HealthCheck")
 
 
-class HealthCheckType(Enum):
-    SCRIPT = auto()
-
-    @classmethod
-    def from_str(cls, check_type: Optional[str]) -> "HealthCheckType":
-        if check_type == cls.SCRIPT.name.lower():
-            return cls.SCRIPT
-        else:
-            raise TjfValidationError(
-                f"""
-                Invalid health-check type.
-                It should be one of: {",".join(list(cls.__members__)).lower()},
-                got "{check_type}"
-                """
-            )
+class HealthCheckType(str, Enum):
+    SCRIPT = "script"
 
 
 class HealthCheck(ABC):
@@ -34,20 +19,15 @@ class HealthCheck(ABC):
 
     @classmethod
     @abstractmethod
-    def from_api(cls: Type[T], health_check: Dict[str, str]) -> T:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def handles_type(cls: Type[T], check_type: Optional[str]) -> bool:
+    def handles_type(cls: Type[T], check_type: str | None) -> bool:
         pass
 
     @abstractmethod
-    def for_api(self) -> Dict[str, str]:
+    def for_api(self) -> dict[str, str]:
         pass
 
     @abstractmethod
-    def for_k8s(self) -> Dict[str, Any]:
+    def for_k8s(self) -> dict[str, Any]:
         pass
 
 
@@ -58,53 +38,22 @@ class ScriptHealthCheck(HealthCheck):
         self.script = script
 
     @classmethod
-    def handles_type(cls: Type[T], check_type: Optional[str]) -> bool:
-        if not check_type:
+    def handles_type(cls: Type[T], check_type: str | None) -> bool:
+        try:
+            health_check_type = HealthCheckType(check_type)
+        except ValueError:
             return False
 
-        health_check_type = HealthCheckType.from_str(check_type)
         return health_check_type == HealthCheckType.SCRIPT
 
-    @classmethod
-    def from_api(cls: Type[T], health_check: Dict[str, str]) -> T:
-        try:
-            check_type = health_check["type"]
-            health_check_script = health_check["script"]
-        except (KeyError, TypeError):
-            raise TjfValidationError(
-                f"""
-                health-check should be a dictionary of format:
-                {{"type":"{
-                    "|".join(list(HealthCheckType.__members__)).lower()
-                }","script": <string>}},
-                got \"{health_check}\"
-                """
-            )
-
-        health_check_type = HealthCheckType.from_str(check_type=check_type)
-
-        if not isinstance(health_check_script, str):
-            raise TjfValidationError(
-                f'health-check script must be a string, got "{type(health_check_script)}"'
-            )
-
-        if not health_check_script:
-            raise TjfValidationError(
-                f'health-check script must not be empty, got "{health_check_script}"'
-            )
-
-        return cls(
-            health_check_type=health_check_type,  # type: ignore
-            script=health_check_script,  # type: ignore
-        )
-
-    def for_api(self) -> Dict[str, str]:
+    # TODO: move this to api layer
+    def for_api(self) -> dict[str, str]:
         return {
             "type": self.health_check_type.name.lower(),
             "script": self.script,
         }
 
-    def for_k8s(self) -> Dict[str, Any]:
+    def for_k8s(self) -> dict[str, Any]:
         return {
             "startupProbe": {
                 "exec": {
@@ -123,8 +72,3 @@ class ScriptHealthCheck(HealthCheck):
                 "failureThreshold": self.LIVENESS_PROBE_DEFAULT_FAILURE_THRESHOLD,
             },
         }
-
-
-AVAILABLE_HEALTH_CHECKS = [
-    ScriptHealthCheck,
-]

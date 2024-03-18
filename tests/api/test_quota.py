@@ -14,7 +14,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import json
 from pathlib import Path
-from typing import Dict
 
 import pytest
 from flask import Flask
@@ -52,7 +51,7 @@ def patch_user_to_have_quotas(user_with_quotas, monkeypatch: pytest.MonkeyPatch)
 
 
 def test_quota_endpoint(
-    client: FlaskClient, fixtures_path: Path, patch_user_to_have_quotas, fake_user: Dict[str, str]
+    client: FlaskClient, fixtures_path: Path, patch_user_to_have_quotas, fake_user: dict[str, str]
 ):
     expected = json.loads((fixtures_path / "quota" / "expected-api-result.json").read_text())
     response = client.get("/api/v1/quota/", headers=fake_user)

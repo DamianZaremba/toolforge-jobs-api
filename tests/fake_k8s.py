@@ -1,5 +1,3 @@
-from typing import Optional
-
 from tjf.job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY
 
 # TODO: replace most of this file with json/yaml files in helpers/fixtures
@@ -969,8 +967,8 @@ class FakeJob:
     def __init__(
         self,
         *,
-        cpu: Optional[str] = None,
-        memory: Optional[str] = None,
+        cpu: str | None = None,
+        memory: str | None = None,
     ) -> None:
         self.cpu = cpu or JOB_DEFAULT_CPU
         self.memory = memory or JOB_DEFAULT_MEMORY

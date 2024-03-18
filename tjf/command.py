@@ -4,20 +4,20 @@ from __future__ import annotations
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, List, Optional
+from typing import Any, ClassVar
 
 
 @dataclass(frozen=True)
 class GeneratedCommand:
-    command: List[str]
-    args: Optional[List[str]]
+    command: list[str] | None
+    args: list[str] | None
 
 
 @dataclass(frozen=True)
 class Command:
     """Class to represenet a job command."""
 
-    _WRAPPER: ClassVar[List[str]] = ["/bin/sh", "-c", "--"]
+    _WRAPPER: ClassVar[list[str]] = ["/bin/sh", "-c", "--"]
     _STDOUT_PREFIX: ClassVar[str] = "exec 1>>"
     _STDERR_PREFIX: ClassVar[str] = "exec 2>>"
 
@@ -60,7 +60,7 @@ class Command:
 
     @classmethod
     def from_k8s(
-        cls, *, k8s_metadata: dict[str, Any], k8s_command: List[str], k8s_arguments: List[str]
+        cls, *, k8s_metadata: dict[str, Any], k8s_command: list[str], k8s_arguments: list[str]
     ) -> "Command":
         """Parse from kubernetes object and return a new Command class instance."""
         jobname = k8s_metadata["name"]

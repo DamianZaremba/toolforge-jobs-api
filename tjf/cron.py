@@ -1,6 +1,5 @@
 import random
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 from tjf.error import TjfJobParsingError, TjfValidationError
 
@@ -15,10 +14,10 @@ class CronParsingError(TjfValidationError):
 class CronField:
     min: int
     max: int
-    mapping: Optional[Dict[str, str]] = None
+    mapping: dict[str, str] | None = None
 
 
-AT_MAPPING: Dict[str, str] = {
+AT_MAPPING: dict[str, str] = {
     "@hourly": "0 * * * *",
     "@daily": "0 0 * * *",
     "@weekly": "0 0 * * 0",
@@ -26,7 +25,7 @@ AT_MAPPING: Dict[str, str] = {
     "@yearly": "0 0 1 1 *",
 }
 
-FIELDS: List[CronField] = [
+FIELDS: list[CronField] = [
     CronField(min=0, max=59),
     CronField(min=0, max=23),
     CronField(min=1, max=31),

@@ -14,7 +14,7 @@ def error_generating_app():
     app.register_error_handler(ToolforgeError, error_handler)
     app.register_error_handler(TjfError, error_handler)
 
-    @app.route("/error", methods=["GET"])  # non-restful endpoints
+    @app.route("/error", methods=["GET"])
     def get():
         raise TjfClientError("Invalid foo", data={"options": ["bar", "baz"]})
 

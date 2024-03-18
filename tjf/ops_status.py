@@ -2,7 +2,6 @@
 # Copyright (C) 2023 Arturo Borrero Gonzalez <aborrero@wikimedia.org>
 
 from datetime import datetime
-from typing import Optional
 
 import tjf.utils as utils
 from tjf.error import TjfError
@@ -25,7 +24,7 @@ def _get_quota_error(message: str) -> str:
     return f"out of quota for {', '.join(sorted(quota_types))}"
 
 
-def _get_job_object_status(user: User, job: dict, for_complete=False) -> Optional[str]:
+def _get_job_object_status(user: User, job: dict, for_complete=False) -> str | None:
     if not job:
         return None
 
@@ -71,7 +70,7 @@ def _get_job_object_status(user: User, job: dict, for_complete=False) -> Optiona
 
 def _refresh_status_cronjob_from_restarted_cronjob(
     user: User, original_cronjob: Job
-) -> Optional[str]:
+) -> str | None:
     """This function scans all job resources that may or may not be manually defined to see if
     it may be related to the original_cronjob."""
     original_cronjob_metadata = original_cronjob.k8s_object.get("metadata", None)

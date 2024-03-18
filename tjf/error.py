@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from flask import jsonify
 from flask.typing import ResponseReturnValue
@@ -11,14 +11,14 @@ class TjfError(Exception):
     """Custom error class for jobs-api errors."""
 
     http_status_code: int = 500
-    data: Dict[str, Any]
+    data: dict[str, Any]
 
     def __init__(
         self,
         message: str,
         *,
-        http_status_code: Optional[int] = None,
-        data: Optional[Dict[str, Any]] = None,
+        http_status_code: int | None = None,
+        data: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
 

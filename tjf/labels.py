@@ -15,21 +15,19 @@
 #
 from __future__ import annotations
 
-from typing import Dict, Optional
-
 from toolforge_weld.kubernetes import MountOption
 
 
 def generate_labels(
     *,
-    jobname: Optional[str],
+    jobname: str | None,
     username: str,
-    type: Optional[str],
+    type: str | None,
     filelog: bool,
-    emails: Optional[str],
+    emails: str | None,
     version: bool = True,
     mount: MountOption | None = None,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     obj = {
         "toolforge": "tool",
         "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
@@ -57,7 +55,7 @@ def generate_labels(
     return obj
 
 
-def labels_selector(jobname: str | None, username: str, type: str | None = None) -> Dict[str, str]:
+def labels_selector(jobname: str | None, username: str, type: str | None = None) -> dict[str, str]:
     return generate_labels(
         jobname=jobname,
         username=username,

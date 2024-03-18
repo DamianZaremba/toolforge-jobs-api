@@ -14,11 +14,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 import json
-from typing import Iterator
+from pathlib import Path
+from typing import Any, Iterator
 
 from flask import Blueprint, Response, request
 from flask.typing import ResponseReturnValue
-from flask_restful import reqparse
+from pydantic import ValidationError
 from toolforge_weld.kubernetes import MountOption
 from toolforge_weld.logs import LogEntry
 from toolforge_weld.logs.kubernetes import KubernetesSource
@@ -27,7 +28,6 @@ from toolforge_weld.utils import peek
 from ..command import Command, resolve_filelog_path
 from ..cron import CronExpression, CronParsingError
 from ..error import TjfClientError, TjfError, TjfValidationError
-from ..health_check import AVAILABLE_HEALTH_CHECKS
 from ..images import ImageType, image_by_name
 from ..job import JOB_CONTAINER_NAME, Job, JobType
 from ..labels import labels_selector
@@ -40,6 +40,7 @@ from ..ops import (
     restart_job,
 )
 from ..user import User
+from .models import NewJob
 
 api_jobs = Blueprint("jobs", __name__, url_prefix="/api/v1/jobs")
 # deprecated
@@ -117,34 +118,6 @@ def get_logs(name: str) -> ResponseReturnValue:
     )
 
 
-# arguments that the API understands
-create_job_parser = reqparse.RequestParser()
-create_job_parser.add_argument("cmd", type=str, required=True, location=["json"])
-create_job_parser.add_argument("imagename", type=str, required=True, location=["json"])
-create_job_parser.add_argument("schedule", type=str, location=["json"])
-create_job_parser.add_argument("continuous", type=bool, default=False, location=["json"])
-create_job_parser.add_argument("name", type=str, required=True, location=["json"])
-create_job_parser.add_argument("filelog", type=bool, default=False, location=["json"])
-create_job_parser.add_argument("filelog_stdout", type=str, required=False, location=["json"])
-create_job_parser.add_argument("filelog_stderr", type=str, required=False, location=["json"])
-create_job_parser.add_argument(
-    "retry", choices=[0, 1, 2, 3, 4, 5], type=int, default=0, location=["json"]
-)
-create_job_parser.add_argument("memory", type=str, location=["json"])
-create_job_parser.add_argument("cpu", type=str, location=["json"])
-create_job_parser.add_argument("emails", type=str, location=["json"])
-create_job_parser.add_argument(
-    "mount",
-    type=MountOption.parse,
-    choices=list(MountOption),
-    # TODO: remove default from the API
-    default=MountOption.ALL,
-    required=False,
-    location=["json"],
-)
-create_job_parser.add_argument("health_check", type=dict, required=False, location=["json"])
-
-
 @api_jobs.route("/<name>", methods=["GET"])
 @api_show.route("/<name>", methods=["GET"])
 def api_get_job(name: str):
@@ -179,85 +152,89 @@ def api_list_jobs():
     return [j.get_api_object() for j in job_list]
 
 
-@api_jobs.route("/", methods=["POST"])
-@api_run.route("/", methods=["POST"])
-def api_create_job():
+@api_jobs.route("/", methods=["POST", "PUT"])
+@api_run.route("/", methods=["POST", "PUT"])
+def api_create_job() -> tuple[dict[str, Any], int]:
+    try:
+        new_job = NewJob.model_validate(request.json)
+    except ValidationError as error:
+        raise TjfValidationError("Invalid parameters passed.") from error
+
     user = User.from_request()
 
-    args = create_job_parser.parse_args()
-    image = image_by_name(args.imagename)
+    image = image_by_name(new_job.imagename)
 
     if not image:
-        raise TjfValidationError(f"No such image '{args.imagename}'")
+        raise TjfValidationError(f"No such image '{new_job.imagename}'")
 
-    if args.schedule and args.continuous:
+    if new_job.schedule and new_job.continuous:
         raise TjfValidationError(
             "Only one of 'continuous' and 'schedule' can be set at the same time"
         )
 
-    if find_job(user=user, jobname=args.name) is not None:
+    if find_job(user=user, jobname=new_job.name) is not None:
         raise TjfValidationError("A job with the same name exists already", http_status_code=409)
 
-    if image.type != ImageType.BUILDPACK and not args.mount.supports_non_buildservice:
+    if image.type != ImageType.BUILDPACK and not new_job.mount.supports_non_buildservice:
         raise TjfValidationError(
-            f"Mount type {args.mount.value} is only supported for build service images"
+            f"Mount type {new_job.mount.value} is only supported for build service images"
         )
-    if image.type == ImageType.BUILDPACK and not args.cmd.startswith("launcher"):
+    if image.type == ImageType.BUILDPACK and not new_job.cmd.startswith("launcher"):
         # this allows using either a procfile entry point or any command as command
         # for a buildservice-based job
-        args.cmd = f"launcher {args.cmd}"
-    if args.filelog:
-        if args.mount != MountOption.ALL:
+        new_job.cmd = f"launcher {new_job.cmd}"
+    if new_job.filelog:
+        if new_job.mount != MountOption.ALL:
             raise TjfValidationError("File logging is only available with --mount=all")
 
-        filelog_stdout = resolve_filelog_path(args.filelog_stdout, user.home, f"{args.name}.out")
-        filelog_stderr = resolve_filelog_path(args.filelog_stderr, user.home, f"{args.name}.err")
+        filelog_stdout: Path | None = resolve_filelog_path(
+            new_job.filelog_stdout, user.home, f"{new_job.name}.out"
+        )
+        filelog_stderr: Path | None = resolve_filelog_path(
+            new_job.filelog_stderr, user.home, f"{new_job.name}.err"
+        )
     else:
         filelog_stdout = filelog_stderr = None
 
     command = Command.from_api(
-        user_command=args.cmd,
-        filelog=args.filelog,
+        user_command=new_job.cmd,
+        filelog=new_job.filelog,
         filelog_stdout=filelog_stdout,
         filelog_stderr=filelog_stderr,
     )
     health_check = None
-    # in case it's value is None in the dict
-    health_check_data = args.get("health_check", {}) or {}
-    check_type = health_check_data.get("type", None)
-    for health_check_cls in AVAILABLE_HEALTH_CHECKS:
-        if health_check_cls.handles_type(check_type=check_type):
-            health_check = health_check_cls.from_api(
-                health_check=health_check_data,
-            )
+    if new_job.health_check:
+        health_check = new_job.health_check.to_internal()
 
-    if args.schedule:
+    if new_job.schedule:
         job_type = JobType.SCHEDULED
         try:
-            schedule = CronExpression.parse(args.schedule, f"{user.namespace} {args.name}")
+            schedule = CronExpression.parse(new_job.schedule, f"{user.namespace} {new_job.name}")
         except CronParsingError as e:
-            raise TjfValidationError(f"Unable to parse cron expression '{args.schedule}'") from e
+            raise TjfValidationError(
+                f"Unable to parse cron expression '{new_job.schedule}'"
+            ) from e
     else:
         schedule = None
 
-        job_type = JobType.CONTINUOUS if args.continuous else JobType.ONE_OFF
+        job_type = JobType.CONTINUOUS if new_job.continuous else JobType.ONE_OFF
 
     try:
         job = Job(
             job_type=job_type,
             command=command,
             image=image,
-            jobname=args.name,
+            jobname=new_job.name,
             ns=user.namespace,
             username=user.name,
             schedule=schedule,
-            cont=args.continuous,
+            cont=new_job.continuous,
             k8s_object=None,
-            retry=args.retry,
-            memory=args.memory,
-            cpu=args.cpu,
-            emails=args.emails,
-            mount=args.mount,
+            retry=new_job.retry,
+            memory=new_job.mem,
+            cpu=new_job.cpu,
+            emails=new_job.emails,
+            mount=new_job.mount,
             health_check=health_check,
         )
 
