@@ -12,89 +12,87 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from flask_restful import Resource
+from flask import Blueprint
 
 from tjf.error import TjfError
 from tjf.user import User
 
+api_quota = Blueprint("quota", __name__, url_prefix="/api/v1/quota/")
 
-class QuotaResource(Resource):
-    def get(self):
-        user = User.from_request()
 
-        resource_quota = user.kapi.get_object("resourcequotas", user.namespace)
-        limit_range = user.kapi.get_object("limitranges", user.namespace)
+@api_quota.route("/", methods=["GET"])
+def api_get_quota():
+    user = User.from_request()
 
-        if not resource_quota or not limit_range:
-            raise TjfError("Unable to load quota information for this tool")
+    resource_quota = user.kapi.get_object("resourcequotas", user.namespace)
+    limit_range = user.kapi.get_object("limitranges", user.namespace)
 
-        container_limit = next(
-            limit for limit in limit_range["spec"]["limits"] if limit["type"] == "Container"
-        )
+    if not resource_quota or not limit_range:
+        raise TjfError("Unable to load quota information for this tool")
 
-        quota_data = {
-            "categories": [
-                {
-                    "name": "Running jobs",
-                    "items": [
-                        {
-                            "name": "Total running jobs at once (Kubernetes pods)",
-                            "limit": int(resource_quota["status"]["hard"]["pods"]),
-                            "used": int(resource_quota["status"]["used"]["pods"]),
-                        },
-                        {
-                            "name": "Running one-off and cron jobs",
-                            "limit": int(resource_quota["status"]["hard"]["count/jobs.batch"]),
-                            "used": int(resource_quota["status"]["used"]["count/jobs.batch"]),
-                        },
-                        # Here we assume that for all CPU and RAM use, requests are set to half of
-                        # what limits are set. This is true for at least jobs-api usage.
-                        # TODO: somehow display if requests are using more than half of limits.
-                        {
-                            "name": "CPU",
-                            "limit": resource_quota["status"]["hard"]["limits.cpu"],
-                            "used": resource_quota["status"]["used"]["limits.cpu"],
-                        },
-                        {
-                            "name": "Memory",
-                            "limit": resource_quota["status"]["hard"]["limits.memory"],
-                            "used": resource_quota["status"]["used"]["limits.memory"],
-                        },
-                    ],
-                },
-                {
-                    "name": "Per-job limits",
-                    "items": [
-                        {
-                            "name": "CPU",
-                            "limit": container_limit["max"]["cpu"],
-                        },
-                        {
-                            "name": "Memory",
-                            "limit": container_limit["max"]["memory"],
-                        },
-                    ],
-                },
-                {
-                    "name": "Job definitions",
-                    "items": [
-                        {
-                            "name": "Cron jobs",
-                            "limit": int(resource_quota["status"]["hard"]["count/cronjobs.batch"]),
-                            "used": int(resource_quota["status"]["used"]["count/cronjobs.batch"]),
-                        },
-                        {
-                            "name": "Continuous jobs (including web services)",
-                            "limit": int(
-                                resource_quota["status"]["hard"]["count/deployments.apps"]
-                            ),
-                            "used": int(
-                                resource_quota["status"]["used"]["count/deployments.apps"]
-                            ),
-                        },
-                    ],
-                },
-            ],
-        }
+    container_limit = next(
+        limit for limit in limit_range["spec"]["limits"] if limit["type"] == "Container"
+    )
 
-        return quota_data, 200
+    quota_data = {
+        "categories": [
+            {
+                "name": "Running jobs",
+                "items": [
+                    {
+                        "name": "Total running jobs at once (Kubernetes pods)",
+                        "limit": int(resource_quota["status"]["hard"]["pods"]),
+                        "used": int(resource_quota["status"]["used"]["pods"]),
+                    },
+                    {
+                        "name": "Running one-off and cron jobs",
+                        "limit": int(resource_quota["status"]["hard"]["count/jobs.batch"]),
+                        "used": int(resource_quota["status"]["used"]["count/jobs.batch"]),
+                    },
+                    # Here we assume that for all CPU and RAM use, requests are set to half of
+                    # what limits are set. This is true for at least jobs-api usage.
+                    # TODO: somehow display if requests are using more than half of limits.
+                    {
+                        "name": "CPU",
+                        "limit": resource_quota["status"]["hard"]["limits.cpu"],
+                        "used": resource_quota["status"]["used"]["limits.cpu"],
+                    },
+                    {
+                        "name": "Memory",
+                        "limit": resource_quota["status"]["hard"]["limits.memory"],
+                        "used": resource_quota["status"]["used"]["limits.memory"],
+                    },
+                ],
+            },
+            {
+                "name": "Per-job limits",
+                "items": [
+                    {
+                        "name": "CPU",
+                        "limit": container_limit["max"]["cpu"],
+                    },
+                    {
+                        "name": "Memory",
+                        "limit": container_limit["max"]["memory"],
+                    },
+                ],
+            },
+            {
+                "name": "Job definitions",
+                "items": [
+                    {
+                        "name": "Cron jobs",
+                        "limit": int(resource_quota["status"]["hard"]["count/cronjobs.batch"]),
+                        "used": int(resource_quota["status"]["used"]["count/cronjobs.batch"]),
+                    },
+                    {
+                        "name": "Continuous jobs (including web services)",
+                        "limit": int(resource_quota["status"]["hard"]["count/deployments.apps"]),
+                        "used": int(resource_quota["status"]["used"]["count/deployments.apps"]),
+                    },
+                ],
+            },
+        ],
+    }
+
+    return quota_data, 200

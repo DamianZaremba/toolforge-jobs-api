@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 import time
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from toolforge_weld.kubernetes import K8sClient, MountOption, parse_quantity
 
@@ -157,7 +157,7 @@ class Job:
         cpu: str,
         emails: str,
         mount: MountOption,
-        health_check: Optional[HealthCheck],
+        health_check: HealthCheck | None,
     ) -> None:
         self.job_type = job_type
 

@@ -14,36 +14,28 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-
 from flask import Flask, Response
 from flask.typing import ResponseReturnValue
-from flask_restful import Api
 from toolforge_weld.errors import ToolforgeError
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig
 
-from tjf.api.image_list import ImageListResource
-from tjf.api.job import JobResource
-from tjf.api.job_list import JobListResource
-from tjf.api.job_restart import JobRestartResource
-from tjf.api.logs import get_logs
-from tjf.api.metrics import metrics_init_app
-from tjf.api.openapi import openapi
-from tjf.api.quota import QuotaResource
-from tjf.error import TjfError, error_handler
-from tjf.images import update_available_images
-from tjf.utils import USER_AGENT
-
-
-class TjfApi(Api):
-    """Custom Api class for jobs-api to provide custom error handling."""
-
-    def handle_error(self, e):
-        """Custom error handler."""
-        if isinstance(e, ToolforgeError) or isinstance(e, TjfError):
-            return error_handler(e)
-        else:
-            return super().handle_error(e)
+from ..error import TjfError, error_handler
+from ..images import update_available_images
+from ..utils import USER_AGENT
+from .images import api_images
+from .jobs import (
+    api_delete,
+    api_flush,
+    api_jobs,
+    api_list,
+    api_restart,
+    api_run,
+    api_show,
+)
+from .metrics import metrics_init_app
+from .openapi import openapi
+from .quota import api_quota
 
 
 def healthz() -> ResponseReturnValue:
@@ -52,7 +44,6 @@ def healthz() -> ResponseReturnValue:
 
 def create_app(*, load_images: bool = True, init_metrics: bool = True) -> Flask:
     app = Flask(__name__)
-    api = TjfApi(app)
 
     if init_metrics:
         metrics_init_app(app)
@@ -60,37 +51,20 @@ def create_app(*, load_images: bool = True, init_metrics: bool = True) -> Flask:
     # non-restful endpoints
     app.register_error_handler(ToolforgeError, error_handler)
     app.register_error_handler(TjfError, error_handler)
-    app.add_url_rule("/api/v1/jobs/<string:name>/logs", "get_logs", get_logs)
-    app.add_url_rule("/api/v1/logs/<string:name>", "get_logs_legacy", get_logs)
-    app.add_url_rule("/healthz", "healthz", healthz)
-    app.add_url_rule("/openapi.json", "openapi", openapi)
 
-    api.add_resource(
-        JobListResource,
-        "/api/v1/jobs/",
-        # legacy routes to be removed
-        "/api/v1/list/",
-        "/api/v1/run/",
-        "/api/v1/flush/",
-    )
+    app.add_url_rule("/healthz", view_func=healthz, methods=["GET"])
+    app.add_url_rule("/openapi.json", view_func=openapi, methods=["GET"])
 
-    api.add_resource(
-        JobResource,
-        "/api/v1/jobs/<string:name>",
-        # legacy routes to be removed
-        "/api/v1/show/<string:name>",
-        "/api/v1/delete/<string:name>",
-    )
-
-    api.add_resource(
-        JobRestartResource,
-        "/api/v1/jobs/<string:name>/restart",
-        # legacy routes to be removed
-        "/api/v1/restart/<string:name>",
-    )
-
-    api.add_resource(ImageListResource, "/api/v1/images/")
-    api.add_resource(QuotaResource, "/api/v1/quota/")
+    app.register_blueprint(api_jobs)
+    app.register_blueprint(api_images)
+    app.register_blueprint(api_quota)
+    # deprecated endpoints
+    app.register_blueprint(api_list)
+    app.register_blueprint(api_flush)
+    app.register_blueprint(api_run)
+    app.register_blueprint(api_show)
+    app.register_blueprint(api_delete)
+    app.register_blueprint(api_restart)
 
     if load_images:
         # before app startup!

@@ -1,32 +1,34 @@
 import pytest
 from flask import Flask
-from flask_restful import Resource
 from toolforge_weld.errors import ToolforgeUserError
 
-from tjf.api.app import TjfApi
-from tjf.error import TjfClientError, TjfError
+from tjf.api.app import error_handler
+from tjf.error import TjfClientError, TjfError, ToolforgeError
 
 
 @pytest.fixture()
 def error_generating_app():
-    class ErrorGeneratingResource(Resource):
-        def get(self):
-            raise TjfClientError("Invalid foo", data={"options": ["bar", "baz"]})
-
-        def post(self):
-            cause = Exception("Failed to contact foo")
-            raise TjfError("Failed to create job") from cause
-
-        def put(self):
-            cause = Exception("Test")
-            error = ToolforgeUserError("Welding failed")
-            error.context = {"aaa": "bbb"}
-            raise error from cause
 
     app = Flask(__name__)
-    api = TjfApi(app)
 
-    api.add_resource(ErrorGeneratingResource, "/error")
+    app.register_error_handler(ToolforgeError, error_handler)
+    app.register_error_handler(TjfError, error_handler)
+
+    @app.route("/error", methods=["GET"])  # non-restful endpoints
+    def get():
+        raise TjfClientError("Invalid foo", data={"options": ["bar", "baz"]})
+
+    @app.route("/error", methods=["POST"])
+    def post():
+        cause = Exception("Failed to contact foo")
+        raise TjfError("Failed to create job") from cause
+
+    @app.route("/error", methods=["PUT"])
+    def put():
+        cause = Exception("Test")
+        error = ToolforgeUserError("Welding failed")
+        error.context = {"aaa": "bbb"}
+        raise error from cause
 
     yield app.test_client()
 
