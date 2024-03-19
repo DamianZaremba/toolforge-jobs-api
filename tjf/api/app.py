@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+import logging
+
 from flask import Flask, Response
 from flask.typing import ResponseReturnValue
 from toolforge_weld.errors import ToolforgeError
@@ -74,5 +76,8 @@ def create_app(*, load_images: bool = True, init_metrics: bool = True) -> Flask:
         )
 
         update_available_images(tf_public_client)
+
+    logging.info("Registered urls:")
+    logging.info("%s", str(app.url_map))
 
     return app

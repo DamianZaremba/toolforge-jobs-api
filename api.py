@@ -14,10 +14,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+import logging
 
 from tjf.api.app import create_app
 
+logging.basicConfig(level=logging.INFO)
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=False, use_reloader=False)
+    address = "0.0.0.0"
+    port = 8080
+    print("Starting app on {address}:{port}")
+    app.run(host=address, port=port, debug=False, use_reloader=False)
