@@ -25,7 +25,7 @@ import requests
 import yaml
 from toolforge_weld.kubernetes import K8sClient
 
-from tjf.error import TjfError
+from .error import TjfError
 
 LOGGER = logging.getLogger(__name__)
 

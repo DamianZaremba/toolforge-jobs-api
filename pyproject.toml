@@ -21,6 +21,9 @@ toolforge-weld = "^1.4.0"
 gunicorn = "^21.2.0"
 pydantic = "^2.6.4"
 
+[tool.poetry.group.dev.dependencies]
+openapi-schema-validator = "^0.6.2"
+
 [tool.black]
 line-length = 99
 target_version = ['py311']

@@ -12,16 +12,20 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from flask import Blueprint
+import http
 
-from tjf.error import TjfError
-from tjf.user import User
+from flask import Blueprint
+from flask.typing import ResponseReturnValue
+
+from ..error import TjfError
+from ..user import User
+from .models import Quota, QuotaCategory, QuotaEntry
 
 api_quota = Blueprint("quota", __name__, url_prefix="/api/v1/quota/")
 
 
 @api_quota.route("/", methods=["GET"])
-def api_get_quota():
+def api_get_quota() -> ResponseReturnValue:
     user = User.from_request()
 
     resource_quota = user.kapi.get_object("resourcequotas", user.namespace)
@@ -34,65 +38,65 @@ def api_get_quota():
         limit for limit in limit_range["spec"]["limits"] if limit["type"] == "Container"
     )
 
-    quota_data = {
-        "categories": [
-            {
-                "name": "Running jobs",
-                "items": [
-                    {
-                        "name": "Total running jobs at once (Kubernetes pods)",
-                        "limit": int(resource_quota["status"]["hard"]["pods"]),
-                        "used": int(resource_quota["status"]["used"]["pods"]),
-                    },
-                    {
-                        "name": "Running one-off and cron jobs",
-                        "limit": int(resource_quota["status"]["hard"]["count/jobs.batch"]),
-                        "used": int(resource_quota["status"]["used"]["count/jobs.batch"]),
-                    },
+    quota_data = Quota(
+        categories=[
+            QuotaCategory(
+                name="Running jobs",
+                items=[
+                    QuotaEntry(
+                        name="Total running jobs at once (Kubernetes pods)",
+                        limit=resource_quota["status"]["hard"]["pods"],
+                        used=resource_quota["status"]["used"]["pods"],
+                    ),
+                    QuotaEntry(
+                        name="Running one-off and cron jobs",
+                        limit=resource_quota["status"]["hard"]["count/jobs.batch"],
+                        used=resource_quota["status"]["used"]["count/jobs.batch"],
+                    ),
                     # Here we assume that for all CPU and RAM use, requests are set to half of
                     # what limits are set. This is true for at least jobs-api usage.
                     # TODO: somehow display if requests are using more than half of limits.
-                    {
-                        "name": "CPU",
-                        "limit": resource_quota["status"]["hard"]["limits.cpu"],
-                        "used": resource_quota["status"]["used"]["limits.cpu"],
-                    },
-                    {
-                        "name": "Memory",
-                        "limit": resource_quota["status"]["hard"]["limits.memory"],
-                        "used": resource_quota["status"]["used"]["limits.memory"],
-                    },
+                    QuotaEntry(
+                        name="CPU",
+                        limit=resource_quota["status"]["hard"]["limits.cpu"],
+                        used=resource_quota["status"]["used"]["limits.cpu"],
+                    ),
+                    QuotaEntry(
+                        name="Memory",
+                        limit=resource_quota["status"]["hard"]["limits.memory"],
+                        used=resource_quota["status"]["used"]["limits.memory"],
+                    ),
                 ],
-            },
-            {
-                "name": "Per-job limits",
-                "items": [
-                    {
-                        "name": "CPU",
-                        "limit": container_limit["max"]["cpu"],
-                    },
-                    {
-                        "name": "Memory",
-                        "limit": container_limit["max"]["memory"],
-                    },
+            ),
+            QuotaCategory(
+                name="Per-job limits",
+                items=[
+                    QuotaEntry(
+                        name="CPU",
+                        limit=container_limit["max"]["cpu"],
+                    ),
+                    QuotaEntry(
+                        name="Memory",
+                        limit=container_limit["max"]["memory"],
+                    ),
                 ],
-            },
-            {
-                "name": "Job definitions",
-                "items": [
-                    {
-                        "name": "Cron jobs",
-                        "limit": int(resource_quota["status"]["hard"]["count/cronjobs.batch"]),
-                        "used": int(resource_quota["status"]["used"]["count/cronjobs.batch"]),
-                    },
-                    {
-                        "name": "Continuous jobs (including web services)",
-                        "limit": int(resource_quota["status"]["hard"]["count/deployments.apps"]),
-                        "used": int(resource_quota["status"]["used"]["count/deployments.apps"]),
-                    },
+            ),
+            QuotaCategory(
+                name="Job definitions",
+                items=[
+                    QuotaEntry(
+                        name="Cron jobs",
+                        limit=resource_quota["status"]["hard"]["count/cronjobs.batch"],
+                        used=resource_quota["status"]["used"]["count/cronjobs.batch"],
+                    ),
+                    QuotaEntry(
+                        name="Continuous jobs (including web services)",
+                        limit=resource_quota["status"]["hard"]["count/deployments.apps"],
+                        used=resource_quota["status"]["used"]["count/deployments.apps"],
+                    ),
                 ],
-            },
+            ),
         ],
-    }
+    )
 
-    return quota_data, 200
+    return quota_data.model_dump(exclude_unset=True), http.HTTPStatus.OK

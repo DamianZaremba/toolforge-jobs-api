@@ -25,4 +25,4 @@ def client(app: Flask) -> FlaskClient:
 def test_healthz(client: FlaskClient):
     response = client.get("/healthz")
     assert response.status_code == 200
-    assert response.data == b"OK"
+    assert response.json == {"message": "OK", "status": "OK"}

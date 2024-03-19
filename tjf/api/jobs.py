@@ -13,13 +13,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+import http
 import json
 from pathlib import Path
 from typing import Any, Iterator
 
 from flask import Blueprint, Response, request
 from flask.typing import ResponseReturnValue
-from pydantic import ValidationError
 from toolforge_weld.kubernetes import MountOption
 from toolforge_weld.logs import LogEntry
 from toolforge_weld.logs.kubernetes import KubernetesSource
@@ -40,7 +40,7 @@ from ..ops import (
     restart_job,
 )
 from ..user import User
-from .models import NewJob
+from .models import DefinedJob, NewJob
 
 api_jobs = Blueprint("jobs", __name__, url_prefix="/api/v1/jobs")
 # deprecated
@@ -114,25 +114,26 @@ def get_logs(name: str) -> ResponseReturnValue:
             # https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering
             headers={"X-Accel-Buffering": "no"},
         ),
-        200,
+        http.HTTPStatus.OK,
     )
 
 
 @api_jobs.route("/<name>", methods=["GET"])
 @api_show.route("/<name>", methods=["GET"])
-def api_get_job(name: str):
+def api_get_job(name: str) -> tuple[dict[str, Any], int]:
     user = User.from_request()
 
     job = find_job(user=user, jobname=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    return job.get_api_object()
+    defined_job = DefinedJob.from_job(job)
+    return defined_job.model_dump(exclude_unset=True), http.HTTPStatus.OK
 
 
 @api_jobs.route("/<name>", methods=["DELETE"])
 @api_delete.route("/<name>", methods=["DELETE"])
-def api_delete_job(name: str):
+def api_delete_job(name: str) -> tuple[dict[str, Any], int]:
     user = User.from_request()
 
     job = find_job(user=user, jobname=name)
@@ -140,25 +141,26 @@ def api_delete_job(name: str):
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
     delete_job(user=user, job=job)
-    return {}, 200
+    return {}, http.HTTPStatus.OK
 
 
 @api_jobs.route("/", methods=["GET"])
 @api_list.route("/", methods=["GET"])
-def api_list_jobs():
+def api_list_jobs() -> ResponseReturnValue:
     user = User.from_request()
 
-    job_list = list_all_jobs(user=user)
-    return [j.get_api_object() for j in job_list]
+    user_jobs = list_all_jobs(user=user)
+    defined_jobs = [DefinedJob.from_job(job) for job in user_jobs]
+
+    return [
+        defined_job.model_dump(exclude_unset=True) for defined_job in defined_jobs
+    ], http.HTTPStatus.OK
 
 
 @api_jobs.route("/", methods=["POST", "PUT"])
 @api_run.route("/", methods=["POST", "PUT"])
-def api_create_job() -> tuple[dict[str, Any], int]:
-    try:
-        new_job = NewJob.model_validate(request.json)
-    except ValidationError as error:
-        raise TjfValidationError("Invalid parameters passed.") from error
+def api_create_job() -> ResponseReturnValue:
+    new_job = NewJob.model_validate(request.json)
 
     user = User.from_request()
 
@@ -244,21 +246,23 @@ def api_create_job() -> tuple[dict[str, Any], int]:
     except Exception as e:
         raise TjfError("Unable to start job") from e
 
-    return job.get_api_object(), 201
+    defined_job = DefinedJob.from_job(job=job)
+
+    return defined_job.model_dump(exclude_unset=True), http.HTTPStatus.CREATED
 
 
 @api_jobs.route("/", methods=["DELETE"])
 @api_flush.route("/", methods=["DELETE"])
-def api_job_flush():
+def api_job_flush() -> ResponseReturnValue:
     user = User.from_request()
 
     delete_all_jobs(user=user)
-    return {}, 200
+    return {}, http.HTTPStatus.OK
 
 
 @api_jobs.route("/<name>/restart", methods=["POST"])
 @api_restart.route("/<name>", methods=["POST"])
-def api_job_restart(name: str):
+def api_job_restart(name: str) -> tuple[dict[str, Any], int]:
     user = User.from_request()
 
     job = find_job(user=user, jobname=name)
@@ -267,4 +271,4 @@ def api_job_restart(name: str):
 
     restart_job(user=user, job=job)
 
-    return {}, 200
+    return {}, http.HTTPStatus.OK

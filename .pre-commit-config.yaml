@@ -3,7 +3,7 @@ default_language_version:
 
 repos:
   - repo: https://github.com/psf/black
-    rev: 24.2.0
+    rev: 24.3.0
     hooks:
       - id: black
 
@@ -20,7 +20,7 @@ repos:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
+    rev: v1.9.0
     hooks:
       - id: mypy
         exclude: ^tests/
@@ -40,3 +40,8 @@ repos:
       - id: check-shebang-scripts-are-executable
       - id: check-executables-have-shebangs
       - id: check-merge-conflict
+
+  - repo: https://github.com/python-openapi/openapi-spec-validator
+    rev: 0.7.1
+    hooks:
+      - id: openapi-spec-validator

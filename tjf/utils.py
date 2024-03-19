@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 from typing import Set, TypeVar
 
-from tjf.error import TjfValidationError
+from .error import TjfValidationError
 
 USER_AGENT = "jobs-api"
 

@@ -14,17 +14,20 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+import http
 import logging
 
-from flask import Flask, Response
+from flask import Flask
 from flask.typing import ResponseReturnValue
+from pydantic import ValidationError
 from toolforge_weld.errors import ToolforgeError
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig
 
-from ..error import TjfError, error_handler
+from ..error import TjfError
 from ..images import update_available_images
 from ..utils import USER_AGENT
+from .error import error_handler
 from .images import api_images
 from .jobs import (
     api_delete,
@@ -36,12 +39,14 @@ from .jobs import (
     api_show,
 )
 from .metrics import metrics_init_app
+from .models import Health, HealthState
 from .openapi import openapi
 from .quota import api_quota
 
 
 def healthz() -> ResponseReturnValue:
-    return Response("OK", content_type="text/plain; charset=utf8"), 200
+    health = Health(status=HealthState.ok, message="OK")
+    return health.model_dump(exclude_unset=True), http.HTTPStatus.OK
 
 
 def create_app(*, load_images: bool = True, init_metrics: bool = True) -> Flask:
@@ -53,6 +58,7 @@ def create_app(*, load_images: bool = True, init_metrics: bool = True) -> Flask:
     # non-restful endpoints
     app.register_error_handler(ToolforgeError, error_handler)
     app.register_error_handler(TjfError, error_handler)
+    app.register_error_handler(ValidationError, error_handler)
 
     app.add_url_rule("/healthz", view_func=healthz, methods=["GET"])
     app.add_url_rule("/openapi.json", view_func=openapi, methods=["GET"])

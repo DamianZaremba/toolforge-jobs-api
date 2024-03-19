@@ -5,13 +5,13 @@
             "items": [
                 {
                     "name": "Total running jobs at once (Kubernetes pods)",
-                    "limit": 10,
-                    "used": 1
+                    "limit": "10",
+                    "used": "1"
                 },
                 {
                     "name": "Running one-off and cron jobs",
-                    "limit": 15,
-                    "used": 0
+                    "limit": "15",
+                    "used": "0"
                 },
                 {
                     "name": "CPU",
@@ -43,13 +43,13 @@
             "items": [
                 {
                     "name": "Cron jobs",
-                    "limit": 50,
-                    "used": 5
+                    "limit": "50",
+                    "used": "5"
                 },
                 {
                     "name": "Continuous jobs (including web services)",
-                    "limit": 3,
-                    "used": 1
+                    "limit": "3",
+                    "used": "1"
                 }
             ]
         }

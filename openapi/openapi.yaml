@@ -10,9 +10,9 @@ paths:
     get:
       operationId: "images"
       description: "Returns the list of available container images that you can use to create a new job."
-      tags: [ "Context" ]
+      tags: ["Context"]
       security: &security
-       - toolforge_tool_client_certificate: []
+        - toolforge_tool_client_certificate: []
       responses:
         "200":
           description: "The response contains a list of available container images."
@@ -30,7 +30,7 @@ paths:
     get:
       operationId: "quota"
       description: "Returns information on the tool account quotas in Toolforge."
-      tags: [ "Context" ]
+      tags: ["Context"]
       security: *security
       responses:
         "200":
@@ -44,7 +44,7 @@ paths:
     get:
       operationId: "list"
       description: "Returns the list of jobs defined for this Toolforge tool account."
-      tags: [ "Operations" ]
+      tags: ["Operations"]
       security: *security
       responses:
         "200":
@@ -59,7 +59,7 @@ paths:
     post:
       operationId: "create"
       description: "Create a new job in this Toolforge tool account."
-      tags: [ "Operations" ]
+      tags: ["Operations"]
       security: *security
       requestBody:
         required: true
@@ -84,7 +84,7 @@ paths:
     delete:
       operationId: "flush"
       description: "Stop and delete all defined jobs from this Toolforge tool account."
-      tags: [ "Operations" ]
+      tags: ["Operations"]
       security: *security
       responses:
         "200":
@@ -94,7 +94,7 @@ paths:
     get:
       operationId: "show"
       description: "Show information about a given job for this Toolforge tool account."
-      tags: [ "Operations" ]
+      tags: ["Operations"]
       security: *security
       parameters: &job_id_parameters
         - name: id
@@ -123,7 +123,7 @@ paths:
     delete:
       operationId: "delete"
       description: "Stop and delete the specified job from this Toolforge tool account."
-      tags: [ "Operations" ]
+      tags: ["Operations"]
       security: *security
       parameters: *job_id_parameters
       responses:
@@ -136,7 +136,7 @@ paths:
     get:
       operationId: "get_logs"
       description: "Get logs for a given job in this Toolforge tool account."
-      tags: [ "Operations" ]
+      tags: ["Operations"]
       security: *security
       parameters: *job_id_parameters
       responses:
@@ -153,7 +153,7 @@ paths:
     post:
       operationId: "restart"
       description: "Restart a given job. If the job is a cronjob, execute it right now."
-      tags: [ "Operations" ]
+      tags: ["Operations"]
       security: *security
       parameters: *job_id_parameters
       responses:
@@ -166,7 +166,7 @@ paths:
     get:
       operationId: "openapi"
       description: "Endpoint to access this openapi definition document."
-      tags: [ "API system" ]
+      tags: ["API system"]
       responses:
         "200":
           description: "Returns the openapi definition."
@@ -178,7 +178,7 @@ paths:
     get:
       operationId: "healthcheck"
       description: "Endpoint that can be used to know the health status of the API itself."
-      tags: [ "API system" ]
+      tags: ["API system"]
       responses:
         "200":
           description: "The health status of the service is well known."
@@ -194,6 +194,8 @@ components:
       properties:
         message:
           type: string
+        data:
+          type: object
     Health:
       type: object
       properties:

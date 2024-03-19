@@ -483,39 +483,3 @@ class Job:
         ]
 
         return k8s_job_object
-
-    def get_api_object(self) -> dict[str, Any]:
-        obj = {
-            "name": self.jobname,
-            "cmd": self.command.user_command,
-            "image": self.image.canonical_name,
-            "image_state": self.image.state,
-            "filelog": f"{self.command.filelog}",
-            "filelog_stdout": (
-                str(self.command.filelog_stdout) if self.command.filelog_stdout else None
-            ),
-            "filelog_stderr": (
-                str(self.command.filelog_stderr) if self.command.filelog_stderr else None
-            ),
-            "status_short": self.status_short,
-            "status_long": self.status_long,
-            "emails": self.emails,
-            "retry": self.retry,
-            "mount": str(self.mount),
-            "health_check": self.health_check.for_api() if self.health_check else None,
-        }
-
-        if self.schedule is not None:
-            obj["schedule"] = self.schedule.text
-            obj["schedule_actual"] = self.schedule.format()
-
-        if self.cont:
-            obj["continuous"] = True
-
-        if self.memory is not None and self.memory != JOB_DEFAULT_MEMORY:
-            obj["memory"] = self.memory
-
-        if self.cpu is not None and self.cpu != JOB_DEFAULT_CPU:
-            obj["cpu"] = self.cpu
-
-        return obj
