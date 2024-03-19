@@ -17,9 +17,9 @@
 
 import requests
 
-from tjf.error import TjfError, TjfValidationError
-from tjf.job import Job
-from tjf.user import User
+from .error import TjfError, TjfValidationError
+from .job import Job
+from .user import User
 
 
 def _is_out_of_quota(e: requests.exceptions.HTTPError, job: Job, user: User) -> bool:

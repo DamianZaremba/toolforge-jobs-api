@@ -23,13 +23,13 @@ from typing import Any
 
 from toolforge_weld.kubernetes import K8sClient, MountOption, parse_quantity
 
-import tjf.utils as utils
-from tjf.command import Command
-from tjf.cron import CronExpression
-from tjf.error import TjfError, TjfValidationError
-from tjf.health_check import HealthCheckType, ScriptHealthCheck
-from tjf.images import Image, image_by_container_url
-from tjf.labels import generate_labels
+from . import utils
+from .command import Command
+from .cron import CronExpression
+from .error import TjfError, TjfValidationError
+from .health_check import HealthCheckType, ScriptHealthCheck
+from .images import Image, image_by_container_url
+from .labels import generate_labels
 
 # This is a restriction by Kubernetes:
 # a lowercase RFC 1123 subdomain must consist of lower case alphanumeric

@@ -1,7 +1,7 @@
 import random
 from dataclasses import dataclass
 
-from tjf.error import TjfJobParsingError, TjfValidationError
+from .error import TjfJobParsingError, TjfValidationError
 
 
 class CronParsingError(TjfValidationError):

@@ -3,12 +3,12 @@
 
 from datetime import datetime
 
-import tjf.utils as utils
-from tjf.error import TjfError
-from tjf.job import Job
-from tjf.labels import labels_selector
-from tjf.user import User
-from tjf.utils import KUBERNETES_DATE_FORMAT
+from . import utils
+from .error import TjfError
+from .job import Job
+from .labels import labels_selector
+from .user import User
+from .utils import KUBERNETES_DATE_FORMAT
 
 
 def _get_quota_error(message: str) -> str:

@@ -21,13 +21,13 @@ import time
 import requests
 from toolforge_weld.kubernetes import parse_quantity
 
-import tjf.utils as utils
-from tjf.error import TjfError, TjfValidationError
-from tjf.job import Job, JobType, validate_jobname
-from tjf.k8s_errors import create_error_from_k8s_response
-from tjf.labels import labels_selector
-from tjf.ops_status import refresh_job_long_status, refresh_job_short_status
-from tjf.user import User
+from . import utils
+from .error import TjfError, TjfValidationError
+from .job import Job, JobType, validate_jobname
+from .k8s_errors import create_error_from_k8s_response
+from .labels import labels_selector
+from .ops_status import refresh_job_long_status, refresh_job_short_status
+from .user import User
 
 
 def validate_job_limits(user: User, job: Job) -> None:
