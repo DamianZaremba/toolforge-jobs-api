@@ -27,7 +27,7 @@ import tjf.utils as utils
 from tjf.command import Command
 from tjf.cron import CronExpression
 from tjf.error import TjfError, TjfValidationError
-from tjf.health_check import HealthCheck, HealthCheckType, ScriptHealthCheck
+from tjf.health_check import HealthCheckType, ScriptHealthCheck
 from tjf.images import Image, image_by_container_url
 from tjf.labels import generate_labels
 
@@ -157,7 +157,7 @@ class Job:
         cpu: str | None,
         emails: str,
         mount: MountOption,
-        health_check: HealthCheck | None,
+        health_check: ScriptHealthCheck | None,
     ) -> None:
         self.job_type = job_type
 

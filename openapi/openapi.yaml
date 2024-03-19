@@ -249,13 +249,12 @@ components:
           type: string
         script:
           type: string
-    # job as created by the user
-    NewJob:
+    # common job fields
+    CommonJob:
       type: object
       required:
         - name
         - cmd
-        - image
       properties:
         name:
           type: string
@@ -271,10 +270,6 @@ components:
           type: string
           description: "Command that this job is executing."
           example: "./some-command.sh --with-args"
-        image:
-          type: string
-          description: "Container image the job uses."
-          example: "tool-my-tool/tool-my-tool:latest"
         filelog:
           type: boolean
           description: "Whether this job uses filelog or not."
@@ -317,10 +312,6 @@ components:
           type: boolean
           description: "If a job should be always running."
           example: false
-        mem:
-          type: string
-          description: "Job memory resource limit."
-          example: "1G"
         cpu:
           type: string
           description: "Job CPU resource limit."
@@ -334,12 +325,37 @@ components:
             propertyName: type
             mapping:
               script: "#/components/schemas/ScriptHealthCheck"
+        memory:
+          type: string
+          description: "Job memory resource limit."
+          example: "1G"
+    # job as created by the user
+    NewJob:
+      allOf:
+        - $ref: "#/components/schemas/CommonJob"
+        - type: object
+          required:
+            - imagename
+          properties:
+            imagename:
+              type: string
+              description: "Container image the job uses."
+              example: "tool-my-tool/tool-my-tool:latest"
     # job, once defined, as reported by the API
     DefinedJob:
       allOf:
-        - $ref: "#/components/schemas/NewJob"
+        - $ref: "#/components/schemas/CommonJob"
         - type: object
+          required:
+            - image
+            - image_state
+            - status_short
+            - status_long
           properties:
+            image:
+              type: string
+              description: "Container image the job uses."
+              example: "tool-my-tool/tool-my-tool:latest"
             image_state:
               type: string
               description: "Information about the image state, i.e, if it is stable, deprecated, or something else."

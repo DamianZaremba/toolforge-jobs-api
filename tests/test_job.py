@@ -28,7 +28,8 @@ def test_invalid_jobname(name: str) -> None:
     ],
 )
 def test_valid_jobname(name: str) -> None:
-    assert validate_jobname(name, JobType.ONE_OFF) is None
+    # assert it does not raise
+    validate_jobname(name, JobType.ONE_OFF)
 
 
 @pytest.mark.parametrize(

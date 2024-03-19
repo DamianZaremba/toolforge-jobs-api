@@ -128,7 +128,7 @@ def api_get_job(name: str) -> tuple[dict[str, Any], int]:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
     defined_job = DefinedJob.from_job(job)
-    return defined_job.model_dump(exclude_unset=True), http.HTTPStatus.OK
+    return defined_job.model_dump(exclude_unset=True, mode="json"), http.HTTPStatus.OK
 
 
 @api_jobs.route("/<name>", methods=["DELETE"])
@@ -153,7 +153,7 @@ def api_list_jobs() -> ResponseReturnValue:
     defined_jobs = [DefinedJob.from_job(job) for job in user_jobs]
 
     return [
-        defined_job.model_dump(exclude_unset=True) for defined_job in defined_jobs
+        defined_job.model_dump(exclude_unset=True, mode="json") for defined_job in defined_jobs
     ], http.HTTPStatus.OK
 
 
@@ -198,7 +198,7 @@ def api_create_job() -> ResponseReturnValue:
     else:
         filelog_stdout = filelog_stderr = None
 
-    command = Command.from_api(
+    command = Command(
         user_command=new_job.cmd,
         filelog=new_job.filelog,
         filelog_stdout=filelog_stdout,
@@ -248,7 +248,7 @@ def api_create_job() -> ResponseReturnValue:
 
     defined_job = DefinedJob.from_job(job=job)
 
-    return defined_job.model_dump(exclude_unset=True), http.HTTPStatus.CREATED
+    return defined_job.model_dump(exclude_unset=True, mode="json"), http.HTTPStatus.CREATED
 
 
 @api_jobs.route("/", methods=["DELETE"])

@@ -42,23 +42,6 @@ class Command:
         return GeneratedCommand(command=ret, args=None)
 
     @classmethod
-    def from_api(
-        cls,
-        *,
-        user_command: str,
-        filelog: bool,
-        filelog_stdout: Path | None,
-        filelog_stderr: Path | None,
-    ) -> "Command":
-        """Create a new Command class instance from TJF API parameters."""
-        return cls(
-            user_command=user_command,
-            filelog=filelog,
-            filelog_stdout=filelog_stdout,
-            filelog_stderr=filelog_stderr,
-        )
-
-    @classmethod
     def from_k8s(
         cls, *, k8s_metadata: dict[str, Any], k8s_command: list[str], k8s_arguments: list[str]
     ) -> "Command":

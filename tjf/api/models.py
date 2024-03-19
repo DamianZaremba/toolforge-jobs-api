@@ -35,7 +35,7 @@ class ScriptHealthCheck(BaseModel):
         return value
 
 
-class NewJob(BaseModel):
+class CommonJob(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -45,7 +45,6 @@ class NewJob(BaseModel):
         ),
     ]
     cmd: str
-    imagename: str
     filelog: bool = False
     filelog_stdout: str | None = None
     filelog_stderr: str | None = None
@@ -59,11 +58,16 @@ class NewJob(BaseModel):
     health_check: ScriptHealthCheck | None = None
 
 
-class DefinedJob(NewJob):
+class NewJob(CommonJob):
+    imagename: str
+
+
+class DefinedJob(CommonJob):
+    image: str
     image_state: str
     status_short: str
     status_long: str
-    schedule_actual: str
+    schedule_actual: str | None = None
 
     @classmethod
     def from_job(cls: Type["DefinedJob"], job: Job) -> "DefinedJob":
@@ -84,6 +88,11 @@ class DefinedJob(NewJob):
             "emails": job.emails,
             "retry": job.retry,
             "mount": str(job.mount),
+            "health_check": (
+                ScriptHealthCheck.model_validate(obj=job.health_check, from_attributes=True)
+                if job.health_check
+                else None
+            ),
         }
 
         if job.schedule is not None:

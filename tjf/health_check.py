@@ -23,10 +23,6 @@ class HealthCheck(ABC):
         pass
 
     @abstractmethod
-    def for_api(self) -> dict[str, str]:
-        pass
-
-    @abstractmethod
     def for_k8s(self) -> dict[str, Any]:
         pass
 
@@ -45,13 +41,6 @@ class ScriptHealthCheck(HealthCheck):
             return False
 
         return health_check_type == HealthCheckType.SCRIPT
-
-    # TODO: move this to api layer
-    def for_api(self) -> dict[str, str]:
-        return {
-            "type": self.health_check_type.name.lower(),
-            "script": self.script,
-        }
 
     def for_k8s(self) -> dict[str, Any]:
         return {

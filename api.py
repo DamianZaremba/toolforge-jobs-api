@@ -15,6 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 import logging
+import os
 
 from tjf.api.app import create_app
 
@@ -22,7 +23,8 @@ logging.basicConfig(level=logging.INFO)
 app = create_app()
 
 if __name__ == "__main__":
-    address = "0.0.0.0"
-    port = 8080
+    debug = bool(os.environ.get("DEBUG", None))
+    port = int(os.environ.get("PORT", 8080))
+    address = os.environ.get("ADDRESS", "0.0.0.0")
     print("Starting app on {address}:{port}")
-    app.run(host=address, port=port, debug=False, use_reloader=False)
+    app.run(host=address, port=port, debug=debug, use_reloader=False)

@@ -9,6 +9,7 @@ import pytest
 import tests.fake_k8s as fake_k8s
 import tjf.utils as utils
 from tjf.command import Command, resolve_filelog_path
+from tjf.error import TjfError
 
 
 def test_generate_command_no_filelog(tmp_path_factory):
@@ -17,7 +18,7 @@ def test_generate_command_no_filelog(tmp_path_factory):
 
     script_path = Path(__file__).parent / "helpers" / "gen-output" / "both.sh"
 
-    cmd = Command.from_api(
+    cmd = Command(
         user_command=f"{script_path.absolute()} nofilelog",
         filelog=False,
         filelog_stdout=None,
@@ -44,7 +45,7 @@ def test_generate_command_filelog(tmp_path_factory):
     stdout_file = directory / "test.out"
     stderr_file = directory / "test.err"
 
-    cmd = Command.from_api(
+    cmd = Command(
         user_command=f"{script_path.absolute()} yesfilelog",
         filelog=True,
         filelog_stdout=stdout_file,
@@ -148,7 +149,13 @@ def test_command_array_parsing_from_k8s(
         object = json.loads((fixtures_path / "jobs" / object).read_text())
 
     k8s_metadata = utils.dict_get_object(object, "metadata")
+    if not k8s_metadata:
+        raise TjfError(f"Got invalid metadata from k8s: {k8s_metadata}")
+
     spec = utils.dict_get_object(object, "spec")
+    if not spec:
+        raise TjfError(f"Got invalid spec from k8s: {spec}")
+
     k8s_command = spec["template"]["spec"]["containers"][0]["command"]
     k8s_arguments = spec["template"]["spec"]["containers"][0].get("args", [])
 
