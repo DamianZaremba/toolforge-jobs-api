@@ -17,15 +17,12 @@
 import http
 import logging
 
-from flask import Flask
 from flask.typing import ResponseReturnValue
-from pydantic import ValidationError
-from toolforge_weld.errors import ToolforgeError
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig
 
-from ..error import TjfError
 from ..images import update_available_images
+from ..runtimes.k8s.runtime import K8sRuntime
 from ..utils import USER_AGENT
 from .error import error_handler
 from .images import api_images
@@ -42,6 +39,7 @@ from .metrics import metrics_init_app
 from .models import Health, HealthState
 from .openapi import openapi
 from .quota import api_quota
+from .utils import JobsApi
 
 
 def healthz() -> ResponseReturnValue:
@@ -49,16 +47,13 @@ def healthz() -> ResponseReturnValue:
     return health.model_dump(exclude_unset=True), http.HTTPStatus.OK
 
 
-def create_app(*, load_images: bool = True, init_metrics: bool = True) -> Flask:
-    app = Flask(__name__)
+def create_app(*, load_images: bool = True, init_metrics: bool = True) -> JobsApi:
+    app = JobsApi(__name__, runtime=K8sRuntime())
 
     if init_metrics:
         metrics_init_app(app)
 
-    # non-restful endpoints
-    app.register_error_handler(ToolforgeError, error_handler)
-    app.register_error_handler(TjfError, error_handler)
-    app.register_error_handler(ValidationError, error_handler)
+    app.register_error_handler(Exception, error_handler)
 
     app.add_url_rule("/healthz", view_func=healthz, methods=["GET"])
     app.add_url_rule("/openapi.json", view_func=openapi, methods=["GET"])

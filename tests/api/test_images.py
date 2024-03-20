@@ -1,25 +1,97 @@
-import pytest
-from flask import Flask
+from typing import Any
+
 from flask.testing import FlaskClient
 
 
-@pytest.fixture()
-def client(app: Flask) -> FlaskClient:
-    return app.test_client()
+class TestGetImages:
+    def test_gets_active_images(
+        self,
+        fake_images: dict[str, Any],
+        client: FlaskClient,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        response = client.get("/api/v1/images/", headers=fake_auth_headers)
+        assert response.status_code == 200
 
+        gotten_image_names = [image["shortname"] for image in response.json or []]
 
-def test_get_images_endpoint(images_available, client, fake_user):
-    response = client.get("/api/v1/images/", headers=fake_user)
-    assert response.status_code == 200
+        expected_active_images = [
+            image_name
+            for image_name, image_data in fake_images.items()
+            if image_data["state"] != "deprecated"
+        ]
 
-    image_names = [image["shortname"] for image in response.json]
-    assert "node16" in image_names
+        assert expected_active_images != []
+        for image_name in expected_active_images:
+            assert image_name in gotten_image_names
 
-    assert "php7.4" in image_names
-    assert "tf-php74" not in image_names
-    assert "php7.3" not in image_names
+    def test_skips_inactive_images(
+        self,
+        fake_images: dict[str, Any],
+        client: FlaskClient,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        response = client.get("/api/v1/images/", headers=fake_auth_headers)
+        assert response.status_code == 200
 
-    assert "tool-some-tool/some-container:latest" in image_names
-    assert "tool-some-tool/some-container:stable" in image_names
-    # other tools are not listed here
-    assert "tool-other/tagged:example" not in image_names
+        gotten_image_names = [image["shortname"] for image in response.json or []]
+
+        expected_deprecated_images = [
+            image_name
+            for image_name, image_data in fake_images.items()
+            if image_data["state"] == "deprecated"
+        ]
+
+        assert expected_deprecated_images != []
+        for image_name in expected_deprecated_images:
+            assert image_name not in gotten_image_names
+
+    def test_gets_tool_harbor_images(
+        self,
+        fake_harbor_content: dict[str, Any],
+        client: FlaskClient,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        response = client.get("/api/v1/images/", headers=fake_auth_headers)
+        assert response.status_code == 200
+
+        gotten_image_names = [image["shortname"] for image in response.json or []]
+
+        expected_some_tool_harbor_images = []
+        for artifact in fake_harbor_content["tool-some-tool"]["artifact-list"]:
+            expected_some_tool_harbor_images.extend(
+                [
+                    f"tool-some-tool/some-container:{tag['name']}"
+                    for tag in artifact.get("tags", []) or []
+                    if artifact["type"] == "IMAGE"
+                ]
+            )
+
+        assert expected_some_tool_harbor_images != []
+        for expected_some_tool_harbor_image in expected_some_tool_harbor_images:
+            assert expected_some_tool_harbor_image in gotten_image_names
+
+    def test_skips_other_tools_harbor_images(
+        self,
+        fake_harbor_content: dict[str, Any],
+        client: FlaskClient,
+        fake_auth_headers: dict[str, str],
+    ):
+        response = client.get("/api/v1/images/", headers=fake_auth_headers)
+        assert response.status_code == 200
+
+        gotten_image_names = [image["shortname"] for image in response.json or []]
+
+        expected_other_tool_harbor_images = []
+        for artifact in fake_harbor_content["tool-other"]["artifact-list"]:
+            expected_other_tool_harbor_images.extend(
+                [
+                    f"tool-other/tagged:{tag['name']}"
+                    for tag in artifact.get("tags", []) or []
+                    if artifact["type"] == "IMAGE"
+                ]
+            )
+
+        assert expected_other_tool_harbor_images != []
+        for expected_other_tool_harbor_image in expected_other_tool_harbor_images:
+            assert expected_other_tool_harbor_image not in gotten_image_names

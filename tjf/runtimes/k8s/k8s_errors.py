@@ -15,14 +15,19 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from typing import Any
+
 import requests
 
-from .error import TjfError, TjfValidationError
-from .job import Job
-from .user import User
+from ...error import TjfError, TjfValidationError
+from ...job import Job
+from .account import ToolAccount
+from .jobs import K8sJobKind
 
 
-def _is_out_of_quota(e: requests.exceptions.HTTPError, job: Job, user: User) -> bool:
+def _is_out_of_quota(
+    e: requests.exceptions.HTTPError, job: Job, tool_account: ToolAccount
+) -> bool:
     """Returns True if the user is out of quota for a given job type."""
     if e.response is None:
         return False
@@ -31,15 +36,16 @@ def _is_out_of_quota(e: requests.exceptions.HTTPError, job: Job, user: User) -> 
     if not str(e).startswith("403 Client Error: Forbidden for url"):
         return False
 
-    resource_quota = user.kapi.get_objects("resourcequotas")[0]
+    resource_quota = tool_account.k8s_cli.get_objects("resourcequotas")[0]
 
-    if job.k8s_type == "cronjobs":
+    k8s_type = K8sJobKind.from_job_type(job.job_type)
+    if k8s_type == K8sJobKind.CRON_JOB:
         quota = resource_quota["status"]["hard"]["count/cronjobs.batch"]
         used = resource_quota["status"]["used"]["count/cronjobs.batch"]
-    elif job.k8s_type == "deployments":
+    elif k8s_type == K8sJobKind.DEPLOYMENT:
         quota = resource_quota["status"]["hard"]["count/deployments.apps"]
         used = resource_quota["status"]["used"]["count/deployments.apps"]
-    elif job.k8s_type == "jobs":
+    elif k8s_type == K8sJobKind.JOB:
         quota = resource_quota["status"]["hard"]["count/jobs.batch"]
         used = resource_quota["status"]["used"]["count/jobs.batch"]
     else:
@@ -52,30 +58,35 @@ def _is_out_of_quota(e: requests.exceptions.HTTPError, job: Job, user: User) -> 
 
 
 def create_error_from_k8s_response(
-    e: requests.exceptions.HTTPError, job: Job, user: User
+    error: requests.exceptions.HTTPError, job: Job, spec: dict[str, Any], tool_account: ToolAccount
 ) -> TjfError:
     """Function to handle some known kubernetes API exceptions."""
     error_data = {
-        "k8s_object": job.get_k8s_object(),
-        "k8s_error": str(e),
+        "k8s_object": spec,
+        "k8s_error": str(error),
     }
 
-    if e.response is None:
+    if error.response is None:
         return TjfError(
             "Failed to create a job, likely an internal bug in the jobs framework.",
             data=error_data,
         )
 
-    error_data["k8s_error"] = {"status_code": e.response.status_code, "body": e.response.text}
+    error_data["k8s_error"] = {
+        "status_code": error.response.status_code,
+        "body": error.response.text,
+    }
 
-    if _is_out_of_quota(e, job, user):
+    if _is_out_of_quota(error, job, tool_account):
         return TjfValidationError(
             "Out of quota for this kind of job. Please see https://w.wiki/6YLP for details.",
             data=error_data,
         )
 
     # hope k8s doesn't change this behavior too often
-    if e.response.status_code == 409 or str(e).startswith("409 Client Error: Conflict for url"):
+    if error.response.status_code == 409 or str(error).startswith(
+        "409 Client Error: Conflict for url"
+    ):
         return TjfValidationError(
             "An object with the same name exists already", http_status_code=409, data=error_data
         )

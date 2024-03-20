@@ -1,21 +1,28 @@
 import http
 from typing import Any, Generator, cast
-from unittest.mock import patch
+from unittest.mock import ANY
 
 import pytest
-from flask import Flask
+from flask import Flask, request
 from flask.testing import FlaskClient
+from pydantic import BaseModel
+from pytest import MonkeyPatch
 from toolforge_weld.errors import ToolforgeUserError
-from toolforge_weld.kubernetes import Kubeconfig, MountOption
+from toolforge_weld.kubernetes import MountOption
 
 from tjf.api.app import create_app, error_handler
+from tjf.api.auth import AUTH_HEADER, ToolAuthError, get_tool_from_request
 from tjf.api.models import EmailOption
+from tjf.api.utils import JobsApi
 from tjf.command import Command
-from tjf.error import TjfClientError, TjfError, ToolforgeError
+from tjf.error import TjfClientError, TjfError
 from tjf.health_check import HealthCheckType, ScriptHealthCheck
 from tjf.images import Image, ImageType
 from tjf.job import Job, JobType
-from tjf.user import User
+
+
+class Silly(BaseModel):
+    someint: int
 
 
 def get_dummy_job(**overrides) -> Job:
@@ -32,8 +39,7 @@ def get_dummy_job(**overrides) -> Job:
             state="silly state",
         ),
         "jobname": "silly-job-name",
-        "ns": "silly-ns",
-        "username": "silly-user",
+        "tool_name": "silly-user",
         "schedule": None,
         "cont": None,
         "k8s_object": None,
@@ -46,33 +52,6 @@ def get_dummy_job(**overrides) -> Job:
     }
     params.update(overrides)
     return Job(**params)  # type: ignore
-
-
-@pytest.fixture()
-def error_generating_app() -> Generator[FlaskClient, None, None]:
-
-    app = Flask(__name__)
-
-    app.register_error_handler(ToolforgeError, error_handler)
-    app.register_error_handler(TjfError, error_handler)
-
-    @app.route("/error", methods=["GET"])
-    def get():
-        raise TjfClientError("Invalid foo", data={"options": ["bar", "baz"]})
-
-    @app.route("/error", methods=["POST"])
-    def post():
-        cause = Exception("Failed to contact foo")
-        raise TjfError("Failed to create job") from cause
-
-    @app.route("/error", methods=["PUT"])
-    def put():
-        cause = Exception("Test")
-        error = ToolforgeUserError("Welding failed")
-        error.context = {"aaa": "bbb"}
-        raise error from cause
-
-    yield app.test_client()
 
 
 @pytest.fixture()
@@ -89,44 +68,139 @@ def client(app) -> Generator[FlaskClient, None, None]:
 
 @pytest.fixture()
 def authorized_client(client) -> Generator[FlaskClient, None, None]:
-    with patch(
-        "tjf.user.Kubeconfig.from_path",
-        autospec=True,
-        return_value=Kubeconfig(
-            current_namespace="silly-ns", current_server="silly-server", token="silly-token"
-        ),
+    client._old_open = client.open
+
+    def new_open(*args, **kwargs):
+        if "headers" not in kwargs:
+            kwargs["headers"] = {}
+
+        kwargs["headers"].update({AUTH_HEADER: "O=toolforge,CN=silly-user"})
+        return client._old_open(*args, **kwargs)
+
+    client.open = new_open
+
+    yield client
+
+    client.open = client._old_open
+
+
+@pytest.fixture()
+def error_generating_app():
+
+    app = Flask(__name__)
+
+    app.register_error_handler(Exception, error_handler)
+
+    @app.route("/tjfclienterror", methods=["GET"])
+    def tjf_client_error():
+        raise TjfClientError("Invalid foo", data={"options": ["bar", "baz"]})
+
+    @app.route("/tjferror", methods=["POST"])
+    def tjf_error():
+        cause = Exception("Failed to contact foo")
+        raise TjfError("Failed to create job") from cause
+
+    @app.route("/toolforgeusererror", methods=["PUT"])
+    def toolforge_user_error():
+        cause = Exception("Test Cause")
+        error = ToolforgeUserError("Welding failed")
+        error.context = {"aaa": "bbb"}
+        raise error from cause
+
+    @app.route("/validationerror", methods=["GET"])
+    def validation_error():
+        Silly.model_validate({"someint": "I'm not an int"})
+
+    @app.route("/unknownerror", methods=["GET"])
+    def unknown_error():
+        error = Exception("Some error")
+        raise error
+
+    with app.app_context():
+        yield app.test_client()
+
+
+class TestApiErrorHandler:
+    def test_tjf_client_error(self, error_generating_app):
+        response = error_generating_app.get("/tjfclienterror")
+        assert response.status_code == 400
+        assert response.json == {"message": "Invalid foo", "data": {"options": ["bar", "baz"]}}
+
+    def test_tjf_error(self, error_generating_app):
+        response = error_generating_app.post("/tjferror")
+        assert response.status_code == 500
+        assert response.json == {
+            "message": "Failed to create job (Failed to contact foo)",
+            "data": {},
+        }
+
+    def test_toolforge_user_error(self, error_generating_app):
+        response = error_generating_app.put("/toolforgeusererror")
+        assert response.status_code == 400
+        assert response.json == {"message": "Welding failed (Test Cause)", "data": {"aaa": "bbb"}}
+
+    def test_validation_error(self, error_generating_app):
+        response = error_generating_app.get("/validationerror")
+        assert response.status_code == 400
+        assert response.json == {
+            "data": {},
+            "message": '1 validation error for Silly\nsomeint\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value="I\'m not an int", input_type=str]\n    For further information visit https://errors.pydantic.dev/2.6/v/int_parsing',
+        }
+
+    def test_unknown_error(self, error_generating_app):
+        response = error_generating_app.get("/unknownerror")
+        assert response.status_code == 500
+        assert response.json == {
+            "message": "Unknown error (Some error)",
+            "data": {"traceback": ANY},
+        }
+
+
+class TestAPIAuth:
+    def test_tool_from_request_successful(self, app: JobsApi):
+        with app.test_request_context("/foo", headers={AUTH_HEADER: "O=toolforge,CN=some-tool"}):
+            tool_name = get_tool_from_request(request=request)
+
+        assert tool_name == "some-tool"
+
+    def test_User_from_request_no_header(self, app: JobsApi, patch_kube_config_loading):
+        with app.test_request_context("/foo"):
+            with pytest.raises(ToolAuthError, match="missing 'ssl-client-subject-dn' header"):
+                assert get_tool_from_request(request=request) is None
+
+    invalid_cn_data = [
+        ["", "missing 'ssl-client-subject-dn' header"],
+        ["O=toolforge", "Failed to load name for certificate 'O=toolforge'"],
+        ["CN=first,CN=second", "Failed to load name for certificate 'CN=first,CN=second'"],
+        [
+            "CN=tool,O=admins",
+            r"This certificate can't access the Jobs API\. "
+            r"Double check you're logged in to the correct account\? \(got \[\'admins\'\]\)",
+        ],
+    ]
+
+    @pytest.mark.parametrize(
+        "cn,expected_error", invalid_cn_data, ids=[data[0] for data in invalid_cn_data]
+    )
+    def test_User_from_request_invalid(
+        self, app: JobsApi, patch_kube_config_loading, cn: str, expected_error: str
     ):
-        with patch("tjf.api.jobs.User.from_request", return_value=User(name="test-user")):
-            yield client
-
-
-def test_TjfApi_error_handling(error_generating_app):
-    response = error_generating_app.get("/error")
-    assert response.status_code == 400
-    assert response.json == {"message": "Invalid foo", "data": {"options": ["bar", "baz"]}}
-
-
-def test_TjfApi_error_handling_context(error_generating_app):
-    response = error_generating_app.post("/error")
-    assert response.status_code == 500
-    assert response.json["message"] == "Failed to create job (Failed to contact foo)"
-
-
-def test_TjfApi_error_handling_weld_errors(error_generating_app):
-    response = error_generating_app.put("/error")
-    assert response.status_code == 400
-    assert response.json == {"message": "Welding failed (Test)", "data": {"aaa": "bbb"}}
+        with app.test_request_context("/foo", headers={AUTH_HEADER: cn}):
+            with pytest.raises(ToolAuthError, match=expected_error):
+                get_tool_from_request(request=request)
 
 
 class TestJobsEndpoint:
     def test_listing_jobs_when_theres_none_returns_empty(
         self,
         authorized_client: FlaskClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
     ) -> None:
         expected_response_data: list[Job] = []
+        monkeypatch.setattr(app.runtime, "get_jobs", value=lambda *args, **kwargs: [])
 
-        with patch("tjf.api.jobs.list_all_jobs", return_value=[]):
-            gotten_response = authorized_client.get("/api/v1/jobs/")
+        gotten_response = authorized_client.get("/api/v1/jobs/")
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         assert gotten_response.json == expected_response_data
@@ -134,14 +208,20 @@ class TestJobsEndpoint:
     def test_listing_multiple_jobs_returns_all(
         self,
         authorized_client: FlaskClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
     ) -> None:
         expected_names = ["job1", "job2"]
+        monkeypatch.setattr(
+            app.runtime,
+            "get_jobs",
+            value=lambda *args, **kwargs: [
+                get_dummy_job(jobname="job1"),
+                get_dummy_job(jobname="job2"),
+            ],
+        )
 
-        with patch(
-            "tjf.api.jobs.list_all_jobs",
-            return_value=[get_dummy_job(jobname="job1"), get_dummy_job(jobname="job2")],
-        ):
-            gotten_response = authorized_client.get("/api/v1/jobs/")
+        gotten_response = authorized_client.get("/api/v1/jobs/")
 
         assert gotten_response.status_code == http.HTTPStatus.OK
 
@@ -151,12 +231,15 @@ class TestJobsEndpoint:
     def test_listing_job_with_helthcheck_works(
         self,
         authorized_client: FlaskClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
     ) -> None:
         expected_health_check = {"script": "silly script", "type": "script"}
 
-        with patch(
-            "tjf.api.jobs.list_all_jobs",
-            return_value=[
+        monkeypatch.setattr(
+            app.runtime,
+            "get_jobs",
+            value=lambda *args, **kwargs: [
                 get_dummy_job(
                     health_check=ScriptHealthCheck(
                         type=HealthCheckType.SCRIPT,
@@ -164,11 +247,11 @@ class TestJobsEndpoint:
                     )
                 )
             ],
-        ):
-            gotten_response = authorized_client.get("/api/v1/jobs/")
+        )
+
+        gotten_response = authorized_client.get("/api/v1/jobs/")
 
         assert gotten_response.status_code == http.HTTPStatus.OK
-
         assert (
             cast(list[dict[str, Any]], gotten_response.json)[0]["health_check"]
             == expected_health_check

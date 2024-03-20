@@ -15,33 +15,22 @@
 #
 import http
 import logging
-import json
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from flask import Blueprint, Response, request
 from flask.typing import ResponseReturnValue
 from toolforge_weld.kubernetes import MountOption
-from toolforge_weld.logs import LogEntry
-from toolforge_weld.logs.kubernetes import KubernetesSource
 from toolforge_weld.utils import peek
 
-from ..command import Command, resolve_filelog_path
+from ..command import Command
 from ..cron import CronExpression, CronParsingError
 from ..error import TjfClientError, TjfError, TjfValidationError
 from ..images import ImageType, image_by_name
-from ..job import JOB_CONTAINER_NAME, Job, JobType
-from ..labels import labels_selector
-from ..ops import (
-    create_job,
-    delete_all_jobs,
-    delete_job,
-    find_job,
-    list_all_jobs,
-    restart_job,
-)
-from ..user import User
+from ..job import Job, JobType
+from .auth import get_tool_from_request
 from .models import DefinedJob, NewJob
+from .utils import current_app
 
 LOGGER = logging.getLogger(__name__)
 
@@ -56,29 +45,12 @@ api_restart = Blueprint("restart", __name__, url_prefix="/api/v1/restart")
 api_logs = Blueprint("logs", __name__, url_prefix="/api/v1/logs")
 
 
-def _format_logs(logs: Iterator[LogEntry]) -> Iterator[str]:
-    for entry in logs:
-        if entry.container != JOB_CONTAINER_NAME:
-            continue
-
-        dumped = json.dumps(
-            {
-                "pod": entry.pod,
-                "container": entry.container,
-                "datetime": entry.datetime.replace(microsecond=0).isoformat("T"),
-                "message": entry.message,
-            }
-        )
-
-        yield f"{dumped}\n"
-
-
 @api_jobs.route("/<name>/logs", methods=["GET"])
 @api_logs.route("/<name>", methods=["GET"])
 def get_logs(name: str) -> ResponseReturnValue:
-    user = User.from_request()
+    tool = get_tool_from_request(request=request)
 
-    job = find_job(user=user, jobname=name)
+    job = current_app().runtime.get_job(tool=tool, job_name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
@@ -96,9 +68,9 @@ def get_logs(name: str) -> ResponseReturnValue:
         except (ValueError, TypeError) as e:
             raise TjfValidationError("Unable to parse lines as integer") from e
 
-    log_source = KubernetesSource(client=user.kapi)
-    logs = log_source.query(
-        selector=labels_selector(jobname=job.jobname, username=user.name),
+    logs = current_app().runtime.get_logs(
+        job_name=name,
+        tool=tool,
         follow=request.args.get("follow", "") == "true",
         lines=lines,
     )
@@ -111,7 +83,7 @@ def get_logs(name: str) -> ResponseReturnValue:
 
     return (
         Response(
-            _format_logs(logs),
+            logs,
             content_type="text/plain; charset=utf8",
             # Disable nginx-level buffering:
             # https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering
@@ -124,9 +96,7 @@ def get_logs(name: str) -> ResponseReturnValue:
 @api_jobs.route("/<name>", methods=["GET"])
 @api_show.route("/<name>", methods=["GET"])
 def api_get_job(name: str) -> tuple[dict[str, Any], int]:
-    user = User.from_request()
-
-    job = find_job(user=user, jobname=name)
+    job = current_app().runtime.get_job(job_name=name, tool=get_tool_from_request(request=request))
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
@@ -137,22 +107,20 @@ def api_get_job(name: str) -> tuple[dict[str, Any], int]:
 @api_jobs.route("/<name>", methods=["DELETE"])
 @api_delete.route("/<name>", methods=["DELETE"])
 def api_delete_job(name: str) -> tuple[dict[str, Any], int]:
-    user = User.from_request()
+    tool = get_tool_from_request(request=request)
 
-    job = find_job(user=user, jobname=name)
+    job = current_app().runtime.get_job(tool=tool, job_name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    delete_job(user=user, job=job)
+    current_app().runtime.delete_job(tool=tool, job=job)
     return {}, http.HTTPStatus.OK
 
 
 @api_jobs.route("/", methods=["GET"])
 @api_list.route("/", methods=["GET"])
 def api_list_jobs() -> ResponseReturnValue:
-    user = User.from_request()
-
-    user_jobs = list_all_jobs(user=user)
+    user_jobs = current_app().runtime.get_jobs(tool=get_tool_from_request(request=request))
     defined_jobs = [DefinedJob.from_job(job) for job in user_jobs]
 
     return [
@@ -164,8 +132,8 @@ def api_list_jobs() -> ResponseReturnValue:
 @api_run.route("/", methods=["POST", "PUT"])
 def api_create_job() -> ResponseReturnValue:
     new_job = NewJob.model_validate(request.json)
-
-    user = User.from_request()
+    runtime = current_app().runtime
+    tool = get_tool_from_request(request=request)
 
     image = image_by_name(new_job.imagename)
 
@@ -177,7 +145,7 @@ def api_create_job() -> ResponseReturnValue:
             "Only one of 'continuous' and 'schedule' can be set at the same time"
         )
 
-    if find_job(user=user, jobname=new_job.name) is not None:
+    if runtime.get_job(tool=tool, job_name=new_job.name) is not None:
         raise TjfValidationError("A job with the same name exists already", http_status_code=409)
 
     if image.type != ImageType.BUILDPACK and not new_job.mount.supports_non_buildservice:
@@ -192,11 +160,15 @@ def api_create_job() -> ResponseReturnValue:
         if new_job.mount != MountOption.ALL:
             raise TjfValidationError("File logging is only available with --mount=all")
 
-        filelog_stdout: Path | None = resolve_filelog_path(
-            new_job.filelog_stdout, user.home, f"{new_job.name}.out"
+        filelog_stdout: Path | None = current_app().runtime.resolve_filelog_out_path(
+            filelog_stdout=new_job.filelog_stdout,
+            tool=tool,
+            job_name=new_job.name,
         )
-        filelog_stderr: Path | None = resolve_filelog_path(
-            new_job.filelog_stderr, user.home, f"{new_job.name}.err"
+        filelog_stderr: Path | None = current_app().runtime.resolve_filelog_err_path(
+            filelog_stderr=new_job.filelog_stderr,
+            tool=tool,
+            job_name=new_job.name,
         )
     else:
         filelog_stdout = filelog_stderr = None
@@ -214,7 +186,10 @@ def api_create_job() -> ResponseReturnValue:
     if new_job.schedule:
         job_type = JobType.SCHEDULED
         try:
-            schedule = CronExpression.parse(new_job.schedule, f"{user.namespace} {new_job.name}")
+            schedule = CronExpression.parse(
+                new_job.schedule,
+                current_app().runtime.get_cron_unique_seed(tool=tool, job_name=new_job.name),
+            )
         except CronParsingError as e:
             raise TjfValidationError(
                 f"Unable to parse cron expression '{new_job.schedule}'"
@@ -230,11 +205,10 @@ def api_create_job() -> ResponseReturnValue:
             command=command,
             image=image,
             jobname=new_job.name,
-            ns=user.namespace,
-            username=user.name,
+            tool_name=tool,
             schedule=schedule,
             cont=new_job.continuous,
-            k8s_object=None,
+            k8s_object={},
             retry=new_job.retry,
             memory=new_job.memory,
             cpu=new_job.cpu,
@@ -243,7 +217,7 @@ def api_create_job() -> ResponseReturnValue:
             health_check=health_check,
         )
 
-        create_job(user=user, job=job)
+        current_app().runtime.create_job(tool=tool, job=job)
     except TjfError as e:
         raise e
     except Exception as e:
@@ -257,21 +231,19 @@ def api_create_job() -> ResponseReturnValue:
 @api_jobs.route("/", methods=["DELETE"])
 @api_flush.route("/", methods=["DELETE"])
 def api_job_flush() -> ResponseReturnValue:
-    user = User.from_request()
-
-    delete_all_jobs(user=user)
+    current_app().runtime.delete_all_jobs(tool=get_tool_from_request(request=request))
     return {}, http.HTTPStatus.OK
 
 
 @api_jobs.route("/<name>/restart", methods=["POST"])
 @api_restart.route("/<name>", methods=["POST"])
 def api_job_restart(name: str) -> tuple[dict[str, Any], int]:
-    user = User.from_request()
+    tool = get_tool_from_request(request=request)
 
-    job = find_job(user=user, jobname=name)
+    job = current_app().runtime.get_job(tool=tool, job_name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    restart_job(user=user, job=job)
+    current_app().runtime.restart_job(job=job, tool=tool)
 
     return {}, http.HTTPStatus.OK

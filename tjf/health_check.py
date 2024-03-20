@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Type, TypeVar
+from typing import Type, TypeVar
 
 T = TypeVar("T", bound="HealthCheck")
 
@@ -10,20 +10,13 @@ class HealthCheckType(str, Enum):
 
 
 class HealthCheck(ABC):
-    STARTUP_PROBE_DEFAULT_INITIAL_DELAY_SECONDS = 0
-    STARTUP_PROBE_DEFAULT_PERIOD_SECONDS = 1
-    STARTUP_PROBE_DEFAULT_FAILURE_THRESHOLD = 120
-    LIVENESS_PROBE_DEFAULT_INITIAL_DELAY_SECONDS = 0
-    LIVENESS_PROBE_DEFAULT_PERIOD_SECONDS = 10
-    LIVENESS_PROBE_DEFAULT_FAILURE_THRESHOLD = 3
+    @abstractmethod
+    def for_api(self) -> dict[str, str]:
+        pass
 
     @classmethod
     @abstractmethod
     def handles_type(cls: Type[T], check_type: str | None) -> bool:
-        pass
-
-    @abstractmethod
-    def for_k8s(self) -> dict[str, Any]:
         pass
 
 
@@ -42,22 +35,8 @@ class ScriptHealthCheck(HealthCheck):
 
         return health_check_type == HealthCheckType.SCRIPT
 
-    def for_k8s(self) -> dict[str, Any]:
+    def for_api(self) -> dict[str, str]:
         return {
-            "startupProbe": {
-                "exec": {
-                    "command": ["/bin/sh", "-c", self.script],
-                },
-                "initialDelaySeconds": self.STARTUP_PROBE_DEFAULT_INITIAL_DELAY_SECONDS,
-                "periodSeconds": self.STARTUP_PROBE_DEFAULT_PERIOD_SECONDS,
-                "failureThreshold": self.STARTUP_PROBE_DEFAULT_FAILURE_THRESHOLD,
-            },
-            "livenessProbe": {
-                "exec": {
-                    "command": ["/bin/sh", "-c", self.script],
-                },
-                "initialDelaySeconds": self.LIVENESS_PROBE_DEFAULT_INITIAL_DELAY_SECONDS,
-                "periodSeconds": self.LIVENESS_PROBE_DEFAULT_PERIOD_SECONDS,
-                "failureThreshold": self.LIVENESS_PROBE_DEFAULT_FAILURE_THRESHOLD,
-            },
+            "type": self.type.value,
+            "script": self.script,
         }

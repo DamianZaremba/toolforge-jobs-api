@@ -79,7 +79,7 @@ class DefinedJob(CommonJob):
     @classmethod
     def from_job(cls: Type["DefinedJob"], job: Job) -> "DefinedJob":
         obj = {
-            "name": job.jobname,
+            "name": job.job_name,
             "cmd": job.command.user_command,
             "image": job.image.canonical_name,
             "image_state": job.image.state,

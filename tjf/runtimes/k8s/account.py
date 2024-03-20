@@ -1,4 +1,4 @@
-# Copyright (C) 2023 Taavi Väänänen <hi@taavi.wtf>
+# Copyright (C) 2021 Arturo Borrero Gonzalez <aborrero@wikimedia.org>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -12,19 +12,25 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import http
+#
 
-from flask import Blueprint, request
-from flask.typing import ResponseReturnValue
+from pathlib import Path
 
-from .auth import get_tool_from_request
-from .utils import current_app
+from toolforge_weld.kubernetes import K8sClient
+from toolforge_weld.kubernetes_config import Kubeconfig
 
-api_quota = Blueprint("quota", __name__, url_prefix="/api/v1/quota/")
+from ...utils import USER_AGENT
 
 
-@api_quota.route("/", methods=["GET"])
-def api_get_quota() -> ResponseReturnValue:
-    tool = get_tool_from_request(request=request)
-    quota = current_app().runtime.get_quota(tool=tool)
-    return quota.model_dump(exclude_unset=True), http.HTTPStatus.OK
+class ToolAccount:
+    def __init__(self, name: str):
+        self.name = name
+        self.namespace = f"tool-{self.name}"
+
+        # TODO: fetch this from LDAP instead?
+        self.home = Path(f"/data/project/{name}")
+
+        self.k8s_cli = K8sClient(
+            kubeconfig=Kubeconfig.from_path(path=(self.home / ".kube" / "config")),
+            user_agent=USER_AGENT,
+        )

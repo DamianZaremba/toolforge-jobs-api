@@ -1,8 +1,12 @@
-import pytest
+from typing import Any
 
-import tests.fake_k8s as fake_k8s
-from tjf.job import Job
-from tjf.ops_status import _get_quota_error, refresh_job_short_status
+import pytest
+from helpers.fakes import get_fake_account
+
+import tests.helpers.fake_k8s as fake_k8s
+from tjf.runtimes.k8s.account import ToolAccount
+from tjf.runtimes.k8s.jobs import get_job_from_k8s
+from tjf.runtimes.k8s.ops_status import _get_quota_error, refresh_job_short_status
 
 
 def test_get_quota_error():
@@ -25,27 +29,21 @@ def test_get_quota_error():
         ],
     ],
 )
-def test_refresh_job_short_status_cronjob(cronjob, job, status_short):
-    def setup_user():
-        class FakeK8sApi:
-            def get_objects(self, kind, *, label_selector):
-                if kind == "jobs":
-                    return [job]
-                raise Exception("not supposed to happen")
+def test_refresh_job_short_status_cronjob(
+    cronjob, job, status_short, fake_auth_headers: ToolAccount, fake_images: dict[str, Any]
+):
+    class FakeK8sCli:
+        def get_objects(self, kind, *, label_selector):
+            if kind == "jobs":
+                return [job]
+            raise Exception("not supposed to happen")
 
-            def get_object(self, kind, name):
-                if kind == "jobs":
-                    return job
-                raise Exception("not supposed to happen")
+        def get_object(self, kind, name):
+            if kind == "jobs":
+                return job
+            raise Exception("not supposed to happen")
 
-        class FakeUser:
-            name = "tf-test"
-            namespace = "tool-tf-test"
-            kapi = FakeK8sApi()
-
-        return FakeUser()
-
-    user = setup_user()
-    _job = Job.from_k8s_object(cronjob, "cronjobs")
-    refresh_job_short_status(user, _job)
-    assert status_short in _job.status_short
+    account = get_fake_account(fake_k8s_cli=FakeK8sCli())
+    gotten_job = get_job_from_k8s(cronjob, "cronjobs")
+    refresh_job_short_status(account, gotten_job)
+    assert status_short in gotten_job.status_short

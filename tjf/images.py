@@ -65,6 +65,10 @@ HARBOR_CONFIG_PATH = "/etc/jobs-api/harbor.json"
 HARBOR_IMAGE_STATE = "stable"
 
 
+def get_harbor_project(tool: str) -> str:
+    return f"tool-{tool}"
+
+
 def update_available_images(client: K8sClient) -> None:
     configmap = client.get_object("configmaps", "image-config")
     yaml_data = yaml.safe_load(configmap["data"]["images-v1.yaml"])
@@ -100,15 +104,15 @@ def get_harbor_config() -> HarborConfig:
     )
 
 
-def get_harbor_images_for_name(namespace: str, name: str) -> list[Image]:
+def get_harbor_images_for_name(project: str, name: str) -> list[Image]:
     config = get_harbor_config()
 
-    encoded_namespace = urllib.parse.quote_plus(namespace)
+    encoded_project = urllib.parse.quote_plus(project)
     encoded_name = urllib.parse.quote_plus(name)
 
     try:
         response = requests.get(
-            f"{config.protocol}://{config.host}/api/v2.0/projects/{encoded_namespace}/repositories/{encoded_name}/artifacts",
+            f"{config.protocol}://{config.host}/api/v2.0/projects/{encoded_project}/repositories/{encoded_name}/artifacts",
             params={
                 # TODO: pagination if needed
                 "page": "1",
@@ -121,7 +125,7 @@ def get_harbor_images_for_name(namespace: str, name: str) -> list[Image]:
         )
         response.raise_for_status()
     except requests.exceptions.HTTPError:
-        LOGGER.warning("Failed to load Harbor tags for %s/%s", namespace, name, exc_info=True)
+        LOGGER.warning("Failed to load Harbor tags for %s/%s", project, name, exc_info=True)
         return []
 
     images: list[Image] = []
@@ -136,9 +140,9 @@ def get_harbor_images_for_name(namespace: str, name: str) -> list[Image]:
             images.append(
                 Image(
                     type=ImageType.BUILDPACK,
-                    canonical_name=f"{namespace}/{name}:{tag_name}",
+                    canonical_name=f"{project}/{name}:{tag_name}",
                     aliases=[],
-                    container=f"{config.host}/{namespace}/{name}:{tag_name}",
+                    container=f"{config.host}/{project}/{name}:{tag_name}",
                     state=HARBOR_IMAGE_STATE,
                 )
             )
@@ -146,14 +150,15 @@ def get_harbor_images_for_name(namespace: str, name: str) -> list[Image]:
     return images
 
 
-def get_harbor_images(namespace: str) -> list[Image]:
+def get_harbor_images(tool: str) -> list[Image]:
     config = get_harbor_config()
 
-    encoded_namespace = urllib.parse.quote_plus(namespace)
+    harbor_project = get_harbor_project(tool=tool)
+    encoded_project = urllib.parse.quote_plus(harbor_project)
 
     try:
         response = requests.get(
-            f"{config.protocol}://{config.host}/api/v2.0/projects/{encoded_namespace}/repositories",
+            f"{config.protocol}://{config.host}/api/v2.0/projects/{encoded_project}/repositories",
             params={
                 "with_tag": "true",
                 # TODO: pagination if needed
@@ -168,18 +173,18 @@ def get_harbor_images(namespace: str) -> list[Image]:
         response.raise_for_status()
     except requests.exceptions.HTTPError as e:
         if (not e.response) or e.response.status_code != 401:
-            # You seem to get a 401 when the namespace does not exist for whatever reason
+            # You seem to get a 401 when the project does not exist for whatever reason
             # don't log those, they are usually typos
             LOGGER.warning(
-                "Failed to load Harbor images for namespace %s", namespace, exc_info=True
+                "Failed to load Harbor images for project %s", harbor_project, exc_info=True
             )
         return []
 
     images: list[Image] = []
 
     for repository in response.json():
-        name = repository["name"][len(namespace) + 1 :]
-        images.extend(get_harbor_images_for_name(namespace, name))
+        name = repository["name"][len(harbor_project) + 1 :]
+        images.extend(get_harbor_images_for_name(project=harbor_project, name=name))
 
     return images
 
@@ -191,9 +196,9 @@ def image_by_name(name: str) -> Image | None:
 
     if "/" in name and ":" in name:
         # harbor image?
-        namespace, image_name = name.split("/", 1)
+        project, image_name = name.split("/", 1)
         image_name, _ = image_name.split(":", 1)
-        for image in get_harbor_images_for_name(namespace, image_name):
+        for image in get_harbor_images_for_name(project, image_name):
             if image.canonical_name == name:
                 return image
 

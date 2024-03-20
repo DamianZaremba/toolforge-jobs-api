@@ -14,22 +14,18 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
-from flask import Flask
 from flask.testing import FlaskClient
+from helpers.fakes import get_fake_account
 
-from tjf.user import User
-
-
-@pytest.fixture
-def client(app: Flask) -> FlaskClient:
-    return app.test_client()
+from tjf.runtimes.k8s import runtime
 
 
 @pytest.fixture
-def user_with_quotas(fixtures_path: Path):
-    class FakeK8sApi:
+def account_with_quotas(fixtures_path: Path):
+    class FakeK8sCli:
         def get_object(self, kind, name):
             if kind == "limitranges" and name == "tool-some-tool":
                 return json.loads((fixtures_path / "quota" / "limitrange.json").read_text())
@@ -37,24 +33,23 @@ def user_with_quotas(fixtures_path: Path):
                 return json.loads((fixtures_path / "quota" / "resourcequota.json").read_text())
             raise Exception("not supposed to happen")
 
-    class FakeUser:
-        name = "some-tool"
-        namespace = "tool-some-tool"
-        kapi = FakeK8sApi()
-
-    return FakeUser()
+    return get_fake_account(fake_k8s_cli=FakeK8sCli(), name="some-tool")
 
 
 @pytest.fixture
-def patch_user_to_have_quotas(user_with_quotas, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(User, "from_request", lambda: user_with_quotas)
+def patch_account_to_have_quotas(account_with_quotas):
+    with patch(runtime.__name__ + ".ToolAccount", return_value=account_with_quotas):
+        yield account_with_quotas
 
 
 def test_quota_endpoint(
-    client: FlaskClient, fixtures_path: Path, patch_user_to_have_quotas, fake_user: dict[str, str]
+    client: FlaskClient,
+    fixtures_path: Path,
+    patch_account_to_have_quotas,
+    fake_auth_headers: dict[str, str],
 ):
     expected = json.loads((fixtures_path / "quota" / "expected-api-result.json").read_text())
-    response = client.get("/api/v1/quota/", headers=fake_user)
+    response = client.get("/api/v1/quota/", headers=fake_auth_headers)
 
     assert response.status_code == 200
     assert response.json == expected

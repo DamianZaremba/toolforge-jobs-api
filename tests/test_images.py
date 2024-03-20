@@ -1,10 +1,10 @@
 import pytest
+from helpers.fake_k8s import FAKE_HARBOR_HOST
 
-from tests.fake_k8s import FAKE_HARBOR_HOST
 from tjf.images import AVAILABLE_IMAGES, image_by_container_url, image_by_name
 
 
-def test_available_images_len(images_available):
+def test_available_images_len(fake_images):
     """Basic test to check if the available images dictionary was updated."""
     assert len(AVAILABLE_IMAGES) > 1
 
@@ -29,7 +29,7 @@ IMAGE_NAME_TESTS = [
     ["name", "url"],
     IMAGE_NAME_TESTS,
 )
-def test_image_by_name(images_available, name, url):
+def test_image_by_name(fake_images, name, url):
     """Basic test for the image_by_name() func."""
     assert image_by_name(name).container == url
 
@@ -38,7 +38,7 @@ def test_image_by_name(images_available, name, url):
     ["name", "url"],
     IMAGE_NAME_TESTS,
 )
-def test_image_by_container_url(images_available, name, url):
+def test_image_by_container_url(fake_images, name, url):
     """Basic test for the image_by_container_url() func."""
     image = image_by_container_url(url)
     assert image is not None

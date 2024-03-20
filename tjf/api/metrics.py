@@ -1,5 +1,7 @@
 from flask import Flask
-from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
+from prometheus_flask_exporter.multiprocess import (  # type: ignore
+    GunicornPrometheusMetrics,
+)
 
 
 def metrics_init_app(app: Flask) -> None:
