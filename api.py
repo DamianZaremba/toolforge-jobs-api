@@ -19,12 +19,15 @@ import os
 
 from tjf.api.app import create_app
 
-logging.basicConfig(level=logging.INFO)
-app = create_app()
+debug = bool(os.environ.get("DEBUG", None))
+skip_metrics = bool(os.environ.get("SKIP_METRICS", None))
+skip_images = bool(os.environ.get("SKIP_IMAGES", None))
+
+logging.basicConfig(level=logging.INFO if not debug else logging.DEBUG)
+app = create_app(init_metrics=not skip_metrics, load_images=not skip_images)
 
 if __name__ == "__main__":
-    debug = bool(os.environ.get("DEBUG", None))
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 8000))
     address = os.environ.get("ADDRESS", "0.0.0.0")
     print("Starting app on {address}:{port}")
     app.run(host=address, port=port, debug=debug, use_reloader=False)

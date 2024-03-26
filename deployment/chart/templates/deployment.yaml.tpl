@@ -34,6 +34,17 @@ spec:
           runAsUser: 0
           allowPrivilegeEscalation: false
         resources: {}
+        env:
+          - name: "DEBUG"
+            value: "{{ .Values.webservice.debug }}"
+          - name: "PORT"
+            value: "{{ .Values.webservice.port }}"
+          - name: "ADDRESS"
+            value: "{{ .Values.webservice.address }}"
+          - name: "SKIP_METRICS"
+            value: "{{ .Values.webservice.skip_metrics }}"
+          - name: "SKIP_IMAGES"
+            value: "{{ .Values.webservice.skip_images }}"
         volumeMounts:
         - mountPath: /data/project
           name: home

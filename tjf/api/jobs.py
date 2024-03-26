@@ -14,6 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 import http
+import logging
 import json
 from pathlib import Path
 from typing import Any, Iterator
@@ -41,6 +42,8 @@ from ..ops import (
 )
 from ..user import User
 from .models import DefinedJob, NewJob
+
+LOGGER = logging.getLogger(__name__)
 
 api_jobs = Blueprint("jobs", __name__, url_prefix="/api/v1/jobs")
 # deprecated

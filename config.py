@@ -15,12 +15,29 @@
 #
 # This is the Gunicorn config file.
 
-from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
+import os
+from typing import Any
+
+from prometheus_flask_exporter.multiprocess import (  # type: ignore
+    GunicornPrometheusMetrics,
+)
+
+skip_metrics = bool(os.getenv("SKIP_METRICS", None))
 
 
-def when_ready(server):
-    GunicornPrometheusMetrics.start_http_server_when_ready(port=9200, host="127.0.0.1")
+def when_ready(server: Any) -> None:
+    if not skip_metrics:
+        GunicornPrometheusMetrics.start_http_server_when_ready(port=9200, host="127.0.0.1")
 
 
-def child_exit(server, worker):
-    GunicornPrometheusMetrics.mark_process_dead_on_child_exit(worker.pid)
+def child_exit(server: Any, worker: Any) -> None:
+    if not skip_metrics:
+        GunicornPrometheusMetrics.mark_process_dead_on_child_exit(worker.pid)
+
+
+address = os.getenv("ADDRESS", "0.0.0.0")
+port = os.getenv("PORT", "8000")
+bind = f"{address}:{port}"
+
+debug = bool(os.getenv("DEBUG", None))
+loglevel = "debug" if debug else "info"

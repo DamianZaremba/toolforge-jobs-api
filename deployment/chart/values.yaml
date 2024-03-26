@@ -2,6 +2,11 @@
 replicas: 2
 
 webservice:
+  debug: ""
+  port: 8000
+  address: "0.0.0.0"
+  skip_metrics: ""
+  skip_images: ""
   image:
     # name and tag are used by the ci to set the image repo and tag accordingly
     name: "tools-harbor.wmcloud.org/toolforge/jobs-api"

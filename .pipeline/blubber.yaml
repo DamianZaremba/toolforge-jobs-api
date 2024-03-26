@@ -22,14 +22,15 @@ variants:
       # needed to read k8s credentials from tool home dirs
       insecurely: true
       environment:
-        PROMETHEUS_MULTIPROC_DIR: /app/prometheus-multiproc
+        PROMETHEUS_MULTIPROC_DIR: "/app/prometheus-multiproc"
+        PORT: "8000"
+        ADDRESS: "0.0.0.0"
     copies:
       - local
     entrypoint:
       - poetry
       - run
       - gunicorn
-      - --bind=127.0.0.1:8000
       - --workers=4
       - --config=config.py
       - api:app
