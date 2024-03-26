@@ -25,9 +25,16 @@ repos:
       - id: mypy
         exclude: ^tests/
         verbose: true
-        args: [--show-error-codes, --ignore-missing-imports]
+        args: [--show-error-codes, --strict]
         additional_dependencies:
-          ["types-requests", "types-PyYAML", "types-flask", "toolforge-weld"]
+          [
+            "pydantic",
+            "toolforge-weld",
+            "types-PyYAML",
+            "flask",
+            "types-requests",
+            "types-setuptools",
+          ]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0

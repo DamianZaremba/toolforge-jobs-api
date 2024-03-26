@@ -27,7 +27,7 @@ class ScriptHealthCheck(HealthCheck):
         self.script = script
 
     @classmethod
-    def handles_type(cls: Type[T], type: str | None) -> bool:
+    def handles_type(cls: Type[T], type: str | HealthCheckType | None) -> bool:
         try:
             health_check_type = HealthCheckType(type)
         except ValueError:
