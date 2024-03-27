@@ -145,6 +145,9 @@ def api_create_job() -> ResponseReturnValue:
             "Only one of 'continuous' and 'schedule' can be set at the same time"
         )
 
+    if new_job.port and not new_job.continuous:
+        raise TjfValidationError("Port can only be set for continuous jobs")
+
     if runtime.get_job(tool=tool, job_name=new_job.name) is not None:
         raise TjfValidationError("A job with the same name exists already", http_status_code=409)
 
@@ -208,6 +211,7 @@ def api_create_job() -> ResponseReturnValue:
             tool_name=tool,
             schedule=schedule,
             cont=new_job.continuous,
+            port=new_job.port,
             k8s_object={},
             retry=new_job.retry,
             memory=new_job.memory,

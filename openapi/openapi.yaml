@@ -301,6 +301,12 @@ components:
           type: boolean
           description: "If a job should be always running."
           example: false
+        port:
+          type: integer
+          description: "Port to expose for the job."
+          minimum: 1
+          maximum: 65535
+          example: 8080
         cpu:
           type: string
           description: "Job CPU resource limit."

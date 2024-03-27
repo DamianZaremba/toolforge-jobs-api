@@ -95,6 +95,7 @@ class Job:
         tool_name: str,
         schedule: CronExpression | None,
         cont: bool,
+        port: int | None,
         k8s_object: dict[str, Any],
         retry: int,
         memory: str | None,
@@ -113,6 +114,7 @@ class Job:
         self.status_long = "Unknown"
         self.schedule = schedule
         self.cont = cont
+        self.port = port
         self.k8s_object = k8s_object
         self.memory = memory
         self.cpu = cpu

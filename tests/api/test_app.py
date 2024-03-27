@@ -49,6 +49,7 @@ def get_dummy_job(**overrides) -> Job:
         "emails": EmailOption.none,
         "mount": MountOption.ALL,
         "health_check": None,
+        "port": None,
     }
     params.update(overrides)
     return Job(**params)  # type: ignore
@@ -258,3 +259,26 @@ class TestJobsEndpoint:
             cast(list[dict[str, Any]], gotten_response.json)[0]["health_check"]
             == expected_health_check
         )
+
+    def test_listing_job_with_port_works(
+        self,
+        authorized_client: FlaskClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        expected_port = 8080
+
+        monkeypatch.setattr(
+            app.runtime,
+            "get_jobs",
+            value=lambda *args, **kwargs: [
+                get_dummy_job(
+                    port=8080,
+                )
+            ],
+        )
+
+        gotten_response = authorized_client.get("/api/v1/jobs/")
+
+        assert gotten_response.status_code == http.HTTPStatus.OK
+        assert cast(list[dict[str, Any]], gotten_response.json)[0]["port"] == expected_port

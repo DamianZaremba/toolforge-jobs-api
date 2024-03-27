@@ -16,6 +16,7 @@ from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
 from .ops import launch_manual_cronjob, validate_job_limits, wait_for_pod_exit
 from .ops_status import refresh_job_long_status, refresh_job_short_status
+from .services import get_k8s_service_object
 
 LOGGER = getLogger(__name__)
 
@@ -82,11 +83,18 @@ class K8sRuntime(BaseRuntime):
         else:
             raise TjfError(f"Unable to restart unknown job type: {job}")
 
+    def create_service(self, job: Job, tool_account: ToolAccount) -> None:
+        if job.port and job.cont:
+            kind = "services"
+            spec = get_k8s_service_object(job)
+            tool_account.k8s_cli.create_object(kind=kind, spec=spec)
+
     def create_job(self, *, job: Job, tool: str) -> None:
         tool_account = ToolAccount(name=tool)
         validate_job_limits(tool_account, job)
         spec = get_job_for_k8s(job=job)
         try:
+            self.create_service(job, tool_account)
             k8s_result = tool_account.k8s_cli.create_object(
                 kind=K8sJobKind.from_job_type(job.job_type).api_path_name,
                 spec=spec,
@@ -106,7 +114,7 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool)
         label_selector = labels_selector(job_name=None, user_name=tool_account.name, type=None)
 
-        for object_type in ["cronjobs", "deployments", "jobs", "pods"]:
+        for object_type in ["cronjobs", "deployments", "jobs", "pods", "services"]:
             tool_account.k8s_cli.delete_objects(object_type, label_selector=label_selector)
 
     def delete_job(self, *, tool: str, job: Job) -> None:
@@ -115,12 +123,13 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool)
         kind = K8sJobKind.from_job_type(job.job_type).api_path_name
         tool_account.k8s_cli.delete_object(kind=kind, name=job.job_name)
-        tool_account.k8s_cli.delete_objects(
-            kind="pods",
-            label_selector=labels_selector(
-                job_name=job.job_name, user_name=tool_account.name, type=kind
-            ),
-        )
+        for object_type in ["pods", "services"]:
+            tool_account.k8s_cli.delete_objects(
+                kind=object_type,
+                label_selector=labels_selector(
+                    job_name=job.job_name, user_name=tool_account.name, type=kind
+                ),
+            )
 
     def get_quota(self, *, tool: str) -> Quota:
         tool_account = ToolAccount(name=tool)

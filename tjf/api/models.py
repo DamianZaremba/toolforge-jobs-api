@@ -60,6 +60,7 @@ class CommonJob(BaseModel):
     mount: MountOption = MountOption.ALL
     schedule: str | None = None
     continuous: bool = False
+    port: Annotated[int, Field(ge=1, le=65535)] | None = None
     memory: str | None = None
     cpu: str | None = None
     health_check: ScriptHealthCheck | None = None
@@ -92,6 +93,7 @@ class DefinedJob(CommonJob):
             ),
             "status_short": job.status_short,
             "status_long": job.status_long,
+            "port": job.port,
             "emails": job.emails,
             "retry": job.retry,
             "mount": str(job.mount),

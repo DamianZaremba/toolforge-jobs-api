@@ -25,8 +25,8 @@ def generate_labels(
     jobname: Optional[str],
     tool_name: str,
     type: Optional[str],
-    filelog: bool,
-    emails: Optional[str],
+    filelog: bool = False,
+    emails: str | None = None,
     version: bool = True,
     mount: MountOption | None = None,
 ) -> Dict[str, str]:

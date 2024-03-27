@@ -37,6 +37,10 @@ def _is_out_of_quota(
         return False
 
     resource_quota = tool_account.k8s_cli.get_objects("resourcequotas")[0]
+    quota = None
+    used = None
+    service_quota = None
+    service_used = None
 
     k8s_type = K8sJobKind.from_job_type(job.job_type)
     if k8s_type == K8sJobKind.CRON_JOB:
@@ -45,6 +49,8 @@ def _is_out_of_quota(
     elif k8s_type == K8sJobKind.DEPLOYMENT:
         quota = resource_quota["status"]["hard"]["count/deployments.apps"]
         used = resource_quota["status"]["used"]["count/deployments.apps"]
+        service_quota = resource_quota["status"]["hard"]["services"]
+        service_used = resource_quota["status"]["used"]["services"]
     elif k8s_type == K8sJobKind.JOB:
         quota = resource_quota["status"]["hard"]["count/jobs.batch"]
         used = resource_quota["status"]["used"]["count/jobs.batch"]
@@ -52,6 +58,9 @@ def _is_out_of_quota(
         return False
 
     if used >= quota:
+        return True
+
+    if service_used is not None and service_used >= service_quota:
         return True
 
     return False

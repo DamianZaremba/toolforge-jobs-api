@@ -140,9 +140,6 @@ def _get_k8s_cronjob_object(job: Job) -> K8S_OBJECT_TYPE:
 def _get_k8s_podtemplate(
     *, job: Job, restart_policy: str, probes: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    if probes is None:
-        probes = {}
-
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
@@ -165,6 +162,13 @@ def _get_k8s_podtemplate(
             }
         ]
 
+    if probes is None:
+        probes = {}
+
+    ports = {}
+    if job.port:
+        ports = {"ports": [{"containerPort": job.port}]}
+
     return {
         "metadata": {"labels": labels},
         "spec": {
@@ -182,6 +186,7 @@ def _get_k8s_podtemplate(
                     "resources": _generate_container_resources(job=job),
                     "securityContext": _generate_container_security_context(job=job),
                     **probes,
+                    **ports,
                 }
             ],
         },
@@ -272,6 +277,7 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
     )
 
     # only add health-check to continuous jobs for now
+    # TODO: move this into _get_k8s_podtemplate?
     probes = get_healthcheck_for_k8s(job.health_check) if job.health_check else {}
 
     obj = {
@@ -407,6 +413,14 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
     image = podspec["template"]["spec"]["containers"][0]["image"]
     retry = podspec.get("backoffLimit", 0)
     emails = metadata["labels"].get("jobs.toolforge.org/emails", "none")
+    port = (
+        podspec["template"]["spec"]["containers"][0]
+        .get("ports", [{}])[0]
+        .get(
+            "containerPort",
+            None,
+        )
+    )
     resources = podspec["template"]["spec"]["containers"][0].get("resources", {})
     resources_limits = resources.get("limits", {})
     memory = resources_limits.get("memory", JOB_DEFAULT_MEMORY)
@@ -440,6 +454,7 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
         tool_name=user,
         schedule=schedule,
         cont=cont,
+        port=port,
         k8s_object=object,
         retry=retry,
         memory=memory,
