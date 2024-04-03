@@ -231,7 +231,7 @@ def api_create_job() -> tuple[dict[str, Any], int]:
             cont=new_job.continuous,
             k8s_object=None,
             retry=new_job.retry,
-            memory=new_job.mem,
+            memory=new_job.memory,
             cpu=new_job.cpu,
             emails=new_job.emails,
             mount=new_job.mount,
