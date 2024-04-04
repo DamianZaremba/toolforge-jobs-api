@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2023 Arturo Borrero Gonzalez <aborrero@wikimedia.org>
-
 from datetime import datetime
 from logging import getLogger
 from typing import Any, Optional

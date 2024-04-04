@@ -1,3 +1,4 @@
+from logging import getLogger
 from pathlib import Path
 from typing import Iterator
 
@@ -15,6 +16,8 @@ from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
 from .ops import launch_manual_cronjob, validate_job_limits, wait_for_pod_exit
 from .ops_status import refresh_job_long_status, refresh_job_short_status
+
+LOGGER = getLogger(__name__)
 
 
 class K8sRuntime(BaseRuntime):
@@ -99,6 +102,7 @@ class K8sRuntime(BaseRuntime):
 
     def delete_all_jobs(self, *, tool: str) -> None:
         """Deletes all jobs for a user."""
+        LOGGER.debug("Deleting all jobs for tool %s", tool)
         tool_account = ToolAccount(name=tool)
         label_selector = labels_selector(job_name=None, user_name=tool_account.name, type=None)
 
@@ -107,6 +111,7 @@ class K8sRuntime(BaseRuntime):
 
     def delete_job(self, *, tool: str, job: Job) -> None:
         """Deletes a specified job."""
+        LOGGER.debug("Deleting job %s for tool %s", job.job_name, tool)
         tool_account = ToolAccount(name=tool)
         kind = K8sJobKind.from_job_type(job.job_type).api_path_name
         tool_account.k8s_cli.delete_object(kind=kind, name=job.job_name)
