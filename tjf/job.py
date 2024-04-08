@@ -251,9 +251,7 @@ class Job:
         if container_spec.get("startupProbe", None):
             if container_spec["startupProbe"].get("exec", None):
                 script = container_spec["startupProbe"]["exec"]["command"][2]
-                health_check = ScriptHealthCheck(
-                    health_check_type=HealthCheckType.SCRIPT, script=script
-                )
+                health_check = ScriptHealthCheck(type=HealthCheckType.SCRIPT, script=script)
 
         mount = MountOption.parse_labels(metadata["labels"])
 

@@ -152,14 +152,14 @@ class TestJobsEndpoint:
         self,
         authorized_client: FlaskClient,
     ) -> None:
-        expected_health_check = {"script": "silly script"}
+        expected_health_check = {"script": "silly script", "type": "script"}
 
         with patch(
             "tjf.api.jobs.list_all_jobs",
             return_value=[
                 get_dummy_job(
                     health_check=ScriptHealthCheck(
-                        health_check_type=HealthCheckType.SCRIPT,
+                        type=HealthCheckType.SCRIPT,
                         script=expected_health_check["script"],
                     )
                 )

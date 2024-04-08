@@ -21,7 +21,7 @@ class ScriptHealthCheck(BaseModel):
     type: internal_hc.HealthCheckType = internal_hc.HealthCheckType.SCRIPT
 
     def to_internal(self) -> internal_hc.ScriptHealthCheck:
-        return internal_hc.ScriptHealthCheck(health_check_type=self.type, script=self.script)
+        return internal_hc.ScriptHealthCheck(type=self.type, script=self.script)
 
     @field_validator("type")
     @classmethod

@@ -23,7 +23,7 @@ class TestScriptHealthCheck:
 
     def test_good_parameters(self) -> None:
         gotten_health_check = ScriptHealthCheck(
-            health_check_type=HealthCheckType.SCRIPT, script="echo 'this is a good script'"
+            type=HealthCheckType.SCRIPT, script="echo 'this is a good script'"
         )
         assert gotten_health_check.type == HealthCheckType.SCRIPT
         assert gotten_health_check.script == "echo 'this is a good script'"
