@@ -1,12 +1,19 @@
 from enum import Enum
 from typing import Any, Type
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel as PydanticModel
+from pydantic import Field, field_validator
 from toolforge_weld.kubernetes import MountOption
 from typing_extensions import Annotated
 
 from .. import health_check as internal_hc
 from ..job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY, Job
+
+
+class BaseModel(PydanticModel):
+
+    class Config:
+        extra = "forbid"
 
 
 class EmailOption(str, Enum):
