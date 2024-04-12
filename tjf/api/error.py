@@ -11,7 +11,14 @@ from ..error import TjfError, tjf_error_from_weld_error
 from .models import Error
 
 
+def _polish_pydantic_error_message(pydantic_message: str) -> str:
+    return "\n".join(
+        line for line in pydantic_message.splitlines() if "For further information" not in line
+    )
+
+
 def error_handler(error: ToolforgeError | TjfError | ValidationError) -> tuple[Response, int]:
+    message = ""
     if isinstance(error, ToolforgeError):
         cause = error.__cause__
         error = tjf_error_from_weld_error(error)
@@ -26,7 +33,7 @@ def error_handler(error: ToolforgeError | TjfError | ValidationError) -> tuple[R
     elif isinstance(error, ValidationError):
         cause = error.__cause__
         data = {}
-        message = str(error)
+        message = _polish_pydantic_error_message(str(error))
         http_status_code = http.HTTPStatus.BAD_REQUEST
 
     else:
@@ -35,8 +42,9 @@ def error_handler(error: ToolforgeError | TjfError | ValidationError) -> tuple[R
         http_status_code = http.HTTPStatus.INTERNAL_SERVER_ERROR
         data = {"traceback": traceback.format_exc()}
 
-    message = str(error)
+    message = message or str(error)
     if cause:
+        print("----------------- cause f{cause}")
         message += f" ({str(cause)})"
 
     return (

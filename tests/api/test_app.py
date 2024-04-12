@@ -144,7 +144,7 @@ class TestApiErrorHandler:
         assert response.status_code == 400
         assert response.json == {
             "data": {},
-            "message": '1 validation error for Silly\nsomeint\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value="I\'m not an int", input_type=str]\n    For further information visit https://errors.pydantic.dev/2.6/v/int_parsing',
+            "message": '1 validation error for Silly\nsomeint\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value="I\'m not an int", input_type=str]',
         }
 
     def test_unknown_error(self, error_generating_app):

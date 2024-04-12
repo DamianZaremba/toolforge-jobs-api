@@ -39,7 +39,7 @@ class TestErrorHandler:
                 ),
                 {
                     "data": {},
-                    "message": "1 validation error for simple ValidationError\n  Invalid JSON: some error [type=json_invalid, input_value='something', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.6/v/json_invalid",
+                    "message": "1 validation error for simple ValidationError\n  Invalid JSON: some error [type=json_invalid, input_value='something', input_type=str]",
                 },
                 http.HTTPStatus.BAD_REQUEST,
             ),
