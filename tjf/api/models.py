@@ -96,7 +96,7 @@ class DefinedJob(CommonJob):
             "retry": job.retry,
             "mount": str(job.mount),
             "health_check": (
-                ScriptHealthCheck.model_validate(obj=job.health_check, from_attributes=True)
+                ScriptHealthCheck(script=job.health_check.script, type=job.health_check.type)
                 if job.health_check
                 else None
             ),
