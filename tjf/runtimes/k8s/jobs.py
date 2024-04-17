@@ -3,7 +3,7 @@ import time
 from enum import Enum
 from typing import Any, Iterator
 
-from toolforge_weld.kubernetes import K8sClient, MountOption, parse_quantity
+from toolforge_weld.kubernetes import ApiData, K8sClient, MountOption, parse_quantity
 from toolforge_weld.logs import LogEntry
 
 from tjf.health_check import HealthCheckType, ScriptHealthCheck
@@ -53,7 +53,16 @@ class K8sJobKind(Enum):
 
     @property
     def api_version(self) -> str:
-        return K8sClient.VERSIONS[self.api_path_name]
+        version = K8sClient.VERSIONS[self.api_path_name]
+        # TODO: this is because the Union in toolforge_weld :-(
+        if isinstance(version, str):
+            return version
+        elif isinstance(version, ApiData):
+            return version.version
+        else:
+            raise RuntimeError(
+                "Unknown version class. A Toolforge admin must check toolforge-weld."
+            )
 
     @classmethod
     def from_job_type(cls, job_type: JobType) -> "K8sJobKind":

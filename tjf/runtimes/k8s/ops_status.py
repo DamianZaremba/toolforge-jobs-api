@@ -68,10 +68,7 @@ def _get_job_object_status(
 
     LOGGER.debug("Got uid %s for job, getting events", job_uid)
 
-    # remove type ignore when https://gitlab.wikimedia.org/repos/cloud/toolforge/toolforge-weld/-/merge_requests/45 is in
-    events = user.k8s_cli.get_objects(
-        "events", field_selector="involvedObject.uid={job_uid}"  # type: ignore
-    )
+    events = user.k8s_cli.get_objects("events", field_selector=f"involvedObject.uid={job_uid}")
     for event in sorted(events, key=lambda event: event["lastTimestamp"], reverse=True):
         reason = event.get("reason", None)
 
