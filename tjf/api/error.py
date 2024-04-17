@@ -44,7 +44,7 @@ def error_handler(error: ToolforgeError | TjfError | ValidationError) -> tuple[R
 
     message = message or str(error)
     if cause:
-        print("----------------- cause f{cause}")
+        print(f"----------------- cause: {cause}")
         message += f" ({str(cause)})"
 
     return (
