@@ -30,7 +30,12 @@ def test_get_quota_error():
     ],
 )
 def test_refresh_job_short_status_cronjob(
-    cronjob, job, status_short, fake_auth_headers: ToolAccount, fake_images: dict[str, Any]
+    fake_tool_account_uid: None,
+    cronjob,
+    job,
+    status_short,
+    fake_auth_headers: ToolAccount,
+    fake_images: dict[str, Any],
 ):
     class FakeK8sCli:
         def get_objects(self, kind, *, label_selector):

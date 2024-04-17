@@ -14,6 +14,7 @@ import tjf.images
 from tjf.api.app import JobsApi, create_app
 from tjf.api.auth import AUTH_HEADER
 from tjf.images import HarborConfig, update_available_images
+from tjf.runtimes.k8s import jobs
 from tjf.runtimes.k8s.account import ToolAccount
 
 TESTS_PATH = Path(__file__).parent.resolve()
@@ -149,3 +150,8 @@ def app() -> Generator[JobsApi, None, None]:
 @pytest.fixture
 def client(app: JobsApi) -> FlaskClient:
     return app.test_client()
+
+
+@pytest.fixture
+def fake_tool_account_uid(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(jobs, "_get_tool_account_uid", value=lambda *args: 1001)

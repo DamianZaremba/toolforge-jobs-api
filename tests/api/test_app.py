@@ -193,6 +193,7 @@ class TestAPIAuth:
 class TestJobsEndpoint:
     def test_listing_jobs_when_theres_none_returns_empty(
         self,
+        fake_tool_account_uid: None,
         authorized_client: FlaskClient,
         app: JobsApi,
         monkeypatch: MonkeyPatch,
@@ -207,6 +208,7 @@ class TestJobsEndpoint:
 
     def test_listing_multiple_jobs_returns_all(
         self,
+        fake_tool_account_uid: None,
         authorized_client: FlaskClient,
         app: JobsApi,
         monkeypatch: MonkeyPatch,

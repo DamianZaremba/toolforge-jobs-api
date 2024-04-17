@@ -57,6 +57,9 @@ spec:
           subPath: harbor.json
           name: harbor-config
           readOnly: true
+        - name: nsswitch
+          mountPath: /etc/nsswitch.conf
+          readOnly: true
       - name: nginx
         image: {{ .Values.nginx.image.name }}:{{ .Values.nginx.image.nginxTag }}
         imagePullPolicy: Always
@@ -84,6 +87,10 @@ spec:
           periodSeconds: 3
       serviceAccountName: jobs-api
       volumes:
+      - name: nsswitch
+        hostPath:
+          path: /etc/nsswitch.conf
+          type: File
       - hostPath:
           path: /data/project
           type: Directory

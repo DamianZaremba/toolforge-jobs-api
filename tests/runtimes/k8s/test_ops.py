@@ -37,7 +37,7 @@ from tjf.runtimes.k8s.ops import create_error_from_k8s_response, validate_job_li
 
 
 @pytest.fixture
-def fake_job(fake_images: dict[str, Any]) -> Job:
+def fake_job(fake_tool_account_uid: None, fake_images: dict[str, Any]) -> Job:
     return get_job_from_k8s(CRONJOB_NOT_RUN_YET, "cronjobs")
 
 

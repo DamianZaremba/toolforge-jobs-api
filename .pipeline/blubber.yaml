@@ -3,6 +3,9 @@ version: v4
 base: docker-registry.wikimedia.org/python3-bookworm:latest
 variants:
   image:
+    apt:
+      packages:
+        - libnss-sss
     lives:
       in: /app
     builders:

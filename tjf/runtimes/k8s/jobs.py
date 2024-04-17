@@ -1,6 +1,8 @@
 import json
+import pwd
 import time
 from enum import Enum
+from functools import cache
 from typing import Any, Iterator
 
 from toolforge_weld.kubernetes import ApiData, K8sClient, MountOption, parse_quantity
@@ -168,6 +170,7 @@ def _get_k8s_podtemplate(
         "spec": {
             "restartPolicy": restart_policy,
             "terminationGracePeriodSeconds": JOB_TERMINATION_GRACE_PERIOD,
+            "securityContext": _generate_pod_security_context(job=job),
             "containers": [
                 {
                     "name": JOB_CONTAINER_NAME,
@@ -177,10 +180,57 @@ def _get_k8s_podtemplate(
                     "command": generated_command.command,
                     "args": generated_command.args,
                     "resources": _generate_container_resources(job=job),
+                    "securityContext": _generate_container_security_context(job=job),
                     **probes,
                 }
             ],
         },
+    }
+
+
+@cache
+def _get_project() -> str:
+    with open("/etc/wmcs-project", "r") as f:
+        return f.read().rstrip("\n")
+
+
+@cache
+def _get_tool_account_uid(tool_account_name: str) -> int:
+    project = _get_project()
+    user = f"{project}.{tool_account_name}"
+    tool_account_uid = pwd.getpwnam(user).pw_uid
+
+    return tool_account_uid
+
+
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#podsecuritycontext-v1-core
+def _generate_pod_security_context(job: Job) -> dict[str, Any]:
+    tool_uid = _get_tool_account_uid(job.tool_name)
+
+    return {
+        "fsGroup": tool_uid,
+        "runAsGroup": tool_uid,
+        "runAsNonRoot": True,
+        "runAsUser": tool_uid,
+        "seccompProfile": {"type": "RuntimeDefault"},
+    }
+
+
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#securitycontext-v1-core
+def _generate_container_security_context(job: Job) -> dict[str, Any]:
+    tool_uid = _get_tool_account_uid(job.tool_name)
+
+    return {
+        "allowPrivilegeEscalation": False,
+        "capabilities": {
+            "drop": ["ALL"],
+        },
+        "privileged": False,
+        "procMount": "DefaultProcMount",
+        "readOnlyRootFilesystem": True,
+        "runAsGroup": tool_uid,
+        "runAsNonRoot": True,
+        "runAsUser": tool_uid,
     }
 
 
