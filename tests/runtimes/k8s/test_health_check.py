@@ -27,12 +27,14 @@ class TestGetHealthcheckForK8s:
                 "failureThreshold": 3,
                 "initialDelaySeconds": 0,
                 "periodSeconds": 10,
+                "timeoutSeconds": 5,
             },
             "startupProbe": {
                 "exec": {"command": ["/bin/sh", "-c", "Some script"]},
                 "failureThreshold": 120,
                 "initialDelaySeconds": 0,
                 "periodSeconds": 1,
+                "timeoutSeconds": 5,
             },
         }
 

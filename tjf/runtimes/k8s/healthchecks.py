@@ -9,6 +9,7 @@ STARTUP_PROBE_DEFAULT_FAILURE_THRESHOLD = 120
 LIVENESS_PROBE_DEFAULT_INITIAL_DELAY_SECONDS = 0
 LIVENESS_PROBE_DEFAULT_PERIOD_SECONDS = 10
 LIVENESS_PROBE_DEFAULT_FAILURE_THRESHOLD = 3
+LIVENESS_PROBE_DEFAULT_TIMEOUT_SECONDS = 5
 
 
 def get_healthcheck_for_k8s(health_check: HealthCheck) -> dict[str, Any]:
@@ -28,6 +29,7 @@ def _get_script_healthcheck_for_k8s(health_check: ScriptHealthCheck) -> dict[str
             "initialDelaySeconds": STARTUP_PROBE_DEFAULT_INITIAL_DELAY_SECONDS,
             "periodSeconds": STARTUP_PROBE_DEFAULT_PERIOD_SECONDS,
             "failureThreshold": STARTUP_PROBE_DEFAULT_FAILURE_THRESHOLD,
+            "timeoutSeconds": LIVENESS_PROBE_DEFAULT_TIMEOUT_SECONDS,
         },
         "livenessProbe": {
             "exec": {
@@ -36,5 +38,6 @@ def _get_script_healthcheck_for_k8s(health_check: ScriptHealthCheck) -> dict[str
             "initialDelaySeconds": LIVENESS_PROBE_DEFAULT_INITIAL_DELAY_SECONDS,
             "periodSeconds": LIVENESS_PROBE_DEFAULT_PERIOD_SECONDS,
             "failureThreshold": LIVENESS_PROBE_DEFAULT_FAILURE_THRESHOLD,
+            "timeoutSeconds": LIVENESS_PROBE_DEFAULT_TIMEOUT_SECONDS,
         },
     }
