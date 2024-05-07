@@ -35,5 +35,6 @@ variants:
       - run
       - gunicorn
       - --workers=4
+      - --worker-class=gevent
       - --config=config.py
       - api:app
