@@ -20,6 +20,7 @@ import pytest
 from flask.testing import FlaskClient
 from helpers.fakes import get_fake_account
 
+from tjf.api.models import QuotaResponse, ResponseMessages
 from tjf.runtimes.k8s import runtime
 
 
@@ -48,7 +49,10 @@ def test_quota_endpoint(
     patch_account_to_have_quotas,
     fake_auth_headers: dict[str, str],
 ):
-    expected = json.loads((fixtures_path / "quota" / "expected-api-result.json").read_text())
+    expected = QuotaResponse(
+        quota=json.loads((fixtures_path / "quota" / "expected-api-result.json").read_text()),
+        messages=ResponseMessages(),
+    ).model_dump(mode="json", exclude_unset=True)
     response = client.get("/api/v1/quota/", headers=fake_auth_headers)
 
     assert response.status_code == 200

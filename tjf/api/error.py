@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import http
+import logging
 import traceback
 
 from flask import Response, jsonify
@@ -8,7 +9,9 @@ from pydantic import ValidationError
 from toolforge_weld.errors import ToolforgeError
 
 from ..error import TjfError, tjf_error_from_weld_error
-from .models import Error
+from .models import ResponseMessages
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _polish_pydantic_error_message(pydantic_message: str) -> str:
@@ -47,7 +50,8 @@ def error_handler(error: ToolforgeError | TjfError | ValidationError) -> tuple[R
         print(f"----------------- cause: {cause}")
         message += f" ({str(cause)})"
 
+    LOGGER.error(f"{message}. context: {data}")
     return (
-        jsonify(Error(message=message, data=data).model_dump(exclude_unset=True)),
+        jsonify(ResponseMessages(error=[message]).model_dump(mode="json", exclude_unset=True)),
         http_status_code,
     )

@@ -36,15 +36,17 @@ from .jobs import (
     api_show,
 )
 from .metrics import metrics_init_app
-from .models import Health, HealthState
+from .models import Health, HealthResponse, HealthState, ResponseMessages
 from .openapi import openapi
 from .quota import api_quota
 from .utils import JobsApi
 
 
 def healthz() -> ResponseReturnValue:
-    health = Health(status=HealthState.ok, message="OK")
-    return health.model_dump(exclude_unset=True), http.HTTPStatus.OK
+    health = HealthResponse(
+        health=Health(status=HealthState.ok, message="OK"), messages=ResponseMessages()
+    )
+    return health.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
 
 
 def create_app(*, load_images: bool = True, init_metrics: bool = True) -> JobsApi:

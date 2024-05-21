@@ -4,6 +4,17 @@ from flask.testing import FlaskClient
 
 
 class TestGetImages:
+    def test_get_images_endpoint(
+        self,
+        fake_images: dict[str, Any],
+        client: FlaskClient,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        expected_messages = {}
+        response = client.get("/api/v1/images/", headers=fake_auth_headers)
+        assert response.status_code == 200
+        assert response.json["messages"] == expected_messages
+
     def test_gets_active_images(
         self,
         fake_images: dict[str, Any],
@@ -13,7 +24,7 @@ class TestGetImages:
         response = client.get("/api/v1/images/", headers=fake_auth_headers)
         assert response.status_code == 200
 
-        gotten_image_names = [image["shortname"] for image in response.json or []]
+        gotten_image_names = [image["shortname"] for image in response.json["images"] or []]
 
         expected_active_images = [
             image_name
@@ -34,7 +45,7 @@ class TestGetImages:
         response = client.get("/api/v1/images/", headers=fake_auth_headers)
         assert response.status_code == 200
 
-        gotten_image_names = [image["shortname"] for image in response.json or []]
+        gotten_image_names = [image["shortname"] for image in response.json["images"] or []]
 
         expected_deprecated_images = [
             image_name
@@ -55,7 +66,7 @@ class TestGetImages:
         response = client.get("/api/v1/images/", headers=fake_auth_headers)
         assert response.status_code == 200
 
-        gotten_image_names = [image["shortname"] for image in response.json or []]
+        gotten_image_names = [image["shortname"] for image in response.json["images"] or []]
 
         expected_some_tool_harbor_images = []
         for artifact in fake_harbor_content["tool-some-tool"]["artifact-list"]:
@@ -80,7 +91,7 @@ class TestGetImages:
         response = client.get("/api/v1/images/", headers=fake_auth_headers)
         assert response.status_code == 200
 
-        gotten_image_names = [image["shortname"] for image in response.json or []]
+        gotten_image_names = [image["shortname"] for image in response.json["images"] or []]
 
         expected_other_tool_harbor_images = []
         for artifact in fake_harbor_content["tool-other"]["artifact-list"]:

@@ -18,6 +18,7 @@ from flask import Blueprint, request
 from flask.typing import ResponseReturnValue
 
 from .auth import get_tool_from_request
+from .models import QuotaResponse, ResponseMessages
 from .utils import current_app
 
 api_quota = Blueprint("quota", __name__, url_prefix="/api/v1/quota/")
@@ -27,4 +28,9 @@ api_quota = Blueprint("quota", __name__, url_prefix="/api/v1/quota/")
 def api_get_quota() -> ResponseReturnValue:
     tool = get_tool_from_request(request=request)
     quota = current_app().runtime.get_quota(tool=tool)
-    return quota.model_dump(exclude_unset=True), http.HTTPStatus.OK
+    return (
+        QuotaResponse(quota=quota, messages=ResponseMessages()).model_dump(
+            mode="json", exclude_unset=True
+        ),
+        http.HTTPStatus.OK,
+    )

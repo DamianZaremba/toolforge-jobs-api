@@ -1,6 +1,5 @@
 import http
 from typing import Any, Generator, cast
-from unittest.mock import ANY
 
 import pytest
 from flask import Flask, request
@@ -12,7 +11,7 @@ from toolforge_weld.kubernetes import MountOption
 
 from tjf.api.app import create_app, error_handler
 from tjf.api.auth import AUTH_HEADER, ToolAuthError, get_tool_from_request
-from tjf.api.models import EmailOption
+from tjf.api.models import EmailOption, JobListResponse, ResponseMessages
 from tjf.api.utils import JobsApi
 from tjf.command import Command
 from tjf.error import TjfClientError, TjfError
@@ -122,39 +121,49 @@ def error_generating_app():
 
 
 class TestApiErrorHandler:
-    def test_tjf_client_error(self, error_generating_app):
+    def test_tjf_client_error(self, error_generating_app, caplog):
+        exp_err_msg = "Invalid foo"
+        exp_err_ctx = {"options": ["bar", "baz"]}
         response = error_generating_app.get("/tjfclienterror")
-        assert response.status_code == 400
-        assert response.json == {"message": "Invalid foo", "data": {"options": ["bar", "baz"]}}
 
-    def test_tjf_error(self, error_generating_app):
+        assert response.status_code == 400
+        assert response.json == {"error": [exp_err_msg]}
+        assert f"{exp_err_msg}. context: {exp_err_ctx}" in caplog.text
+
+    def test_tjf_error(self, error_generating_app, caplog):
+        exp_err_msg = "Failed to create job (Failed to contact foo)"
+        exp_err_ctx = {}
         response = error_generating_app.post("/tjferror")
-        assert response.status_code == 500
-        assert response.json == {
-            "message": "Failed to create job (Failed to contact foo)",
-            "data": {},
-        }
 
-    def test_toolforge_user_error(self, error_generating_app):
+        assert response.status_code == 500
+        assert response.json == {"error": [exp_err_msg]}
+        assert f"{exp_err_msg}. context: {exp_err_ctx}" in caplog.text
+
+    def test_toolforge_user_error(self, error_generating_app, caplog):
+        exp_err_msg = "Welding failed (Test Cause)"
+        exp_err_ctx = {"aaa": "bbb"}
         response = error_generating_app.put("/toolforgeusererror")
-        assert response.status_code == 400
-        assert response.json == {"message": "Welding failed (Test Cause)", "data": {"aaa": "bbb"}}
 
-    def test_validation_error(self, error_generating_app):
+        assert response.status_code == 400
+        assert response.json == {"error": [exp_err_msg]}
+        assert f"{exp_err_msg}. context: {exp_err_ctx}" in caplog.text
+
+    def test_validation_error(self, error_generating_app, caplog):
+        exp_err_msg = '1 validation error for Silly\nsomeint\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value="I\'m not an int", input_type=str]'
+        exp_err_ctx = {}
         response = error_generating_app.get("/validationerror")
-        assert response.status_code == 400
-        assert response.json == {
-            "data": {},
-            "message": '1 validation error for Silly\nsomeint\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value="I\'m not an int", input_type=str]',
-        }
 
-    def test_unknown_error(self, error_generating_app):
+        assert response.status_code == 400
+        assert response.json == {"error": [exp_err_msg]}
+        assert f"{exp_err_msg}. context: {exp_err_ctx}" in caplog.text
+
+    def test_unknown_error(self, error_generating_app, caplog):
+        exp_err_msg = "Unknown error (Some error)"
         response = error_generating_app.get("/unknownerror")
+
         assert response.status_code == 500
-        assert response.json == {
-            "message": "Unknown error (Some error)",
-            "data": {"traceback": ANY},
-        }
+        assert response.json == {"error": [exp_err_msg]}
+        assert f"{exp_err_msg}. context: " in caplog.text
 
 
 class TestAPIAuth:
@@ -194,22 +203,22 @@ class TestAPIAuth:
 class TestJobsEndpoint:
     def test_listing_jobs_when_theres_none_returns_empty(
         self,
-        fake_tool_account_uid: None,
         authorized_client: FlaskClient,
         app: JobsApi,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        expected_response_data: list[Job] = []
+        expected_response: list[dict[str, Any]] = JobListResponse(
+            jobs=[], messages=ResponseMessages()
+        ).model_dump(mode="json", exclude_unset=True)
         monkeypatch.setattr(app.runtime, "get_jobs", value=lambda *args, **kwargs: [])
 
         gotten_response = authorized_client.get("/api/v1/jobs/")
 
         assert gotten_response.status_code == http.HTTPStatus.OK
-        assert gotten_response.json == expected_response_data
+        assert gotten_response.json == expected_response
 
     def test_listing_multiple_jobs_returns_all(
         self,
-        fake_tool_account_uid: None,
         authorized_client: FlaskClient,
         app: JobsApi,
         monkeypatch: MonkeyPatch,
@@ -228,10 +237,12 @@ class TestJobsEndpoint:
 
         assert gotten_response.status_code == http.HTTPStatus.OK
 
-        gotten_jobs: list[dict[str, Any]] = cast(list[dict[str, Any]], gotten_response.json)
+        gotten_jobs: list[dict[str, Any]] = cast(
+            list[dict[str, Any]], gotten_response.json["jobs"]
+        )
         assert [job["name"] for job in gotten_jobs] == expected_names
 
-    def test_listing_job_with_helthcheck_works(
+    def test_listing_job_with_healthcheck_works(
         self,
         authorized_client: FlaskClient,
         app: JobsApi,
@@ -256,7 +267,7 @@ class TestJobsEndpoint:
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         assert (
-            cast(list[dict[str, Any]], gotten_response.json)[0]["health_check"]
+            cast(list[dict[str, Any]], gotten_response.json["jobs"])[0]["health_check"]
             == expected_health_check
         )
 
@@ -281,4 +292,4 @@ class TestJobsEndpoint:
         gotten_response = authorized_client.get("/api/v1/jobs/")
 
         assert gotten_response.status_code == http.HTTPStatus.OK
-        assert cast(list[dict[str, Any]], gotten_response.json)[0]["port"] == expected_port
+        assert cast(list[dict[str, Any]], gotten_response.json["jobs"])[0]["port"] == expected_port

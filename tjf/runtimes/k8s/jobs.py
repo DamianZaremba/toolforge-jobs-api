@@ -5,6 +5,7 @@ from enum import Enum
 from functools import cache
 from typing import Any, Iterator
 
+from toolforge_weld.errors import ToolforgeError
 from toolforge_weld.kubernetes import ApiData, K8sClient, MountOption, parse_quantity
 from toolforge_weld.logs import LogEntry
 
@@ -62,8 +63,8 @@ class K8sJobKind(Enum):
         elif isinstance(version, ApiData):
             return version.version
         else:
-            raise RuntimeError(
-                "Unknown version class. A Toolforge admin must check toolforge-weld."
+            raise ToolforgeError(
+                message="Unknown version class. A Toolforge admin must check toolforge-weld."
             )
 
     @classmethod

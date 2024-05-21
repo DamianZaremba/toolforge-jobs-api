@@ -2,9 +2,17 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "1.0.0"
+  version: "2.0.0"
 servers:
+  - url: "http://127.0.0.1:8000"
+    description: "Local direct development server."
+  - url: "https://127.0.0.1:3000/jobs"
+    description: "Lima-kilo development server."
   - url: "https://api.svc.tools.eqiad1.wikimedia.cloud:30003/jobs"
+    description: "Toolforge internal API gateway endpoint."
+  - url: "https://api.svc.toolsbeta.eqiad1.wikimedia.cloud:30003/jobs"
+    description: "Toolforge beta internal API gateway endpoint."
+
 paths:
   /api/v1/images:
     get:
@@ -18,13 +26,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Images"
+                $ref: "#/components/schemas/ImageListResponse"
         "401": &unauthorized_error
-          description: "Unauthorized error."
+          description: "Unauthorized error"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/ResponseMessages"
   /api/v1/quota:
     get:
       operationId: "quota"
@@ -36,7 +44,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Quota"
+                $ref: "#/components/schemas/QuotaResponse"
         "401": *unauthorized_error
   /api/v1/jobs:
     get:
@@ -49,9 +57,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/DefinedJob"
+                $ref: "#/components/schemas/JobListResponse"
         "401": *unauthorized_error
     post:
       operationId: "create"
@@ -69,13 +75,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DefinedJob"
+                $ref: "#/components/schemas/JobResponse"
         "400": &bad_parameters_error
-          description: "Bad parameters error"
+          description: "Bad parameters passed"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/ResponseMessages"
         "401": *unauthorized_error
     delete:
       operationId: "flush"
@@ -84,6 +90,10 @@ paths:
       responses:
         "200":
           description: "All jobs were flushed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlushResponse"
         "401": *unauthorized_error
   /api/v1/jobs/{id}:
     get:
@@ -105,15 +115,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DefinedJob"
+                $ref: "#/components/schemas/JobResponse"
         "400": *bad_parameters_error
         "401": *unauthorized_error
         "404": &not_found_error
-          description: "Object not found error."
+          description: "Object not found error"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/ResponseMessages"
     delete:
       operationId: "delete"
       description: "Stop and delete the specified job from this Toolforge tool account."
@@ -122,6 +132,10 @@ paths:
       responses:
         "200":
           description: "Job was deleted."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
         "400": *bad_parameters_error
         "401": *unauthorized_error
         "404": *not_found_error
@@ -150,6 +164,10 @@ paths:
       responses:
         "200":
           description: "Job has been restarted."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestartResponse"
         "400": *bad_parameters_error
         "401": *unauthorized_error
         "404": *not_found_error
@@ -174,17 +192,82 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Health"
+                $ref: "#/components/schemas/HealthResponse"
       security: []
 components:
   schemas:
-    Error:
+    ResponseMessages:
+      type: object
+      description: |
+        Lists of messages by priority, note that there will be a warning here when the endpoint is being deprecated
+        with information on how to proceed to update it.
+      properties:
+        info:
+          type: array
+          items:
+            type: string
+        warning:
+          type: array
+          items:
+            type: string
+        error:
+          type: array
+          items:
+            type: string
+    ImageListResponse:
       type: object
       properties:
-        message:
-          type: string
-        data:
-          type: object
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/Image"
+        messages:
+          $ref: "#/components/schemas/ResponseMessages"
+    QuotaResponse:
+      type: object
+      properties:
+        quota:
+          $ref: "#/components/schemas/Quota"
+        messages:
+          $ref: "#/components/schemas/ResponseMessages"
+    JobListResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefinedJob"
+        messages:
+          $ref: "#/components/schemas/ResponseMessages"
+    JobResponse:
+      type: object
+      properties:
+        job:
+          $ref: "#/components/schemas/DefinedJob"
+        messages:
+          $ref: "#/components/schemas/ResponseMessages"
+    RestartResponse:
+      type: object
+      properties:
+        messages:
+          $ref: "#/components/schemas/ResponseMessages"
+    DeleteResponse:
+      type: object
+      properties:
+        messages:
+          $ref: "#/components/schemas/ResponseMessages"
+    FlushResponse:
+      type: object
+      properties:
+        messages:
+          $ref: "#/components/schemas/ResponseMessages"
+    HealthResponse:
+      type: object
+      properties:
+        health:
+          $ref: "#/components/schemas/Health"
+        messages:
+          $ref: "#/components/schemas/ResponseMessages"
     Health:
       type: object
       properties:
@@ -195,15 +278,13 @@ components:
             - ERROR
         message:
           type: string
-    Images:
-      type: array
-      items:
-        type: object
-        properties:
-          shortname:
-            type: string
-          image:
-            type: string
+    Image:
+      type: object
+      properties:
+        shortname:
+          type: string
+        image:
+          type: string
     Quota:
       type: object
       properties:

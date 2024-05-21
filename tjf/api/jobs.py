@@ -29,7 +29,16 @@ from ..error import TjfClientError, TjfError, TjfValidationError
 from ..images import ImageType, image_by_name
 from ..job import Job, JobType
 from .auth import get_tool_from_request
-from .models import DefinedJob, NewJob
+from .models import (
+    DefinedJob,
+    DeleteResponse,
+    FlushResponse,
+    JobListResponse,
+    JobResponse,
+    NewJob,
+    ResponseMessages,
+    RestartResponse,
+)
 from .utils import current_app
 
 LOGGER = logging.getLogger(__name__)
@@ -100,8 +109,8 @@ def api_get_job(name: str) -> tuple[dict[str, Any], int]:
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    defined_job = DefinedJob.from_job(job)
-    return defined_job.model_dump(exclude_unset=True, mode="json"), http.HTTPStatus.OK
+    defined_job = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
+    return defined_job.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
 
 
 @api_jobs.route("/<name>", methods=["DELETE"])
@@ -114,18 +123,22 @@ def api_delete_job(name: str) -> tuple[dict[str, Any], int]:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
     current_app().runtime.delete_job(tool=tool, job=job)
-    return {}, http.HTTPStatus.OK
+    return (
+        DeleteResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
+        http.HTTPStatus.OK,
+    )
 
 
 @api_jobs.route("/", methods=["GET"])
 @api_list.route("/", methods=["GET"])
 def api_list_jobs() -> ResponseReturnValue:
     user_jobs = current_app().runtime.get_jobs(tool=get_tool_from_request(request=request))
-    defined_jobs = [DefinedJob.from_job(job) for job in user_jobs]
+    defined_jobs = JobListResponse(
+        jobs=[DefinedJob.from_job(job) for job in user_jobs],
+        messages=ResponseMessages(),
+    )
 
-    return [
-        defined_job.model_dump(exclude_unset=True, mode="json") for defined_job in defined_jobs
-    ], http.HTTPStatus.OK
+    return defined_jobs.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
 
 
 @api_jobs.route("/", methods=["POST", "PUT"])
@@ -227,16 +240,19 @@ def api_create_job() -> ResponseReturnValue:
     except Exception as e:
         raise TjfError("Unable to start job") from e
 
-    defined_job = DefinedJob.from_job(job=job)
+    defined_job = JobResponse(job=DefinedJob.from_job(job=job), messages=ResponseMessages())
 
-    return defined_job.model_dump(exclude_unset=True, mode="json"), http.HTTPStatus.CREATED
+    return defined_job.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.CREATED
 
 
 @api_jobs.route("/", methods=["DELETE"])
 @api_flush.route("/", methods=["DELETE"])
 def api_job_flush() -> ResponseReturnValue:
     current_app().runtime.delete_all_jobs(tool=get_tool_from_request(request=request))
-    return {}, http.HTTPStatus.OK
+    return (
+        FlushResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
+        http.HTTPStatus.OK,
+    )
 
 
 @api_jobs.route("/<name>/restart", methods=["POST"])
@@ -250,4 +266,7 @@ def api_job_restart(name: str) -> tuple[dict[str, Any], int]:
 
     current_app().runtime.restart_job(job=job, tool=tool)
 
-    return {}, http.HTTPStatus.OK
+    return (
+        RestartResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
+        http.HTTPStatus.OK,
+    )

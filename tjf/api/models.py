@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Type
+from typing import Type
 
 from pydantic import BaseModel as PydanticModel
 from pydantic import Field, field_validator
@@ -120,11 +120,6 @@ class DefinedJob(CommonJob):
         return cls.model_validate(obj)
 
 
-class Error(BaseModel):
-    message: str
-    data: dict[str, Any]
-
-
 class HealthState(str, Enum):
     ok = "OK"
     error = "ERROR"
@@ -153,3 +148,46 @@ class QuotaCategory(BaseModel):
 
 class Quota(BaseModel):
     categories: list[QuotaCategory]
+
+
+class ResponseMessages(BaseModel):
+    info: list[str] = []
+    warning: list[str] = []
+    error: list[str] = []
+
+
+class ImageListResponse(BaseModel):
+    images: list[Image]
+    messages: ResponseMessages = ResponseMessages()
+
+
+class QuotaResponse(BaseModel):
+    quota: Quota
+    messages: ResponseMessages = ResponseMessages()
+
+
+class JobListResponse(BaseModel):
+    jobs: list[DefinedJob]
+    messages: ResponseMessages = ResponseMessages()
+
+
+class JobResponse(BaseModel):
+    job: DefinedJob
+    messages: ResponseMessages = ResponseMessages()
+
+
+class RestartResponse(BaseModel):
+    messages: ResponseMessages = ResponseMessages()
+
+
+class DeleteResponse(BaseModel):
+    messages: ResponseMessages = ResponseMessages()
+
+
+class FlushResponse(BaseModel):
+    messages: ResponseMessages = ResponseMessages()
+
+
+class HealthResponse(BaseModel):
+    health: Health
+    messages: ResponseMessages = ResponseMessages()
