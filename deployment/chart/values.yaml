@@ -4,7 +4,7 @@ replicas: 2
 webservice:
   debug: ""
   port: 8000
-  address: "0.0.0.0"
+  address: "127.0.0.1"
   skip_metrics: ""
   skip_images: ""
   image:

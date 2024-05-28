@@ -27,7 +27,7 @@ variants:
       environment:
         PROMETHEUS_MULTIPROC_DIR: "/app/prometheus-multiproc"
         PORT: "8000"
-        ADDRESS: "0.0.0.0"
+        ADDRESS: "127.0.0.1"
     copies:
       - local
     entrypoint:

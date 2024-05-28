@@ -35,7 +35,7 @@ def child_exit(server: Any, worker: Any) -> None:
         GunicornPrometheusMetrics.mark_process_dead_on_child_exit(worker.pid)
 
 
-address = os.getenv("ADDRESS", "0.0.0.0")
+address = os.getenv("ADDRESS", "127.0.0.1")
 port = os.getenv("PORT", "8000")
 bind = f"{address}:{port}"
 

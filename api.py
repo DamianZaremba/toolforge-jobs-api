@@ -28,6 +28,6 @@ app = create_app(init_metrics=not skip_metrics, load_images=not skip_images)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    address = os.environ.get("ADDRESS", "0.0.0.0")
+    address = os.environ.get("ADDRESS", "127.0.0.1")
     print("Starting app on {address}:{port}")
     app.run(host=address, port=port, debug=debug, use_reloader=False)
