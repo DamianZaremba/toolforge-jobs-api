@@ -12,14 +12,13 @@ servers:
     description: "Toolforge internal API gateway endpoint."
   - url: "https://api.svc.toolsbeta.eqiad1.wikimedia.cloud:30003/jobs"
     description: "Toolforge beta internal API gateway endpoint."
-
+security:
+  - toolforge_tool_client_certificate: []
 paths:
   /api/v1/images:
     get:
       operationId: "images"
       description: "Returns the list of available container images that you can use to create a new job."
-      security: &security
-        - toolforge_tool_client_certificate: []
       responses:
         "200":
           description: "The response contains a list of available container images."
@@ -27,17 +26,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ImageListResponse"
-        "401": &unauthorized_error
-          description: "Unauthorized error"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResponseMessages"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
   /api/v1/quota:
     get:
       operationId: "quota"
       description: "Returns information on the tool account quotas in Toolforge."
-      security: *security
       responses:
         "200":
           description: "The response contains the quota details."
@@ -45,24 +39,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/QuotaResponse"
-        "401": *unauthorized_error
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
   /api/v1/jobs:
     get:
       operationId: "list"
       description: "Returns the list of jobs defined for this Toolforge tool account."
-      security: *security
       responses:
         "200":
           description: "The list of jobs is returned."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JobListResponse"
-        "401": *unauthorized_error
+                type: array
+                items:
+                  $ref: "#/components/schemas/DefinedJob"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
     post:
       operationId: "create"
       description: "Create a new job in this Toolforge tool account."
-      security: *security
       requestBody:
         required: true
         content:
@@ -75,76 +71,58 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JobResponse"
-        "400": &bad_parameters_error
-          description: "Bad parameters passed"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResponseMessages"
-        "401": *unauthorized_error
+                $ref: "#/components/schemas/DefinedJob"
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
     delete:
       operationId: "flush"
       description: "Stop and delete all defined jobs from this Toolforge tool account."
-      security: *security
       responses:
         "200":
           description: "All jobs were flushed"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FlushResponse"
-        "401": *unauthorized_error
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
   /api/v1/jobs/{id}:
     get:
       operationId: "show"
       description: "Show information about a given job for this Toolforge tool account."
-      security: *security
-      parameters: &job_id_parameters
-        - name: id
-          in: path
-          description: "Job name."
-          required: true
-          style: simple
-          explode: false
-          schema:
-            type: string
+      parameters:
+        - $ref: "#/components/parameters/JobId"
       responses:
         "200":
           description: "Job was found."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JobResponse"
-        "400": *bad_parameters_error
-        "401": *unauthorized_error
-        "404": &not_found_error
-          description: "Object not found error"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResponseMessages"
+                $ref: "#/components/schemas/DefinedJob"
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+        "404":
+          $ref: "#/components/responses/not_found_error"
     delete:
       operationId: "delete"
       description: "Stop and delete the specified job from this Toolforge tool account."
-      security: *security
-      parameters: *job_id_parameters
+      parameters:
+        - $ref: "#/components/parameters/JobId"
       responses:
         "200":
           description: "Job was deleted."
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DeleteResponse"
-        "400": *bad_parameters_error
-        "401": *unauthorized_error
-        "404": *not_found_error
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+        "404":
+          $ref: "#/components/responses/not_found_error"
   /api/v1/jobs/{id}/logs:
     get:
       operationId: "get_logs"
       description: "Get logs for a given job in this Toolforge tool account."
-      security: *security
-      parameters: *job_id_parameters
+      parameters:
+        - $ref: "#/components/parameters/JobId"
       responses:
         "200":
           description: "Job logs are served."
@@ -152,25 +130,27 @@ paths:
             text/plain:
               schema:
                 $ref: "#/components/schemas/JobLogs"
-        "400": *bad_parameters_error
-        "401": *unauthorized_error
-        "404": *not_found_error
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+        "404":
+          $ref: "#/components/responses/not_found_error"
   /api/v1/jobs/{id}/restart:
     post:
       operationId: "restart"
       description: "Restart a given job. If the job is a cronjob, execute it right now."
-      security: *security
-      parameters: *job_id_parameters
+      parameters:
+        - $ref: "#/components/parameters/JobId"
       responses:
         "200":
           description: "Job has been restarted."
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RestartResponse"
-        "400": *bad_parameters_error
-        "401": *unauthorized_error
-        "404": *not_found_error
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+        "404":
+          $ref: "#/components/responses/not_found_error"
   /openapi.json:
     get:
       operationId: "openapi"
@@ -182,6 +162,7 @@ paths:
             application/json:
               schema:
                 type: object
+      security: []
   /healthz:
     get:
       operationId: "healthcheck"
@@ -448,6 +429,35 @@ components:
               type: string
               description: "If the job is a cronjob, actual execution schedule."
               example: "15 * * * *"
+  parameters:
+    JobId:
+      name: id
+      in: path
+      description: "Job name."
+      required: true
+      style: simple
+      explode: false
+      schema:
+        type: string
+  responses:
+    unauthorized_error:
+      description: "Unauthorized error."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ResponseMessages"
+    bad_parameters_error:
+      description: "Bad parameters error"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ResponseMessages"
+    not_found_error:
+      description: "Object not found error."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ResponseMessages"
   securitySchemes:
     toolforge_tool_client_certificate:
       type: "mutualTLS"
