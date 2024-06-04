@@ -1,6 +1,7 @@
 import pytest
 from helpers.fake_k8s import FAKE_HARBOR_HOST
 
+from tjf.error import TjfError
 from tjf.images import AVAILABLE_IMAGES, image_by_container_url, image_by_name
 
 
@@ -34,6 +35,11 @@ def test_image_by_name(fake_images, name, url):
     assert image_by_name(name).container == url
 
 
+def test_image_by_name_raises_value_error(fake_images):
+    with pytest.raises(ValueError):
+        image_by_name("invalid")
+
+
 @pytest.mark.parametrize(
     ["name", "url"],
     IMAGE_NAME_TESTS,
@@ -41,5 +47,9 @@ def test_image_by_name(fake_images, name, url):
 def test_image_by_container_url(fake_images, name, url):
     """Basic test for the image_by_container_url() func."""
     image = image_by_container_url(url)
-    assert image is not None
     assert image.canonical_name == name or name in image.aliases
+
+
+def test_image_by_container_url_raises_value_error(fake_images):
+    with pytest.raises(TjfError):
+        image_by_container_url("invalid")

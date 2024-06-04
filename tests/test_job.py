@@ -1,7 +1,7 @@
 import pytest
 
+from tjf.api.models import NewJob
 from tjf.error import TjfValidationError
-from tjf.job import JobType, validate_job_name
 
 
 @pytest.mark.parametrize(
@@ -16,7 +16,7 @@ from tjf.job import JobType, validate_job_name
 )
 def test_invalid_jobname(name: str) -> None:
     with pytest.raises(TjfValidationError):
-        validate_job_name(name, JobType.ONE_OFF)
+        NewJob.validate_job_name(name)
 
 
 @pytest.mark.parametrize(
@@ -29,7 +29,7 @@ def test_invalid_jobname(name: str) -> None:
 )
 def test_valid_jobname(name: str) -> None:
     # assert it does not raise
-    validate_job_name(name, JobType.ONE_OFF)
+    NewJob.validate_job_name(name)
 
 
 @pytest.mark.parametrize(
@@ -38,4 +38,4 @@ def test_valid_jobname(name: str) -> None:
 )
 def test_invalid_cronjob_name(name: str) -> None:
     with pytest.raises(TjfValidationError):
-        validate_job_name(name, JobType.SCHEDULED)
+        NewJob.validate_job_name(name)

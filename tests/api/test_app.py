@@ -16,7 +16,7 @@ from tjf.api.utils import JobsApi
 from tjf.command import Command
 from tjf.error import TjfClientError, TjfError
 from tjf.health_check import HealthCheckType, ScriptHealthCheck
-from tjf.images import Image, ImageType
+from tjf.images import AVAILABLE_IMAGES, Image, ImageType
 from tjf.job import Job, JobType
 
 
@@ -40,7 +40,7 @@ def get_dummy_job(**overrides) -> Job:
         "jobname": "silly-job-name",
         "tool_name": "silly-user",
         "schedule": None,
-        "cont": None,
+        "cont": True,
         "k8s_object": None,
         "retry": 0,
         "memory": None,
@@ -52,6 +52,10 @@ def get_dummy_job(**overrides) -> Job:
     }
     params.update(overrides)
     return Job(**params)  # type: ignore
+
+
+def update_available_images(image: Image):
+    AVAILABLE_IMAGES.append(image)
 
 
 @pytest.fixture()
@@ -224,14 +228,13 @@ class TestJobsEndpoint:
         monkeypatch: MonkeyPatch,
     ) -> None:
         expected_names = ["job1", "job2"]
+        dummy_jobs = [get_dummy_job(jobname=name) for name in expected_names]
         monkeypatch.setattr(
             app.runtime,
             "get_jobs",
-            value=lambda *args, **kwargs: [
-                get_dummy_job(jobname="job1"),
-                get_dummy_job(jobname="job2"),
-            ],
+            value=lambda *args, **kwargs: dummy_jobs,
         )
+        update_available_images(dummy_jobs[0].image)
 
         gotten_response = authorized_client.get("/api/v1/jobs/")
 
@@ -249,19 +252,18 @@ class TestJobsEndpoint:
         monkeypatch: MonkeyPatch,
     ) -> None:
         expected_health_check = {"script": "silly script", "type": "script"}
-
+        dummy_job = get_dummy_job(
+            health_check=ScriptHealthCheck(
+                type=HealthCheckType.SCRIPT,
+                script=expected_health_check["script"],
+            )
+        )
         monkeypatch.setattr(
             app.runtime,
             "get_jobs",
-            value=lambda *args, **kwargs: [
-                get_dummy_job(
-                    health_check=ScriptHealthCheck(
-                        type=HealthCheckType.SCRIPT,
-                        script=expected_health_check["script"],
-                    )
-                )
-            ],
+            value=lambda *args, **kwargs: [dummy_job],
         )
+        update_available_images(dummy_job.image)
 
         gotten_response = authorized_client.get("/api/v1/jobs/")
 
@@ -278,16 +280,13 @@ class TestJobsEndpoint:
         monkeypatch: MonkeyPatch,
     ) -> None:
         expected_port = 8080
-
+        dummy_job = get_dummy_job(port=expected_port)
         monkeypatch.setattr(
             app.runtime,
             "get_jobs",
-            value=lambda *args, **kwargs: [
-                get_dummy_job(
-                    port=8080,
-                )
-            ],
+            value=lambda *args, **kwargs: [dummy_job],
         )
+        update_available_images(dummy_job.image)
 
         gotten_response = authorized_client.get("/api/v1/jobs/")
 

@@ -19,8 +19,6 @@ from __future__ import annotations
 import re
 from typing import Set, TypeVar
 
-from .error import TjfValidationError
-
 USER_AGENT = "jobs-api"
 
 KUBERNETES_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
@@ -76,7 +74,7 @@ def validate_kube_quant(string: str | None) -> str:
         if suffix in valid_suffixes:
             return string
 
-    raise TjfValidationError(f"{string} is not a valid Kubernetes quantity")
+    raise ValueError(f"{string} is not a valid Kubernetes quantity")
 
 
 def format_duration(seconds: int) -> str:

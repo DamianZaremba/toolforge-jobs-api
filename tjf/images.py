@@ -189,7 +189,7 @@ def get_harbor_images(tool: str) -> list[Image]:
     return images
 
 
-def image_by_name(name: str) -> Image | None:
+def image_by_name(name: str) -> Image:
     for image in AVAILABLE_IMAGES:
         if image.canonical_name == name or name in image.aliases:
             return image
@@ -202,10 +202,10 @@ def image_by_name(name: str) -> Image | None:
             if image.canonical_name == name:
                 return image
 
-    return None
+    raise ValueError(f"No such image '{name}'")
 
 
-def image_by_container_url(url: str) -> Image | None:
+def image_by_container_url(url: str) -> Image:
     for image in AVAILABLE_IMAGES:
         if image.container == url:
             return image
@@ -223,4 +223,4 @@ def image_by_container_url(url: str) -> Image | None:
             state=HARBOR_IMAGE_STATE,
         )
 
-    return None
+    raise TjfError("Unable to find image in the supported list or harbor", data={"image": url})

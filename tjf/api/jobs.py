@@ -20,15 +20,14 @@ from typing import Any
 
 from flask import Blueprint, Response, request
 from flask.typing import ResponseReturnValue
-from toolforge_weld.kubernetes import MountOption
 from toolforge_weld.utils import peek
 
 from ..command import Command
 from ..cron import CronExpression, CronParsingError
 from ..error import TjfClientError, TjfError, TjfValidationError
-from ..images import ImageType, image_by_name
+from ..images import image_by_name
 from ..job import Job, JobType
-from .auth import get_tool_from_request, validate_toolname
+from .auth import get_tool_from_request, is_tool_owner
 from .models import (
     DefinedJob,
     DeleteResponse,
@@ -61,7 +60,7 @@ api_logs = Blueprint("logs", __name__, url_prefix="/api/v1/logs")
 @api_logs.route("/<name>", methods=["GET"])
 def api_get_logs(name: str) -> ResponseReturnValue:
     tool = get_tool_from_request(request=request)
-
+    NewJob.validate_job_name(name)
     job = current_app().runtime.get_job(tool=tool, job_name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
@@ -108,19 +107,25 @@ def api_get_logs(name: str) -> ResponseReturnValue:
 @api_jobs.route("/<name>", methods=["GET"])
 @api_show.route("/<name>", methods=["GET"])
 def api_get_job(name: str) -> tuple[dict[str, Any], int]:
+    NewJob.validate_job_name(name)
     job = current_app().runtime.get_job(job_name=name, tool=get_tool_from_request(request=request))
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    defined_job = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
-    return defined_job.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
+    return (
+        JobResponse(
+            job=DefinedJob.from_job(job),
+            messages=ResponseMessages(),
+        ).model_dump(mode="json", exclude_unset=True),
+        http.HTTPStatus.OK,
+    )
 
 
 @api_jobs.route("/<name>", methods=["DELETE"])
 @api_delete.route("/<name>", methods=["DELETE"])
 def api_delete_job(name: str) -> tuple[dict[str, Any], int]:
     tool = get_tool_from_request(request=request)
-
+    NewJob.validate_job_name(name)
     job = current_app().runtime.get_job(tool=tool, job_name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
@@ -152,33 +157,10 @@ def api_create_job() -> ResponseReturnValue:
     tool = get_tool_from_request(request=request)
 
     image = image_by_name(new_job.imagename)
-
-    if not image:
-        raise TjfValidationError(f"No such image '{new_job.imagename}'")
-
-    if new_job.schedule and new_job.continuous:
-        raise TjfValidationError(
-            "Only one of 'continuous' and 'schedule' can be set at the same time"
-        )
-
-    if new_job.port and not new_job.continuous:
-        raise TjfValidationError("Port can only be set for continuous jobs")
-
     if runtime.get_job(tool=tool, job_name=new_job.name) is not None:
         raise TjfValidationError("A job with the same name exists already", http_status_code=409)
 
-    if image.type != ImageType.BUILDPACK and not new_job.mount.supports_non_buildservice:
-        raise TjfValidationError(
-            f"Mount type {new_job.mount.value} is only supported for build service images"
-        )
-    if image.type == ImageType.BUILDPACK and not new_job.cmd.startswith("launcher"):
-        # this allows using either a procfile entry point or any command as command
-        # for a buildservice-based job
-        new_job.cmd = f"launcher {new_job.cmd}"
     if new_job.filelog:
-        if new_job.mount != MountOption.ALL:
-            raise TjfValidationError("File logging is only available with --mount=all")
-
         filelog_stdout: Path | None = current_app().runtime.resolve_filelog_out_path(
             filelog_stdout=new_job.filelog_stdout,
             tool=tool,
@@ -215,7 +197,6 @@ def api_create_job() -> ResponseReturnValue:
             ) from e
     else:
         schedule = None
-
         job_type = JobType.CONTINUOUS if new_job.continuous else JobType.ONE_OFF
 
     try:
@@ -262,7 +243,7 @@ def api_flush_job() -> ResponseReturnValue:
 @api_restart.route("/<name>", methods=["POST"])
 def api_restart_job(name: str) -> tuple[dict[str, Any], int]:
     tool = get_tool_from_request(request=request)
-
+    NewJob.validate_job_name(name)
     job = current_app().runtime.get_job(tool=tool, job_name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
@@ -278,7 +259,7 @@ def api_restart_job(name: str) -> tuple[dict[str, Any], int]:
 # New endpoints
 @api_jobs_with_toolname.route("/", methods=["GET"])
 def api_list_jobs_with_toolname(toolname: str) -> ResponseReturnValue:
-    validate_toolname(request, toolname)
+    is_tool_owner(request, toolname)
 
     user_jobs = current_app().runtime.get_jobs(tool=toolname)
     defined_jobs = JobListResponse(
@@ -291,38 +272,16 @@ def api_list_jobs_with_toolname(toolname: str) -> ResponseReturnValue:
 
 @api_jobs_with_toolname.route("/", methods=["POST", "PUT"])
 def api_create_job_with_toolname(toolname: str) -> ResponseReturnValue:
-    validate_toolname(request, toolname)
+    is_tool_owner(request, toolname)
 
     new_job = NewJob.model_validate(request.json)
     runtime = current_app().runtime
+
     image = image_by_name(new_job.imagename)
-
-    if not image:
-        raise TjfValidationError(f"No such image '{new_job.imagename}'")
-
-    if new_job.schedule and new_job.continuous:
-        raise TjfValidationError(
-            "Only one of 'continuous' and 'schedule' can be set at the same time"
-        )
-
-    if new_job.port and not new_job.continuous:
-        raise TjfValidationError("Port can only be set for continuous jobs")
-
     if runtime.get_job(tool=toolname, job_name=new_job.name) is not None:
         raise TjfValidationError("A job with the same name exists already", http_status_code=409)
 
-    if image.type != ImageType.BUILDPACK and not new_job.mount.supports_non_buildservice:
-        raise TjfValidationError(
-            f"Mount type {new_job.mount.value} is only supported for build service images"
-        )
-    if image.type == ImageType.BUILDPACK and not new_job.cmd.startswith("launcher"):
-        # this allows using either a procfile entry point or any command as command
-        # for a buildservice-based job
-        new_job.cmd = f"launcher {new_job.cmd}"
     if new_job.filelog:
-        if new_job.mount != MountOption.ALL:
-            raise TjfValidationError("File logging is only available with --mount=all")
-
         filelog_stdout: Path | None = current_app().runtime.resolve_filelog_out_path(
             filelog_stdout=new_job.filelog_stdout,
             tool=toolname,
@@ -359,7 +318,6 @@ def api_create_job_with_toolname(toolname: str) -> ResponseReturnValue:
             ) from e
     else:
         schedule = None
-
         job_type = JobType.CONTINUOUS if new_job.continuous else JobType.ONE_OFF
 
     try:
@@ -394,7 +352,7 @@ def api_create_job_with_toolname(toolname: str) -> ResponseReturnValue:
 
 @api_jobs_with_toolname.route("/", methods=["DELETE"])
 def api_flush_job_with_toolname(toolname: str) -> ResponseReturnValue:
-    validate_toolname(request, toolname)
+    is_tool_owner(request, toolname)
 
     current_app().runtime.delete_all_jobs(tool=toolname)
     return (
@@ -405,8 +363,8 @@ def api_flush_job_with_toolname(toolname: str) -> ResponseReturnValue:
 
 @api_jobs_with_toolname.route("/<name>", methods=["GET"])
 def api_get_job_with_toolname(toolname: str, name: str) -> tuple[dict[str, Any], int]:
-    validate_toolname(request, toolname)
-
+    is_tool_owner(request, toolname)
+    NewJob.validate_job_name(name)
     job = current_app().runtime.get_job(job_name=name, tool=toolname)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
@@ -417,8 +375,8 @@ def api_get_job_with_toolname(toolname: str, name: str) -> tuple[dict[str, Any],
 
 @api_jobs_with_toolname.route("/<name>", methods=["DELETE"])
 def api_delete_job_with_toolname(toolname: str, name: str) -> tuple[dict[str, Any], int]:
-    validate_toolname(request, toolname)
-
+    is_tool_owner(request, toolname)
+    NewJob.validate_job_name(name)
     job = current_app().runtime.get_job(tool=toolname, job_name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
@@ -432,8 +390,8 @@ def api_delete_job_with_toolname(toolname: str, name: str) -> tuple[dict[str, An
 
 @api_jobs_with_toolname.route("/<name>/logs", methods=["GET"])
 def api_get_logs_with_toolname(toolname: str, name: str) -> ResponseReturnValue:
-    validate_toolname(request, toolname)
-
+    is_tool_owner(request, toolname)
+    NewJob.validate_job_name(name)
     job = current_app().runtime.get_job(tool=toolname, job_name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
@@ -479,8 +437,8 @@ def api_get_logs_with_toolname(toolname: str, name: str) -> ResponseReturnValue:
 
 @api_jobs_with_toolname.route("/<name>/restart", methods=["POST"])
 def api_restart_job_with_toolname(toolname: str, name: str) -> ResponseReturnValue:
-    validate_toolname(request, toolname)
-
+    is_tool_owner(request, toolname)
+    NewJob.validate_job_name(name)
     job = current_app().runtime.get_job(tool=toolname, job_name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)

@@ -7,7 +7,7 @@ from toolforge_weld.logs.kubernetes import KubernetesSource
 
 from ...api.models import Quota, QuotaCategory, QuotaEntry
 from ...error import TjfError, TjfValidationError
-from ...job import Job, JobType, validate_job_name
+from ...job import Job, JobType
 from ..base import BaseRuntime
 from .account import ToolAccount
 from .command import resolve_filelog_path
@@ -37,14 +37,8 @@ class K8sRuntime(BaseRuntime):
         return job_list
 
     def get_job(self, *, job_name: str, tool: str) -> Job | None:
-        validate_job_name(job_name, job_type=None)
         tool_account = ToolAccount(name=tool)
         for job_type in JobType:
-            try:
-                validate_job_name(job_name, job_type=job_type)
-            except TjfValidationError:
-                continue
-
             kind = K8sJobKind.from_job_type(job_type).api_path_name
             label_selector = labels_selector(
                 job_name=job_name, user_name=tool_account.name, type=kind

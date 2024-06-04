@@ -411,7 +411,7 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
     jobname = metadata["name"]
     namespace = metadata["namespace"]
     user = "".join(namespace.split("-", 1)[1:])
-    image = podspec["template"]["spec"]["containers"][0]["image"]
+    imageurl = podspec["template"]["spec"]["containers"][0]["image"]
     retry = podspec.get("backoffLimit", 0)
     emails = metadata["labels"].get("jobs.toolforge.org/emails", "none")
     port = (
@@ -441,16 +441,12 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
 
     mount = MountOption.parse_labels(metadata["labels"])
 
-    maybe_image = image_by_container_url(image)
-    if not maybe_image:
-        raise TjfError(
-            "Unable to find image in the supported list or harbor", data={"image": image}
-        )
+    image = image_by_container_url(url=imageurl)
 
     return Job(
         job_type=job_type,
         command=command,
-        image=maybe_image,
+        image=image,
         jobname=jobname,
         tool_name=user,
         schedule=schedule,

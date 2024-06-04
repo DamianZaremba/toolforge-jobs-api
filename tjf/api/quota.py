@@ -17,7 +17,7 @@ import http
 from flask import Blueprint, request
 from flask.typing import ResponseReturnValue
 
-from .auth import get_tool_from_request, validate_toolname
+from .auth import get_tool_from_request, is_tool_owner
 from .models import QuotaResponse, ResponseMessages
 from .utils import current_app
 
@@ -41,7 +41,7 @@ def api_get_quota() -> ResponseReturnValue:
 
 @api_quota_with_toolname.route("/", methods=["GET"])
 def api_get_quota_with_toolname(toolname: str) -> ResponseReturnValue:
-    validate_toolname(request, toolname)
+    is_tool_owner(request, toolname)
 
     tool = toolname
     quota = current_app().runtime.get_quota(tool=tool)
