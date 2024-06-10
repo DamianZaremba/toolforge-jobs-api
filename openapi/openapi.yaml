@@ -28,10 +28,50 @@ paths:
                 $ref: "#/components/schemas/ImageListResponse"
         "401":
           $ref: "#/components/responses/unauthorized_error"
+  /api/v1/tool/{toolname}/images:
+    get:
+      operationId: "images_with_toolname"
+      description: "Returns the list of available container images that you can use to create a new job."
+      parameters:
+        - name: toolname
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "The response contains a list of available container images."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageListResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
   /api/v1/quota:
     get:
       operationId: "quota"
       description: "Returns information on the tool account quotas in Toolforge."
+      responses:
+        "200":
+          description: "The response contains the quota details."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotaResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+  /api/v1/tool/{toolname}/quota:
+    get:
+      operationId: "quota_with_toolname"
+      description: "Returns information on the tool account quotas in Toolforge."
+      parameters:
+        - name: toolname
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           description: "The response contains the quota details."
@@ -84,6 +124,70 @@ paths:
           description: "All jobs were flushed"
         "401":
           $ref: "#/components/responses/unauthorized_error"
+  /api/v1/tool/{toolname}/jobs:
+    get:
+      operationId: "list_with_toolname"
+      description: "Returns the list of jobs defined for this Toolforge tool account."
+      parameters:
+        - name: toolname
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "The list of jobs is returned."
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DefinedJob"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+    post:
+      operationId: "create_with_toolname"
+      description: "Create a new job in this Toolforge tool account."
+      parameters:
+        - name: toolname
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/NewJob"
+      responses:
+        "200":
+          description: "A new job was created."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefinedJob"
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+    delete:
+      operationId: "flush_with_toolname"
+      description: "Stop and delete all defined jobs from this Toolforge tool account."
+      parameters:
+        - name: toolname
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "All jobs were flushed"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
   /api/v1/jobs/{id}:
     get:
       operationId: "show"
@@ -117,6 +221,51 @@ paths:
           $ref: "#/components/responses/unauthorized_error"
         "404":
           $ref: "#/components/responses/not_found_error"
+  /api/v1/tool/{toolname}/jobs/{id}:
+    get:
+      operationId: "show_with_toolname"
+      description: "Show information about a given job for this Toolforge tool account."
+      parameters:
+        - name: toolname
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: "Job was found."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefinedJob"
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+        "404":
+          $ref: "#/components/responses/not_found_error"
+    delete:
+      operationId: "delete_with_toolname"
+      description: "Stop and delete the specified job from this Toolforge tool account."
+      parameters:
+        - name: toolname
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: "Job was deleted."
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+        "404":
+          $ref: "#/components/responses/not_found_error"
   /api/v1/jobs/{id}/logs:
     get:
       operationId: "get_logs"
@@ -136,11 +285,57 @@ paths:
           $ref: "#/components/responses/unauthorized_error"
         "404":
           $ref: "#/components/responses/not_found_error"
+  /api/v1/tool/{toolname}/jobs/{id}/logs:
+    get:
+      operationId: "get_logs_with_toolname"
+      description: "Get logs for a given job in this Toolforge tool account."
+      parameters:
+        - name: toolname
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: "Job logs are served."
+          content:
+            text/plain:
+              schema:
+                $ref: "#/components/schemas/JobLogs"
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+        "404":
+          $ref: "#/components/responses/not_found_error"
   /api/v1/jobs/{id}/restart:
     post:
       operationId: "restart"
       description: "Restart a given job. If the job is a cronjob, execute it right now."
       parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: "Job has been restarted."
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+        "404":
+          $ref: "#/components/responses/not_found_error"
+  /api/v1/tool/{toolname}/jobs/{id}/restart:
+    post:
+      operationId: "restart_with_toolname"
+      description: "Restart a given job. If the job is a cronjob, execute it right now."
+      parameters:
+        - name: toolname
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
         - $ref: "#/components/parameters/JobId"
       responses:
         "200":

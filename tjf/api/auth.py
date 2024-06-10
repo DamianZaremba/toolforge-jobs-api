@@ -44,3 +44,9 @@ def get_tool_from_request(request: Request) -> str:
         return common_name.decode()
 
     return common_name
+
+
+def validate_toolname(request: Request, toolname: str) -> None:
+    actual_toolname = get_tool_from_request(request)
+    if actual_toolname != toolname:
+        raise ToolAuthError(f"Toolname mismatch: expected '{toolname}', got '{actual_toolname}'")

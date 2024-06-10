@@ -28,7 +28,7 @@ from ..cron import CronExpression, CronParsingError
 from ..error import TjfClientError, TjfError, TjfValidationError
 from ..images import ImageType, image_by_name
 from ..job import Job, JobType
-from .auth import get_tool_from_request
+from .auth import get_tool_from_request, validate_toolname
 from .models import (
     DefinedJob,
     DeleteResponse,
@@ -44,6 +44,9 @@ from .utils import current_app
 LOGGER = logging.getLogger(__name__)
 
 api_jobs = Blueprint("jobs", __name__, url_prefix="/api/v1/jobs")
+api_jobs_with_toolname = Blueprint(
+    "jobs_with_toolname", __name__, url_prefix="/api/v1/tool/<toolname>/jobs"
+)
 # deprecated
 api_list = Blueprint("list", __name__, url_prefix="/api/v1/list")
 api_run = Blueprint("run", __name__, url_prefix="/api/v1/run")
@@ -56,7 +59,7 @@ api_logs = Blueprint("logs", __name__, url_prefix="/api/v1/logs")
 
 @api_jobs.route("/<name>/logs", methods=["GET"])
 @api_logs.route("/<name>", methods=["GET"])
-def get_logs(name: str) -> ResponseReturnValue:
+def api_get_logs(name: str) -> ResponseReturnValue:
     tool = get_tool_from_request(request=request)
 
     job = current_app().runtime.get_job(tool=tool, job_name=name)
@@ -247,7 +250,7 @@ def api_create_job() -> ResponseReturnValue:
 
 @api_jobs.route("/", methods=["DELETE"])
 @api_flush.route("/", methods=["DELETE"])
-def api_job_flush() -> ResponseReturnValue:
+def api_flush_job() -> ResponseReturnValue:
     current_app().runtime.delete_all_jobs(tool=get_tool_from_request(request=request))
     return (
         FlushResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
@@ -257,7 +260,7 @@ def api_job_flush() -> ResponseReturnValue:
 
 @api_jobs.route("/<name>/restart", methods=["POST"])
 @api_restart.route("/<name>", methods=["POST"])
-def api_job_restart(name: str) -> tuple[dict[str, Any], int]:
+def api_restart_job(name: str) -> tuple[dict[str, Any], int]:
     tool = get_tool_from_request(request=request)
 
     job = current_app().runtime.get_job(tool=tool, job_name=name)
@@ -265,6 +268,224 @@ def api_job_restart(name: str) -> tuple[dict[str, Any], int]:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
     current_app().runtime.restart_job(job=job, tool=tool)
+
+    return (
+        RestartResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
+        http.HTTPStatus.OK,
+    )
+
+
+# New endpoints
+@api_jobs_with_toolname.route("/", methods=["GET"])
+def api_list_jobs_with_toolname(toolname: str) -> ResponseReturnValue:
+    validate_toolname(request, toolname)
+
+    user_jobs = current_app().runtime.get_jobs(tool=toolname)
+    defined_jobs = JobListResponse(
+        jobs=[DefinedJob.from_job(job) for job in user_jobs],
+        messages=ResponseMessages(),
+    )
+
+    return defined_jobs.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
+
+
+@api_jobs_with_toolname.route("/", methods=["POST", "PUT"])
+def api_create_job_with_toolname(toolname: str) -> ResponseReturnValue:
+    validate_toolname(request, toolname)
+
+    new_job = NewJob.model_validate(request.json)
+    runtime = current_app().runtime
+    image = image_by_name(new_job.imagename)
+
+    if not image:
+        raise TjfValidationError(f"No such image '{new_job.imagename}'")
+
+    if new_job.schedule and new_job.continuous:
+        raise TjfValidationError(
+            "Only one of 'continuous' and 'schedule' can be set at the same time"
+        )
+
+    if new_job.port and not new_job.continuous:
+        raise TjfValidationError("Port can only be set for continuous jobs")
+
+    if runtime.get_job(tool=toolname, job_name=new_job.name) is not None:
+        raise TjfValidationError("A job with the same name exists already", http_status_code=409)
+
+    if image.type != ImageType.BUILDPACK and not new_job.mount.supports_non_buildservice:
+        raise TjfValidationError(
+            f"Mount type {new_job.mount.value} is only supported for build service images"
+        )
+    if image.type == ImageType.BUILDPACK and not new_job.cmd.startswith("launcher"):
+        # this allows using either a procfile entry point or any command as command
+        # for a buildservice-based job
+        new_job.cmd = f"launcher {new_job.cmd}"
+    if new_job.filelog:
+        if new_job.mount != MountOption.ALL:
+            raise TjfValidationError("File logging is only available with --mount=all")
+
+        filelog_stdout: Path | None = current_app().runtime.resolve_filelog_out_path(
+            filelog_stdout=new_job.filelog_stdout,
+            tool=toolname,
+            job_name=new_job.name,
+        )
+        filelog_stderr: Path | None = current_app().runtime.resolve_filelog_err_path(
+            filelog_stderr=new_job.filelog_stderr,
+            tool=toolname,
+            job_name=new_job.name,
+        )
+    else:
+        filelog_stdout = filelog_stderr = None
+
+    command = Command(
+        user_command=new_job.cmd,
+        filelog=new_job.filelog,
+        filelog_stdout=filelog_stdout,
+        filelog_stderr=filelog_stderr,
+    )
+    health_check = None
+    if new_job.health_check:
+        health_check = new_job.health_check.to_internal()
+
+    if new_job.schedule:
+        job_type = JobType.SCHEDULED
+        try:
+            schedule = CronExpression.parse(
+                new_job.schedule,
+                current_app().runtime.get_cron_unique_seed(tool=toolname, job_name=new_job.name),
+            )
+        except CronParsingError as e:
+            raise TjfValidationError(
+                f"Unable to parse cron expression '{new_job.schedule}'"
+            ) from e
+    else:
+        schedule = None
+
+        job_type = JobType.CONTINUOUS if new_job.continuous else JobType.ONE_OFF
+
+    try:
+        job = Job(
+            job_type=job_type,
+            command=command,
+            image=image,
+            jobname=new_job.name,
+            tool_name=toolname,
+            schedule=schedule,
+            cont=new_job.continuous,
+            port=new_job.port,
+            k8s_object={},
+            retry=new_job.retry,
+            memory=new_job.memory,
+            cpu=new_job.cpu,
+            emails=new_job.emails,
+            mount=new_job.mount,
+            health_check=health_check,
+        )
+
+        current_app().runtime.create_job(tool=toolname, job=job)
+    except TjfError as e:
+        raise e
+    except Exception as e:
+        raise TjfError("Unable to start job") from e
+
+    defined_job = JobResponse(job=DefinedJob.from_job(job=job), messages=ResponseMessages())
+
+    return defined_job.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.CREATED
+
+
+@api_jobs_with_toolname.route("/", methods=["DELETE"])
+def api_flush_job_with_toolname(toolname: str) -> ResponseReturnValue:
+    validate_toolname(request, toolname)
+
+    current_app().runtime.delete_all_jobs(tool=toolname)
+    return (
+        FlushResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
+        http.HTTPStatus.OK,
+    )
+
+
+@api_jobs_with_toolname.route("/<name>", methods=["GET"])
+def api_get_job_with_toolname(toolname: str, name: str) -> tuple[dict[str, Any], int]:
+    validate_toolname(request, toolname)
+
+    job = current_app().runtime.get_job(job_name=name, tool=toolname)
+    if not job:
+        raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
+
+    defined_job = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
+    return defined_job.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
+
+
+@api_jobs_with_toolname.route("/<name>", methods=["DELETE"])
+def api_delete_job_with_toolname(toolname: str, name: str) -> tuple[dict[str, Any], int]:
+    validate_toolname(request, toolname)
+
+    job = current_app().runtime.get_job(tool=toolname, job_name=name)
+    if not job:
+        raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
+
+    current_app().runtime.delete_job(tool=toolname, job=job)
+    return (
+        DeleteResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
+        http.HTTPStatus.OK,
+    )
+
+
+@api_jobs_with_toolname.route("/<name>/logs", methods=["GET"])
+def api_get_logs_with_toolname(toolname: str, name: str) -> ResponseReturnValue:
+    validate_toolname(request, toolname)
+
+    job = current_app().runtime.get_job(tool=toolname, job_name=name)
+    if not job:
+        raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
+
+    if job.command.filelog:
+        raise TjfValidationError(
+            f"Job '{name}' has file logging enabled, which is incompatible with the logs command",
+            http_status_code=404,
+        )
+
+    lines = None
+    if "lines" in request.args:
+        try:
+            # Ignore mypy, any type errors will be caught on the next line
+            lines = int(request.args.get("lines"))  # type: ignore[arg-type]
+        except (ValueError, TypeError) as e:
+            raise TjfValidationError("Unable to parse lines as integer") from e
+
+    logs = current_app().runtime.get_logs(
+        job_name=name,
+        tool=toolname,
+        follow=request.args.get("follow", "") == "true",
+        lines=lines,
+    )
+
+    first, logs = peek(logs)
+    if not first:
+        raise TjfClientError(
+            f"Job '{name}' does not have any logs available", http_status_code=404
+        )
+
+    return (
+        Response(
+            logs,
+            content_type="text/plain; charset=utf8",
+            # Disable nginx-level buffering:
+            # https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering
+            headers={"X-Accel-Buffering": "no"},
+        ),
+        http.HTTPStatus.OK,
+    )
+
+
+@api_jobs_with_toolname.route("/<name>/restart", methods=["POST"])
+def api_restart_job_with_toolname(toolname: str, name: str) -> ResponseReturnValue:
+    validate_toolname(request, toolname)
+
+    job = current_app().runtime.get_job(tool=toolname, job_name=name)
+    if not job:
+        raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
+
+    current_app().runtime.restart_job(job=job, tool=toolname)
 
     return (
         RestartResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
