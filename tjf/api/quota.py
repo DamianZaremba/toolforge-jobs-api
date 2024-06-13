@@ -17,32 +17,16 @@ import http
 from flask import Blueprint, request
 from flask.typing import ResponseReturnValue
 
-from .auth import get_tool_from_request, is_tool_owner
+from .auth import is_tool_owner
 from .models import QuotaResponse, ResponseMessages
 from .utils import current_app
 
-api_quota = Blueprint("quota", __name__, url_prefix="/api/v1/quota/")
-api_quota_with_toolname = Blueprint(
-    "quota_with_toolname", __name__, url_prefix="/api/v1/tool/<toolname>/quota"
-)
+api_quota = Blueprint("quota", __name__, url_prefix="/api/v1/tool/<toolname>/quota")
 
 
 @api_quota.route("/", methods=["GET"])
-def api_get_quota() -> ResponseReturnValue:
-    tool = get_tool_from_request(request=request)
-    quota = current_app().runtime.get_quota(tool=tool)
-    return (
-        QuotaResponse(quota=quota, messages=ResponseMessages()).model_dump(
-            mode="json", exclude_unset=True
-        ),
-        http.HTTPStatus.OK,
-    )
-
-
-@api_quota_with_toolname.route("/", methods=["GET"])
-def api_get_quota_with_toolname(toolname: str) -> ResponseReturnValue:
+def api_get_quota(toolname: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)
-
     tool = toolname
     quota = current_app().runtime.get_quota(tool=tool)
 
