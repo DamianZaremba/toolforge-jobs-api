@@ -91,9 +91,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/DefinedJob"
+                $ref: "#/components/schemas/JobListResponse"
         "401":
           $ref: "#/components/responses/unauthorized_error"
     post:
@@ -111,7 +109,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DefinedJob"
+                $ref: "#/components/schemas/JobResponse"
         "400":
           $ref: "#/components/responses/bad_parameters_error"
         "401":
@@ -122,6 +120,10 @@ paths:
       responses:
         "200":
           description: "All jobs were flushed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlushResponse"
         "401":
           $ref: "#/components/responses/unauthorized_error"
   /api/v1/tool/{toolname}/jobs:
@@ -141,9 +143,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/DefinedJob"
+                $ref: "#/components/schemas/JobListResponse"
         "401":
           $ref: "#/components/responses/unauthorized_error"
     post:
@@ -168,7 +168,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DefinedJob"
+                $ref: "#/components/schemas/JobResponse"
         "400":
           $ref: "#/components/responses/bad_parameters_error"
         "401":
@@ -186,6 +186,10 @@ paths:
       responses:
         "200":
           description: "All jobs were flushed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlushResponse"
         "401":
           $ref: "#/components/responses/unauthorized_error"
   /api/v1/jobs/{id}:
@@ -200,7 +204,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DefinedJob"
+                $ref: "#/components/schemas/JobResponse"
         "400":
           $ref: "#/components/responses/bad_parameters_error"
         "401":
@@ -215,6 +219,10 @@ paths:
       responses:
         "200":
           description: "Job was deleted."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
         "400":
           $ref: "#/components/responses/bad_parameters_error"
         "401":
@@ -239,7 +247,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DefinedJob"
+                $ref: "#/components/schemas/JobResponse"
         "400":
           $ref: "#/components/responses/bad_parameters_error"
         "401":
@@ -260,6 +268,10 @@ paths:
       responses:
         "200":
           description: "Job was deleted."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
         "400":
           $ref: "#/components/responses/bad_parameters_error"
         "401":
@@ -319,6 +331,10 @@ paths:
       responses:
         "200":
           description: "Job has been restarted."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestartResponse"
         "400":
           $ref: "#/components/responses/bad_parameters_error"
         "401":
@@ -340,6 +356,10 @@ paths:
       responses:
         "200":
           description: "Job has been restarted."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestartResponse"
         "400":
           $ref: "#/components/responses/bad_parameters_error"
         "401":
