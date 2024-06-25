@@ -232,7 +232,6 @@ def _generate_container_security_context(job: Job) -> dict[str, Any]:
             "drop": ["ALL"],
         },
         "privileged": False,
-        "procMount": "DefaultProcMount",
         # RW container root fs so tmp files can be created without additional volume mounts
         "readOnlyRootFilesystem": False,
         "runAsGroup": tool_uid,
