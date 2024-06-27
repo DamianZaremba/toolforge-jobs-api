@@ -7,14 +7,6 @@ metadata:
     {{- include "jobs-api.labels" . | nindent 4 }}
 rules:
 - apiGroups:
-  - policy
-  resourceNames:
-  - privileged-psp
-  resources:
-  - podsecuritypolicies
-  verbs:
-  - use
-- apiGroups:
   - ""
   resources:
   - configmaps
