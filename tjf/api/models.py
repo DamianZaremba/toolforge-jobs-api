@@ -333,6 +333,10 @@ class DeleteResponse(BaseModel):
     messages: ResponseMessages = ResponseMessages()
 
 
+class UpdateResponse(BaseModel):
+    messages: ResponseMessages = ResponseMessages()
+
+
 class FlushResponse(BaseModel):
     messages: ResponseMessages = ResponseMessages()
 

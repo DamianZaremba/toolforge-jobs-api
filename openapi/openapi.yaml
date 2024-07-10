@@ -2,7 +2,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "3.0.0"
+  version: "4.0.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -98,6 +98,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JobResponse"
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+    patch:
+      operationId: "update"
+      description: "Updates an existing job or creates a new job for this Toolforge tool account"
+      parameters:
+        - name: toolname
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/NewJob"
+      responses:
+        "200":
+          description: "operation was successful"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateResponse"
         "400":
           $ref: "#/components/responses/bad_parameters_error"
         "401":
@@ -310,6 +337,11 @@ components:
         messages:
           $ref: "#/components/schemas/ResponseMessages"
     DeleteResponse:
+      type: object
+      properties:
+        messages:
+          $ref: "#/components/schemas/ResponseMessages"
+    UpdateResponse:
       type: object
       properties:
         messages:

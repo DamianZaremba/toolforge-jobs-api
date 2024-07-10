@@ -1,3 +1,4 @@
+import time
 from logging import getLogger
 from pathlib import Path
 from typing import Iterator
@@ -14,7 +15,7 @@ from .command import resolve_filelog_path
 from .jobs import K8sJobKind, format_logs, get_job_for_k8s, get_job_from_k8s
 from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
-from .ops import launch_manual_cronjob, validate_job_limits, wait_for_pod_exit
+from .ops import launch_manual_cronjob, validate_job_limits
 from .ops_status import refresh_job_long_status, refresh_job_short_status
 from .services import get_k8s_service_object
 
@@ -64,7 +65,7 @@ class K8sRuntime(BaseRuntime):
             user.k8s_cli.delete_objects("pods", label_selector=label_selector)
 
             # Wait until the currently running job stops
-            wait_for_pod_exit(user, job)
+            self.wait_for_job(tool=tool, job=job)
 
             # Launch it manually
             launch_manual_cronjob(user, job)
@@ -213,3 +214,20 @@ class K8sRuntime(BaseRuntime):
     ) -> Path:
         tool_account = ToolAccount(name=tool)
         return resolve_filelog_path(filelog_stdout, tool_account.home, f"{job_name}.out")
+
+    def wait_for_job(self, *, tool: str, job: Job, timeout: int = 30) -> bool:
+        """Wait for all pods belonging to a specific job to exit."""
+
+        user = ToolAccount(name=tool)
+        label_selector = labels_selector(
+            job_name=job.job_name,
+            user_name=user.name,
+            type=K8sJobKind.from_job_type(job.job_type).api_path_name,
+        )
+
+        for _ in range(timeout * 2):
+            pods = user.k8s_cli.get_objects("pods", label_selector=label_selector)
+            if len(pods) == 0:
+                return True
+            time.sleep(0.5)
+        return False

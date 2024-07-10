@@ -22,6 +22,11 @@ from flask.typing import ResponseReturnValue
 from toolforge_weld.utils import peek
 
 from ..error import TjfClientError, TjfError, TjfValidationError
+
+# TODO: some refactoring is needed to ensure that things in this block are not imported here.
+# see jobs-api!91
+from ..job import Job
+from ..runtimes.base import BaseRuntime
 from .auth import is_tool_owner
 from .models import (
     DefinedJob,
@@ -32,13 +37,57 @@ from .models import (
     NewJob,
     ResponseMessages,
     RestartResponse,
+    UpdateResponse,
 )
 from .utils import current_app
 
 LOGGER = logging.getLogger(__name__)
 
-
 jobs = Blueprint("jobs", __name__, url_prefix="/v1/tool/<toolname>/jobs")
+
+
+# TODO: remove and refactor once jobs-api!91 is merged
+def _create_job(runtime: BaseRuntime, tool_name: str, new_job: NewJob) -> Job:
+    if runtime.get_job(tool=tool_name, job_name=new_job.name) is not None:
+        raise TjfValidationError(
+            f"A job with the name {new_job.name} exists already", http_status_code=409
+        )
+    job = new_job.to_job(tool_name=tool_name, runtime=runtime)
+    try:
+        runtime.create_job(tool=tool_name, job=job)
+    except TjfError as e:
+        raise e
+    except Exception as e:
+        raise TjfError("Unable to start job") from e
+    return job
+
+
+# TODO: remove and refactor once jobs-api!91 is merged
+def should_create_job(
+    new_defined_job: DefinedJob, current_defined_jobs: dict[str, DefinedJob]
+) -> bool:
+    if new_defined_job.name not in current_defined_jobs.keys():
+        return True
+    return False
+
+
+# TODO: remove and refactor once jobs-api!91 is merged
+def should_update_job(
+    new_defined_job: DefinedJob, current_defined_jobs: dict[str, DefinedJob]
+) -> bool:
+    keys_to_ignore = ["schedule_actual", "status_short", "status_long", "image_state"]
+
+    if not should_create_job(new_defined_job, current_defined_jobs):
+        new_defined_job_json = new_defined_job.model_dump(exclude_unset=True)
+        current_defined_job_json = current_defined_jobs[new_defined_job.name].model_dump(
+            exclude_unset=True
+        )
+        for key in keys_to_ignore:
+            new_defined_job_json.pop(key, None)
+            current_defined_job_json.pop(key, None)
+        if new_defined_job_json != current_defined_job_json:
+            return True
+    return False
 
 
 @jobs.route("/", methods=["GET"])
@@ -46,35 +95,74 @@ def list_jobs(toolname: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)
 
     user_jobs = current_app().runtime.get_jobs(tool=toolname)
-    defined_jobs = JobListResponse(
+    job_list_response = JobListResponse(
         jobs=[DefinedJob.from_job(job) for job in user_jobs],
         messages=ResponseMessages(),
     )
 
-    return defined_jobs.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
+    return job_list_response.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
 
 
 @jobs.route("/", methods=["POST", "PUT"])
 def create_job(toolname: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)
-
     new_job = NewJob.model_validate(request.json)
     runtime = current_app().runtime
 
-    if runtime.get_job(tool=toolname, job_name=new_job.name) is not None:
-        raise TjfValidationError("A job with the same name exists already", http_status_code=409)
+    job = _create_job(runtime=runtime, tool_name=toolname, new_job=new_job)
+    job_response = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
 
-    job = new_job.to_job(tool_name=toolname, runtime=runtime)
-    try:
-        current_app().runtime.create_job(tool=toolname, job=job)
-    except TjfError as e:
-        raise e
-    except Exception as e:
-        raise TjfError("Unable to start job") from e
+    return (
+        job_response.model_dump(mode="json", exclude_unset=True),
+        http.HTTPStatus.CREATED,
+    )
 
-    defined_job = JobResponse(job=DefinedJob.from_job(job=job), messages=ResponseMessages())
 
-    return defined_job.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.CREATED
+@jobs.route("/", methods=["PATCH"])
+def update_job(toolname: str) -> ResponseReturnValue:
+    is_tool_owner(request, toolname)
+    current_jobs: dict[str, Job] = {}
+    current_defined_jobs: dict[str, DefinedJob] = {}
+    runtime = current_app().runtime
+
+    new_job = NewJob.model_validate(request.json)
+    new_defined_job = DefinedJob.from_job(new_job.to_job(tool_name=toolname, runtime=runtime))
+
+    current_jobs = {job.job_name: job for job in runtime.get_jobs(tool=toolname)}
+    current_defined_jobs = {
+        job_name: DefinedJob.from_job(current_jobs[job_name]) for job_name in current_jobs
+    }
+
+    create = should_create_job(new_defined_job, current_defined_jobs)
+    update = should_update_job(new_defined_job, current_defined_jobs)
+
+    message = f"Job {new_job.name} is already up to date"
+    if create:
+        LOGGER.info(f"Creating job {new_job.name}")
+        _create_job(
+            runtime=runtime,
+            tool_name=toolname,
+            new_job=new_job,
+        )
+        message = f"Job {new_job.name} created"
+
+    if update:
+        LOGGER.info(f"Updating job {new_job.name}")
+        job = new_job.to_job(tool_name=toolname, runtime=runtime)
+        runtime.delete_job(tool=toolname, job=current_jobs[job.job_name])
+        runtime.wait_for_job(tool=toolname, job=current_jobs[job.job_name])
+        _create_job(
+            runtime=runtime,
+            tool_name=toolname,
+            new_job=new_job,
+        )
+        message = f"Job {new_job.name} updated"
+
+    messages = ResponseMessages(info=[message])
+    return (
+        UpdateResponse(messages=messages).model_dump(mode="json", exclude_unset=True),
+        http.HTTPStatus.OK,
+    )
 
 
 @jobs.route("/", methods=["DELETE"])
@@ -96,8 +184,8 @@ def get_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    defined_job = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
-    return defined_job.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
+    job_response = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
+    return job_response.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
 
 
 @jobs.route("/<name>", methods=["DELETE"])
