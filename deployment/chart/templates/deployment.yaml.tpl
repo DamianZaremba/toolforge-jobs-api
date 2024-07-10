@@ -81,7 +81,7 @@ spec:
           subPath: nginx.conf
         livenessProbe:
           httpGet:
-            path: /healthz
+            path: /v1/healthz
             port: 9000
           initialDelaySeconds: 3
           periodSeconds: 3

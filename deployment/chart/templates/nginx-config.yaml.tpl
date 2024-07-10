@@ -44,16 +44,22 @@ data:
                 # we also need to pass that to the api-gateway nginx instance.
                 proxy_pass_header "X-Accel-Buffering";
             }
+
+            # Support both old and new metrics endpoints
+            location = /metrics {
+                proxy_pass http://127.0.0.1:9200/metrics;
+            }
+
+            location = /v1/metrics {
+                proxy_pass http://127.0.0.1:9200/metrics;
+            }
+
         }
 
         server {
             listen 9000;
 
-            location = /metrics {
-                proxy_pass http://127.0.0.1:9200;
-            }
-
-            location = /healthz {
+            location = /v1/healthz {
                 proxy_pass http://127.0.0.1:8000;
             }
         }

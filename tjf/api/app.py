@@ -58,7 +58,7 @@ def create_app(*, load_images: bool = True, init_metrics: bool = True) -> JobsAp
 
     app.register_error_handler(Exception, error_handler)
 
-    app.add_url_rule("/healthz", view_func=healthz, methods=["GET"])
+    app.add_url_rule("/v1/healthz", view_func=healthz, methods=["GET"])
     app.add_url_rule("/openapi.json", view_func=openapi, methods=["GET"])
 
     app.register_blueprint(api_jobs)

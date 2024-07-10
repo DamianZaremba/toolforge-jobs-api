@@ -378,7 +378,7 @@ paths:
               schema:
                 type: object
       security: []
-  /healthz:
+  /v1/healthz:
     get:
       operationId: "healthcheck"
       description: "Endpoint that can be used to know the health status of the API itself."
@@ -389,6 +389,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+      security: []
+  /v1/metrics:
+    get:
+      operationId: "metrics"
+      description: "Endpoint that exposes Prometheus metrics for the API."
+      responses:
+        "200":
+          description: "Prometheus metrics are returned."
+          content:
+            text/plain:
+              schema:
+                type: string
       security: []
 components:
   schemas:
