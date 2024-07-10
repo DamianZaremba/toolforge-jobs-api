@@ -1,0 +1,31 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: continuous-jobs.jobs-api.toolforge.org
+spec:
+  group: jobs-api.toolforge.org
+  scope: Namespaced
+
+  names:
+    # e.g. `kubectl get continuous-jobs -n <namespace>`
+    plural: continuous-jobs
+    # e.g. `kubectl get continuous-job -n <namespace>`
+    singular: continuous-job
+    kind: ContinuousJob
+    # e.g. `kubectl get toolforge-jobs -n <namespace>`
+    categories:
+    - toolforge-jobs
+
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+
+    additionalPrinterColumns:
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
