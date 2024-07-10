@@ -18,7 +18,7 @@ from flask import Blueprint, request
 from flask.typing import ResponseReturnValue
 
 from .auth import is_tool_owner
-from .models import QuotaResponse, ResponseMessages
+from .models import Quota, QuotaResponse, ResponseMessages
 from .utils import current_app
 
 quotas = Blueprint("quotas", __name__, url_prefix="/v1/tool/<toolname>/quotas")
@@ -28,11 +28,11 @@ quotas = Blueprint("quotas", __name__, url_prefix="/v1/tool/<toolname>/quotas")
 def get_quota(toolname: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)
     tool = toolname
-    quota = current_app().runtime.get_quota(tool=tool)
+    quota_data = current_app().runtime.get_quota(tool=tool)
 
     return (
-        QuotaResponse(quota=quota, messages=ResponseMessages()).model_dump(
-            mode="json", exclude_unset=True
-        ),
+        QuotaResponse(
+            quota=Quota.from_quota_data(quota_data), messages=ResponseMessages()
+        ).model_dump(mode="json", exclude_unset=True),
         http.HTTPStatus.OK,
     )

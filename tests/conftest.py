@@ -61,6 +61,21 @@ def fake_auth_headers(patch_kube_config_loading):
 
 
 @pytest.fixture
+def patch_tool_account_init(monkeymodule, tmp_path_factory) -> Path:
+    temp_home_dir = tmp_path_factory.mktemp("home")
+
+    def fake_init(self, name: str):
+        self.name = name
+        self.namespace = f"tool-{self.name}"
+        self.home = temp_home_dir / self.name
+        self.home.mkdir(parents=True, exist_ok=True)
+        # ignore self.k8s_cli for now
+
+    monkeymodule.setattr(ToolAccount, "__init__", fake_init)
+    return temp_home_dir
+
+
+@pytest.fixture
 def fake_tool_account(patch_kube_config_loading) -> ToolAccount:
     return ToolAccount(name="some-tool")
 

@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Iterator
 
-from ..api.models import Quota
 from ..job import Job
+from ..quota import Quota
 
 
 class BaseRuntime(ABC):
@@ -38,14 +38,8 @@ class BaseRuntime(ABC):
     ) -> Iterator[str]:
         raise NotImplementedError
 
-    # TODO: don't use API models, use business ones once we have them
     @abstractmethod
-    def get_quota(self, *, tool: str) -> Quota:
-        raise NotImplementedError
-
-    # TODO: Remove the dependency on k8s namespaces to generate cron expressions
-    @abstractmethod
-    def get_cron_unique_seed(self, *, tool: str, job_name: str) -> str:
+    def get_quota(self, *, tool: str) -> list[Quota]:
         raise NotImplementedError
 
     @abstractmethod

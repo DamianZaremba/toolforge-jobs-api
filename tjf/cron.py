@@ -123,7 +123,8 @@ class CronExpression:
         return f"{self.minute} {self.hour} {self.day} {self.month} {self.day_of_week}"
 
     @classmethod
-    def parse(cls, value: str, random_seed: str) -> "CronExpression":
+    def parse(cls, value: str, job_name: str, tool_name: str) -> "CronExpression":
+        random_seed = f"{tool_name} {job_name}"
         if value.startswith("@"):
             mapped = AT_MAPPING.get(value, None)
             if not mapped:

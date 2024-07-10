@@ -10,6 +10,7 @@ import pytest
 import tjf.utils as utils
 from tjf.command import Command
 from tjf.error import TjfError
+from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.command import (
     get_command_for_k8s,
     get_command_from_k8s,
@@ -19,10 +20,8 @@ from tjf.runtimes.k8s.command import (
 
 class TestGetCommandForK8s:
     def test_execution_without_filelog_creates_nothing(
-        self, fixtures_path: Path, tmp_path_factory
+        self, fixtures_path: Path, patch_tool_account_init: Path, fake_tool_account: ToolAccount
     ):
-        # this is provided by a pytest fixture, https://docs.pytest.org/en/7.1.x/how-to/tmp_path.html
-        directory = tmp_path_factory.mktemp("testcmd")
 
         script_path = fixtures_path.parent / "gen-output" / "both.sh"
 
@@ -33,24 +32,29 @@ class TestGetCommandForK8s:
             filelog_stderr=None,
         )
 
-        generated = get_command_for_k8s(cmd)
+        generated = get_command_for_k8s(command=cmd)
         assert generated.args is None
 
-        result = subprocess.run(generated.command, capture_output=True, text=True, cwd=directory)
+        result = subprocess.run(
+            generated.command, capture_output=True, text=True, cwd=fake_tool_account.home
+        )
 
         assert result.stdout == "this text has no meaningful content nofilelog,\n"
         assert result.stderr == "it is just an example\n"
 
-        assert not any(directory.glob("*"))
+        assert not any(fake_tool_account.home.glob("*"))
 
-    def test_execution_with_filelog_generates_files(self, fixtures_path: Path, tmp_path_factory):
-        # this is provided by a pytest fixture, https://docs.pytest.org/en/7.1.x/how-to/tmp_path.html
-        directory = tmp_path_factory.mktemp("testcmd")
+    def test_execution_with_filelog_generates_files(
+        self,
+        fixtures_path: Path,
+        patch_tool_account_init: Path,
+        fake_tool_account: ToolAccount,
+    ):
 
         script_path = fixtures_path.parent / "gen-output" / "both.sh"
 
-        stdout_file = directory / "test.out"
-        stderr_file = directory / "test.err"
+        stdout_file = fake_tool_account.home / "test.out"
+        stderr_file = fake_tool_account.home / "test.err"
 
         cmd = Command(
             user_command=f"{script_path.absolute()} yesfilelog",
@@ -59,10 +63,12 @@ class TestGetCommandForK8s:
             filelog_stderr=stderr_file,
         )
 
-        generated = get_command_for_k8s(cmd)
+        generated = get_command_for_k8s(command=cmd)
         assert generated.args is None
 
-        result = subprocess.run(generated.command, capture_output=True, text=True, cwd=directory)
+        result = subprocess.run(
+            generated.command, capture_output=True, text=True, cwd=fake_tool_account.home
+        )
 
         assert result.stdout == ""
         assert result.stderr == ""

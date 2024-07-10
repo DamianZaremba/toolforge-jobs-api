@@ -15,18 +15,13 @@
 #
 import http
 import logging
-from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, Response, request
 from flask.typing import ResponseReturnValue
 from toolforge_weld.utils import peek
 
-from ..command import Command
-from ..cron import CronExpression, CronParsingError
 from ..error import TjfClientError, TjfError, TjfValidationError
-from ..images import image_by_name
-from ..job import Job, JobType
 from .auth import is_tool_owner
 from .models import (
     DefinedJob,
@@ -66,68 +61,11 @@ def create_job(toolname: str) -> ResponseReturnValue:
     new_job = NewJob.model_validate(request.json)
     runtime = current_app().runtime
 
-    image = image_by_name(new_job.imagename)
     if runtime.get_job(tool=toolname, job_name=new_job.name) is not None:
         raise TjfValidationError("A job with the same name exists already", http_status_code=409)
 
-    if new_job.filelog:
-        filelog_stdout: Path | None = current_app().runtime.resolve_filelog_out_path(
-            filelog_stdout=new_job.filelog_stdout,
-            tool=toolname,
-            job_name=new_job.name,
-        )
-        filelog_stderr: Path | None = current_app().runtime.resolve_filelog_err_path(
-            filelog_stderr=new_job.filelog_stderr,
-            tool=toolname,
-            job_name=new_job.name,
-        )
-    else:
-        filelog_stdout = filelog_stderr = None
-
-    command = Command(
-        user_command=new_job.cmd,
-        filelog=new_job.filelog,
-        filelog_stdout=filelog_stdout,
-        filelog_stderr=filelog_stderr,
-    )
-    health_check = None
-    if new_job.health_check:
-        health_check = new_job.health_check.to_internal()
-
-    if new_job.schedule:
-        job_type = JobType.SCHEDULED
-        try:
-            schedule = CronExpression.parse(
-                new_job.schedule,
-                current_app().runtime.get_cron_unique_seed(tool=toolname, job_name=new_job.name),
-            )
-        except CronParsingError as e:
-            raise TjfValidationError(
-                f"Unable to parse cron expression '{new_job.schedule}'"
-            ) from e
-    else:
-        schedule = None
-        job_type = JobType.CONTINUOUS if new_job.continuous else JobType.ONE_OFF
-
+    job = new_job.to_job(tool_name=toolname, runtime=runtime)
     try:
-        job = Job(
-            job_type=job_type,
-            command=command,
-            image=image,
-            jobname=new_job.name,
-            tool_name=toolname,
-            schedule=schedule,
-            cont=new_job.continuous,
-            port=new_job.port,
-            k8s_object={},
-            retry=new_job.retry,
-            memory=new_job.memory,
-            cpu=new_job.cpu,
-            emails=new_job.emails,
-            mount=new_job.mount,
-            health_check=health_check,
-        )
-
         current_app().runtime.create_job(tool=toolname, job=job)
     except TjfError as e:
         raise e

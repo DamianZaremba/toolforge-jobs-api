@@ -5,9 +5,9 @@ from typing import Iterator
 import requests
 from toolforge_weld.logs.kubernetes import KubernetesSource
 
-from ...api.models import Quota, QuotaCategory, QuotaEntry
 from ...error import TjfError, TjfValidationError
 from ...job import Job, JobType
+from ...quota import Quota, QuotaCategoryType
 from ..base import BaseRuntime
 from .account import ToolAccount
 from .command import resolve_filelog_path
@@ -88,7 +88,7 @@ class K8sRuntime(BaseRuntime):
         validate_job_limits(tool_account, job)
         spec = get_job_for_k8s(job=job)
         try:
-            self.create_service(job, tool_account)
+            self.create_service(job=job, tool_account=tool_account)
             k8s_result = tool_account.k8s_cli.create_object(
                 kind=K8sJobKind.from_job_type(job.job_type).api_path_name,
                 spec=spec,
@@ -125,7 +125,7 @@ class K8sRuntime(BaseRuntime):
                 ),
             )
 
-    def get_quota(self, *, tool: str) -> Quota:
+    def get_quota(self, *, tool: str) -> list[Quota]:
         tool_account = ToolAccount(name=tool)
         resource_quota = tool_account.k8s_cli.get_object("resourcequotas", tool_account.namespace)
         limit_range = tool_account.k8s_cli.get_object("limitranges", tool_account.namespace)
@@ -137,72 +137,57 @@ class K8sRuntime(BaseRuntime):
             limit for limit in limit_range["spec"]["limits"] if limit["type"] == "Container"
         )
 
-        quota_data = Quota(
-            categories=[
-                QuotaCategory(
-                    name="Running jobs",
-                    items=[
-                        QuotaEntry(
-                            name="Total running jobs at once (Kubernetes pods)",
-                            limit=resource_quota["status"]["hard"]["pods"],
-                            used=resource_quota["status"]["used"]["pods"],
-                        ),
-                        QuotaEntry(
-                            name="Running one-off and cron jobs",
-                            limit=resource_quota["status"]["hard"]["count/jobs.batch"],
-                            used=resource_quota["status"]["used"]["count/jobs.batch"],
-                        ),
-                        # Here we assume that for all CPU and RAM use, requests are set to half of
-                        # what limits are set. This is true for at least jobs-api usage.
-                        # TODO: somehow display if requests are using more than half of limits.
-                        QuotaEntry(
-                            name="CPU",
-                            limit=resource_quota["status"]["hard"]["limits.cpu"],
-                            used=resource_quota["status"]["used"]["limits.cpu"],
-                        ),
-                        QuotaEntry(
-                            name="Memory",
-                            limit=resource_quota["status"]["hard"]["limits.memory"],
-                            used=resource_quota["status"]["used"]["limits.memory"],
-                        ),
-                    ],
-                ),
-                QuotaCategory(
-                    name="Per-job limits",
-                    items=[
-                        QuotaEntry(
-                            name="CPU",
-                            limit=container_limit["max"]["cpu"],
-                        ),
-                        QuotaEntry(
-                            name="Memory",
-                            limit=container_limit["max"]["memory"],
-                        ),
-                    ],
-                ),
-                QuotaCategory(
-                    name="Job definitions",
-                    items=[
-                        QuotaEntry(
-                            name="Cron jobs",
-                            limit=resource_quota["status"]["hard"]["count/cronjobs.batch"],
-                            used=resource_quota["status"]["used"]["count/cronjobs.batch"],
-                        ),
-                        QuotaEntry(
-                            name="Continuous jobs (including web services)",
-                            limit=resource_quota["status"]["hard"]["count/deployments.apps"],
-                            used=resource_quota["status"]["used"]["count/deployments.apps"],
-                        ),
-                    ],
-                ),
-            ],
-        )
-
-        return quota_data
-
-    def get_cron_unique_seed(self, *, tool: str, job_name: str) -> str:
-        tool_account = ToolAccount(name=tool)
-        return f"{tool_account.namespace} {job_name}"
+        return [
+            Quota(
+                category=QuotaCategoryType.RUNNING_JOBS,
+                name="Total running jobs at once (Kubernetes pods)",
+                limit=resource_quota["status"]["hard"]["pods"],
+                used=resource_quota["status"]["used"]["pods"],
+            ),
+            Quota(
+                category=QuotaCategoryType.RUNNING_JOBS,
+                name="Running one-off and cron jobs",
+                limit=resource_quota["status"]["hard"]["count/jobs.batch"],
+                used=resource_quota["status"]["used"]["count/jobs.batch"],
+            ),
+            # Here we assume that for all CPU and RAM use, requests are set to half of
+            # what limits are set. This is true for at least jobs-api usage.
+            # TODO: somehow display if requests are using more than half of limits.
+            Quota(
+                category=QuotaCategoryType.RUNNING_JOBS,
+                name="CPU",
+                limit=resource_quota["status"]["hard"]["limits.cpu"],
+                used=resource_quota["status"]["used"]["limits.cpu"],
+            ),
+            Quota(
+                category=QuotaCategoryType.RUNNING_JOBS,
+                name="Memory",
+                limit=resource_quota["status"]["hard"]["limits.memory"],
+                used=resource_quota["status"]["used"]["limits.memory"],
+            ),
+            Quota(
+                category=QuotaCategoryType.PER_JOB_LIMITS,
+                name="CPU",
+                limit=container_limit["max"]["cpu"],
+            ),
+            Quota(
+                category=QuotaCategoryType.PER_JOB_LIMITS,
+                name="Memory",
+                limit=container_limit["max"]["memory"],
+            ),
+            Quota(
+                category=QuotaCategoryType.JOB_DEFINITIONS,
+                name="Cron jobs",
+                limit=resource_quota["status"]["hard"]["count/cronjobs.batch"],
+                used=resource_quota["status"]["used"]["count/cronjobs.batch"],
+            ),
+            Quota(
+                category=QuotaCategoryType.JOB_DEFINITIONS,
+                name="Continuous jobs (including web services)",
+                limit=resource_quota["status"]["hard"]["count/deployments.apps"],
+                used=resource_quota["status"]["used"]["count/deployments.apps"],
+            ),
+        ]
 
     def get_logs(
         self, *, job_name: str, tool: str, follow: bool, lines: int | None = None

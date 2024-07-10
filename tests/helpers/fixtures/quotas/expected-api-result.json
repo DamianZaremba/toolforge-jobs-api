@@ -30,11 +30,13 @@
             "items": [
                 {
                     "name": "CPU",
-                    "limit": "1"
+                    "limit": "1",
+                    "used": null
                 },
                 {
                     "name": "Memory",
-                    "limit": "4Gi"
+                    "limit": "4Gi",
+                    "used": null
                 }
             ]
         },

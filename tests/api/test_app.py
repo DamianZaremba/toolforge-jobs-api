@@ -225,6 +225,7 @@ class TestJobsEndpoint:
         self,
         authorized_client: FlaskClient,
         app: JobsApi,
+        patch_kube_config_loading,
         monkeypatch: MonkeyPatch,
     ) -> None:
         expected_names = ["job1", "job2"]
@@ -249,6 +250,7 @@ class TestJobsEndpoint:
         self,
         authorized_client: FlaskClient,
         app: JobsApi,
+        patch_kube_config_loading,
         monkeypatch: MonkeyPatch,
     ) -> None:
         expected_health_check = {"script": "silly script", "type": "script"}
@@ -277,6 +279,7 @@ class TestJobsEndpoint:
         self,
         authorized_client: FlaskClient,
         app: JobsApi,
+        patch_kube_config_loading,
         monkeypatch: MonkeyPatch,
     ) -> None:
         expected_port = 8080

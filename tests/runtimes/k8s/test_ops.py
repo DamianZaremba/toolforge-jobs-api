@@ -64,7 +64,12 @@ def _create_fake_http_error(
 
 
 class TestCreateErrorFromK8sResponse:
-    def test_no_data(self, fake_job: Job, fake_tool_account: ToolAccount):
+    def test_no_data(
+        self,
+        patch_kube_config_loading,
+        fake_job: Job,
+        fake_tool_account: ToolAccount,
+    ):
         error = create_error_from_k8s_response(
             error=HTTPError("Foobar"),
             job=fake_job,
@@ -81,7 +86,11 @@ class TestCreateErrorFromK8sResponse:
         }
 
     def test_has_http_response(
-        self, fake_job: Job, fake_tool_account: ToolAccount, requests_mock: RequestsMockMocker
+        self,
+        patch_kube_config_loading,
+        fake_job: Job,
+        fake_tool_account: ToolAccount,
+        requests_mock: RequestsMockMocker,
     ):
         error = create_error_from_k8s_response(
             error=_create_fake_http_error(
@@ -106,6 +115,7 @@ class TestCreateErrorFromK8sResponse:
 
     def test_already_exists(
         self,
+        patch_kube_config_loading,
         fake_job: Job,
         fake_tool_account: ToolAccount,
         requests_mock: RequestsMockMocker,

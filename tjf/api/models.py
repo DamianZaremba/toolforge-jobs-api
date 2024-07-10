@@ -1,5 +1,6 @@
 import re
 from enum import Enum
+from pathlib import Path
 from typing import Type
 
 from pydantic import BaseModel as PydanticModel
@@ -8,9 +9,14 @@ from toolforge_weld.kubernetes import MountOption
 from typing_extensions import Annotated, Self
 
 from .. import health_check as internal_hc
+from ..command import Command
+from ..cron import CronExpression, CronParsingError
 from ..error import TjfValidationError
 from ..images import ImageType, image_by_name
-from ..job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY, Job
+from ..job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY, Job, JobType
+from ..quota import Quota as QuotaData
+from ..quota import QuotaCategoryType
+from ..runtimes.base import BaseRuntime
 from ..utils import validate_kube_quant
 
 # This is a restriction by Kubernetes:
@@ -126,6 +132,69 @@ class NewJob(CommonJob):
         self.validate_imagename(imagename=self.imagename)
         return self
 
+    def to_job(self, tool_name: str, runtime: BaseRuntime) -> Job:
+        image = image_by_name(self.imagename)
+
+        if self.filelog:
+            filelog_stdout: Path | None = runtime.resolve_filelog_out_path(
+                filelog_stdout=self.filelog_stdout,
+                tool=tool_name,
+                job_name=self.name,
+            )
+            filelog_stderr: Path | None = runtime.resolve_filelog_err_path(
+                filelog_stderr=self.filelog_stderr,
+                tool=tool_name,
+                job_name=self.name,
+            )
+        else:
+            filelog_stdout = filelog_stderr = None
+
+        command = Command(
+            user_command=self.cmd,
+            filelog=self.filelog,
+            filelog_stdout=filelog_stdout,
+            filelog_stderr=filelog_stderr,
+        )
+
+        health_check = None
+        if self.health_check and self.continuous:
+            health_check = self.health_check.to_internal()
+
+        if self.schedule:
+            job_type = JobType.SCHEDULED
+            try:
+                schedule = CronExpression.parse(
+                    value=self.schedule,
+                    job_name=self.name,
+                    tool_name=tool_name,
+                )
+            except CronParsingError as e:
+                raise TjfValidationError(
+                    f"Unable to parse cron expression '{self.schedule}'"
+                ) from e
+        else:
+            schedule = None
+
+            job_type = JobType.CONTINUOUS if self.continuous else JobType.ONE_OFF
+
+        return Job(
+            job_type=job_type,
+            command=command,
+            image=image,
+            jobname=self.name,
+            tool_name=tool_name,
+            schedule=schedule,
+            cont=self.continuous,
+            port=self.port,
+            k8s_object={},
+            retry=self.retry,
+            memory=self.memory,
+            cpu=self.cpu,
+            emails=self.emails,
+            mount=self.mount,
+            health_check=health_check,
+        )
+
 
 class DefinedJob(CommonJob):
     image: str
@@ -210,6 +279,24 @@ class QuotaCategory(BaseModel):
 
 class Quota(BaseModel):
     categories: list[QuotaCategory]
+
+    @classmethod
+    def from_quota_data(cls: Type["Quota"], quota_data: list[QuotaData]) -> "Quota":
+        quota = cls(categories=[])
+        # size of both QuotaCategoryType and quota_data are limited so nested for-loop is fine
+        for type in QuotaCategoryType:
+            category = QuotaCategory(name=type.value, items=[])
+            for data in quota_data:
+                if data.category == type:
+                    category.items.append(
+                        QuotaEntry(
+                            name=data.name,
+                            limit=data.limit,
+                            used=data.used,
+                        )
+                    )
+            quota.categories.append(category)
+        return quota
 
 
 class ResponseMessages(BaseModel):
