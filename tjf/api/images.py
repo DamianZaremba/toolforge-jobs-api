@@ -7,9 +7,14 @@ from ..images import AVAILABLE_IMAGES, get_harbor_images
 from .auth import is_tool_owner
 from .models import Image, ImageListResponse, ResponseMessages
 
-api_images = Blueprint("images", __name__, url_prefix="/api/v1/tool/<toolname>/images")
+api_images = Blueprint("images", __name__, url_prefix="/v1/tool/<toolname>/images")
+
+api_images_deprecated = Blueprint(
+    "images_deprecated", __name__, url_prefix="/api/v1/tool/<toolname>/images"
+)
 
 
+@api_images_deprecated.route("/", methods=["GET"])
 @api_images.route("/", methods=["GET"])
 def api_get_images(toolname: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)

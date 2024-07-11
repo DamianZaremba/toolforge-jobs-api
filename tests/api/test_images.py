@@ -11,7 +11,7 @@ class TestGetImages:
         fake_auth_headers: dict[str, str],
     ) -> None:
         expected_messages = {}
-        response = client.get("/api/v1/tool/some-tool/images/", headers=fake_auth_headers)
+        response = client.get("/v1/tool/some-tool/images/", headers=fake_auth_headers)
         assert response.status_code == 200
         assert response.json["messages"] == expected_messages
 
@@ -21,7 +21,7 @@ class TestGetImages:
         client: FlaskClient,
         fake_auth_headers: dict[str, str],
     ) -> None:
-        response = client.get("/api/v1/tool/some-tool/images/", headers=fake_auth_headers)
+        response = client.get("/v1/tool/some-tool/images/", headers=fake_auth_headers)
         assert response.status_code == 200
 
         gotten_image_names = [image["shortname"] for image in response.json["images"] or []]
@@ -42,7 +42,7 @@ class TestGetImages:
         client: FlaskClient,
         fake_auth_headers: dict[str, str],
     ) -> None:
-        response = client.get("/api/v1/tool/some-tool/images/", headers=fake_auth_headers)
+        response = client.get("/v1/tool/some-tool/images/", headers=fake_auth_headers)
         assert response.status_code == 200
 
         gotten_image_names = [image["shortname"] for image in response.json["images"] or []]
@@ -63,7 +63,7 @@ class TestGetImages:
         client: FlaskClient,
         fake_auth_headers: dict[str, str],
     ) -> None:
-        response = client.get("/api/v1/tool/some-tool/images/", headers=fake_auth_headers)
+        response = client.get("/v1/tool/some-tool/images/", headers=fake_auth_headers)
         assert response.status_code == 200
 
         gotten_image_names = [image["shortname"] for image in response.json["images"] or []]
@@ -88,7 +88,7 @@ class TestGetImages:
         client: FlaskClient,
         fake_auth_headers: dict[str, str],
     ):
-        response = client.get("/api/v1/tool/some-tool/images/", headers=fake_auth_headers)
+        response = client.get("/v1/tool/some-tool/images/", headers=fake_auth_headers)
         assert response.status_code == 200
 
         gotten_image_names = [image["shortname"] for image in response.json["images"] or []]

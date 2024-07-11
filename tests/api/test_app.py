@@ -216,7 +216,7 @@ class TestJobsEndpoint:
         ).model_dump(mode="json", exclude_unset=True)
         monkeypatch.setattr(app.runtime, "get_jobs", value=lambda *args, **kwargs: [])
 
-        gotten_response = authorized_client.get("/api/v1/tool/silly-user/jobs/")
+        gotten_response = authorized_client.get("/v1/tool/silly-user/jobs/")
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         assert gotten_response.json == expected_response
@@ -236,7 +236,7 @@ class TestJobsEndpoint:
         )
         update_available_images(dummy_jobs[0].image)
 
-        gotten_response = authorized_client.get("/api/v1/tool/silly-user/jobs/")
+        gotten_response = authorized_client.get("/v1/tool/silly-user/jobs/")
 
         assert gotten_response.status_code == http.HTTPStatus.OK
 
@@ -265,7 +265,7 @@ class TestJobsEndpoint:
         )
         update_available_images(dummy_job.image)
 
-        gotten_response = authorized_client.get("/api/v1/tool/silly-user/jobs/")
+        gotten_response = authorized_client.get("/v1/tool/silly-user/jobs/")
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         assert (
@@ -288,7 +288,7 @@ class TestJobsEndpoint:
         )
         update_available_images(dummy_job.image)
 
-        gotten_response = authorized_client.get("/api/v1/tool/silly-user/jobs/")
+        gotten_response = authorized_client.get("/v1/tool/silly-user/jobs/")
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         assert cast(list[dict[str, Any]], gotten_response.json["jobs"])[0]["port"] == expected_port

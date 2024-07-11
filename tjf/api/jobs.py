@@ -43,9 +43,14 @@ from .utils import current_app
 LOGGER = logging.getLogger(__name__)
 
 
-api_jobs = Blueprint("jobs", __name__, url_prefix="/api/v1/tool/<toolname>/jobs")
+api_jobs = Blueprint("jobs", __name__, url_prefix="/v1/tool/<toolname>/jobs")
+
+api_jobs_deprecated = Blueprint(
+    "jobs_deprecated", __name__, url_prefix="/api/v1/tool/<toolname>/jobs"
+)
 
 
+@api_jobs_deprecated.route("/", methods=["GET"])
 @api_jobs.route("/", methods=["GET"])
 def api_list_jobs(toolname: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)
@@ -59,6 +64,7 @@ def api_list_jobs(toolname: str) -> ResponseReturnValue:
     return defined_jobs.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
 
 
+@api_jobs_deprecated.route("/", methods=["POST", "PUT"])
 @api_jobs.route("/", methods=["POST", "PUT"])
 def api_create_job(toolname: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)
@@ -139,6 +145,7 @@ def api_create_job(toolname: str) -> ResponseReturnValue:
     return defined_job.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.CREATED
 
 
+@api_jobs_deprecated.route("/", methods=["DELETE"])
 @api_jobs.route("/", methods=["DELETE"])
 def api_flush_job(toolname: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)
@@ -150,6 +157,7 @@ def api_flush_job(toolname: str) -> ResponseReturnValue:
     )
 
 
+@api_jobs_deprecated.route("/<name>", methods=["GET"])
 @api_jobs.route("/<name>", methods=["GET"])
 def api_get_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
     is_tool_owner(request, toolname)
@@ -162,6 +170,7 @@ def api_get_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
     return defined_job.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
 
 
+@api_jobs_deprecated.route("/<name>", methods=["DELETE"])
 @api_jobs.route("/<name>", methods=["DELETE"])
 def api_delete_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
     is_tool_owner(request, toolname)
@@ -177,6 +186,7 @@ def api_delete_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
     )
 
 
+@api_jobs_deprecated.route("/<name>/logs", methods=["GET"])
 @api_jobs.route("/<name>/logs", methods=["GET"])
 def api_get_logs(toolname: str, name: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)
@@ -224,6 +234,7 @@ def api_get_logs(toolname: str, name: str) -> ResponseReturnValue:
     )
 
 
+@api_jobs_deprecated.route("/<name>/restart", methods=["POST"])
 @api_jobs.route("/<name>/restart", methods=["POST"])
 def api_restart_job(toolname: str, name: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)

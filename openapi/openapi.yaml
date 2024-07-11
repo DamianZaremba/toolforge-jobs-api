@@ -15,7 +15,7 @@ servers:
 security:
   - toolforge_tool_client_certificate: []
 paths:
-  /api/v1/tool/{toolname}/images:
+  /v1/tool/{toolname}/images:
     get:
       operationId: "images"
       description: "Returns the list of available container images that you can use to create a new job."
@@ -35,7 +35,7 @@ paths:
                 $ref: "#/components/schemas/ImageListResponse"
         "401":
           $ref: "#/components/responses/unauthorized_error"
-  /api/v1/tool/{toolname}/quota:
+  /v1/tool/{toolname}/quota:
     get:
       operationId: "quota"
       description: "Returns information on the tool account quotas in Toolforge."
@@ -55,7 +55,7 @@ paths:
                 $ref: "#/components/schemas/QuotaResponse"
         "401":
           $ref: "#/components/responses/unauthorized_error"
-  /api/v1/tool/{toolname}/jobs:
+  /v1/tool/{toolname}/jobs:
     get:
       operationId: "list"
       description: "Returns the list of jobs defined for this Toolforge tool account."
@@ -121,7 +121,7 @@ paths:
                 $ref: "#/components/schemas/FlushResponse"
         "401":
           $ref: "#/components/responses/unauthorized_error"
-  /api/v1/tool/{toolname}/jobs/{id}:
+  /v1/tool/{toolname}/jobs/{id}:
     get:
       operationId: "show"
       description: "Show information about a given job for this Toolforge tool account."
@@ -166,7 +166,7 @@ paths:
           $ref: "#/components/responses/unauthorized_error"
         "404":
           $ref: "#/components/responses/not_found_error"
-  /api/v1/tool/{toolname}/jobs/{id}/logs:
+  /v1/tool/{toolname}/jobs/{id}/logs:
     get:
       operationId: "get_logs"
       description: "Get logs for a given job in this Toolforge tool account."
@@ -191,7 +191,7 @@ paths:
           $ref: "#/components/responses/unauthorized_error"
         "404":
           $ref: "#/components/responses/not_found_error"
-  /api/v1/tool/{toolname}/jobs/{id}/restart:
+  /v1/tool/{toolname}/jobs/{id}/restart:
     post:
       operationId: "restart"
       description: "Restart a given job. If the job is a cronjob, execute it right now."

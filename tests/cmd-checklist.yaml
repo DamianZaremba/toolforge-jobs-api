@@ -1,6 +1,6 @@
 ---
 - envvars:
-    - CURL_URL: "https://localhost:30003/jobs/api/v1"
+    - CURL_URL: "https://localhost:30003/jobs/v1"
       CURL_ARGS: "--cert ~/.toolforge-lima-kilo/chroot/data/project/tf-test/.toolskube/client.crt --key ~/.toolforge-lima-kilo/chroot/data/project/tf-test/.toolskube/client.key -k"
       JOBNAME: "normaljob"
       SLEEP_CMD: ./sleep40.sh

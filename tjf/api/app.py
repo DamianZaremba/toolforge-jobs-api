@@ -25,12 +25,12 @@ from ..images import update_available_images
 from ..runtimes.k8s.runtime import K8sRuntime
 from ..utils import USER_AGENT
 from .error import error_handler
-from .images import api_images
-from .jobs import api_jobs
+from .images import api_images, api_images_deprecated
+from .jobs import api_jobs, api_jobs_deprecated
 from .metrics import metrics_init_app
 from .models import Health, HealthResponse, HealthState, ResponseMessages
 from .openapi import openapi
-from .quota import api_quota
+from .quota import api_quota, api_quota_deprecated
 from .utils import JobsApi
 
 
@@ -55,6 +55,9 @@ def create_app(*, load_images: bool = True, init_metrics: bool = True) -> JobsAp
     app.register_blueprint(api_jobs)
     app.register_blueprint(api_images)
     app.register_blueprint(api_quota)
+    app.register_blueprint(api_jobs_deprecated)
+    app.register_blueprint(api_images_deprecated)
+    app.register_blueprint(api_quota_deprecated)
 
     if load_images:
         # before app startup!

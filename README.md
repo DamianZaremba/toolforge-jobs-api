@@ -44,7 +44,7 @@ $ ./deploy.sh local
  4) At this point, hopefully, it should work:
 
 ```
-$ curl -k "https://localhost:30003/jobs/api/v1/images/" \
+$ curl -k "https://localhost:30003/jobs/v1/images/" \
   --cert ~/.toolforge-lima-kilo/chroot/data/project/tf-test/.toolskube/client.crt \
   --key ~/.toolforge-lima-kilo/chroot/data/project/tf-test/.toolskube/client.key
 ```
