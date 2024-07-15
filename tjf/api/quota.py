@@ -17,24 +17,40 @@ import http
 from flask import Blueprint, request
 from flask.typing import ResponseReturnValue
 
-from .auth import is_tool_owner
+from .auth import get_tool_from_request, is_tool_owner
 from .models import QuotaResponse, ResponseMessages
 from .utils import current_app
 
-api_quota = Blueprint("quota", __name__, url_prefix="/v1/tool/<toolname>/quota")
+quota = Blueprint("quota", __name__, url_prefix="/v1/tool/<toolname>/quota")
 
-api_quota_deprecated = Blueprint(
-    "quota_deprecated", __name__, url_prefix="/api/v1/tool/<toolname>/quota"
+# deprecated
+quota_with_api_and_toolname = Blueprint(
+    "quota_with_api_and_toolname", __name__, url_prefix="/api/v1/tool/<toolname>/quota"
+)
+quota_with_api_no_toolname = Blueprint(
+    "quota_with_api_no_toolname", __name__, url_prefix="/api/v1/quota"
 )
 
 
-@api_quota_deprecated.route("/", methods=["GET"])
-@api_quota.route("/", methods=["GET"])
-def api_get_quota(toolname: str) -> ResponseReturnValue:
+@quota_with_api_and_toolname.route("/", methods=["GET"])
+@quota.route("/", methods=["GET"])
+def get_quota(toolname: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)
     tool = toolname
     quota = current_app().runtime.get_quota(tool=tool)
 
+    return (
+        QuotaResponse(quota=quota, messages=ResponseMessages()).model_dump(
+            mode="json", exclude_unset=True
+        ),
+        http.HTTPStatus.OK,
+    )
+
+
+@quota_with_api_no_toolname.route("/", methods=["GET"])
+def get_quota_with_api_no_toolname() -> ResponseReturnValue:
+    tool = get_tool_from_request(request=request)
+    quota = current_app().runtime.get_quota(tool=tool)
     return (
         QuotaResponse(quota=quota, messages=ResponseMessages()).model_dump(
             mode="json", exclude_unset=True
