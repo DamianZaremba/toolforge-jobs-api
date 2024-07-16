@@ -52,3 +52,8 @@ repos:
     rev: 0.7.1
     hooks:
       - id: openapi-spec-validator
+
+  - repo: https://gitlab.wikimedia.org/repos/cloud/cicd/gitlab-ci
+    rev: 383aa0ab8c8c70d0bb6b65e01c03250943096f1e
+    hooks:
+      - id: check-openapi-version-bump
