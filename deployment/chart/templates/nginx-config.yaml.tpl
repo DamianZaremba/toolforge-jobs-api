@@ -62,5 +62,14 @@ data:
             location = /v1/healthz {
                 proxy_pass http://127.0.0.1:8000;
             }
+
+            # Support both old and new metrics endpoints
+            location = /metrics {
+                proxy_pass http://127.0.0.1:9200/metrics;
+            }
+
+            location = /v1/metrics {
+                proxy_pass http://127.0.0.1:9200/metrics;
+            }
         }
     }
