@@ -12,7 +12,7 @@ from toolforge_weld.kubernetes_config import Kubeconfig, fake_kube_config
 
 import tjf.images
 from tjf.api.app import JobsApi, create_app
-from tjf.api.auth import AUTH_HEADER
+from tjf.api.auth import TOOL_HEADER
 from tjf.images import HarborConfig, update_available_images
 from tjf.runtimes.k8s import jobs
 from tjf.runtimes.k8s.account import ToolAccount
@@ -24,7 +24,7 @@ sys.path.append(str(TESTS_PATH))
 from helpers.fake_k8s import FAKE_HARBOR_HOST, FAKE_IMAGE_CONFIG  # noqa
 from helpers.fakes import get_fake_harbor_config  # noqa
 
-FAKE_VALID_TOOL_AUTH_HEADER = "O=toolforge,CN=some-tool"
+FAKE_VALID_TOOL_TOOL_HEADER = "O=toolforge,CN=some-tool"
 
 FIXTURES_PATH = TESTS_PATH / "helpers" / "fixtures"
 
@@ -57,7 +57,7 @@ def patch_kube_config_loading(monkeymodule):
 
 @pytest.fixture
 def fake_auth_headers(patch_kube_config_loading):
-    yield {AUTH_HEADER: FAKE_VALID_TOOL_AUTH_HEADER}
+    yield {TOOL_HEADER: FAKE_VALID_TOOL_TOOL_HEADER}
 
 
 @pytest.fixture

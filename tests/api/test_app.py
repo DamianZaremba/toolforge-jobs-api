@@ -10,7 +10,7 @@ from toolforge_weld.errors import ToolforgeUserError
 from toolforge_weld.kubernetes import MountOption
 
 from tjf.api.app import create_app, error_handler
-from tjf.api.auth import AUTH_HEADER, ToolAuthError, get_tool_from_request
+from tjf.api.auth import TOOL_HEADER, ToolAuthError, ensure_authenticated
 from tjf.api.models import EmailOption, JobListResponse, ResponseMessages
 from tjf.api.utils import JobsApi
 from tjf.command import Command
@@ -78,7 +78,7 @@ def authorized_client(client) -> Generator[FlaskClient, None, None]:
         if "headers" not in kwargs:
             kwargs["headers"] = {}
 
-        kwargs["headers"].update({AUTH_HEADER: "O=toolforge,CN=silly-user"})
+        kwargs["headers"].update({TOOL_HEADER: "O=toolforge,CN=silly-user"})
         return client._old_open(*args, **kwargs)
 
     client.open = new_open
@@ -172,36 +172,16 @@ class TestApiErrorHandler:
 
 class TestAPIAuth:
     def test_tool_from_request_successful(self, app: JobsApi):
-        with app.test_request_context("/foo", headers={AUTH_HEADER: "O=toolforge,CN=some-tool"}):
-            tool_name = get_tool_from_request(request=request)
+        expected_tool = "some-tool"
+        with app.test_request_context("/foo", headers={TOOL_HEADER: "some-tool"}):
+            gotten_tool = ensure_authenticated(request=request)
 
-        assert tool_name == "some-tool"
+        assert gotten_tool == expected_tool
 
-    def test_User_from_request_no_header(self, app: JobsApi, patch_kube_config_loading):
+    def test_user_from_request_no_header(self, app: JobsApi, patch_kube_config_loading):
         with app.test_request_context("/foo"):
-            with pytest.raises(ToolAuthError, match="missing 'ssl-client-subject-dn' header"):
-                assert get_tool_from_request(request=request) is None
-
-    invalid_cn_data = [
-        ["", "missing 'ssl-client-subject-dn' header"],
-        ["O=toolforge", "Failed to load name for certificate 'O=toolforge'"],
-        ["CN=first,CN=second", "Failed to load name for certificate 'CN=first,CN=second'"],
-        [
-            "CN=tool,O=admins",
-            r"This certificate can't access the Jobs API\. "
-            r"Double check you're logged in to the correct account\? \(got \[\'admins\'\]\)",
-        ],
-    ]
-
-    @pytest.mark.parametrize(
-        "cn,expected_error", invalid_cn_data, ids=[data[0] for data in invalid_cn_data]
-    )
-    def test_User_from_request_invalid(
-        self, app: JobsApi, patch_kube_config_loading, cn: str, expected_error: str
-    ):
-        with app.test_request_context("/foo", headers={AUTH_HEADER: cn}):
-            with pytest.raises(ToolAuthError, match=expected_error):
-                get_tool_from_request(request=request)
+            with pytest.raises(ToolAuthError, match="missing 'x-toolforge-tool' header"):
+                ensure_authenticated(request=request)
 
 
 class TestJobsEndpoint:

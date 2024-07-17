@@ -17,7 +17,7 @@ import http
 from flask import Blueprint, request
 from flask.typing import ResponseReturnValue
 
-from .auth import is_tool_owner
+from .auth import ensure_authenticated
 from .models import Quota, QuotaResponse, ResponseMessages
 from .utils import current_app
 
@@ -26,9 +26,8 @@ quotas = Blueprint("quotas", __name__, url_prefix="/v1/tool/<toolname>/quotas")
 
 @quotas.route("/", methods=["GET"])
 def get_quota(toolname: str) -> ResponseReturnValue:
-    is_tool_owner(request, toolname)
-    tool = toolname
-    quota_data = current_app().runtime.get_quota(tool=tool)
+    ensure_authenticated(request=request)
+    quota_data = current_app().runtime.get_quota(tool=toolname)
 
     return (
         QuotaResponse(

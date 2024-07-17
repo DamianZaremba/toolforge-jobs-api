@@ -27,7 +27,7 @@ from ..error import TjfClientError, TjfError, TjfValidationError
 # see jobs-api!91
 from ..job import Job
 from ..runtimes.base import BaseRuntime
-from .auth import is_tool_owner
+from .auth import ensure_authenticated
 from .models import (
     DefinedJob,
     DeleteResponse,
@@ -92,7 +92,7 @@ def should_update_job(
 
 @jobs.route("/", methods=["GET"])
 def list_jobs(toolname: str) -> ResponseReturnValue:
-    is_tool_owner(request, toolname)
+    ensure_authenticated(request=request)
 
     user_jobs = current_app().runtime.get_jobs(tool=toolname)
     job_list_response = JobListResponse(
@@ -105,7 +105,8 @@ def list_jobs(toolname: str) -> ResponseReturnValue:
 
 @jobs.route("/", methods=["POST", "PUT"])
 def create_job(toolname: str) -> ResponseReturnValue:
-    is_tool_owner(request, toolname)
+    ensure_authenticated(request=request)
+
     new_job = NewJob.model_validate(request.json)
     runtime = current_app().runtime
 
@@ -120,7 +121,7 @@ def create_job(toolname: str) -> ResponseReturnValue:
 
 @jobs.route("/", methods=["PATCH"])
 def update_job(toolname: str) -> ResponseReturnValue:
-    is_tool_owner(request, toolname)
+    ensure_authenticated(request=request)
     current_jobs: dict[str, Job] = {}
     current_defined_jobs: dict[str, DefinedJob] = {}
     runtime = current_app().runtime
@@ -167,7 +168,7 @@ def update_job(toolname: str) -> ResponseReturnValue:
 
 @jobs.route("/", methods=["DELETE"])
 def flush_job(toolname: str) -> ResponseReturnValue:
-    is_tool_owner(request, toolname)
+    ensure_authenticated(request=request)
 
     current_app().runtime.delete_all_jobs(tool=toolname)
     return (
@@ -178,7 +179,7 @@ def flush_job(toolname: str) -> ResponseReturnValue:
 
 @jobs.route("/<name>", methods=["GET"])
 def get_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
-    is_tool_owner(request, toolname)
+    ensure_authenticated(request=request)
 
     job = current_app().runtime.get_job(job_name=name, tool=toolname)
     if not job:
@@ -190,7 +191,7 @@ def get_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
 
 @jobs.route("/<name>", methods=["DELETE"])
 def delete_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
-    is_tool_owner(request, toolname)
+    ensure_authenticated(request=request)
 
     job = current_app().runtime.get_job(tool=toolname, job_name=name)
     if not job:
@@ -205,7 +206,7 @@ def delete_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
 
 @jobs.route("/<name>/logs", methods=["GET"])
 def get_logs(toolname: str, name: str) -> ResponseReturnValue:
-    is_tool_owner(request, toolname)
+    ensure_authenticated(request=request)
 
     job = current_app().runtime.get_job(tool=toolname, job_name=name)
     if not job:
@@ -252,7 +253,7 @@ def get_logs(toolname: str, name: str) -> ResponseReturnValue:
 
 @jobs.route("/<name>/restart", methods=["POST"])
 def restart_job(toolname: str, name: str) -> ResponseReturnValue:
-    is_tool_owner(request, toolname)
+    ensure_authenticated(request=request)
 
     job = current_app().runtime.get_job(tool=toolname, job_name=name)
     if not job:

@@ -2,7 +2,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.0.0"
+  version: "4.1.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -12,8 +12,6 @@ servers:
     description: "Toolforge internal API gateway endpoint."
   - url: "https://api.svc.toolsbeta.eqiad1.wikimedia.cloud:30003/jobs"
     description: "Toolforge beta internal API gateway endpoint."
-security:
-  - toolforge_tool_client_certificate: []
 paths:
   /v1/tool/{toolname}/images:
     get:
@@ -568,6 +566,7 @@ components:
           schema:
             $ref: "#/components/schemas/ResponseMessages"
   securitySchemes:
-    toolforge_tool_client_certificate:
-      type: "mutualTLS"
-      description: "This API requires a client certificate generated for the Toolforge tool account."
+    key:
+      type: apiKey
+      name: X-Toolforge-Tool
+      in: header

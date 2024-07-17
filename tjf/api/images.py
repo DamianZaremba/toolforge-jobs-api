@@ -4,7 +4,7 @@ from flask import Blueprint, request
 from flask.typing import ResponseReturnValue
 
 from ..images import AVAILABLE_IMAGES, get_harbor_images
-from .auth import is_tool_owner
+from .auth import ensure_authenticated
 from .models import Image, ImageListResponse, ResponseMessages
 
 images = Blueprint("images", __name__, url_prefix="/v1/tool/<toolname>/images")
@@ -12,7 +12,7 @@ images = Blueprint("images", __name__, url_prefix="/v1/tool/<toolname>/images")
 
 @images.route("/", methods=["GET"])
 def get_images(toolname: str) -> ResponseReturnValue:
-    is_tool_owner(request, toolname)
+    ensure_authenticated(request=request)
 
     images = AVAILABLE_IMAGES + get_harbor_images(tool=toolname)
 
