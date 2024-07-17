@@ -30,7 +30,12 @@ from .jobs import jobs, jobs_with_api_and_toolname, jobs_with_api_no_toolname
 from .metrics import metrics_init_app
 from .models import Health, HealthResponse, HealthState, ResponseMessages
 from .openapi import openapi
-from .quota import quota, quota_with_api_and_toolname, quota_with_api_no_toolname
+from .quotas import (
+    quota,
+    quota_with_api_and_toolname,
+    quota_with_api_no_toolname,
+    quotas,
+)
 from .utils import JobsApi
 
 
@@ -54,9 +59,10 @@ def create_app(*, load_images: bool = True, init_metrics: bool = True) -> JobsAp
 
     app.register_blueprint(jobs)
     app.register_blueprint(images)
-    app.register_blueprint(quota)
+    app.register_blueprint(quotas)
 
     # deprecated
+    app.register_blueprint(quota)
     app.register_blueprint(jobs_with_api_no_toolname)
     app.register_blueprint(jobs_with_api_and_toolname)
     app.register_blueprint(images_with_api_no_toolname)

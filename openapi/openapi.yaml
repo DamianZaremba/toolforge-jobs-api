@@ -2,7 +2,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "2.0.0"
+  version: "3.0.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -35,9 +35,9 @@ paths:
                 $ref: "#/components/schemas/ImageListResponse"
         "401":
           $ref: "#/components/responses/unauthorized_error"
-  /v1/tool/{toolname}/quota:
+  /v1/tool/{toolname}/quotas:
     get:
-      operationId: "quota"
+      operationId: "quotas"
       description: "Returns information on the tool account quotas in Toolforge."
       parameters:
         - name: toolname

@@ -29,9 +29,9 @@ def account_with_quotas(fixtures_path: Path):
     class FakeK8sCli:
         def get_object(self, kind, name):
             if kind == "limitranges" and name == "tool-some-tool":
-                return json.loads((fixtures_path / "quota" / "limitrange.json").read_text())
+                return json.loads((fixtures_path / "quotas" / "limitrange.json").read_text())
             elif kind == "resourcequotas" and name == "tool-some-tool":
-                return json.loads((fixtures_path / "quota" / "resourcequota.json").read_text())
+                return json.loads((fixtures_path / "quotas" / "resourcequota.json").read_text())
             raise Exception("not supposed to happen")
 
     return get_fake_account(fake_k8s_cli=FakeK8sCli(), name="some-tool")
@@ -50,10 +50,10 @@ def test_quota_endpoint(
     fake_auth_headers: dict[str, str],
 ):
     expected = QuotaResponse(
-        quota=json.loads((fixtures_path / "quota" / "expected-api-result.json").read_text()),
+        quota=json.loads((fixtures_path / "quotas" / "expected-api-result.json").read_text()),
         messages=ResponseMessages(),
     ).model_dump(mode="json", exclude_unset=True)
-    response = client.get("/v1/tool/some-tool/quota/", headers=fake_auth_headers)
+    response = client.get("/v1/tool/some-tool/quotas/", headers=fake_auth_headers)
 
     assert response.status_code == 200
     assert response.json == expected

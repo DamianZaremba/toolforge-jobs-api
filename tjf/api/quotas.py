@@ -21,7 +21,8 @@ from .auth import get_tool_from_request, is_tool_owner
 from .models import QuotaResponse, ResponseMessages
 from .utils import current_app
 
-quota = Blueprint("quota", __name__, url_prefix="/v1/tool/<toolname>/quota")
+quotas = Blueprint("quotas", __name__, url_prefix="/v1/tool/<toolname>/quotas")
+
 
 # deprecated
 quota_with_api_and_toolname = Blueprint(
@@ -30,10 +31,12 @@ quota_with_api_and_toolname = Blueprint(
 quota_with_api_no_toolname = Blueprint(
     "quota_with_api_no_toolname", __name__, url_prefix="/api/v1/quota"
 )
+quota = Blueprint("quota", __name__, url_prefix="/v1/tool/<toolname>/quota")
 
 
 @quota_with_api_and_toolname.route("/", methods=["GET"])
 @quota.route("/", methods=["GET"])
+@quotas.route("/", methods=["GET"])
 def get_quota(toolname: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)
     tool = toolname
