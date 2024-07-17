@@ -17,43 +17,19 @@ import http
 from flask import Blueprint, request
 from flask.typing import ResponseReturnValue
 
-from .auth import get_tool_from_request, is_tool_owner
+from .auth import is_tool_owner
 from .models import QuotaResponse, ResponseMessages
 from .utils import current_app
 
 quotas = Blueprint("quotas", __name__, url_prefix="/v1/tool/<toolname>/quotas")
 
 
-# deprecated
-quota_with_api_and_toolname = Blueprint(
-    "quota_with_api_and_toolname", __name__, url_prefix="/api/v1/tool/<toolname>/quota"
-)
-quota_with_api_no_toolname = Blueprint(
-    "quota_with_api_no_toolname", __name__, url_prefix="/api/v1/quota"
-)
-quota = Blueprint("quota", __name__, url_prefix="/v1/tool/<toolname>/quota")
-
-
-@quota_with_api_and_toolname.route("/", methods=["GET"])
-@quota.route("/", methods=["GET"])
 @quotas.route("/", methods=["GET"])
 def get_quota(toolname: str) -> ResponseReturnValue:
     is_tool_owner(request, toolname)
     tool = toolname
     quota = current_app().runtime.get_quota(tool=tool)
 
-    return (
-        QuotaResponse(quota=quota, messages=ResponseMessages()).model_dump(
-            mode="json", exclude_unset=True
-        ),
-        http.HTTPStatus.OK,
-    )
-
-
-@quota_with_api_no_toolname.route("/", methods=["GET"])
-def get_quota_with_api_no_toolname() -> ResponseReturnValue:
-    tool = get_tool_from_request(request=request)
-    quota = current_app().runtime.get_quota(tool=tool)
     return (
         QuotaResponse(quota=quota, messages=ResponseMessages()).model_dump(
             mode="json", exclude_unset=True
