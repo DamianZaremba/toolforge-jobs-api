@@ -27,7 +27,7 @@ from ..utils import USER_AGENT
 from .error import error_handler
 from .images import images, images_with_api_and_toolname, images_with_api_no_toolname
 from .jobs import jobs, jobs_with_api_and_toolname, jobs_with_api_no_toolname
-from .metrics import metrics_init_app
+from .metrics import get_metrics_app, initialize_all_metrics
 from .models import Health, HealthResponse, HealthState, ResponseMessages
 from .openapi import openapi
 from .quotas import (
@@ -48,9 +48,6 @@ def healthz() -> ResponseReturnValue:
 
 def create_app(*, load_images: bool = True, init_metrics: bool = True) -> JobsApi:
     app = JobsApi(__name__, runtime=K8sRuntime())
-
-    if init_metrics:
-        metrics_init_app(app)
 
     app.register_error_handler(Exception, error_handler)
 
@@ -78,6 +75,10 @@ def create_app(*, load_images: bool = True, init_metrics: bool = True) -> JobsAp
         )
 
         update_available_images(tf_public_client)
+
+    if init_metrics:
+        metrics_app = get_metrics_app(app)
+        initialize_all_metrics(metrics_app=metrics_app, app=app)
 
     logging.info("Registered urls:")
     logging.info("%s", str(app.url_map))
