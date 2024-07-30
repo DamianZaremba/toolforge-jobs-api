@@ -203,17 +203,12 @@ class DefinedJob(CommonJob):
     status_long: str
     schedule_actual: str | None = None
 
-    @model_validator(mode="after")
-    def validate_image(self) -> Self:
-        self.validate_imagename(imagename=self.image)
-        return self
-
     @classmethod
     def from_job(cls: Type["DefinedJob"], job: Job) -> "DefinedJob":
         obj = {
             "name": job.job_name,
             "cmd": job.command.user_command,
-            "image": job.image.canonical_name,
+            "image": job.image.canonical_name,  # not being validated because image from k8s might not exist
             "image_state": job.image.state,
             "filelog": f"{job.command.filelog}",
             "filelog_stdout": (
