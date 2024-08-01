@@ -82,14 +82,20 @@ class K8sRuntime(BaseRuntime):
         if job.port and job.cont:
             kind = "services"
             spec = get_k8s_service_object(job)
-            tool_account.k8s_cli.create_object(kind=kind, spec=spec)
+            try:
+                tool_account.k8s_cli.create_object(kind=kind, spec=spec)
+            except requests.exceptions.HTTPError as error:
+                raise create_error_from_k8s_response(
+                    error=error, job=job, spec=spec, tool_account=tool_account
+                )
 
     def create_job(self, *, job: Job, tool: str) -> None:
         tool_account = ToolAccount(name=tool)
         validate_job_limits(tool_account, job)
         spec = get_job_for_k8s(job=job)
+
+        self.create_service(job=job, tool_account=tool_account)
         try:
-            self.create_service(job=job, tool_account=tool_account)
             k8s_result = tool_account.k8s_cli.create_object(
                 kind=K8sJobKind.from_job_type(job.job_type).api_path_name,
                 spec=spec,
