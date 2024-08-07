@@ -73,6 +73,7 @@ class CommonJob(BaseModel):
     mount: MountOption = MountOption.ALL
     schedule: str | None = None
     continuous: bool = False
+    replicas: int | None = None
     port: Annotated[int, Field(ge=1, le=65535)] | None = None
     memory: str | None = None
     cpu: str | None = None
@@ -132,6 +133,12 @@ class NewJob(CommonJob):
         self.validate_imagename(imagename=self.imagename)
         return self
 
+    @model_validator(mode="after")
+    def validate_replicas(self) -> Self:
+        if self.replicas and not self.continuous:
+            raise ValueError("Instances can only be set for continuous jobs")
+        return self
+
     def to_job(self, tool_name: str, runtime: BaseRuntime) -> Job:
         image = image_by_name(self.imagename)
 
@@ -186,6 +193,7 @@ class NewJob(CommonJob):
             schedule=schedule,
             cont=self.continuous,
             port=self.port,
+            replicas=self.replicas,
             k8s_object={},
             retry=self.retry,
             memory=self.memory,
@@ -220,6 +228,7 @@ class DefinedJob(CommonJob):
             "status_short": job.status_short,
             "status_long": job.status_long,
             "port": job.port,
+            "replicas": job.replicas,
             "emails": job.emails,
             "retry": job.retry,
             "mount": str(job.mount),

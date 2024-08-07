@@ -29,6 +29,7 @@ SIMPLE_TEST_DEFINED_JOB = {
         "State 'running'. Started at '2022-10-08T09:28:39Z'."
     ),
     "port": None,
+    "replicas": None,
     "emails": "none",
     "retry": 0,
     "mount": "all",
@@ -305,6 +306,26 @@ def merge(first: dict, second: dict) -> dict:
         [
             merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "port": 8080}),
             merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "port": 8080}),
+            False,
+            False,
+        ],
+        # replicas
+        [SIMPLE_TEST_NEW_JOB, merge(SIMPLE_TEST_DEFINED_JOB, {"replicas": None}), False, False],
+        [
+            merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "replicas": 1}),
+            merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True}),
+            False,
+            True,
+        ],
+        [
+            merge(SIMPLE_TEST_NEW_JOB, {"continuous": True}),
+            merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "replicas": 1}),
+            False,
+            True,
+        ],
+        [
+            merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "replicas": 2}),
+            merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "replicas": 2}),
             False,
             False,
         ],

@@ -49,6 +49,7 @@ def get_dummy_job(**overrides) -> Job:
         "mount": MountOption.ALL,
         "health_check": None,
         "port": None,
+        "replicas": None,
     }
     params.update(overrides)
     return Job(**params)  # type: ignore

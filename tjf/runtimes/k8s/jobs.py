@@ -279,6 +279,7 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
     # only add health-check to continuous jobs for now
     # TODO: move this into _get_k8s_podtemplate?
     probes = get_healthcheck_for_k8s(job.health_check) if job.health_check else {}
+    replicas = job.replicas if job.replicas else 1
 
     obj = {
         "apiVersion": K8sJobKind.DEPLOYMENT.api_version,
@@ -290,7 +291,7 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
         },
         "spec": {
             "template": _get_k8s_podtemplate(job=job, restart_policy="Always", probes=probes),
-            "replicas": 1,
+            "replicas": replicas,
             "selector": {
                 "matchLabels": labels,
             },
@@ -421,6 +422,7 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
             None,
         )
     )
+    replicas = spec.get("replicas", 1)
     resources = podspec["template"]["spec"]["containers"][0].get("resources", {})
     resources_limits = resources.get("limits", {})
     memory = resources_limits.get("memory", JOB_DEFAULT_MEMORY)
@@ -451,6 +453,7 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
         schedule=schedule,
         cont=cont,
         port=port,
+        replicas=replicas,
         k8s_object=object,
         retry=retry,
         memory=memory,
