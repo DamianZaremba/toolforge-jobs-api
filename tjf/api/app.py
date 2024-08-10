@@ -38,7 +38,7 @@ def healthz() -> ResponseReturnValue:
     health = HealthResponse(
         health=Health(status=HealthState.ok, message="OK"), messages=ResponseMessages()
     )
-    return health.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
+    return health.model_dump(mode="json"), http.HTTPStatus.OK
 
 
 def create_app(*, load_images: bool = True, init_metrics: bool = True) -> JobsApi:

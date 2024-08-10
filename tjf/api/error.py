@@ -52,6 +52,6 @@ def error_handler(error: ToolforgeError | TjfError | ValidationError) -> tuple[R
 
     LOGGER.error(f"{message}. context: {data}")
     return (
-        jsonify(ResponseMessages(error=[message]).model_dump(mode="json", exclude_unset=True)),
+        jsonify(ResponseMessages(error=[message]).model_dump(mode="json")),
         http_status_code,
     )

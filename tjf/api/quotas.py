@@ -33,6 +33,6 @@ def get_quota(toolname: str) -> ResponseReturnValue:
     return (
         QuotaResponse(
             quota=Quota.from_quota_data(quota_data), messages=ResponseMessages()
-        ).model_dump(mode="json", exclude_unset=True),
+        ).model_dump(mode="json"),
         http.HTTPStatus.OK,
     )

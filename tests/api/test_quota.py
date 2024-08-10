@@ -52,7 +52,7 @@ def test_quota_endpoint(
     expected = QuotaResponse(
         quota=json.loads((fixtures_path / "quotas" / "expected-api-result.json").read_text()),
         messages=ResponseMessages(),
-    ).model_dump(mode="json", exclude_unset=True)
+    ).model_dump(mode="json")
     response = client.get("/v1/tool/some-tool/quotas/", headers=fake_auth_headers)
 
     assert response.status_code == 200

@@ -28,7 +28,7 @@ def test_healthz_endpoint(client: FlaskClient):
     expected_health = HealthResponse(
         health={"message": "OK", "status": "OK"},
         messages=ResponseMessages(),
-    ).model_dump(mode="json", exclude_unset=True)
+    ).model_dump(mode="json")
     response = client.get("/v1/healthz")
     assert response.status_code == 200
     assert response.json == expected_health

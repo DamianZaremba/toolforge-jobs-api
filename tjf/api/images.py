@@ -27,7 +27,7 @@ def get_images(toolname: str) -> ResponseReturnValue:
 
     return (
         ImageListResponse(images=stable_images, messages=ResponseMessages()).model_dump(
-            mode="json", exclude_unset=True
+            mode="json"
         ),
         http.HTTPStatus.OK,
     )

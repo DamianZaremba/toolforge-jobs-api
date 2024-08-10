@@ -100,7 +100,7 @@ def list_jobs(toolname: str) -> ResponseReturnValue:
         messages=ResponseMessages(),
     )
 
-    return job_list_response.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
+    return job_list_response.model_dump(mode="json"), http.HTTPStatus.OK
 
 
 @jobs.route("/", methods=["POST", "PUT"])
@@ -113,7 +113,7 @@ def create_job(toolname: str) -> ResponseReturnValue:
     job_response = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
 
     return (
-        job_response.model_dump(mode="json", exclude_unset=True),
+        job_response.model_dump(mode="json"),
         http.HTTPStatus.CREATED,
     )
 
@@ -160,7 +160,7 @@ def update_job(toolname: str) -> ResponseReturnValue:
 
     messages = ResponseMessages(info=[message])
     return (
-        UpdateResponse(messages=messages).model_dump(mode="json", exclude_unset=True),
+        UpdateResponse(messages=messages).model_dump(mode="json"),
         http.HTTPStatus.OK,
     )
 
@@ -171,7 +171,7 @@ def flush_job(toolname: str) -> ResponseReturnValue:
 
     current_app().runtime.delete_all_jobs(tool=toolname)
     return (
-        FlushResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
+        FlushResponse(messages=ResponseMessages()).model_dump(mode="json"),
         http.HTTPStatus.OK,
     )
 
@@ -185,7 +185,7 @@ def get_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
     job_response = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
-    return job_response.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
+    return job_response.model_dump(mode="json"), http.HTTPStatus.OK
 
 
 @jobs.route("/<name>", methods=["DELETE"])
@@ -198,7 +198,7 @@ def delete_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
 
     current_app().runtime.delete_job(tool=toolname, job=job)
     return (
-        DeleteResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
+        DeleteResponse(messages=ResponseMessages()).model_dump(mode="json"),
         http.HTTPStatus.OK,
     )
 
@@ -261,6 +261,6 @@ def restart_job(toolname: str, name: str) -> ResponseReturnValue:
     current_app().runtime.restart_job(job=job, tool=toolname)
 
     return (
-        RestartResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
+        RestartResponse(messages=ResponseMessages()).model_dump(mode="json"),
         http.HTTPStatus.OK,
     )

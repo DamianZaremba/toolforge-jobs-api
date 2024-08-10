@@ -295,8 +295,8 @@ class Quota(BaseModel):
 
 
 class ResponseMessages(BaseModel):
-    info: list[str] = []
-    warning: list[str] = []
+    info: list[str] = ["this is an info message"]
+    warning: list[str] = ["this is a warning message"]
     error: list[str] = []
 
 
