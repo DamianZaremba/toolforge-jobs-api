@@ -25,6 +25,14 @@ spec:
     spec:
       nodeSelector:
         kubernetes.wmcloud.org/nfs-mounted: "true"
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              name: jobs-api
+              {{- include "jobs-api.selectorLabels" . | nindent 14 }}
       containers:
       - name: webservice
         image: {{ .Values.webservice.image.name }}:{{ .Values.webservice.image.tag }}
