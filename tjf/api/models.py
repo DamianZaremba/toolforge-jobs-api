@@ -17,7 +17,7 @@ from ..job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY, Job, JobType
 from ..quota import Quota as QuotaData
 from ..quota import QuotaCategoryType
 from ..runtimes.base import BaseRuntime
-from ..utils import validate_kube_quant
+from ..utils import parse_quantity
 
 # This is a restriction by Kubernetes:
 # a lowercase RFC 1123 subdomain must consist of lower case alphanumeric
@@ -80,8 +80,8 @@ class CommonJob(BaseModel):
 
     @model_validator(mode="after")
     def validate_job(self) -> Self:
-        validate_kube_quant(self.memory)
-        validate_kube_quant(self.cpu)
+        self.memory and parse_quantity(self.memory)
+        self.cpu and parse_quantity(self.cpu)
         if self.schedule and self.continuous:
             raise ValueError("Only one of 'continuous' and 'schedule' can be set at the same time")
         if self.port and not self.continuous:
