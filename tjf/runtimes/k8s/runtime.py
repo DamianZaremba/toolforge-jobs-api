@@ -4,11 +4,13 @@ from pathlib import Path
 from typing import Iterator
 
 import requests
+from toolforge_weld.kubernetes import parse_quantity
 from toolforge_weld.logs.kubernetes import KubernetesSource
 
 from ...error import TjfError, TjfValidationError
 from ...job import Job, JobType
 from ...quota import Quota, QuotaCategoryType
+from ...utils import format_quantity, parse_and_format_mem
 from ..base import BaseRuntime
 from .account import ToolAccount
 from .command import resolve_filelog_path
@@ -163,24 +165,30 @@ class K8sRuntime(BaseRuntime):
             Quota(
                 category=QuotaCategoryType.RUNNING_JOBS,
                 name="CPU",
-                limit=resource_quota["status"]["hard"]["limits.cpu"],
-                used=resource_quota["status"]["used"]["limits.cpu"],
+                limit=format_quantity(
+                    quantity_value=parse_quantity(resource_quota["status"]["hard"]["limits.cpu"])
+                ),
+                used=format_quantity(
+                    quantity_value=parse_quantity(resource_quota["status"]["used"]["limits.cpu"])
+                ),
             ),
             Quota(
                 category=QuotaCategoryType.RUNNING_JOBS,
                 name="Memory",
-                limit=resource_quota["status"]["hard"]["limits.memory"],
-                used=resource_quota["status"]["used"]["limits.memory"],
+                limit=parse_and_format_mem(mem=resource_quota["status"]["hard"]["limits.memory"]),
+                used=parse_and_format_mem(mem=resource_quota["status"]["used"]["limits.memory"]),
             ),
             Quota(
                 category=QuotaCategoryType.PER_JOB_LIMITS,
                 name="CPU",
-                limit=container_limit["max"]["cpu"],
+                limit=format_quantity(
+                    quantity_value=parse_quantity(container_limit["max"]["cpu"]),
+                ),
             ),
             Quota(
                 category=QuotaCategoryType.PER_JOB_LIMITS,
                 name="Memory",
-                limit=container_limit["max"]["memory"],
+                limit=parse_and_format_mem(mem=container_limit["max"]["memory"]),
             ),
             Quota(
                 category=QuotaCategoryType.JOB_DEFINITIONS,

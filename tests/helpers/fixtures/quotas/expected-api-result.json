@@ -15,13 +15,13 @@
                 },
                 {
                     "name": "CPU",
-                    "limit": "4",
-                    "used": "500m"
+                    "limit": "4.0",
+                    "used": "0.5"
                 },
                 {
                     "name": "Memory",
-                    "limit": "8Gi",
-                    "used": "512Mi"
+                    "limit": "8.0Gi",
+                    "used": "0.5Gi"
                 }
             ]
         },
@@ -30,12 +30,12 @@
             "items": [
                 {
                     "name": "CPU",
-                    "limit": "1",
+                    "limit": "1.0",
                     "used": null
                 },
                 {
                     "name": "Memory",
-                    "limit": "4Gi",
+                    "limit": "4.0Gi",
                     "used": null
                 }
             ]

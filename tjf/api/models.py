@@ -5,7 +5,7 @@ from typing import Type
 
 from pydantic import BaseModel as PydanticModel
 from pydantic import Field, field_validator, model_validator
-from toolforge_weld.kubernetes import MountOption
+from toolforge_weld.kubernetes import MountOption, parse_quantity
 from typing_extensions import Annotated, Self
 
 from .. import health_check as internal_hc
@@ -17,7 +17,7 @@ from ..job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY, Job, JobType
 from ..quota import Quota as QuotaData
 from ..quota import QuotaCategoryType
 from ..runtimes.base import BaseRuntime
-from ..utils import validate_kube_quant
+from ..utils import format_quantity, parse_and_format_mem
 
 # This is a restriction by Kubernetes:
 # a lowercase RFC 1123 subdomain must consist of lower case alphanumeric
@@ -81,8 +81,6 @@ class CommonJob(BaseModel):
 
     @model_validator(mode="after")
     def validate_job(self) -> Self:
-        validate_kube_quant(self.memory)
-        validate_kube_quant(self.cpu)
         if self.schedule and self.continuous:
             raise ValueError("Only one of 'continuous' and 'schedule' can be set at the same time")
         if self.port and not self.continuous:
@@ -95,6 +93,16 @@ class CommonJob(BaseModel):
     @classmethod
     def job_name_validator(cls: Type["CommonJob"], value: str) -> str:
         return cls.validate_job_name(value)
+
+    @field_validator("memory")
+    @classmethod
+    def memory_validator(cls: Type["CommonJob"], value: str) -> str | None:
+        return value and parse_and_format_mem(mem=value)
+
+    @field_validator("cpu")
+    @classmethod
+    def cpu_validator(cls: Type["CommonJob"], value: str) -> str | None:
+        return value and format_quantity(quantity_value=parse_quantity(value))
 
     @staticmethod
     def validate_job_name(job_name: str) -> str:
@@ -252,11 +260,15 @@ class DefinedJob(CommonJob):
         if job.cont:
             obj["continuous"] = True
 
-        if job.memory is not None and job.memory != JOB_DEFAULT_MEMORY:
-            obj["memory"] = job.memory
+        memory = job.memory and parse_and_format_mem(mem=job.memory)
+        cpu = job.cpu and format_quantity(quantity_value=parse_quantity(job.cpu))
+        if memory is not None and memory != parse_and_format_mem(mem=JOB_DEFAULT_MEMORY):
+            obj["memory"] = memory
 
-        if job.cpu is not None and job.cpu != JOB_DEFAULT_CPU:
-            obj["cpu"] = job.cpu
+        if cpu is not None and cpu != format_quantity(
+            quantity_value=parse_quantity(JOB_DEFAULT_CPU)
+        ):
+            obj["cpu"] = cpu
 
         return cls.model_validate(obj)
 

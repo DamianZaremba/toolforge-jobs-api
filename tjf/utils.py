@@ -16,8 +16,10 @@
 
 from __future__ import annotations
 
-import re
+from decimal import Decimal
 from typing import Set, TypeVar
+
+from toolforge_weld.kubernetes import VALID_KUBE_QUANT_SUFFIXES, parse_quantity
 
 USER_AGENT = "jobs-api"
 
@@ -36,45 +38,58 @@ def dict_get_object(dict_in: dict[T, U], kind: T) -> U | None:
     return None
 
 
-# copied & adapted from toollabs-webservice scripts/webservice
-def validate_kube_quant(string: str | None) -> str:
+# copied & adapted from https://github.com/kubernetes-client/python/pull/2216/files#diff-7070f0b8e347e5b2bd6a5fcb5ff69ed300853c94d610e984e09f831d028d644b
+def format_quantity(quantity_value: Decimal, suffix: str = "", quantize: str = "") -> str:
     """
-    A type for args that roughly matches up with Kubernetes' quantity.go
-    General form is <number><suffix>
-    The following are acceptable suffixes
+    Takes a value and produces a string value in kubernetes' canonical quantity form,
+    like "200Mi".Users can specify an additional parameter to quantize the output.
 
+    Example -  Relatively increase pod memory limits:
+
+    # retrieve my_pod
+    current_memory: Decimal = toolforge_weld.kubernetes.parse_quantity(my_pod.spec.containers[0].resources.limits.memory)
+    desired_memory = current_memory * 1.2
+    desired_memory_str = format_quantity(desired_memory, suffix="Gi", quantize="1")
+    # patch pod with desired_memory_str
+
+    'quantize="1"' ensures that the result does not contain any fractional digits.
+
+    Supported SI suffixes:
     base1024: Ki | Mi | Gi | Ti | Pi | Ei
     base1000: n | u | m | "" | k | M | G | T | P | E
+
+    See https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go
+
+    Input:
+    quantity: Decimal.  Quantity as a number which is supposed to be
+                        converted to a string with SI suffix.
+    suffix: string.     The desired suffix/unit-of-measure of the output string
+    quantize: string.  Can be used to round/quantize the value before the string
+                        is returned. Defaults to None. e.g. "1", "0.00", "0.000"
+
+    Returns:
+    string. Canonical Kubernetes quantity string containing the SI suffix.
+
+    Raises:
+    ValueError if the SI suffix is not supported.
     """
-    if string is None or string == "":
-        return ""  # nothing to validate
 
-    valid_suffixes = [
-        "Ki",
-        "Mi",
-        "Gi",
-        "Ti",
-        "Pi",
-        "Ei",
-        "n",
-        "u",
-        "m",
-        "",
-        "k",
-        "M",
-        "G",
-        "T",
-        "P",
-        "E",
-    ]
-    pattern = re.compile(r"^(\d+)([A-Za-z]{0,2})$")
-    quant_check = pattern.match(string)
-    if quant_check:
-        suffix = quant_check.group(2)
-        if suffix in valid_suffixes:
-            return string
+    if suffix and suffix not in VALID_KUBE_QUANT_SUFFIXES:
+        raise ValueError(f"{suffix} is not a valid kubernetes quantity unit")
 
-    raise ValueError(f"{string} is not a valid Kubernetes quantity")
+    different_scale = Decimal(quantity_value)
+
+    if suffix:
+        different_scale = different_scale / Decimal(VALID_KUBE_QUANT_SUFFIXES[suffix])
+
+    if quantize:
+        different_scale = different_scale.quantize(Decimal(quantize))
+
+    return str(float(different_scale)) + suffix
+
+
+def parse_and_format_mem(mem: str) -> str:
+    return format_quantity(quantity_value=parse_quantity(mem), suffix="Gi", quantize="0.000")
 
 
 def format_duration(seconds: int) -> str:
