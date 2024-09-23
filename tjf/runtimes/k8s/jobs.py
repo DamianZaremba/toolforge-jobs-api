@@ -300,6 +300,10 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
     probes = get_healthcheck_for_k8s(job.health_check, port=job.port) if job.health_check else {}
     replicas = job.replicas or 1
 
+    # see https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#recreate-deployment
+    # see T375366
+    strategy = "Recreate" if replicas == 1 else "RollingUpdate"
+
     obj = {
         "apiVersion": K8sJobKind.DEPLOYMENT.api_version,
         "kind": K8sJobKind.DEPLOYMENT.value,
@@ -309,6 +313,9 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
             "labels": labels,
         },
         "spec": {
+            "strategy": {
+                "type": strategy,
+            },
             "template": _get_k8s_podtemplate(job=job, restart_policy="Always", probes=probes),
             "replicas": replicas,
             "selector": {
