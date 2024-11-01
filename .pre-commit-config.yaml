@@ -3,7 +3,7 @@ default_language_version:
 
 repos:
   - repo: https://github.com/psf/black
-    rev: 24.8.0
+    rev: 24.10.0
     hooks:
       - id: black
 
@@ -20,7 +20,7 @@ repos:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
+    rev: v1.13.0
     hooks:
       - id: mypy
         exclude: ^tests/
@@ -38,7 +38,7 @@ repos:
           ]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -55,6 +55,6 @@ repos:
       - id: openapi-spec-validator
 
   - repo: https://gitlab.wikimedia.org/repos/cloud/cicd/gitlab-ci
-    rev: b1a98a67976b24d71a67944b647191a3066f7469
+    rev: 2db51ab1f1aafb48160214a2baf13dca7174356f
     hooks:
       - id: check-openapi-version-bump
