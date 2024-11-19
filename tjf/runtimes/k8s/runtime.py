@@ -1,3 +1,4 @@
+import logging
 import time
 from logging import getLogger
 from pathlib import Path
@@ -95,6 +96,7 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool)
         validate_job_limits(tool_account, job)
         spec = get_job_for_k8s(job=job)
+        logging.debug(f"Got k8s spec: {spec}")
 
         self.create_service(job=job, tool_account=tool_account)
         try:
@@ -102,6 +104,7 @@ class K8sRuntime(BaseRuntime):
                 kind=K8sJobKind.from_job_type(job.job_type).api_path_name,
                 spec=spec,
             )
+            logging.debug(f"Result from k8s: {k8s_result}")
             job.k8s_object = k8s_result
 
             refresh_job_short_status(tool_account, job)

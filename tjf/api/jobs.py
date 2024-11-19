@@ -53,6 +53,7 @@ def _create_job(runtime: BaseRuntime, tool_name: str, new_job: NewJob) -> Job:
             f"A job with the name {new_job.name} exists already", http_status_code=409
         )
     job = new_job.to_job(tool_name=tool_name, runtime=runtime)
+    logging.debug(f"Generated runtime job: {job}")
     try:
         runtime.create_job(tool=tool_name, job=job)
     except TjfError as e:
@@ -107,16 +108,24 @@ def list_jobs(toolname: str) -> ResponseReturnValue:
 def create_job(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
 
+    logging.debug(f"Received new job: {request.json}")
     new_job = NewJob.model_validate(request.json)
+    logging.debug(f"Generated NewJob: {new_job}")
     runtime = current_app().runtime
 
     job = _create_job(runtime=runtime, tool_name=toolname, new_job=new_job)
-    job_response = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
+    logging.debug(f"Created Job (in runtime): {job}")
 
-    return (
-        job_response.model_dump(mode="json", exclude_unset=True),
-        http.HTTPStatus.CREATED,
-    )
+    defined_job = DefinedJob.from_job(job)
+    logging.debug(f"Generated DefinedJob: {defined_job}")
+
+    job_response = JobResponse(job=defined_job, messages=ResponseMessages())
+    logging.debug(f"Generated JobResponse: {job_response}")
+
+    json_job_response = job_response.model_dump(mode="json", exclude_unset=True)
+    logging.debug(f"Generated JobResponse json: {json_job_response}")
+
+    return (json_job_response, http.HTTPStatus.CREATED)
 
 
 @jobs.route("/", methods=["PATCH"])
