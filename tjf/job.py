@@ -86,3 +86,15 @@ class Job:
 
         if self.emails is None:
             self.emails = "none"
+
+    def __str__(self) -> str:
+        """Please replace this with a dataclass/BaseModel inherited whenever we move to those."""
+        params = []
+        for key in dir(self):
+            if key.startswith("_"):
+                continue
+
+            value = getattr(self, key)
+            params.append(f"{key}={value!r}")
+
+        return f"Job({', '.join(params)})"
