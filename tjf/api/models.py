@@ -97,6 +97,7 @@ class CommonJob(BaseModel):
     memory: str | None = None
     cpu: str | None = None
     health_check: ScriptHealthCheck | HttpHealthCheck | None = None
+    timeout: Annotated[int, Field(ge=0)] | None = None
 
     @model_validator(mode="after")
     def validate_job(self) -> Self:
@@ -106,6 +107,9 @@ class CommonJob(BaseModel):
             raise ValueError("Port can only be set for continuous jobs")
         if self.filelog and self.mount != MountOption.ALL:
             raise ValueError("File logging is only available with --mount=all")
+        if not self.schedule and self.timeout:
+            raise ValueError("Timeout can only be set on a scheduled job")
+
         return self
 
     @field_validator("name")
@@ -248,6 +252,7 @@ class NewJob(CommonJob):
             emails=self.emails,
             mount=self.mount,
             health_check=health_check,
+            timeout=self.timeout,
         )
 
 
@@ -281,6 +286,9 @@ class DefinedJob(CommonJob):
             "mount": str(job.mount),
             "health_check": None,
         }
+
+        if job.timeout is not None:
+            obj["timeout"] = job.timeout
 
         if job.schedule is not None:
             obj["schedule"] = job.schedule.text

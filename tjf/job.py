@@ -61,6 +61,7 @@ class Job:
         emails: str,
         mount: MountOption,
         health_check: ScriptHealthCheck | HttpHealthCheck | None,
+        timeout: int | None = None,
     ) -> None:
         self.job_type = job_type
 
@@ -81,6 +82,7 @@ class Job:
         self.retry = retry
         self.mount = mount
         self.health_check = health_check
+        self.timeout = timeout
 
         if self.emails is None:
             self.emails = "none"

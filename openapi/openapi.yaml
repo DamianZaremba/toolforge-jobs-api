@@ -556,6 +556,11 @@ components:
           type: string
           description: "Job memory resource limit."
           example: "1G"
+        timeout:
+          type: integer
+          description: "Maximum amount of seconds the job will be allowed to run before it is failed"
+          minimum: 0
+          example: 120
     # job as created by the user
     NewJob:
       allOf:

@@ -108,7 +108,7 @@ def _get_k8s_cronjob_object(job: Job) -> K8S_OBJECT_TYPE:
         emails=job.emails,
         mount=job.mount,
     )
-    obj = {
+    obj: dict[str, Any] = {
         "apiVersion": K8sJobKind.CRON_JOB.api_version,
         "kind": K8sJobKind.CRON_JOB.value,
         "metadata": {
@@ -134,6 +134,8 @@ def _get_k8s_cronjob_object(job: Job) -> K8S_OBJECT_TYPE:
             },
         },
     }
+    if job.timeout:
+        obj["spec"]["jobTemplate"]["spec"]["activeDeadlineSeconds"] = job.timeout
 
     return obj
 
@@ -305,7 +307,7 @@ def _get_k8s_job_object(job: Job) -> K8S_OBJECT_TYPE:
         emails=job.emails,
         mount=job.mount,
     )
-    obj = {
+    obj: dict[str, Any] = {
         "apiVersion": K8sJobKind.JOB.api_version,
         "kind": K8sJobKind.JOB.value,
         "metadata": {
@@ -441,6 +443,8 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
 
     image = image_by_container_url(url=imageurl)
 
+    timeout = podspec.get("activeDeadlineSeconds", None)
+
     return Job(
         job_type=job_type,
         command=command,
@@ -458,4 +462,5 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
         emails=emails,
         mount=mount,
         health_check=health_check,
+        timeout=timeout,
     )
