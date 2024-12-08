@@ -167,6 +167,12 @@ class NewJob(CommonJob):
         if self.health_check and self.continuous:
             health_check = self.health_check.to_internal()
 
+        # replicas default to 1 regardless of job. Note that for one-off and scheduled jobs, this is a no-op on job creation.
+        # the purpose of this is to make job comparisions better. It's either this or make some potentially breaking API change.
+        # TODO: get rid of this and return replicas None for one-off and scheduled jobs
+        if not self.replicas:
+            self.replicas = 1
+
         if self.schedule:
             job_type = JobType.SCHEDULED
             try:
