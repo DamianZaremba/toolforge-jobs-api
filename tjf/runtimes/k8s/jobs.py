@@ -138,9 +138,7 @@ def _get_k8s_cronjob_object(job: Job) -> K8S_OBJECT_TYPE:
     return obj
 
 
-def _get_k8s_podtemplate(
-    *, job: Job, restart_policy: str, probes: dict[str, Any] | None = None
-) -> dict[str, Any]:
+def _get_k8s_podtemplate(*, job: Job, restart_policy: str) -> dict[str, Any]:
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
@@ -163,9 +161,7 @@ def _get_k8s_podtemplate(
             }
         ]
 
-    if probes is None:
-        probes = {}
-
+    probes = get_healthcheck_for_k8s(job.health_check) if job.health_check else {}
     ports = {}
     if job.port:
         ports = {"ports": [{"containerPort": job.port}]}
@@ -276,10 +272,6 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
         mount=job.mount,
     )
 
-    # only add health-check to continuous jobs for now
-    # TODO: move this into _get_k8s_podtemplate?
-    probes = get_healthcheck_for_k8s(job.health_check) if job.health_check else {}
-
     obj = {
         "apiVersion": K8sJobKind.DEPLOYMENT.api_version,
         "kind": K8sJobKind.DEPLOYMENT.value,
@@ -289,7 +281,7 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
             "labels": labels,
         },
         "spec": {
-            "template": _get_k8s_podtemplate(job=job, restart_policy="Always", probes=probes),
+            "template": _get_k8s_podtemplate(job=job, restart_policy="Always"),
             "replicas": job.replicas,
             "selector": {
                 "matchLabels": labels,

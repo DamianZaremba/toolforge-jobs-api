@@ -136,7 +136,7 @@ class NewJob(CommonJob):
     @model_validator(mode="after")
     def validate_replicas(self) -> Self:
         if self.replicas and not self.continuous:
-            raise ValueError("Instances can only be set for continuous jobs")
+            raise ValueError("Replicas can only be set for continuous jobs")
         return self
 
     def to_job(self, tool_name: str, runtime: BaseRuntime) -> Job:
@@ -164,7 +164,7 @@ class NewJob(CommonJob):
         )
 
         health_check = None
-        if self.health_check and self.continuous:
+        if self.health_check:
             health_check = self.health_check.to_internal()
 
         # replicas default to 1 regardless of job. Note that for one-off and scheduled jobs, this is a no-op on job creation.

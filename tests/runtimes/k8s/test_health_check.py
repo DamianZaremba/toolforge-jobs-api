@@ -1,8 +1,8 @@
 import pytest
 
 from tjf.error import TjfJobParsingError
-from tjf.health_check import HealthCheckType, ScriptHealthCheck
-from tjf.runtimes.k8s.healthchecks import HealthCheck, get_healthcheck_for_k8s
+from tjf.health_check import HealthCheck, HealthCheckType, ScriptHealthCheck
+from tjf.runtimes.k8s.healthchecks import get_healthcheck_for_k8s
 
 
 class UnhandledCheck(HealthCheck):
