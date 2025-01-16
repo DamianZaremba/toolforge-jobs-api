@@ -42,301 +42,324 @@ def merge(first: dict, second: dict) -> dict:
     return data
 
 
+params = [
+    [SIMPLE_TEST_NEW_JOB, SIMPLE_TEST_DEFINED_JOB, False, False],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"name": "new-test-job"}),
+        SIMPLE_TEST_DEFINED_JOB,
+        True,
+        False,
+    ],
+    [
+        SIMPLE_TEST_NEW_JOB,
+        merge(SIMPLE_TEST_DEFINED_JOB, {"name": "new-test-job"}),
+        True,
+        False,
+    ],
+    # basic parameter change
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"imagename": "node16"}),
+        SIMPLE_TEST_DEFINED_JOB,
+        False,
+        True,
+    ],
+    [
+        SIMPLE_TEST_NEW_JOB,
+        merge(SIMPLE_TEST_DEFINED_JOB, {"image": "node16"}),
+        False,
+        True,
+    ],
+    # optional parameter change
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"schedule": "* * * * *"}),
+        SIMPLE_TEST_DEFINED_JOB,
+        False,
+        True,
+    ],
+    [
+        SIMPLE_TEST_NEW_JOB,
+        merge(SIMPLE_TEST_DEFINED_JOB, {"schedule": "* * * * *"}),
+        False,
+        True,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"schedule": "* * * * *"}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"schedule": "* * * * *"}),
+        False,
+        False,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"filelog": True}),
+        SIMPLE_TEST_DEFINED_JOB,
+        False,
+        True,
+    ],
+    [
+        SIMPLE_TEST_NEW_JOB,
+        merge(SIMPLE_TEST_DEFINED_JOB, {"filelog": "True"}),
+        False,
+        True,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"filelog": True}),
+        merge(
+            SIMPLE_TEST_DEFINED_JOB,
+            {
+                "filelog": "True",
+                "filelog_stdout": "/data/project/some-tool/test-job.out",
+                "filelog_stderr": "/data/project/some-tool/test-job.err",
+            },
+        ),
+        False,
+        False,
+    ],
+    [
+        merge(
+            SIMPLE_TEST_NEW_JOB,
+            {"filelog": True, "filelog_stdout": "/abc", "filelog_stderr": "/xyz"},
+        ),
+        SIMPLE_TEST_DEFINED_JOB,
+        False,
+        True,
+    ],
+    [
+        merge(
+            SIMPLE_TEST_NEW_JOB,
+            {"filelog": True, "filelog_stdout": "/abc", "filelog_stderr": "/def"},
+        ),
+        merge(
+            SIMPLE_TEST_DEFINED_JOB,
+            {"filelog": "True", "filelog_stdout": "/ghi", "filelog_stderr": "/jkl"},
+        ),
+        False,
+        True,
+    ],
+    [
+        merge(
+            SIMPLE_TEST_NEW_JOB,
+            {"filelog": True, "filelog_stdout": "/abc", "filelog_stderr": "/xyz"},
+        ),
+        merge(
+            SIMPLE_TEST_DEFINED_JOB,
+            {"filelog": "True", "filelog_stdout": "/abc", "filelog_stderr": "/xyz"},
+        ),
+        False,
+        False,
+    ],
+    # resources
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"memory": "2Gi"}),
+        SIMPLE_TEST_DEFINED_JOB,
+        False,
+        True,
+    ],
+    [
+        SIMPLE_TEST_NEW_JOB,
+        merge(SIMPLE_TEST_DEFINED_JOB, {"memory": "2Gi"}),
+        False,
+        True,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"memory": "2Gi"}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"memory": "2Gi"}),
+        False,
+        False,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"memory": JOB_DEFAULT_MEMORY}),
+        SIMPLE_TEST_DEFINED_JOB,
+        False,
+        False,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"cpu": "1"}),
+        SIMPLE_TEST_DEFINED_JOB,
+        False,
+        True,
+    ],
+    [
+        SIMPLE_TEST_NEW_JOB,
+        merge(SIMPLE_TEST_DEFINED_JOB, {"cpu": "1"}),
+        False,
+        True,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"cpu": "1"}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"cpu": "1"}),
+        False,
+        False,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"cpu": JOB_DEFAULT_CPU}),
+        SIMPLE_TEST_DEFINED_JOB,
+        False,
+        False,
+    ],
+    # retries
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"retry": 0}),  # 0 is the default value for retry
+        SIMPLE_TEST_DEFINED_JOB,
+        False,
+        False,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"retry": 1}),
+        SIMPLE_TEST_DEFINED_JOB,
+        False,
+        True,
+    ],
+    [
+        SIMPLE_TEST_NEW_JOB,
+        merge(SIMPLE_TEST_DEFINED_JOB, {"retry": 2}),
+        False,
+        True,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"retry": 1}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"retry": 1}),
+        False,
+        False,
+    ],
+    # health-check
+    [
+        SIMPLE_TEST_NEW_JOB,
+        merge(SIMPLE_TEST_DEFINED_JOB, {"health_check": None}),
+        False,
+        False,
+    ],
+    [
+        merge(
+            SIMPLE_TEST_NEW_JOB,
+            {
+                "continuous": True,
+                "health_check": {"type": "script", "script": "/healthcheck.sh"},
+            },
+        ),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True}),
+        False,
+        True,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"continuous": True}),
+        merge(
+            SIMPLE_TEST_DEFINED_JOB,
+            {
+                "continuous": True,
+                "health_check": {"type": "script", "script": "/healthcheck.sh"},
+            },
+        ),
+        False,
+        True,
+    ],
+    [
+        merge(
+            SIMPLE_TEST_NEW_JOB,
+            {
+                "continuous": True,
+                "health_check": {"type": "script", "script": "/healthcheck.sh"},
+            },
+        ),
+        merge(
+            SIMPLE_TEST_DEFINED_JOB,
+            {
+                "continuous": True,
+                "health_check": {"type": "script", "script": "/healthcheck.sh"},
+            },
+        ),
+        False,
+        False,
+    ],
+    [
+        merge(
+            SIMPLE_TEST_NEW_JOB,
+            {
+                "continuous": True,
+                "port": 8080,
+                "health_check": {"type": "script", "script": "/healthcheck.sh"},
+            },
+        ),
+        merge(
+            SIMPLE_TEST_DEFINED_JOB,
+            {
+                "continuous": True,
+                "port": 8080,
+                "health_check": {"type": "http", "path": "/healthz"},
+            },
+        ),
+        False,
+        True,
+    ],
+    [
+        merge(
+            SIMPLE_TEST_NEW_JOB,
+            {
+                "continuous": True,
+                "port": 8080,
+                "health_check": {"type": "http", "path": "/healthz"},
+            },
+        ),
+        merge(
+            SIMPLE_TEST_DEFINED_JOB,
+            {
+                "continuous": True,
+                "port": 8080,
+                "health_check": {"type": "http", "path": "/healthz"},
+            },
+        ),
+        False,
+        False,
+    ],
+    # port
+    [SIMPLE_TEST_NEW_JOB, merge(SIMPLE_TEST_DEFINED_JOB, {"port": None}), False, False],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "port": 8080}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True}),
+        False,
+        True,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"continuous": True}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "port": 8080}),
+        False,
+        True,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "port": 8080}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "port": 8080, "replicas": 1}),
+        False,
+        False,
+    ],
+    # replicas
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"continuous": True}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "replicas": 1}),
+        False,
+        False,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "replicas": 2}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "replicas": 1}),
+        False,
+        True,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "replicas": 1}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "replicas": 2}),
+        False,
+        True,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "replicas": 2}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "replicas": 2}),
+        False,
+        False,
+    ],
+]
+
+
 @pytest.mark.parametrize(
     "new_job, current_defined_job, expected_create, expected_update",
-    [
-        [SIMPLE_TEST_NEW_JOB, SIMPLE_TEST_DEFINED_JOB, False, False],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"name": "new-test-job"}),
-            SIMPLE_TEST_DEFINED_JOB,
-            True,
-            False,
-        ],
-        [
-            SIMPLE_TEST_NEW_JOB,
-            merge(SIMPLE_TEST_DEFINED_JOB, {"name": "new-test-job"}),
-            True,
-            False,
-        ],
-        # basic parameter change
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"imagename": "node16"}),
-            SIMPLE_TEST_DEFINED_JOB,
-            False,
-            True,
-        ],
-        [
-            SIMPLE_TEST_NEW_JOB,
-            merge(SIMPLE_TEST_DEFINED_JOB, {"image": "node16"}),
-            False,
-            True,
-        ],
-        # optional parameter change
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"schedule": "* * * * *"}),
-            SIMPLE_TEST_DEFINED_JOB,
-            False,
-            True,
-        ],
-        [
-            SIMPLE_TEST_NEW_JOB,
-            merge(SIMPLE_TEST_DEFINED_JOB, {"schedule": "* * * * *"}),
-            False,
-            True,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"schedule": "* * * * *"}),
-            merge(SIMPLE_TEST_DEFINED_JOB, {"schedule": "* * * * *"}),
-            False,
-            False,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"filelog": True}),
-            SIMPLE_TEST_DEFINED_JOB,
-            False,
-            True,
-        ],
-        [
-            SIMPLE_TEST_NEW_JOB,
-            merge(SIMPLE_TEST_DEFINED_JOB, {"filelog": "True"}),
-            False,
-            True,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"filelog": True}),
-            merge(
-                SIMPLE_TEST_DEFINED_JOB,
-                {
-                    "filelog": "True",
-                    "filelog_stdout": "/data/project/some-tool/test-job.out",
-                    "filelog_stderr": "/data/project/some-tool/test-job.err",
-                },
-            ),
-            False,
-            False,
-        ],
-        [
-            merge(
-                SIMPLE_TEST_NEW_JOB,
-                {"filelog": True, "filelog_stdout": "/abc", "filelog_stderr": "/xyz"},
-            ),
-            SIMPLE_TEST_DEFINED_JOB,
-            False,
-            True,
-        ],
-        [
-            merge(
-                SIMPLE_TEST_NEW_JOB,
-                {"filelog": True, "filelog_stdout": "/abc", "filelog_stderr": "/def"},
-            ),
-            merge(
-                SIMPLE_TEST_DEFINED_JOB,
-                {"filelog": "True", "filelog_stdout": "/ghi", "filelog_stderr": "/jkl"},
-            ),
-            False,
-            True,
-        ],
-        [
-            merge(
-                SIMPLE_TEST_NEW_JOB,
-                {"filelog": True, "filelog_stdout": "/abc", "filelog_stderr": "/xyz"},
-            ),
-            merge(
-                SIMPLE_TEST_DEFINED_JOB,
-                {"filelog": "True", "filelog_stdout": "/abc", "filelog_stderr": "/xyz"},
-            ),
-            False,
-            False,
-        ],
-        # resources
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"memory": "2Gi"}),
-            SIMPLE_TEST_DEFINED_JOB,
-            False,
-            True,
-        ],
-        [
-            SIMPLE_TEST_NEW_JOB,
-            merge(SIMPLE_TEST_DEFINED_JOB, {"memory": "2Gi"}),
-            False,
-            True,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"memory": "2Gi"}),
-            merge(SIMPLE_TEST_DEFINED_JOB, {"memory": "2Gi"}),
-            False,
-            False,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"memory": JOB_DEFAULT_MEMORY}),
-            SIMPLE_TEST_DEFINED_JOB,
-            False,
-            False,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"cpu": "1"}),
-            SIMPLE_TEST_DEFINED_JOB,
-            False,
-            True,
-        ],
-        [
-            SIMPLE_TEST_NEW_JOB,
-            merge(SIMPLE_TEST_DEFINED_JOB, {"cpu": "1"}),
-            False,
-            True,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"cpu": "1"}),
-            merge(SIMPLE_TEST_DEFINED_JOB, {"cpu": "1"}),
-            False,
-            False,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"cpu": JOB_DEFAULT_CPU}),
-            SIMPLE_TEST_DEFINED_JOB,
-            False,
-            False,
-        ],
-        # retries
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"retry": 0}),  # 0 is the default value for retry
-            SIMPLE_TEST_DEFINED_JOB,
-            False,
-            False,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"retry": 1}),
-            SIMPLE_TEST_DEFINED_JOB,
-            False,
-            True,
-        ],
-        [
-            SIMPLE_TEST_NEW_JOB,
-            merge(SIMPLE_TEST_DEFINED_JOB, {"retry": 2}),
-            False,
-            True,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"retry": 1}),
-            merge(SIMPLE_TEST_DEFINED_JOB, {"retry": 1}),
-            False,
-            False,
-        ],
-        # health-check
-        [
-            SIMPLE_TEST_NEW_JOB,
-            merge(SIMPLE_TEST_DEFINED_JOB, {"health_check": None}),
-            False,
-            False,
-        ],
-        [
-            merge(
-                SIMPLE_TEST_NEW_JOB,
-                {
-                    "continuous": True,
-                    "health_check": {"type": "script", "script": "/healthcheck.sh"},
-                },
-            ),
-            SIMPLE_TEST_DEFINED_JOB,
-            False,
-            True,
-        ],
-        [
-            SIMPLE_TEST_NEW_JOB,
-            merge(
-                SIMPLE_TEST_DEFINED_JOB,
-                {
-                    "continuous": True,
-                    "health_check": {"type": "script", "script": "/healthcheck.sh"},
-                },
-            ),
-            False,
-            True,
-        ],
-        [
-            merge(
-                SIMPLE_TEST_NEW_JOB,
-                {
-                    "continuous": True,
-                    "health_check": {"type": "script", "script": "/first.sh"},
-                },
-            ),
-            merge(
-                SIMPLE_TEST_DEFINED_JOB,
-                {
-                    "continuous": True,
-                    "health_check": {"type": "script", "script": "/second.sh"},
-                    "replicas": 1,
-                },
-            ),
-            False,
-            True,
-        ],
-        [
-            merge(
-                SIMPLE_TEST_NEW_JOB,
-                {
-                    "continuous": True,
-                    "health_check": {"type": "script", "script": "/healthcheck.sh"},
-                },
-            ),
-            merge(
-                SIMPLE_TEST_DEFINED_JOB,
-                {
-                    "continuous": True,
-                    "health_check": {"type": "script", "script": "/healthcheck.sh"},
-                    "replicas": 1,
-                },
-            ),
-            False,
-            False,
-        ],
-        # port
-        [SIMPLE_TEST_NEW_JOB, merge(SIMPLE_TEST_DEFINED_JOB, {"port": None}), False, False],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "port": 8080}),
-            merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True}),
-            False,
-            True,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"continuous": True}),
-            merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "port": 8080}),
-            False,
-            True,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "port": 8080}),
-            merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "port": 8080, "replicas": 1}),
-            False,
-            False,
-        ],
-        # replicas
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"continuous": True}),
-            merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "replicas": 1}),
-            False,
-            False,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "replicas": 2}),
-            merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "replicas": 1}),
-            False,
-            True,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "replicas": 1}),
-            merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "replicas": 2}),
-            False,
-            True,
-        ],
-        [
-            merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "replicas": 2}),
-            merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "replicas": 2}),
-            False,
-            False,
-        ],
-    ],
+    params,
 )
 def test_should_create_or_update(
     new_job: dict,

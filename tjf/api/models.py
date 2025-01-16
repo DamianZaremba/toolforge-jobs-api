@@ -1,7 +1,7 @@
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Type
+from typing import Any, Type
 
 from pydantic import BaseModel as PydanticModel
 from pydantic import Field, field_validator, model_validator
@@ -62,6 +62,25 @@ class ScriptHealthCheck(BaseModel):
         return value
 
 
+class HttpHealthCheck(BaseModel):
+    path: str = ""
+    type: internal_hc.HealthCheckType = internal_hc.HealthCheckType.HTTP
+
+    def to_internal(self) -> internal_hc.HttpHealthCheck:
+        return internal_hc.HttpHealthCheck(type=self.type, path=self.path)
+
+    @field_validator("type")
+    @classmethod
+    def validate_type_is_http(
+        cls, value: internal_hc.HealthCheckType
+    ) -> internal_hc.HealthCheckType:
+        assert (
+            value == internal_hc.HealthCheckType.HTTP
+        ), f"type must be {internal_hc.HealthCheckType.HTTP} for http health checks"
+
+        return value
+
+
 class CommonJob(BaseModel):
     name: str
     cmd: str
@@ -77,7 +96,7 @@ class CommonJob(BaseModel):
     port: Annotated[int, Field(ge=1, le=65535)] | None = None
     memory: str | None = None
     cpu: str | None = None
-    health_check: ScriptHealthCheck | None = None
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = None
 
     @model_validator(mode="after")
     def validate_job(self) -> Self:
@@ -144,7 +163,21 @@ class NewJob(CommonJob):
     @model_validator(mode="after")
     def validate_replicas(self) -> Self:
         if self.replicas and not self.continuous:
-            raise ValueError("Instances can only be set for continuous jobs")
+            raise ValueError("Replicas can only be set for continuous jobs")
+        return self
+
+    @model_validator(mode="after")
+    def validate_health_check(self) -> Self:
+        if self.health_check and not self.continuous:
+            raise ValueError("Health checks can only be set for continuous jobs")
+
+        if (
+            self.health_check
+            and self.health_check.type == internal_hc.HealthCheckType.HTTP
+            and not self.port
+        ):
+            raise ValueError("Port must be set for HTTP health checks")
+
         return self
 
     def to_job(self, tool_name: str, runtime: BaseRuntime) -> Job:
@@ -227,7 +260,7 @@ class DefinedJob(CommonJob):
 
     @classmethod
     def from_job(cls: Type["DefinedJob"], job: Job) -> "DefinedJob":
-        obj = {
+        obj: dict[str, Any] = {
             "name": job.job_name,
             "cmd": job.command.user_command,
             "image": job.image.canonical_name,  # not being validated because image from k8s might not exist
@@ -246,11 +279,7 @@ class DefinedJob(CommonJob):
             "emails": job.emails,
             "retry": job.retry,
             "mount": str(job.mount),
-            "health_check": (
-                ScriptHealthCheck(script=job.health_check.script, type=job.health_check.type)
-                if job.health_check
-                else None
-            ),
+            "health_check": None,
         }
 
         if job.schedule is not None:
@@ -269,6 +298,15 @@ class DefinedJob(CommonJob):
             quantity_value=parse_quantity(JOB_DEFAULT_CPU)
         ):
             obj["cpu"] = cpu
+
+        if job.health_check and isinstance(job.health_check, internal_hc.ScriptHealthCheck):
+            obj["health_check"] = ScriptHealthCheck(
+                script=job.health_check.script, type=job.health_check.type
+            )
+        elif job.health_check and isinstance(job.health_check, internal_hc.HttpHealthCheck):
+            obj["health_check"] = HttpHealthCheck(
+                path=job.health_check.path, type=job.health_check.type
+            )
 
         return cls.model_validate(obj)
 

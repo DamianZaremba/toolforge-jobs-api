@@ -2,7 +2,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.2.1"
+  version: "4.3.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -451,6 +451,17 @@ components:
           type: string
         script:
           type: string
+    HttpHealthCheck:
+      type: object
+      description: "Health check implemented as an HTTP request inside the container"
+      required:
+        - type
+        - path
+      properties:
+        type:
+          type: string
+        path:
+          type: string
     # common job fields
     CommonJob:
       type: object
@@ -535,10 +546,12 @@ components:
           description: "Health check configuration for the job. Applicable only when continuous is true."
           oneOf:
             - $ref: "#/components/schemas/ScriptHealthCheck"
+            - $ref: "#/components/schemas/HttpHealthCheck"
           discriminator:
             propertyName: type
             mapping:
               script: "#/components/schemas/ScriptHealthCheck"
+              path: "#/components/schemas/HttpHealthCheck"
         memory:
           type: string
           description: "Job memory resource limit."

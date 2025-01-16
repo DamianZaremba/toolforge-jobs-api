@@ -7,6 +7,7 @@ T = TypeVar("T", bound="HealthCheck")
 
 class HealthCheckType(str, Enum):
     SCRIPT = "script"
+    HTTP = "http"
 
 
 class HealthCheck(ABC):
@@ -39,4 +40,26 @@ class ScriptHealthCheck(HealthCheck):
         return {
             "type": self.type.value,
             "script": self.script,
+        }
+
+
+class HttpHealthCheck(HealthCheck):
+
+    def __init__(self, type: HealthCheckType, path: str) -> None:
+        self.type = type
+        self.path = path
+
+    @classmethod
+    def handles_type(cls: Type[T], type: str | HealthCheckType | None) -> bool:
+        try:
+            health_check_type = HealthCheckType(type)
+        except ValueError:
+            return False
+
+        return health_check_type == HealthCheckType.HTTP
+
+    def for_api(self) -> dict[str, str]:
+        return {
+            "type": self.type.value,
+            "path": self.path,
         }

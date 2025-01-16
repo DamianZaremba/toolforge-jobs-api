@@ -9,7 +9,7 @@ from toolforge_weld.errors import ToolforgeError
 from toolforge_weld.kubernetes import ApiData, K8sClient, MountOption, parse_quantity
 from toolforge_weld.logs import LogEntry
 
-from tjf.health_check import HealthCheckType, ScriptHealthCheck
+from tjf.health_check import HealthCheckType, HttpHealthCheck, ScriptHealthCheck
 
 from ...cron import CronExpression
 from ...error import TjfError
@@ -139,7 +139,7 @@ def _get_k8s_cronjob_object(job: Job) -> K8S_OBJECT_TYPE:
 
 
 def _get_k8s_podtemplate(
-    *, job: Job, restart_policy: str, probes: dict[str, Any] | None = None
+    *, job: Job, restart_policy: str, probes: dict[str, Any] = {}
 ) -> dict[str, Any]:
     labels = generate_labels(
         jobname=job.job_name,
@@ -162,9 +162,6 @@ def _get_k8s_podtemplate(
                 "value": "a buildservice pod does not need a home env",
             }
         ]
-
-    if probes is None:
-        probes = {}
 
     ports = {}
     if job.port:
@@ -276,9 +273,8 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
         mount=job.mount,
     )
 
-    # only add health-check to continuous jobs for now
-    # TODO: move this into _get_k8s_podtemplate?
-    probes = get_healthcheck_for_k8s(job.health_check) if job.health_check else {}
+    # only add health-check to continuous jobs
+    probes = get_healthcheck_for_k8s(job.health_check, port=job.port) if job.health_check else {}
 
     obj = {
         "apiVersion": K8sJobKind.DEPLOYMENT.api_version,
@@ -432,12 +428,14 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
     command = get_command_from_k8s(
         k8s_metadata=metadata, k8s_command=k8s_command, k8s_arguments=k8s_arguments
     )
-    health_check = None
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = None
     container_spec = podspec["template"]["spec"]["containers"][0]
-    if container_spec.get("startupProbe", None):
-        if container_spec["startupProbe"].get("exec", None):
-            script = container_spec["startupProbe"]["exec"]["command"][2]
-            health_check = ScriptHealthCheck(type=HealthCheckType.SCRIPT, script=script)
+    if container_spec.get("startupProbe", {}).get("exec", None):
+        script = container_spec["startupProbe"]["exec"]["command"][2]
+        health_check = ScriptHealthCheck(type=HealthCheckType.SCRIPT, script=script)
+    elif container_spec.get("startupProbe", {}).get("httpGet", None):
+        path = container_spec["startupProbe"]["httpGet"]["path"]
+        health_check = HttpHealthCheck(type=HealthCheckType.HTTP, path=path)
 
     mount = MountOption.parse_labels(metadata["labels"])
 

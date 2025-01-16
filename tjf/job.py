@@ -23,7 +23,7 @@ from toolforge_weld.kubernetes import MountOption
 
 from .command import Command
 from .cron import CronExpression
-from .health_check import ScriptHealthCheck
+from .health_check import HttpHealthCheck, ScriptHealthCheck
 from .images import Image
 
 JOB_DEFAULT_MEMORY = "512Mi"
@@ -60,7 +60,7 @@ class Job:
         cpu: str | None,
         emails: str,
         mount: MountOption,
-        health_check: ScriptHealthCheck | None,
+        health_check: ScriptHealthCheck | HttpHealthCheck | None,
     ) -> None:
         self.job_type = job_type
 
