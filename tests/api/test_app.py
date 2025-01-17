@@ -186,8 +186,10 @@ class TestAPIAuth:
 
 
 class TestJobsEndpoint:
+    @pytest.mark.parametrize("trailing_slash", ["", "/"])
     def test_listing_jobs_when_theres_none_returns_empty(
         self,
+        trailing_slash: str,
         authorized_client: FlaskClient,
         app: JobsApi,
         monkeypatch: MonkeyPatch,
@@ -197,7 +199,7 @@ class TestJobsEndpoint:
         ).model_dump(mode="json", exclude_unset=True)
         monkeypatch.setattr(app.runtime, "get_jobs", value=lambda *args, **kwargs: [])
 
-        gotten_response = authorized_client.get("/v1/tool/silly-user/jobs/")
+        gotten_response = authorized_client.get(f"/v1/tool/silly-user/jobs{trailing_slash}")
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         assert gotten_response.json == expected_response

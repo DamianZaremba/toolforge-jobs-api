@@ -24,7 +24,7 @@ from .utils import current_app
 quotas = Blueprint("quotas", __name__, url_prefix="/v1/tool/<toolname>/quotas")
 
 
-@quotas.route("/", methods=["GET"])
+@quotas.route("/", methods=["GET"], strict_slashes=False)
 def get_quota(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
     quota_data = current_app().runtime.get_quota(tool=toolname)

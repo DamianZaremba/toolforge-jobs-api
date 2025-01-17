@@ -1,17 +1,22 @@
 from typing import Any
 
+import pytest
 from flask.testing import FlaskClient
 
 
 class TestGetImages:
+    @pytest.mark.parametrize("trailing_slash", ["", "/"])
     def test_get_images_endpoint(
         self,
+        trailing_slash: str,
         fake_images: dict[str, Any],
         client: FlaskClient,
         fake_auth_headers: dict[str, str],
     ) -> None:
         expected_messages = {}
-        response = client.get("/v1/tool/some-tool/images/", headers=fake_auth_headers)
+        response = client.get(
+            f"/v1/tool/some-tool/images{trailing_slash}", headers=fake_auth_headers
+        )
         assert response.status_code == 200
         assert response.json["messages"] == expected_messages
 

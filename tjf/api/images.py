@@ -10,7 +10,7 @@ from .models import Image, ImageListResponse, ResponseMessages
 images = Blueprint("images", __name__, url_prefix="/v1/tool/<toolname>/images")
 
 
-@images.route("/", methods=["GET"])
+@images.route("/", methods=["GET"], strict_slashes=False)
 def get_images(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
 

@@ -43,7 +43,9 @@ def patch_account_to_have_quotas(account_with_quotas):
         yield account_with_quotas
 
 
+@pytest.mark.parametrize("trailing_slash", ["", "/"])
 def test_quota_endpoint(
+    trailing_slash: str,
     client: FlaskClient,
     fixtures_path: Path,
     patch_account_to_have_quotas,
@@ -53,7 +55,7 @@ def test_quota_endpoint(
         quota=json.loads((fixtures_path / "quotas" / "expected-api-result.json").read_text()),
         messages=ResponseMessages(),
     ).model_dump(mode="json", exclude_unset=True)
-    response = client.get("/v1/tool/some-tool/quotas/", headers=fake_auth_headers)
+    response = client.get(f"/v1/tool/some-tool/quotas{trailing_slash}", headers=fake_auth_headers)
 
     assert response.status_code == 200
     assert response.json == expected

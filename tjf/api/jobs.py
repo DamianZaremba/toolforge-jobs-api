@@ -91,7 +91,7 @@ def should_update_job(
     return False
 
 
-@jobs.route("/", methods=["GET"])
+@jobs.route("/", methods=["GET"], strict_slashes=False)
 def list_jobs(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
 
@@ -104,7 +104,7 @@ def list_jobs(toolname: str) -> ResponseReturnValue:
     return job_list_response.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
 
 
-@jobs.route("/", methods=["POST", "PUT"])
+@jobs.route("/", methods=["POST", "PUT"], strict_slashes=False)
 def create_job(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
 
@@ -128,7 +128,7 @@ def create_job(toolname: str) -> ResponseReturnValue:
     return (json_job_response, http.HTTPStatus.CREATED)
 
 
-@jobs.route("/", methods=["PATCH"])
+@jobs.route("/", methods=["PATCH"], strict_slashes=False)
 def update_job(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
     current_jobs: dict[str, Job] = {}
@@ -175,7 +175,7 @@ def update_job(toolname: str) -> ResponseReturnValue:
     )
 
 
-@jobs.route("/", methods=["DELETE"])
+@jobs.route("/", methods=["DELETE"], strict_slashes=False)
 def flush_job(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
 
@@ -186,7 +186,7 @@ def flush_job(toolname: str) -> ResponseReturnValue:
     )
 
 
-@jobs.route("/<name>", methods=["GET"])
+@jobs.route("/<name>", methods=["GET"], strict_slashes=False)
 def get_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
     ensure_authenticated(request=request)
 
@@ -198,7 +198,7 @@ def get_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
     return job_response.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
 
 
-@jobs.route("/<name>", methods=["DELETE"])
+@jobs.route("/<name>", methods=["DELETE"], strict_slashes=False)
 def delete_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
     ensure_authenticated(request=request)
 
@@ -213,7 +213,7 @@ def delete_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
     )
 
 
-@jobs.route("/<name>/logs", methods=["GET"])
+@jobs.route("/<name>/logs", methods=["GET"], strict_slashes=False)
 def get_logs(toolname: str, name: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
 
@@ -260,7 +260,7 @@ def get_logs(toolname: str, name: str) -> ResponseReturnValue:
     )
 
 
-@jobs.route("/<name>/restart", methods=["POST"])
+@jobs.route("/<name>/restart", methods=["POST"], strict_slashes=False)
 def restart_job(toolname: str, name: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
 
