@@ -1,7 +1,7 @@
 import pytest
 
 from tjf.api.models import NewJob
-from tjf.error import TjfValidationError
+from tjf.core.error import TjfValidationError
 
 
 @pytest.mark.parametrize(

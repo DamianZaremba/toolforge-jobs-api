@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Iterator, Optional
 
-from ..job import Job
-from ..quota import Quota
+from ..core.job import Job
+from ..core.quota import Quota
 
 
 class BaseRuntime(ABC):

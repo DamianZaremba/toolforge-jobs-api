@@ -19,8 +19,8 @@ from typing import Any
 
 import requests
 
-from ...error import TjfError, TjfJobNotFoundError, TjfValidationError
-from ...job import Job
+from ...core.error import TjfError, TjfJobNotFoundError, TjfValidationError
+from ...core.job import Job
 from .account import ToolAccount
 from .jobs import K8sJobKind
 

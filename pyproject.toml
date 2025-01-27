@@ -23,6 +23,12 @@ gevent = "^24.2.1"
 
 [tool.poetry.group.dev.dependencies]
 openapi-schema-validator = "^0.6.2"
+types-requests = "^2.32.0.20250306"
+types-pyyaml = "^6.0.12.20250326"
+types-setuptools = "^76.0.0.20250313"
+prometheus-client = "^0.21.1"
+pytest = "^8.3.5"
+requests-mock = "^1.12.1"
 
 [tool.black]
 line-length = 99

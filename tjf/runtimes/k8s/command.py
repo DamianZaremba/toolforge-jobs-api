@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ...command import Command
+from ...core.command import Command
 
 COMMAND_WRAPPER = ["/bin/sh", "-c", "--"]
 COMMAND_STDOUT_PREFIX = "exec 1>>"

@@ -1,7 +1,7 @@
 from typing import Any
 from unittest.mock import MagicMock
 
-from tjf.images import HarborConfig
+from tjf.core.images import HarborConfig
 from tjf.runtimes.k8s.account import ToolAccount
 
 from .fake_k8s import FAKE_HARBOR_HOST
