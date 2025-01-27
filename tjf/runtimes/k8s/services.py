@@ -1,6 +1,6 @@
 from typing import Any
 
-from ...job import Job
+from ...core.job import Job
 from .jobs import K8sJobKind, _get_namespace
 from .labels import generate_labels
 

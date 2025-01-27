@@ -1,4 +1,4 @@
-from tjf.job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY
+from tjf.core.job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY
 
 # TODO: replace most of this file with json/yaml files in helpers/fixtures
 

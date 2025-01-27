@@ -18,10 +18,9 @@ from unittest.mock import patch
 
 import pytest
 from flask.testing import FlaskClient
-from helpers.fakes import get_fake_account
 
+from tests.helpers.fakes import get_fake_account
 from tjf.api.models import QuotaResponse, ResponseMessages
-from tjf.runtimes.k8s import runtime
 
 
 @pytest.fixture
@@ -39,7 +38,7 @@ def account_with_quotas(fixtures_path: Path):
 
 @pytest.fixture
 def patch_account_to_have_quotas(account_with_quotas):
-    with patch(runtime.__name__ + ".ToolAccount", return_value=account_with_quotas):
+    with patch("tjf.runtimes.k8s.runtime.ToolAccount", return_value=account_with_quotas):
         yield account_with_quotas
 
 

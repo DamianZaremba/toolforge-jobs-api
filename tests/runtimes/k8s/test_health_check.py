@@ -1,7 +1,7 @@
 import pytest
 
-from tjf.error import TjfJobParsingError
-from tjf.health_check import (
+from tjf.core.error import TjfJobParsingError
+from tjf.core.health_check import (
     HealthCheck,
     HealthCheckType,
     HttpHealthCheck,

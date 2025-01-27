@@ -8,16 +8,17 @@ from pydantic import Field, field_validator, model_validator
 from toolforge_weld.kubernetes import MountOption, parse_quantity
 from typing_extensions import Annotated, Self
 
-from .. import health_check as internal_hc
-from ..command import Command
-from ..cron import CronExpression, CronParsingError
-from ..error import TjfValidationError
-from ..images import ImageType, image_by_name
-from ..job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY, Job, JobType
-from ..quota import Quota as QuotaData
-from ..quota import QuotaCategoryType
-from ..runtimes.base import BaseRuntime
-from ..utils import format_quantity, parse_and_format_mem
+from ..core import health_check as internal_hc
+from ..core.command import Command
+from ..core.core import Core
+from ..core.cron import CronExpression, CronParsingError
+from ..core.error import TjfValidationError
+from ..core.images import Image as ImageData
+from ..core.images import ImageType, image_by_name
+from ..core.job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY, Job, JobType
+from ..core.quota import Quota as QuotaData
+from ..core.quota import QuotaCategoryType
+from ..core.utils import format_quantity, parse_and_format_mem
 
 # This is a restriction by Kubernetes:
 # a lowercase RFC 1123 subdomain must consist of lower case alphanumeric
@@ -178,16 +179,16 @@ class NewJob(CommonJob):
 
         return self
 
-    def to_job(self, tool_name: str, runtime: BaseRuntime) -> Job:
+    def to_job(self, tool_name: str, core: Core) -> Job:
         image = image_by_name(self.imagename)
 
         if self.filelog:
-            filelog_stdout: Path | None = runtime.resolve_filelog_out_path(
+            filelog_stdout: Path | None = core.resolve_filelog_out_path(
                 filelog_stdout=self.filelog_stdout,
                 tool=tool_name,
                 job_name=self.name,
             )
-            filelog_stderr: Path | None = runtime.resolve_filelog_err_path(
+            filelog_stderr: Path | None = core.resolve_filelog_err_path(
                 filelog_stderr=self.filelog_stderr,
                 tool=tool_name,
                 job_name=self.name,
@@ -331,6 +332,10 @@ class Health(BaseModel):
 class Image(BaseModel):
     shortname: str
     image: str
+
+    @classmethod
+    def from_image_data(cls: Type["Image"], image_data: ImageData) -> "Image":
+        return cls(shortname=image_data.canonical_name, image=image_data.container)
 
 
 class QuotaEntry(BaseModel):

@@ -19,18 +19,18 @@ from typing import Any
 
 import pytest
 import requests
-from helpers.fake_k8s import (
+from requests import HTTPError
+from requests_mock import Mocker as RequestsMockMocker
+
+from tests.helpers.fake_k8s import (
     CRONJOB_NOT_RUN_YET,
     FAKE_K8S_HOST,
     LIMIT_RANGE_OBJECT,
     FakeJob,
 )
-from helpers.fakes import get_fake_account
-from requests import HTTPError
-from requests_mock import Mocker as RequestsMockMocker
-
-from tjf.error import TjfError, TjfValidationError
-from tjf.job import Job
+from tests.helpers.fakes import get_fake_account
+from tjf.core.error import TjfError, TjfValidationError
+from tjf.core.job import Job
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.jobs import get_job_for_k8s, get_job_from_k8s
 from tjf.runtimes.k8s.ops import create_error_from_k8s_response, validate_job_limits

@@ -21,10 +21,9 @@ from tjf.api.app import create_app
 
 debug = bool(os.environ.get("DEBUG", None))
 skip_metrics = bool(os.environ.get("SKIP_METRICS", None))
-skip_images = bool(os.environ.get("SKIP_IMAGES", None))
 
 logging.basicConfig(level=logging.INFO if not debug else logging.DEBUG)
-app = create_app(init_metrics=not skip_metrics, load_images=not skip_images)
+app = create_app(init_metrics=not skip_metrics)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))

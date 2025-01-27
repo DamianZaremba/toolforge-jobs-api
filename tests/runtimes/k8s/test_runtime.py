@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from pathlib import Path
 from typing import Any, Callable
 from unittest.mock import MagicMock
 
@@ -12,7 +11,7 @@ import requests
 from tests.conftest import FIXTURES_PATH
 from tjf.api.app import JobsApi
 from tjf.api.models import NewJob
-from tjf.error import TjfJobNotFoundError
+from tjf.core.error import TjfJobNotFoundError
 from tjf.runtimes.k8s.account import ToolAccount
 
 K8S_OBJ = json.loads((FIXTURES_PATH / "jobs" / "deployment-simple-buildpack.json").read_text())
@@ -23,7 +22,7 @@ def mock_tool_account_init(
     name: str,
     get_object_mock: Callable,
     create_object_mock: Callable,
-    tmp_path_factory: Path,
+    tmp_path_factory: pytest.TempPathFactory,
 ):
     mock_k8s_cli = MagicMock()
     mock_k8s_cli.get_object = get_object_mock
@@ -36,7 +35,7 @@ def mock_tool_account_init(
     self.k8s_cli = mock_k8s_cli
 
 
-def patch_spec(spec: dict, patch: dict) -> None:
+def patch_spec(spec: dict, patch: dict[str, Any] | None) -> None:
     if patch is None:
         return None
 
@@ -57,7 +56,7 @@ def test_diff_raises_exception_getting_object(
     fake_tool_account_uid: None,
     app: JobsApi,
     monkeymodule: pytest.MonkeyPatch,
-    tmp_path_factory: Path,
+    tmp_path_factory: pytest.TempPathFactory,
 ):
 
     monkeymodule.setattr(
@@ -73,14 +72,14 @@ def test_diff_raises_exception_getting_object(
     )
 
     job = NewJob(
-        **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye"}
+        **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye"}  # type: ignore
     ).to_job(
         tool_name="some-tool",
-        runtime=app.runtime,
+        core=app.core,
     )
 
     with pytest.raises(TjfJobNotFoundError):
-        app.runtime.diff_with_running_job(job=job)
+        app.core.runtime.diff_with_running_job(job=job)
 
 
 @pytest.mark.parametrize(
@@ -103,7 +102,7 @@ def test_diff_with_running_job_returns_empty_str(
     fake_tool_account_uid: None,
     app: JobsApi,
     monkeymodule: pytest.MonkeyPatch,
-    tmp_path_factory: Path,
+    tmp_path_factory: pytest.TempPathFactory,
 ):
     applied_spec = deepcopy(K8S_OBJ)
     patch_spec(applied_spec, patch)
@@ -121,13 +120,13 @@ def test_diff_with_running_job_returns_empty_str(
     )
 
     job = NewJob(
-        **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye"}
+        **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye"}  # type: ignore
     ).to_job(
         tool_name="some-tool",
-        runtime=app.runtime,
+        core=app.core,
     )
 
-    diff = app.runtime.diff_with_running_job(job=job)
+    diff = app.core.runtime.diff_with_running_job(job=job)
     assert diff == ""
 
 
@@ -153,7 +152,7 @@ def test_diff_with_running_job_returns_diff_str(
     fake_tool_account_uid: None,
     app: JobsApi,
     monkeymodule: pytest.MonkeyPatch,
-    tmp_path_factory: Path,
+    tmp_path_factory: pytest.TempPathFactory,
 ):
     applied_spec = deepcopy(K8S_OBJ)
     patch_spec(applied_spec, patch)
@@ -171,11 +170,11 @@ def test_diff_with_running_job_returns_diff_str(
     )
 
     job = NewJob(
-        **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye"}
+        **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye"}  # type: ignore
     ).to_job(
         tool_name="some-tool",
-        runtime=app.runtime,
+        core=app.core,
     )
 
-    diff = app.runtime.diff_with_running_job(job=job)
+    diff = app.core.runtime.diff_with_running_job(job=job)
     assert "+++" in diff

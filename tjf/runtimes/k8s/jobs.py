@@ -10,13 +10,12 @@ from toolforge_weld.errors import ToolforgeError
 from toolforge_weld.kubernetes import ApiData, K8sClient, MountOption, parse_quantity
 from toolforge_weld.logs import LogEntry
 
-from tjf.health_check import HealthCheckType, HttpHealthCheck, ScriptHealthCheck
-
-from ...cron import CronExpression
-from ...error import TjfError
-from ...images import image_by_container_url
-from ...job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY, Job, JobType
-from ...utils import dict_get_object
+from ...core.cron import CronExpression
+from ...core.error import TjfError
+from ...core.health_check import HealthCheckType, HttpHealthCheck, ScriptHealthCheck
+from ...core.images import image_by_container_url
+from ...core.job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY, Job, JobType
+from ...core.utils import dict_get_object
 from .command import get_command_for_k8s, get_command_from_k8s
 from .healthchecks import get_healthcheck_for_k8s
 from .labels import generate_labels

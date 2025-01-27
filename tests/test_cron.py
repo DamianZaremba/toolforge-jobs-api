@@ -1,6 +1,6 @@
 import pytest
 
-from tjf.cron import CronExpression, CronParsingError
+from tjf.core.cron import CronExpression, CronParsingError
 
 JOBNAME = "some-job"
 TOOLNAME = "some-tool"

@@ -1,4 +1,5 @@
 import json
+import os
 from difflib import unified_diff
 from logging import getLogger
 from pathlib import Path
@@ -6,16 +7,18 @@ from typing import Any, Iterator, Optional
 from uuid import uuid4
 
 import requests
-from toolforge_weld.kubernetes import parse_quantity
+from toolforge_weld.kubernetes import K8sClient, parse_quantity
+from toolforge_weld.kubernetes_config import Kubeconfig
 from toolforge_weld.logs.kubernetes import KubernetesSource
 
-from ...error import TjfError, TjfValidationError
-from ...job import Job, JobType
-from ...quota import Quota, QuotaCategoryType
-from ...utils import format_quantity, parse_and_format_mem
+from ...core.error import TjfError, TjfValidationError
+from ...core.job import Job, JobType
+from ...core.quota import Quota, QuotaCategoryType
+from ...core.utils import USER_AGENT, format_quantity, parse_and_format_mem
 from ..base import BaseRuntime
 from .account import ToolAccount
 from .command import resolve_filelog_path
+from .images import update_available_images
 from .jobs import K8sJobKind, format_logs, get_job_for_k8s, get_job_from_k8s, prune_spec
 from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
@@ -27,6 +30,17 @@ LOGGER = getLogger(__name__)
 
 
 class K8sRuntime(BaseRuntime):
+
+    def __init__(self) -> None:
+        super().__init__()
+        skip_images = bool(os.environ.get("SKIP_IMAGES", None))
+        if not skip_images:
+            # before app startup!
+            tf_public_client = K8sClient(
+                kubeconfig=Kubeconfig.from_container_service_account(namespace="tf-public"),
+                user_agent=USER_AGENT,
+            )
+            update_available_images(tf_public_client)
 
     def get_jobs(self, *, tool: str) -> list[Job]:
         job_list = []
@@ -253,13 +267,11 @@ class K8sRuntime(BaseRuntime):
             ),
         ]
 
-    def get_logs(
-        self, *, job_name: str, tool: str, follow: bool, lines: int | None = None
-    ) -> Iterator[str]:
-        tool_account = ToolAccount(name=tool)
+    def get_logs(self, *, job: Job, follow: bool, lines: int | None = None) -> Iterator[str]:
+        tool_account = ToolAccount(name=job.tool_name)
         log_source = KubernetesSource(client=tool_account.k8s_cli)
         logs = log_source.query(
-            selector=labels_selector(job_name=job_name, user_name=tool_account.name),
+            selector=labels_selector(job_name=job.job_name, user_name=tool_account.name),
             follow=follow,
             lines=lines,
         )

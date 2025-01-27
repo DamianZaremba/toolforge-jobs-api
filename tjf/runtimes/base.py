@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Iterator, Optional
 
-from ..job import Job
-from ..quota import Quota
+from ..core.job import Job
+from ..core.quota import Quota
 
 
 class BaseRuntime(ABC):
@@ -33,9 +33,7 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_logs(
-        self, *, job_name: str, tool: str, follow: bool, lines: int | None = None
-    ) -> Iterator[str]:
+    def get_logs(self, *, job: Job, follow: bool, lines: int | None = None) -> Iterator[str]:
         raise NotImplementedError
 
     @abstractmethod
