@@ -66,7 +66,3 @@ class BaseRuntime(ABC):
         self, *, tool: str, job_name: str, filelog_stderr: str | None
     ) -> Path:
         raise NotImplementedError
-
-    @abstractmethod
-    def wait_for_job(self, *, tool: str, job: Job, timeout: int = 30) -> bool:
-        raise NotImplementedError

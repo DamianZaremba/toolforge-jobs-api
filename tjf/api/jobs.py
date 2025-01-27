@@ -109,7 +109,6 @@ def update_job(toolname: str) -> ResponseReturnValue:
         if diff:
             LOGGER.debug(f"Updating job {job.job_name}")
             runtime.delete_job(tool=toolname, job=job)
-            runtime.wait_for_job(tool=toolname, job=job)
             _create_job(
                 runtime=runtime,
                 job=job,

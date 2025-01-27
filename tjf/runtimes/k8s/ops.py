@@ -16,6 +16,9 @@
 
 from __future__ import annotations
 
+import time
+from typing import Optional
+
 import requests
 from toolforge_weld.kubernetes import parse_quantity
 
@@ -24,6 +27,7 @@ from ...job import Job
 from .account import ToolAccount
 from .jobs import get_k8s_job_from_cronjob
 from .k8s_errors import create_error_from_k8s_response
+from .labels import labels_selector
 
 
 def validate_job_limits(account: ToolAccount, job: Job) -> None:
@@ -83,3 +87,24 @@ def trigger_scheduled_job(tool_account: ToolAccount, scheduled_job: Job) -> None
         raise create_error_from_k8s_response(
             error=error, job=scheduled_job, spec=k8s_job, tool_account=tool_account
         )
+
+
+def wait_for_pods_exit(
+    tool: ToolAccount,
+    job_name: Optional[str] = None,
+    job_type: Optional[str] = None,
+    timeout: int = 30,
+) -> bool:
+    """Wait for all pods belonging to a specific job to exit."""
+    label_selector = labels_selector(
+        job_name=job_name,
+        user_name=tool.name,
+        type=job_type,
+    )
+
+    for _ in range(timeout * 2):
+        pods = tool.k8s_cli.get_objects("pods", label_selector=label_selector)
+        if len(pods) == 0:
+            return True
+        time.sleep(0.5)
+    return False

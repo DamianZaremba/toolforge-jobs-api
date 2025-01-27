@@ -1,6 +1,4 @@
 import json
-import logging
-import time
 from difflib import unified_diff
 from logging import getLogger
 from pathlib import Path
@@ -21,7 +19,7 @@ from .command import resolve_filelog_path
 from .jobs import K8sJobKind, format_logs, get_job_for_k8s, get_job_from_k8s, prune_spec
 from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
-from .ops import trigger_scheduled_job, validate_job_limits
+from .ops import trigger_scheduled_job, validate_job_limits, wait_for_pods_exit
 from .ops_status import refresh_job_long_status, refresh_job_short_status
 from .services import get_k8s_service_object
 
@@ -71,8 +69,7 @@ class K8sRuntime(BaseRuntime):
             user.k8s_cli.delete_objects("jobs", label_selector=label_selector)
             user.k8s_cli.delete_objects("pods", label_selector=label_selector)
 
-            # Wait until the currently running job stops
-            self.wait_for_job(tool=tool, job=job)
+            wait_for_pods_exit(tool=user, job_name=job.job_name, job_type=k8s_type.api_path_name)
 
             trigger_scheduled_job(user, job)
 
@@ -101,7 +98,7 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool)
         validate_job_limits(tool_account, job)
         spec = get_job_for_k8s(job=job)
-        logging.debug(f"Got k8s spec: {spec}")
+        LOGGER.debug(f"Got k8s spec: {spec}")
 
         self.create_service(job=job)
         try:
@@ -109,7 +106,7 @@ class K8sRuntime(BaseRuntime):
                 kind=K8sJobKind.from_job_type(job.job_type).api_path_name,
                 spec=spec,
             )
-            logging.debug(f"Result from k8s: {k8s_result}")
+            LOGGER.debug(f"Result from k8s: {k8s_result}")
             job.k8s_object = k8s_result
 
             refresh_job_short_status(tool_account, job)
@@ -127,6 +124,7 @@ class K8sRuntime(BaseRuntime):
 
         for object_type in ["cronjobs", "deployments", "jobs", "pods", "services"]:
             tool_account.k8s_cli.delete_objects(object_type, label_selector=label_selector)
+        wait_for_pods_exit(tool=tool_account)
 
     def delete_job(self, *, tool: str, job: Job) -> None:
         """Deletes a specified job."""
@@ -141,6 +139,7 @@ class K8sRuntime(BaseRuntime):
                     job_name=job.job_name, user_name=tool_account.name, type=kind
                 ),
             )
+        wait_for_pods_exit(tool=tool_account, job_name=job.job_name, job_type=kind)
 
     def diff_with_running_job(self, *, job: Job) -> str:
         """
@@ -278,20 +277,3 @@ class K8sRuntime(BaseRuntime):
     ) -> Path:
         tool_account = ToolAccount(name=tool)
         return resolve_filelog_path(filelog_stdout, tool_account.home, f"{job_name}.out")
-
-    def wait_for_job(self, *, tool: str, job: Job, timeout: int = 30) -> bool:
-        """Wait for all pods belonging to a specific job to exit."""
-
-        user = ToolAccount(name=tool)
-        label_selector = labels_selector(
-            job_name=job.job_name,
-            user_name=user.name,
-            type=K8sJobKind.from_job_type(job.job_type).api_path_name,
-        )
-
-        for _ in range(timeout * 2):
-            pods = user.k8s_cli.get_objects("pods", label_selector=label_selector)
-            if len(pods) == 0:
-                return True
-            time.sleep(0.5)
-        return False
