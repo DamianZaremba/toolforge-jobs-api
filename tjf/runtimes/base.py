@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import AsyncIterator
 
 from ..core.images import Image
-from ..core.models import AnyJob, QuotaData
+from ..core.models import AnyJob, DeprecatedQuotaData, Quota
 from ..settings import Settings
 
 
@@ -56,7 +56,11 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_quotas(self, *, tool: str) -> list[QuotaData]:
+    def get_quotas(self, *, tool: str) -> list[Quota]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def deprecated_get_quotas(self, *, tool: str) -> list[DeprecatedQuotaData]:
         raise NotImplementedError
 
     @abstractmethod

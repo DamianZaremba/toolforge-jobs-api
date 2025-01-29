@@ -10,10 +10,12 @@ from ...core.images import Image, ImageType
 from ...core.models import (
     AnyJob,
     ContinuousJob,
+    DeprecatedQuotaData,
     JobType,
     OneOffJob,
-    QuotaCategoryType,
-    QuotaData,
+    Quota,
+    QuotaEntry,
+    QuotaType,
     ScheduledJob,
 )
 from ...core.utils import format_quantity, parse_and_format_mem
@@ -244,7 +246,7 @@ class K8sRuntime(BaseRuntime):
         )
         return "".join([line for line in list(diff) if line is not None])
 
-    def get_quotas(self, *, tool: str) -> list[QuotaData]:
+    def get_quotas(self, *, tool: str) -> list[Quota]:
         tool_account = ToolAccount(name=tool)
         resource_quota = tool_account.k8s_cli.get_object("resourcequotas", tool_account.namespace)
         limit_range = tool_account.k8s_cli.get_object("limitranges", tool_account.namespace)
@@ -257,14 +259,99 @@ class K8sRuntime(BaseRuntime):
         )
 
         return [
-            QuotaData(
-                category=QuotaCategoryType.RUNNING_JOBS,
+            Quota(
+                quota_type=QuotaType.RUNNING_JOBS,
+                entries=[
+                    QuotaEntry(
+                        label="Total running jobs at once (Kubernetes pods)",
+                        limit=resource_quota["status"]["hard"]["pods"],
+                        used=resource_quota["status"]["used"]["pods"],
+                    ),
+                    QuotaEntry(
+                        label="Running one-off and cron jobs",
+                        limit=resource_quota["status"]["hard"]["count/jobs.batch"],
+                        used=resource_quota["status"]["used"]["count/jobs.batch"],
+                    ),
+                    # Here we assume that for all CPU and RAM use, requests are set to half of
+                    # what limits are set. This is true for at least jobs-api usage.
+                    # TODO: somehow display if requests are using more than half of limits.
+                    QuotaEntry(
+                        label="CPU",
+                        limit=format_quantity(
+                            quantity_value=parse_quantity(
+                                resource_quota["status"]["hard"]["limits.cpu"]
+                            )
+                        ),
+                        used=format_quantity(
+                            quantity_value=parse_quantity(
+                                resource_quota["status"]["used"]["limits.cpu"]
+                            )
+                        ),
+                    ),
+                    QuotaEntry(
+                        label="Memory",
+                        limit=parse_and_format_mem(
+                            mem=resource_quota["status"]["hard"]["limits.memory"]
+                        ),
+                        used=parse_and_format_mem(
+                            mem=resource_quota["status"]["used"]["limits.memory"]
+                        ),
+                    ),
+                ],
+            ),
+            Quota(
+                quota_type=QuotaType.PER_JOB_LIMITS,
+                entries=[
+                    QuotaEntry(
+                        label="CPU",
+                        limit=format_quantity(
+                            quantity_value=parse_quantity(container_limit["max"]["cpu"]),
+                        ),
+                    ),
+                    QuotaEntry(
+                        label="Memory",
+                        limit=parse_and_format_mem(mem=container_limit["max"]["memory"]),
+                    ),
+                ],
+            ),
+            Quota(
+                quota_type=QuotaType.JOB_DEFINITIONS,
+                entries=[
+                    QuotaEntry(
+                        label="Cron jobs",
+                        limit=resource_quota["status"]["hard"]["count/cronjobs.batch"],
+                        used=resource_quota["status"]["used"]["count/cronjobs.batch"],
+                    ),
+                    QuotaEntry(
+                        label="Continuous jobs (including web services)",
+                        limit=resource_quota["status"]["hard"]["count/deployments.apps"],
+                        used=resource_quota["status"]["used"]["count/deployments.apps"],
+                    ),
+                ],
+            ),
+        ]
+
+    def deprecated_get_quotas(self, *, tool: str) -> list[DeprecatedQuotaData]:
+        tool_account = ToolAccount(name=tool)
+        resource_quota = tool_account.k8s_cli.get_object("resourcequotas", tool_account.namespace)
+        limit_range = tool_account.k8s_cli.get_object("limitranges", tool_account.namespace)
+
+        if not resource_quota or not limit_range:
+            raise TjfError("Unable to load quota information for this tool")
+
+        container_limit = next(
+            limit for limit in limit_range["spec"]["limits"] if limit["type"] == "Container"
+        )
+
+        return [
+            DeprecatedQuotaData(
+                category=QuotaType.RUNNING_JOBS,
                 name="Total running jobs at once (Kubernetes pods)",
                 limit=resource_quota["status"]["hard"]["pods"],
                 used=resource_quota["status"]["used"]["pods"],
             ),
-            QuotaData(
-                category=QuotaCategoryType.RUNNING_JOBS,
+            DeprecatedQuotaData(
+                category=QuotaType.RUNNING_JOBS,
                 name="Running one-off and cron jobs",
                 limit=resource_quota["status"]["hard"]["count/jobs.batch"],
                 used=resource_quota["status"]["used"]["count/jobs.batch"],
@@ -272,8 +359,8 @@ class K8sRuntime(BaseRuntime):
             # Here we assume that for all CPU and RAM use, requests are set to half of
             # what limits are set. This is true for at least jobs-api usage.
             # TODO: somehow display if requests are using more than half of limits.
-            QuotaData(
-                category=QuotaCategoryType.RUNNING_JOBS,
+            DeprecatedQuotaData(
+                category=QuotaType.RUNNING_JOBS,
                 name="CPU",
                 limit=format_quantity(
                     quantity_value=parse_quantity(resource_quota["status"]["hard"]["limits.cpu"])
@@ -282,32 +369,32 @@ class K8sRuntime(BaseRuntime):
                     quantity_value=parse_quantity(resource_quota["status"]["used"]["limits.cpu"])
                 ),
             ),
-            QuotaData(
-                category=QuotaCategoryType.RUNNING_JOBS,
+            DeprecatedQuotaData(
+                category=QuotaType.RUNNING_JOBS,
                 name="Memory",
                 limit=parse_and_format_mem(mem=resource_quota["status"]["hard"]["limits.memory"]),
                 used=parse_and_format_mem(mem=resource_quota["status"]["used"]["limits.memory"]),
             ),
-            QuotaData(
-                category=QuotaCategoryType.PER_JOB_LIMITS,
+            DeprecatedQuotaData(
+                category=QuotaType.PER_JOB_LIMITS,
                 name="CPU",
                 limit=format_quantity(
                     quantity_value=parse_quantity(container_limit["max"]["cpu"]),
                 ),
             ),
-            QuotaData(
-                category=QuotaCategoryType.PER_JOB_LIMITS,
+            DeprecatedQuotaData(
+                category=QuotaType.PER_JOB_LIMITS,
                 name="Memory",
                 limit=parse_and_format_mem(mem=container_limit["max"]["memory"]),
             ),
-            QuotaData(
-                category=QuotaCategoryType.JOB_DEFINITIONS,
+            DeprecatedQuotaData(
+                category=QuotaType.JOB_DEFINITIONS,
                 name="Cron jobs",
                 limit=resource_quota["status"]["hard"]["count/cronjobs.batch"],
                 used=resource_quota["status"]["used"]["count/cronjobs.batch"],
             ),
-            QuotaData(
-                category=QuotaCategoryType.JOB_DEFINITIONS,
+            DeprecatedQuotaData(
+                category=QuotaType.JOB_DEFINITIONS,
                 name="Continuous jobs (including web services)",
                 limit=resource_quota["status"]["hard"]["count/deployments.apps"],
                 used=resource_quota["status"]["used"]["count/deployments.apps"],

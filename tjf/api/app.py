@@ -24,7 +24,7 @@ from .jobs import jobs
 from .metrics import get_metrics_app
 from .models import Health, HealthResponse, HealthState, ResponseMessages
 from .openapi import openapi
-from .quotas import quotas
+from .quotas import deprecated_quotas, quotas
 from .utils import JobsApi
 
 LOGGER = logging.getLogger(__name__)
@@ -70,6 +70,7 @@ def create_app(settings: Settings | None = None) -> JobsApi:
     app.include_router(jobs)
     app.include_router(images)
     app.include_router(quotas)
+    app.include_router(deprecated_quotas)
 
     if not settings.skip_metrics:
         get_metrics_app(app)

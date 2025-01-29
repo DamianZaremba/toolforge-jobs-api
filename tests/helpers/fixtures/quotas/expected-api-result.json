@@ -1,59 +1,55 @@
-{
-    "categories": [
-        {
-            "name": "Running jobs",
-            "items": [
-                {
-                    "name": "Total running jobs at once (Kubernetes pods)",
-                    "limit": "10",
-                    "used": "1"
-                },
-                {
-                    "name": "Running one-off and cron jobs",
-                    "limit": "15",
-                    "used": "0"
-                },
-                {
-                    "name": "CPU",
-                    "limit": "4.0",
-                    "used": "0.5"
-                },
-                {
-                    "name": "Memory",
-                    "limit": "8.0Gi",
-                    "used": "0.5Gi"
-                }
-            ]
-        },
-        {
-            "name": "Per-job limits",
-            "items": [
-                {
-                    "name": "CPU",
-                    "limit": "1.0",
-                    "used": null
-                },
-                {
-                    "name": "Memory",
-                    "limit": "4.0Gi",
-                    "used": null
-                }
-            ]
-        },
-        {
-            "name": "Job definitions",
-            "items": [
-                {
-                    "name": "Cron jobs",
-                    "limit": "50",
-                    "used": "5"
-                },
-                {
-                    "name": "Continuous jobs (including web services)",
-                    "limit": "3",
-                    "used": "1"
-                }
-            ]
-        }
-    ]
-}
+[
+    {
+        "quota_type": "Running jobs",
+        "entries": [
+            {
+                "label": "Total running jobs at once (Kubernetes pods)",
+                "limit": "10",
+                "used": "1"
+            },
+            {
+                "label": "Running one-off and cron jobs",
+                "limit": "15",
+                "used": "0"
+            },
+            {
+                "label": "CPU",
+                "limit": "4.0",
+                "used": "0.5"
+            },
+            {
+                "label": "Memory",
+                "limit": "8.0Gi",
+                "used": "0.5Gi"
+            }
+        ]
+    },
+    {
+        "quota_type": "Per-job limits",
+        "entries": [
+            {
+                "label": "CPU",
+                "limit": "1.0"
+            },
+            {
+                "label": "Memory",
+                "limit": "4.0Gi"
+            }
+        ]
+    },
+    {
+        "quota_type": "Job definitions",
+        "entries": [
+            {
+                "label": "Cron jobs",
+                "limit": "50",
+                "used": "5"
+            },
+            {
+                "label": "Continuous jobs (including web services)",
+                "limit": "3",
+                "used": "1"
+            }
+        ]
+    }
+]

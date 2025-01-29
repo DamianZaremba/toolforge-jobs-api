@@ -23,6 +23,7 @@ from ..core.models import (
 from ..core.models import CommonJob as CoreCommonJob
 from ..core.models import ContinuousJob as CoreContinuousJob
 from ..core.models import (
+    DeprecatedQuota,
     EmailOption,
     HttpHealthCheck,
     JobType,
@@ -455,9 +456,14 @@ class ImageListResponse(BaseModel):
     messages: ResponseMessages
 
 
-class QuotaResponse(BaseModel):
-    quota: Quota
-    messages: ResponseMessages
+class QuotaListResponse(BaseModel):
+    quotas: list[Quota]
+    messages: ResponseMessages = ResponseMessages()
+
+
+class DeprecatedQuotaResponse(BaseModel):
+    quota: DeprecatedQuota
+    messages: ResponseMessages = ResponseMessages()
 
 
 class JobListResponse(BaseModel):

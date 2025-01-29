@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.6.4"
+  version: "5.0.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -36,7 +36,7 @@ paths:
           $ref: "#/components/responses/unauthorized_error"
       security:
         - key: []
-  /v1/tool/{toolname}/quotas:
+  /v2/tool/{toolname}/quotas:
     get:
       operationId: "quotas"
       description: "Returns information on the tool account quotas in Toolforge."
@@ -53,7 +53,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuotaResponse"
+                $ref: "#/components/schemas/QuotaListResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+      security:
+        - key: []
+  /v1/tool/{toolname}/quotas:
+    get:
+      operationId: "deprecated_quotas"
+      description: "Returns information on the tool account quotas in Toolforge. This endpoint is deprecated. use /v2/tool/{toolname}/quotas instead."
+      parameters:
+        - name: toolname
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "The response contains the quota details."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeprecatedQuotaResponse"
         "401":
           $ref: "#/components/responses/unauthorized_error"
       security:
@@ -378,11 +400,20 @@ components:
             $ref: "#/components/schemas/Image"
         messages:
           $ref: "#/components/schemas/ResponseMessages"
-    QuotaResponse:
+    QuotaListResponse:
+      type: object
+      properties:
+        quotas:
+          type: array
+          items:
+            $ref: "#/components/schemas/Quota"
+        messages:
+          $ref: "#/components/schemas/ResponseMessages"
+    DeprecatedQuotaResponse:
       type: object
       properties:
         quota:
-          $ref: "#/components/schemas/Quota"
+          $ref: "#/components/schemas/DeprecatedQuota"
         messages:
           $ref: "#/components/schemas/ResponseMessages"
     JobListResponse:
@@ -465,7 +496,31 @@ components:
           type: string
         image:
           type: string
+    QuotaType:
+      type: string
+      enum:
+        - "Running jobs"
+        - "Per-job limits"
+        - "Job definitions"
+    QuotaEntry:
+      type: object
+      properties:
+        label:
+          type: string
+        limit:
+          type: string
+        used:
+          type: string
     Quota:
+      type: object
+      properties:
+        quota_type:
+          $ref: "#/components/schemas/QuotaType"
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuotaEntry"
+    DeprecatedQuota:
       type: object
       properties:
         categories:
