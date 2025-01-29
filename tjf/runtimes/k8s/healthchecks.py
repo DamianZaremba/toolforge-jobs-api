@@ -1,7 +1,7 @@
 from typing import Any
 
 from ...core.error import TjfJobParsingError
-from ...core.health_check import HttpHealthCheck, ScriptHealthCheck
+from ...core.models import HttpHealthCheck, ScriptHealthCheck
 
 STARTUP_PROBE_DEFAULT_INITIAL_DELAY_SECONDS = 0
 STARTUP_PROBE_DEFAULT_PERIOD_SECONDS = 1

@@ -8,8 +8,8 @@ import pytest
 
 import tjf.core.utils as utils
 from tests.helpers import fake_k8s
-from tjf.core.command import Command
 from tjf.core.error import TjfError
+from tjf.core.models import Command
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.command import (
     get_command_for_k8s,

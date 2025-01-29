@@ -30,7 +30,7 @@ from tests.helpers.fake_k8s import (
 )
 from tests.helpers.fakes import get_fake_account
 from tjf.core.error import TjfError, TjfValidationError
-from tjf.core.job import Job
+from tjf.core.models import Job
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.jobs import get_job_for_k8s, get_job_from_k8s
 from tjf.runtimes.k8s.ops import create_error_from_k8s_response, validate_job_limits

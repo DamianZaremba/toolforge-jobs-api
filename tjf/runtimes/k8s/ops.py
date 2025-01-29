@@ -23,7 +23,7 @@ import requests
 from toolforge_weld.kubernetes import parse_quantity
 
 from ...core.error import TjfValidationError
-from ...core.job import Job
+from ...core.models import Job
 from .account import ToolAccount
 from .jobs import get_k8s_job_from_cronjob
 from .k8s_errors import create_error_from_k8s_response

@@ -55,9 +55,3 @@ def tjf_error_from_weld_error(error: ToolforgeError) -> TjfError:
         error_class = TjfClientError
 
     return error_class(message=error.message, data=error.context)
-
-
-class CronParsingError(TjfValidationError):
-    """Raised when a cron input fails to parse."""
-
-    pass

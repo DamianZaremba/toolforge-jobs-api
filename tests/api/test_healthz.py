@@ -16,7 +16,7 @@ import pytest
 from flask import Flask
 from flask.testing import FlaskClient
 
-from tjf.api.models import HealthResponse, ResponseMessages
+from tjf.api.models import Health, HealthResponse, HealthState, ResponseMessages
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def client(app: Flask) -> FlaskClient:
 
 def test_healthz_endpoint(client: FlaskClient):
     expected_health = HealthResponse(
-        health={"message": "OK", "status": "OK"},
+        health=Health(message="OK", status=HealthState.ok),
         messages=ResponseMessages(),
     ).model_dump(mode="json", exclude_unset=True)
     response = client.get("/v1/healthz")

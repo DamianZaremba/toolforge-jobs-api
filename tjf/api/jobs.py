@@ -67,7 +67,7 @@ def api_create_job(toolname: str) -> ResponseReturnValue:
 
     existing_job = core.get_job(toolname=job.tool_name, name=job.job_name)
     if existing_job:
-        if existing_job.status_short.lower() != "completed":
+        if existing_job.status_short and existing_job.status_short.lower() != "completed":
             raise TjfValidationError(
                 f"A job with the name {job.job_name} already exists", http_status_code=409
             )

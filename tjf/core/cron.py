@@ -1,6 +1,8 @@
 import random
 from dataclasses import dataclass
 
+from pydantic import BaseModel, ConfigDict
+
 from .error import TjfJobParsingError, TjfValidationError
 
 
@@ -55,7 +57,10 @@ def _assert_value(value: str, field: CronField) -> None:
             step = None
 
             if "/" in entry:
-                raise CronParsingError("Step syntax is not supported with ranges")
+                raise CronParsingError(
+                    f'Unable to parse cron expression "{value}": '
+                    "Step syntax is not supported with ranges"
+                )
         elif "/" in entry:
             entry, step = entry.split("/", 1)
         else:
@@ -67,21 +72,34 @@ def _assert_value(value: str, field: CronField) -> None:
             try:
                 start_int = int(start)
             except ValueError:
-                raise CronParsingError(f"Unable to parse '{start}' as an integer")
+                raise CronParsingError(
+                    f'Unable to parse cron expression "{value}": '
+                    f"Unable to parse '{start}' as an integer"
+                )
 
             try:
                 end_int = int(end)
             except ValueError:
-                raise CronParsingError(f"Unable to parse '{end}' as an integer")
+                raise CronParsingError(
+                    f'Unable to parse cron expression "{value}": '
+                    f"Unable to parse '{end}' as an integer"
+                )
 
             if start_int > end_int:
                 raise CronParsingError(
+                    f'Unable to parse cron expression "{value}": '
                     f"End value {end_int} must be smaller than start value {start_int}"
                 )
             if start_int < field.min:
-                raise CronParsingError(f"Start value {start_int} must be at least {field.min}")
+                raise CronParsingError(
+                    f'Unable to parse cron expression "{value}": '
+                    f"Start value {start_int} must be at least {field.min}"
+                )
             if end_int > field.max:
-                raise CronParsingError(f"End value {end_int} must be at most {field.max}")
+                raise CronParsingError(
+                    f'Unable to parse cron expression "{value}": '
+                    f"End value {end_int} must be at most {field.max}"
+                )
 
         elif entry != "*":
             if field.mapping and entry in field.mapping:
@@ -90,10 +108,14 @@ def _assert_value(value: str, field: CronField) -> None:
             try:
                 field_int = int(entry)
             except ValueError:
-                raise CronParsingError(f"Unable to parse '{entry}' as an integer")
+                raise CronParsingError(
+                    f'Unable to parse cron expression "{value}": '
+                    f"Unable to parse '{entry}' as an integer"
+                )
 
             if field_int < field.min or field_int > field.max:
                 raise CronParsingError(
+                    f'Unable to parse cron expression "{value}": '
                     f"Invalid value '{entry}', expected {field.min}-{field.max}"
                 )
 
@@ -101,25 +123,29 @@ def _assert_value(value: str, field: CronField) -> None:
             try:
                 step_int = int(step)
             except ValueError:
-                raise CronParsingError(f"Unable to parse '{step}' (from '{entry}') as an integer")
+                raise CronParsingError(
+                    f'Unable to parse cron expression "{value}": '
+                    f"Unable to parse '{step}' (from '{entry}') as an integer"
+                )
 
             if step_int == 0 or step_int < field.min or step_int > field.max:
-                raise CronParsingError(f"Invalid step value in '{entry}'")
+                raise CronParsingError(
+                    f'Unable to parse cron expression "{value}": '
+                    f"Invalid step value in '{entry}'"
+                )
 
 
-class CronExpression:
-    def __init__(
-        self, text: str, minute: str, hour: str, day: str, month: str, day_of_week: str
-    ) -> None:
-        self.text = text
+class CronExpression(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-        self.minute = minute
-        self.hour = hour
-        self.day = day
-        self.month = month
-        self.day_of_week = day_of_week
+    text: str
+    minute: str
+    hour: str
+    day: str
+    month: str
+    day_of_week: str
 
-    def format(self) -> str:
+    def __str__(self) -> str:
         return f"{self.minute} {self.hour} {self.day} {self.month} {self.day_of_week}"
 
     @classmethod
@@ -129,6 +155,7 @@ class CronExpression:
             mapped = AT_MAPPING.get(value, None)
             if not mapped:
                 raise CronParsingError(
+                    f'Unable to parse cron expression "{value}": '
                     f"Invalid at-macro '{value}', supported macros are: {', '.join(AT_MAPPING.keys())}"
                 )
             parts = mapped.split(" ")
@@ -148,19 +175,19 @@ class CronExpression:
             parts = [part for part in value.lower().split(" ") if part != ""]
             if len(parts) != 5:
                 raise CronParsingError(
+                    f'Unable to parse cron expression "{value}": '
                     f"Expected to find 5 space-separated values, found {len(parts)}"
                 )
 
             for i, field in enumerate(FIELDS):
                 _assert_value(parts[i], field)
 
-        return cls(
-            value,
-            *parts,
-        )
+        # Create dictionary from array values
+        data = dict(zip(list(cls.model_fields.keys()), [value, *parts]))
+        return cls.model_validate(data)
 
     @classmethod
-    def from_job(cls, actual: str, configured: str) -> "CronExpression":
+    def from_runtime(cls, actual: str, configured: str) -> "CronExpression":
         parts = [part for part in actual.strip().split(" ") if part != ""]
 
         if len(parts) != 5:
@@ -168,7 +195,8 @@ class CronExpression:
                 f"Failed to parse cron expression '{actual}': expected to find 5 space-separated values, found {len(parts)}"
             )
 
-        return cls(
-            configured,
-            *parts,
-        )
+        # Create dictionary from array values
+        model_fields = list(cls.model_fields.keys())
+        model_values = [configured, *parts]
+        model_params = dict(zip(model_fields, model_values))
+        return cls(**model_params)

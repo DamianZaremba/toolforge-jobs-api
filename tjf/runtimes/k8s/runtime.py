@@ -13,8 +13,7 @@ from toolforge_weld.kubernetes_config import Kubeconfig
 from toolforge_weld.logs.source import LogEntry
 
 from ...core.error import TjfError, TjfValidationError
-from ...core.job import Job, JobType
-from ...core.quota import Quota, QuotaCategoryType
+from ...core.models import Job, JobType, QuotaCategoryType, QuotaData
 from ...core.utils import USER_AGENT, format_quantity, parse_and_format_mem
 from ..base import BaseRuntime
 from .account import ToolAccount
@@ -204,7 +203,7 @@ class K8sRuntime(BaseRuntime):
         )
         return "".join([line for line in list(diff) if line is not None])
 
-    def get_quota(self, *, tool: str) -> list[Quota]:
+    def get_quotas(self, *, tool: str) -> list[QuotaData]:
         tool_account = ToolAccount(name=tool)
         resource_quota = tool_account.k8s_cli.get_object("resourcequotas", tool_account.namespace)
         limit_range = tool_account.k8s_cli.get_object("limitranges", tool_account.namespace)
@@ -217,13 +216,13 @@ class K8sRuntime(BaseRuntime):
         )
 
         return [
-            Quota(
+            QuotaData(
                 category=QuotaCategoryType.RUNNING_JOBS,
                 name="Total running jobs at once (Kubernetes pods)",
                 limit=resource_quota["status"]["hard"]["pods"],
                 used=resource_quota["status"]["used"]["pods"],
             ),
-            Quota(
+            QuotaData(
                 category=QuotaCategoryType.RUNNING_JOBS,
                 name="Running one-off and cron jobs",
                 limit=resource_quota["status"]["hard"]["count/jobs.batch"],
@@ -232,7 +231,7 @@ class K8sRuntime(BaseRuntime):
             # Here we assume that for all CPU and RAM use, requests are set to half of
             # what limits are set. This is true for at least jobs-api usage.
             # TODO: somehow display if requests are using more than half of limits.
-            Quota(
+            QuotaData(
                 category=QuotaCategoryType.RUNNING_JOBS,
                 name="CPU",
                 limit=format_quantity(
@@ -242,31 +241,31 @@ class K8sRuntime(BaseRuntime):
                     quantity_value=parse_quantity(resource_quota["status"]["used"]["limits.cpu"])
                 ),
             ),
-            Quota(
+            QuotaData(
                 category=QuotaCategoryType.RUNNING_JOBS,
                 name="Memory",
                 limit=parse_and_format_mem(mem=resource_quota["status"]["hard"]["limits.memory"]),
                 used=parse_and_format_mem(mem=resource_quota["status"]["used"]["limits.memory"]),
             ),
-            Quota(
+            QuotaData(
                 category=QuotaCategoryType.PER_JOB_LIMITS,
                 name="CPU",
                 limit=format_quantity(
                     quantity_value=parse_quantity(container_limit["max"]["cpu"]),
                 ),
             ),
-            Quota(
+            QuotaData(
                 category=QuotaCategoryType.PER_JOB_LIMITS,
                 name="Memory",
                 limit=parse_and_format_mem(mem=container_limit["max"]["memory"]),
             ),
-            Quota(
+            QuotaData(
                 category=QuotaCategoryType.JOB_DEFINITIONS,
                 name="Cron jobs",
                 limit=resource_quota["status"]["hard"]["count/cronjobs.batch"],
                 used=resource_quota["status"]["used"]["count/cronjobs.batch"],
             ),
-            Quota(
+            QuotaData(
                 category=QuotaCategoryType.JOB_DEFINITIONS,
                 name="Continuous jobs (including web services)",
                 limit=resource_quota["status"]["hard"]["count/deployments.apps"],

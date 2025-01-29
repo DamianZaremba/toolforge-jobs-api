@@ -1,36 +1,26 @@
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal, Optional, Type, Union
+from typing import Any, Optional, Type, Union
 
-from pydantic import BaseModel as PydanticModel
 from pydantic import Field, field_validator
 from toolforge_weld.kubernetes import MountOption
 from typing_extensions import Annotated
 
-from ..core import health_check as hc
 from ..core.cron import CronExpression, CronParsingError
 from ..core.error import TjfValidationError
-from ..core.health_check import HealthCheckType
 from ..core.images import Image as ImageData
 from ..core.images import ImageType, image_by_name
-from ..core.job import JOBNAME_MAX_LENGTH, JOBNAME_PATTERN, EmailOption, Job, JobType
-from ..core.quota import Quota as QuotaData
-from ..core.quota import QuotaCategoryType
-
-
-class BaseModel(PydanticModel):
-    class Config:
-        extra = "forbid"
-
-
-class ScriptHealthCheck(BaseModel):
-    script: str
-    type: Literal[HealthCheckType.SCRIPT]
-
-
-class HttpHealthCheck(BaseModel):
-    path: str
-    type: Literal[HealthCheckType.HTTP]
+from ..core.models import (
+    JOBNAME_MAX_LENGTH,
+    JOBNAME_PATTERN,
+    BaseModel,
+    EmailOption,
+    HttpHealthCheck,
+    Job,
+    JobType,
+    Quota,
+    ScriptHealthCheck,
+)
 
 
 class CommonJob(BaseModel):
@@ -51,7 +41,7 @@ class CommonJob(BaseModel):
     cpu: str | None = None
     health_check: Optional[Union[ScriptHealthCheck, HttpHealthCheck]] = Field(
         None,
-        discriminator="type",
+        discriminator="health_check_type",
     )
     timeout: Annotated[int, Field(ge=0)] | None = None
 
@@ -95,14 +85,6 @@ class NewJob(CommonJob):
             # for a buildservice-based job
             self.cmd = f"launcher {self.cmd}"
 
-        # TODO: remove this health_check section completely when tjf.core.health_check is moved to pydantic
-        health_check: hc.HttpHealthCheck | hc.ScriptHealthCheck | None = None
-        if self.continuous and self.health_check:
-            if hc.HttpHealthCheck.handles_type(self.health_check.type):
-                health_check = hc.HttpHealthCheck(**self.health_check.model_dump())
-            elif hc.ScriptHealthCheck.handles_type(self.health_check.type):
-                health_check = hc.ScriptHealthCheck(**self.health_check.model_dump())
-
         if self.schedule:
             job_type = JobType.SCHEDULED
             try:
@@ -119,14 +101,14 @@ class NewJob(CommonJob):
             schedule = None
             job_type = JobType.CONTINUOUS if self.continuous else JobType.ONE_OFF
 
-        job = Job(
+        return Job(
             job_type=job_type,
             cmd=self.cmd,
             filelog=self.filelog,
             filelog_stderr=self.filelog_stderr,
             filelog_stdout=self.filelog_stdout,
             image=image,
-            jobname=self.name,
+            job_name=self.name,
             tool_name=tool_name,
             schedule=schedule,
             cont=self.continuous,
@@ -138,11 +120,9 @@ class NewJob(CommonJob):
             cpu=self.cpu,
             emails=self.emails,
             mount=self.mount,
-            health_check=health_check,
+            health_check=self.health_check,
             timeout=self.timeout,
         )
-        job.validate_job()
-        return job
 
 
 class DefinedJob(CommonJob):
@@ -169,7 +149,7 @@ class DefinedJob(CommonJob):
             "replicas": job.replicas,
             "emails": job.emails.value,
             "retry": job.retry,
-            "mount": str(job.mount),
+            "mount": job.mount.value,
             "health_check": None,
             "memory": job.memory,
             "cpu": job.cpu,
@@ -180,13 +160,13 @@ class DefinedJob(CommonJob):
 
         if job.schedule is not None:
             obj["schedule"] = job.schedule.text
-            obj["schedule_actual"] = job.schedule.format()
+            obj["schedule_actual"] = str(job.schedule)
 
         if job.cont:
             obj["continuous"] = True
 
         if job.health_check:
-            obj["health_check"] = job.health_check.for_api()
+            obj["health_check"] = job.health_check.model_dump(by_alias=True)
 
         return cls.model_validate(obj)
 
@@ -208,39 +188,6 @@ class Image(BaseModel):
     @classmethod
     def from_image_data(cls: Type["Image"], image_data: ImageData) -> "Image":
         return cls(shortname=image_data.canonical_name, image=image_data.container)
-
-
-class QuotaEntry(BaseModel):
-    name: str
-    limit: str
-    used: str | None = None
-
-
-class QuotaCategory(BaseModel):
-    name: str
-    items: list[QuotaEntry]
-
-
-class Quota(BaseModel):
-    categories: list[QuotaCategory]
-
-    @classmethod
-    def from_quota_data(cls: Type["Quota"], quota_data: list[QuotaData]) -> "Quota":
-        quota = cls(categories=[])
-        # size of both QuotaCategoryType and quota_data are limited so nested for-loop is fine
-        for type in QuotaCategoryType:
-            category = QuotaCategory(name=type.value, items=[])
-            for data in quota_data:
-                if data.category == type:
-                    category.items.append(
-                        QuotaEntry(
-                            name=data.name,
-                            limit=data.limit,
-                            used=data.used,
-                        )
-                    )
-            quota.categories.append(category)
-        return quota
 
 
 class ResponseMessages(BaseModel):

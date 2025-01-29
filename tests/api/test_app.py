@@ -11,12 +11,19 @@ from toolforge_weld.kubernetes import MountOption
 
 from tjf.api.app import error_handler
 from tjf.api.auth import TOOL_HEADER, ToolAuthError, ensure_authenticated
-from tjf.api.models import EmailOption, JobListResponse, ResponseMessages
+from tjf.api.models import (
+    JobListResponse,
+    ResponseMessages,
+)
 from tjf.api.utils import JobsApi
 from tjf.core.error import TjfClientError, TjfError
-from tjf.core.health_check import HealthCheckType, ScriptHealthCheck
 from tjf.core.images import AVAILABLE_IMAGES, Image, ImageType
-from tjf.core.job import Job, JobType
+from tjf.core.models import (
+    EmailOption,
+    Job,
+    JobType,
+    ScriptHealthCheck,
+)
 
 
 class Silly(BaseModel):
@@ -37,11 +44,11 @@ def get_dummy_job(**overrides) -> Job:
             container="silly-container",
             state="silly state",
         ),
-        "jobname": "silly-job-name",
+        "job_name": "silly-job-name",
         "tool_name": "silly-user",
         "schedule": None,
         "cont": True,
-        "k8s_object": None,
+        "k8s_object": {},
         "retry": 0,
         "memory": None,
         "cpu": None,
@@ -52,7 +59,7 @@ def get_dummy_job(**overrides) -> Job:
         "replicas": None,
     }
     params.update(overrides)
-    return Job(**params)  # type: ignore
+    return Job.model_validate(params)
 
 
 def update_available_images(image: Image):
@@ -205,7 +212,7 @@ class TestJobsEndpoint:
         monkeypatch: MonkeyPatch,
     ) -> None:
         expected_names = ["job1", "job2"]
-        dummy_jobs = [get_dummy_job(jobname=name) for name in expected_names]
+        dummy_jobs = [get_dummy_job(job_name=name) for name in expected_names]
         monkeypatch.setattr(
             app.core,
             "get_jobs",
@@ -230,12 +237,12 @@ class TestJobsEndpoint:
         patch_kube_config_loading,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        expected_health_check = {"script": "silly script", "type": "script"}
+        expected_health_check = {"script": "silly script", "health_check_type": "script"}
         dummy_job = get_dummy_job(
             health_check=ScriptHealthCheck(
-                type=HealthCheckType.SCRIPT,
+                health_check_type=expected_health_check["health_check_type"],
                 script=expected_health_check["script"],
-            )
+            )  # type: ignore[call-arg]
         )
         monkeypatch.setattr(
             app.core,

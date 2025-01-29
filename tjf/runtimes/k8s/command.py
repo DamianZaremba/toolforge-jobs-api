@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ...core.command import Command
+from ...core.models import Command
 from .account import ToolAccount
 
 COMMAND_WRAPPER = ["/bin/sh", "-c", "--"]

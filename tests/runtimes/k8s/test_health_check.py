@@ -1,8 +1,10 @@
+from typing import Literal
+
 import pytest
 
 from tjf.core.error import TjfJobParsingError
-from tjf.core.health_check import (
-    HealthCheck,
+from tjf.core.models import (
+    BaseModel,
     HealthCheckType,
     HttpHealthCheck,
     ScriptHealthCheck,
@@ -14,20 +16,17 @@ from tjf.runtimes.k8s.healthchecks import (
 )
 
 
-class UnhandledCheck(HealthCheck):
-    @classmethod
-    def for_api(cls) -> dict[str, str]:
-        return {}
-
-    @classmethod
-    def handles_type(cls, check_type: str | None) -> bool:
-        return True
+class UnhandledCheck(BaseModel):
+    health_check_type: Literal["unknown"]
+    path: str
 
 
 class TestGetHealthcheckForK8s:
     def test_we_get_error_when_healthcheck_is_unknown(self):
         with pytest.raises(TjfJobParsingError, match="Invalid health check"):
-            get_healthcheck_for_k8s(health_check=UnhandledCheck(), port=None)
+            get_healthcheck_for_k8s(
+                health_check=UnhandledCheck(health_check_type="unknown", path="unknown"), port=None
+            )
 
     def test_we_get_script_healthcheck(self):
         expected_k8s_object = {
@@ -42,7 +41,9 @@ class TestGetHealthcheckForK8s:
         }
 
         gotten_k8s_object = get_healthcheck_for_k8s(
-            health_check=ScriptHealthCheck(type=HealthCheckType.SCRIPT, script="Some script"),
+            health_check=ScriptHealthCheck(
+                health_check_type=HealthCheckType.SCRIPT, script="Some script"
+            ),
             port=None,
         )
 
@@ -61,7 +62,8 @@ class TestGetHealthcheckForK8s:
         }
 
         gotten_k8s_object = get_healthcheck_for_k8s(
-            health_check=HttpHealthCheck(type=HealthCheckType.HTTP, path="/healthz"), port=8080
+            health_check=HttpHealthCheck(health_check_type=HealthCheckType.HTTP, path="/healthz"),
+            port=8080,
         )
 
         assert gotten_k8s_object == expected_k8s_object

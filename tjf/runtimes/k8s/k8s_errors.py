@@ -20,7 +20,7 @@ from typing import Any
 import requests
 
 from ...core.error import TjfError, TjfJobNotFoundError, TjfValidationError
-from ...core.job import Job
+from ...core.models import Job
 from .account import ToolAccount
 from .jobs import K8sJobKind
 

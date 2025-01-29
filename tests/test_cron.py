@@ -8,16 +8,14 @@ TOOLNAME = "some-tool"
 
 def test_cron_parse_simple():
     assert (
-        CronExpression.parse(value="1 2 3 4 5", job_name=JOBNAME, tool_name=TOOLNAME).format()
+        str(CronExpression.parse(value="1 2 3 4 5", job_name=JOBNAME, tool_name=TOOLNAME))
         == "1 2 3 4 5"
     )
 
 
 def test_cron_parse_wildcards():
     assert (
-        CronExpression.parse(
-            value="*/30 1,2 4-6 * *", job_name=JOBNAME, tool_name=TOOLNAME
-        ).format()
+        str(CronExpression.parse(value="*/30 1,2 4-6 * *", job_name=JOBNAME, tool_name=TOOLNAME))
         == "*/30 1,2 4-6 * *"
     )
 
@@ -26,7 +24,7 @@ def test_cron_parse_at_macro():
     expression = CronExpression.parse(value="@daily", job_name=JOBNAME, tool_name=TOOLNAME)
     assert expression.text == "@daily"
     # this changes based on the random seed
-    assert expression.format() == "56 6 * * *"
+    assert str(expression) == "56 6 * * *"
 
 
 def test_cron_parse_invalid_fields():

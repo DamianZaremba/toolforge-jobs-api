@@ -12,12 +12,18 @@ from toolforge_weld.kubernetes import ApiData, K8sClient, MountOption, parse_qua
 from toolforge_weld.logs import LogEntry
 from toolforge_weld.logs.kubernetes import KubernetesSource
 
-from ...core.command import Command
 from ...core.cron import CronExpression
 from ...core.error import TjfError, TjfValidationError
-from ...core.health_check import HealthCheckType, HttpHealthCheck, ScriptHealthCheck
 from ...core.images import ImageType, image_by_container_url
-from ...core.job import EmailOption, Job, JobType
+from ...core.models import (
+    Command,
+    EmailOption,
+    HealthCheckType,
+    HttpHealthCheck,
+    Job,
+    JobType,
+    ScriptHealthCheck,
+)
 from ...core.utils import dict_get_object
 from .account import ToolAccount
 from .command import get_command_for_k8s, get_command_from_k8s
@@ -126,7 +132,7 @@ def _get_k8s_cronjob_object(job: Job) -> K8S_OBJECT_TYPE:
             },
         },
         "spec": {
-            "schedule": job.schedule.format(),
+            "schedule": str(job.schedule),
             "successfulJobsHistoryLimit": 0,
             "failedJobsHistoryLimit": 0,
             "concurrencyPolicy": "Forbid",
@@ -469,14 +475,14 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
         # the schedule of certain old tools can't be directly handled by CronExpression.from_job.
         # see T391786 for more details.
         # TODO: cleanup when T359649 is resolved.
-        actual_schedule = CronExpression.parse(
-            value=spec["schedule"], job_name=jobname, tool_name=user
-        ).format()
-        configured_schedule = CronExpression.parse(
-            value=configured_schedule_str, job_name=jobname, tool_name=user
-        ).format()
+        actual_schedule = str(
+            CronExpression.parse(value=spec["schedule"], job_name=jobname, tool_name=user)
+        )
+        configured_schedule = str(
+            CronExpression.parse(value=configured_schedule_str, job_name=jobname, tool_name=user)
+        )
 
-        schedule = CronExpression.from_job(
+        schedule = CronExpression.from_runtime(
             actual=actual_schedule,
             configured=configured_schedule,
         )
@@ -524,10 +530,10 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
     container_spec = podspec["template"]["spec"]["containers"][0]
     if container_spec.get("startupProbe", {}).get("exec", None):
         script = container_spec["startupProbe"]["exec"]["command"][2]
-        health_check = ScriptHealthCheck(type=HealthCheckType.SCRIPT, script=script)
+        health_check = ScriptHealthCheck(health_check_type=HealthCheckType.SCRIPT, script=script)  # type: ignore[call-arg]
     elif container_spec.get("startupProbe", {}).get("httpGet", None):
         path = container_spec["startupProbe"]["httpGet"]["path"]
-        health_check = HttpHealthCheck(type=HealthCheckType.HTTP, path=path)
+        health_check = HttpHealthCheck(health_check_type=HealthCheckType.HTTP, path=path)  # type: ignore[call-arg]
 
     image = image_by_container_url(url=imageurl)
 
@@ -540,7 +546,7 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
         filelog_stderr=command.filelog_stderr,
         filelog_stdout=command.filelog_stdout,
         image=image,
-        jobname=jobname,
+        job_name=jobname,
         tool_name=user,
         schedule=schedule,
         cont=cont,

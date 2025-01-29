@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Iterator, Optional
 
-from ..core.job import Job
-from ..core.quota import Quota
+from ..core.models import Job, QuotaData
 
 
 class BaseRuntime(ABC):
@@ -49,5 +48,5 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_quota(self, *, tool: str) -> list[Quota]:
+    def get_quotas(self, *, tool: str) -> list[QuotaData]:
         raise NotImplementedError

@@ -19,9 +19,9 @@ import http
 from flask import Blueprint, request
 from flask.typing import ResponseReturnValue
 
+from ..core.models import Quota
 from .auth import ensure_authenticated
 from .models import (
-    Quota,
     QuotaResponse,
     ResponseMessages,
 )
@@ -33,7 +33,7 @@ quotas = Blueprint("quotas", __name__, url_prefix="/v1/tool/<toolname>/quotas")
 @quotas.route("/", methods=["GET"], strict_slashes=False)
 def api_get_quota(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
-    quota_data = current_app().core.get_quota(toolname=toolname)
+    quota_data = current_app().core.get_quotas(toolname=toolname)
 
     return (
         QuotaResponse(
