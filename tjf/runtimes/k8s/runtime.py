@@ -95,6 +95,8 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool)
         validate_job_limits(tool_account, job)
         spec = get_job_for_k8s(job=job)
+        LOGGER.debug("The following spec will be used to create the job")
+        LOGGER.debug(spec)
 
         self.create_service(job=job, tool_account=tool_account)
         try:
