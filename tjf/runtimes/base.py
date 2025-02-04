@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Optional
 
 from ..job import Job
 from ..quota import Quota
@@ -36,6 +36,19 @@ class BaseRuntime(ABC):
     def get_logs(
         self, *, job_name: str, tool: str, follow: bool, lines: int | None = None
     ) -> Iterator[str]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def diff_with_running_job(self, *, job: Job) -> Optional[str]:
+        """
+        Compare job with the one in the runtime and return the diff.
+        This is done here instead of the business side because:
+        - It Makes job comparison logic less brittle (
+           since it by-passes the business logic job implementation
+           and directly compares the runtime implementation of a job
+          )
+        - It can be re-used for other purposes other than update_job
+        """
         raise NotImplementedError
 
     @abstractmethod

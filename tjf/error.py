@@ -45,6 +45,10 @@ class TjfJobParsingError(TjfError):
     """Custom error class for issues with loading jobs from the cluster."""
 
 
+class TjfJobNotFoundError(TjfError):
+    """Custom error class for when jobs don't exist"""
+
+
 def tjf_error_from_weld_error(error: ToolforgeError) -> TjfError:
     error_class = TjfError
     if isinstance(error, ToolforgeUserError):

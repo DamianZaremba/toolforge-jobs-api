@@ -354,6 +354,32 @@ def get_k8s_job_from_cronjob(k8s_cronjob: K8S_OBJECT_TYPE) -> K8S_OBJECT_TYPE:
     return k8s_job
 
 
+def prune_spec(spec: K8S_OBJECT_TYPE, template: K8S_OBJECT_TYPE) -> K8S_OBJECT_TYPE:
+    """
+    Recursively prune 'spec' so that only keys present in 'template' remain.
+
+    This function assumes:
+      - If template is a dict, then for each key in template, if that key exists in spec,
+        include it (recursively pruned).
+      - If template is a list and spec is a list, then process each corresponding element.
+      - Otherwise, return the spec value.
+    """
+    if isinstance(template, dict) and isinstance(spec, dict):
+        pruned = {}
+        for key in template:
+            if key in spec:
+                pruned[key] = prune_spec(spec[key], template[key])
+        return pruned
+
+    if isinstance(template, list) and isinstance(spec, list):
+        # Here, we assume that the lists are in a corresponding order. You may need to
+        # adjust if your lists are unordered or require merging by a specific key.
+        return [prune_spec(spc, templ) for spc, templ in zip(spec, template)]
+
+    # For other data types (or if the structure doesn't match), just return the spec value.
+    return spec
+
+
 def format_logs(logs: Iterator[LogEntry]) -> Iterator[str]:
     for entry in logs:
         if entry.container != JOB_CONTAINER_NAME:

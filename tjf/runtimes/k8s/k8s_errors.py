@@ -19,7 +19,7 @@ from typing import Any
 
 import requests
 
-from ...error import TjfError, TjfValidationError
+from ...error import TjfError, TjfJobNotFoundError, TjfValidationError
 from ...job import Job
 from .account import ToolAccount
 from .jobs import K8sJobKind
@@ -98,6 +98,12 @@ def create_error_from_k8s_response(
     ):
         return TjfValidationError(
             "An object with the same name exists already", http_status_code=409, data=error_data
+        )
+
+    if error.response.status_code == 404:
+        return TjfJobNotFoundError(
+            f"Job {job.job_name} does not exist",
+            data=error_data,
         )
 
     return TjfError(

@@ -1,8 +1,11 @@
+import json
 import logging
 import time
+from difflib import unified_diff
 from logging import getLogger
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator, Optional
+from uuid import uuid4
 
 import requests
 from toolforge_weld.kubernetes import parse_quantity
@@ -15,7 +18,7 @@ from ...utils import format_quantity, parse_and_format_mem
 from ..base import BaseRuntime
 from .account import ToolAccount
 from .command import resolve_filelog_path
-from .jobs import K8sJobKind, format_logs, get_job_for_k8s, get_job_from_k8s
+from .jobs import K8sJobKind, format_logs, get_job_for_k8s, get_job_from_k8s, prune_spec
 from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
 from .ops import trigger_scheduled_job, validate_job_limits
@@ -26,6 +29,7 @@ LOGGER = getLogger(__name__)
 
 
 class K8sRuntime(BaseRuntime):
+
     def get_jobs(self, *, tool: str) -> list[Job]:
         job_list = []
         tool_account = ToolAccount(name=tool)
@@ -80,16 +84,18 @@ class K8sRuntime(BaseRuntime):
         else:
             raise TjfError(f"Unable to restart unknown job type: {job}")
 
-    def create_service(self, job: Job, tool_account: ToolAccount) -> None:
+    def create_service(self, job: Job) -> Optional[dict[str, Any]]:
+        tool_account = ToolAccount(name=job.tool_name)
         if job.port and job.cont:
             kind = "services"
             spec = get_k8s_service_object(job)
             try:
-                tool_account.k8s_cli.create_object(kind=kind, spec=spec)
+                return tool_account.k8s_cli.create_object(kind=kind, spec=spec)  # type: ignore
             except requests.exceptions.HTTPError as error:
                 raise create_error_from_k8s_response(
                     error=error, job=job, spec=spec, tool_account=tool_account
                 )
+        return None
 
     def create_job(self, *, job: Job, tool: str) -> None:
         tool_account = ToolAccount(name=tool)
@@ -97,7 +103,7 @@ class K8sRuntime(BaseRuntime):
         spec = get_job_for_k8s(job=job)
         logging.debug(f"Got k8s spec: {spec}")
 
-        self.create_service(job=job, tool_account=tool_account)
+        self.create_service(job=job)
         try:
             k8s_result = tool_account.k8s_cli.create_object(
                 kind=K8sJobKind.from_job_type(job.job_type).api_path_name,
@@ -135,6 +141,48 @@ class K8sRuntime(BaseRuntime):
                     job_name=job.job_name, user_name=tool_account.name, type=kind
                 ),
             )
+
+    def diff_with_running_job(self, *, job: Job) -> str:
+        """
+        Check for differences between job and running job
+        """
+        LOGGER.debug("Checking for diff in job %s for tool %s", job.job_name, job.tool_name)
+
+        tool_account = ToolAccount(name=job.tool_name)
+        kind = K8sJobKind.from_job_type(job.job_type).api_path_name
+        spec = get_job_for_k8s(job=job)
+
+        # use random name for dry-run object to avoid conflicts
+        spec["metadata"]["name"] = str(uuid4())
+        spec_dry_run = tool_account.k8s_cli.create_object(
+            kind=kind,
+            spec=spec,
+            dry_run=True,
+        )
+        spec_dry_run["metadata"]["name"] = job.job_name
+
+        try:
+            # we can't use get_objects here since that omits things like kind.
+            k8s_obj = tool_account.k8s_cli.get_object(
+                kind, name=job.job_name, namespace=tool_account.namespace
+            )
+        except requests.exceptions.HTTPError as error:
+            raise create_error_from_k8s_response(
+                error=error, job=job, spec=spec, tool_account=tool_account
+            )
+
+        k8s_obj = prune_spec(spec=k8s_obj, template=spec)
+        spec_dry_run = prune_spec(spec=spec_dry_run, template=spec)
+
+        sorted_k8s_obj_str = json.dumps(k8s_obj, sort_keys=True, indent=4)
+        sorted_spec_dry_run_str = json.dumps(spec_dry_run, sort_keys=True, indent=4)
+
+        diff = unified_diff(
+            sorted_k8s_obj_str.splitlines(keepends=True),
+            sorted_spec_dry_run_str.splitlines(keepends=True),
+            lineterm="",
+        )
+        return "".join([line for line in list(diff) if line is not None])
 
     def get_quota(self, *, tool: str) -> list[Quota]:
         tool_account = ToolAccount(name=tool)
