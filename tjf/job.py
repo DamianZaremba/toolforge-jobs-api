@@ -61,7 +61,7 @@ class Job:
         emails: str,
         mount: MountOption,
         health_check: ScriptHealthCheck | HttpHealthCheck | None,
-        timeout: int | None = None,
+        timeout: int = 0,
     ) -> None:
         self.job_type = job_type
 

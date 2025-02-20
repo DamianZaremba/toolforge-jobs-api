@@ -79,9 +79,9 @@ def should_update_job(
     keys_to_ignore = ["schedule_actual", "status_short", "status_long", "image_state"]
 
     if not should_create_job(new_defined_job, current_defined_jobs):
-        new_defined_job_json = new_defined_job.model_dump(exclude_unset=True)
+        new_defined_job_json = new_defined_job.model_dump(exclude_defaults=True)
         current_defined_job_json = current_defined_jobs[new_defined_job.name].model_dump(
-            exclude_unset=True
+            exclude_defaults=True
         )
         for key in keys_to_ignore:
             new_defined_job_json.pop(key, None)

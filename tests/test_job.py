@@ -34,6 +34,7 @@ SIMPLE_TEST_DEFINED_JOB = {
     "retry": 0,
     "mount": "all",
     "health_check": None,
+    "timeout": 0,
 }
 
 
@@ -351,6 +352,31 @@ params = [
     [
         merge(SIMPLE_TEST_NEW_JOB, {"continuous": True, "replicas": 2}),
         merge(SIMPLE_TEST_DEFINED_JOB, {"continuous": True, "replicas": 2}),
+        False,
+        False,
+    ],
+    # timeout
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"schedule": "* * * * *", "timeout": 10}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"schedule": "* * * * *", "timeout": 10}),
+        False,
+        False,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"schedule": "* * * * *", "timeout": 10}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"schedule": "* * * * *"}),
+        False,
+        True,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"schedule": "* * * * *", "timeout": 0}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"schedule": "* * * * *", "timeout": 0}),
+        False,
+        False,
+    ],
+    [
+        merge(SIMPLE_TEST_NEW_JOB, {"schedule": "* * * * *"}),
+        merge(SIMPLE_TEST_DEFINED_JOB, {"schedule": "* * * * *", "timeout": 0}),
         False,
         False,
     ],

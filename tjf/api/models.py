@@ -97,7 +97,7 @@ class CommonJob(BaseModel):
     memory: str | None = None
     cpu: str | None = None
     health_check: ScriptHealthCheck | HttpHealthCheck | None = None
-    timeout: Annotated[int, Field(ge=0)] | None = None
+    timeout: Annotated[int, Field(ge=0)] = 0
 
     @model_validator(mode="after")
     def validate_job(self) -> Self:
