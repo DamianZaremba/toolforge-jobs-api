@@ -19,11 +19,10 @@ from __future__ import annotations
 import requests
 from toolforge_weld.kubernetes import parse_quantity
 
-from ... import utils
-from ...error import TjfError, TjfValidationError
+from ...error import TjfValidationError
 from ...job import Job
 from .account import ToolAccount
-from .jobs import get_k8s_single_run_object
+from .jobs import get_k8s_job_from_cronjob
 from .k8s_errors import create_error_from_k8s_response
 
 
@@ -73,18 +72,14 @@ def validate_job_limits(account: ToolAccount, job: Job) -> None:
                     )
 
 
-def launch_manual_cronjob(tool_account: ToolAccount, job: Job) -> None:
-    validate_job_limits(tool_account, job)
+def trigger_scheduled_job(tool_account: ToolAccount, scheduled_job: Job) -> None:
+    validate_job_limits(tool_account, scheduled_job)
 
-    cronjob = tool_account.k8s_cli.get_object("cronjobs", job.job_name)
-    metadata = utils.dict_get_object(cronjob, "metadata")
-    if not metadata or "uid" not in metadata:
-        raise TjfError("Found CronJob does not have metadata", data={"k8s_object": cronjob})
-
-    spec = get_k8s_single_run_object(job=job, cronjob_uid=metadata["uid"])
+    k8s_cronjob = tool_account.k8s_cli.get_object("cronjobs", scheduled_job.job_name)
+    k8s_job = get_k8s_job_from_cronjob(k8s_cronjob=k8s_cronjob)
     try:
-        tool_account.k8s_cli.create_object(kind="jobs", spec=spec)
+        tool_account.k8s_cli.create_object(kind="jobs", spec=k8s_job)
     except requests.exceptions.HTTPError as error:
         raise create_error_from_k8s_response(
-            error=error, job=job, spec=spec, tool_account=tool_account
+            error=error, job=scheduled_job, spec=k8s_job, tool_account=tool_account
         )

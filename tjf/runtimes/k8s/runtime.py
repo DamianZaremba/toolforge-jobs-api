@@ -18,7 +18,7 @@ from .command import resolve_filelog_path
 from .jobs import K8sJobKind, format_logs, get_job_for_k8s, get_job_from_k8s
 from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
-from .ops import launch_manual_cronjob, validate_job_limits
+from .ops import trigger_scheduled_job, validate_job_limits
 from .ops_status import refresh_job_long_status, refresh_job_short_status
 from .services import get_k8s_service_object
 
@@ -70,8 +70,7 @@ class K8sRuntime(BaseRuntime):
             # Wait until the currently running job stops
             self.wait_for_job(tool=tool, job=job)
 
-            # Launch it manually
-            launch_manual_cronjob(user, job)
+            trigger_scheduled_job(user, job)
 
         elif k8s_type == K8sJobKind.DEPLOYMENT:
             # Simply delete the pods and let Kubernetes re-create them

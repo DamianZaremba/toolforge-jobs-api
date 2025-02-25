@@ -1,6 +1,7 @@
 import json
 import pwd
 import time
+from copy import deepcopy
 from enum import Enum
 from functools import cache
 from typing import Any, Iterator
@@ -325,28 +326,32 @@ def _get_k8s_job_object(job: Job) -> K8S_OBJECT_TYPE:
     return obj
 
 
-def get_k8s_single_run_object(job: Job, cronjob_uid: str) -> K8S_OBJECT_TYPE:
+def get_k8s_job_from_cronjob(k8s_cronjob: K8S_OBJECT_TYPE) -> K8S_OBJECT_TYPE:
     """Returns a Kubernetes manifest to run this CronJob once."""
     # This is largely based on kubectl code
     # https://github.com/kubernetes/kubernetes/blob/985c9202ccd250a5fe22c01faf0d8f83d804b9f3/staging/src/k8s.io/kubectl/pkg/cmd/create/create_job.go#L261
 
-    k8s_job_object = _get_k8s_job_object(job=job)
+    k8s_job: dict[str, Any] = {"metadata": {}}
 
     # Set an unique name
-    k8s_job_object["metadata"]["name"] += f"-{int(time.time())}"
-
-    # Set references to the CronJob object
-    k8s_job_object["metadata"]["annotations"] = {"cronjob.kubernetes.io/instantiate": "manual"}
-    k8s_job_object["metadata"]["ownerReferences"] = [
+    k8s_job["metadata"]["name"] = f"{k8s_cronjob['metadata']['name']}-{int(time.time())}"
+    k8s_job["metadata"]["namespace"] = k8s_cronjob["metadata"]["namespace"]
+    k8s_job["metadata"]["annotations"] = deepcopy(
+        k8s_cronjob["spec"]["jobTemplate"].get("annotations", {})
+    )
+    k8s_job["metadata"]["labels"] = deepcopy(k8s_cronjob["spec"]["jobTemplate"].get("labels", {}))
+    k8s_job["metadata"]["annotations"] = {"cronjob.kubernetes.io/instantiate": "manual"}
+    k8s_job["metadata"]["ownerReferences"] = [
         {
             "apiVersion": K8sJobKind.CRON_JOB.api_version,
             "kind": K8sJobKind.CRON_JOB.value,
-            "name": job.job_name,
-            "uid": cronjob_uid,
+            "name": k8s_cronjob["metadata"]["name"],
+            "uid": k8s_cronjob["metadata"]["uid"],
         }
     ]
+    k8s_job["spec"] = deepcopy(k8s_cronjob["spec"]["jobTemplate"]["spec"])
 
-    return k8s_job_object
+    return k8s_job
 
 
 def format_logs(logs: Iterator[LogEntry]) -> Iterator[str]:
