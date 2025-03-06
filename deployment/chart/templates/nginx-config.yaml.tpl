@@ -28,7 +28,7 @@ data:
             ssl_protocols          TLSv1.2;
             ssl_ciphers            HIGH:!aNULL:!MD5;
 
-            location .*/logs$ {
+            location ~ .*/logs$ {
                 proxy_pass http://127.0.0.1:8000;
                 # logs have to wait for the pods to come up to start streaming
                 # so they might take a long time
