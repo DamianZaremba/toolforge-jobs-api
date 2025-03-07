@@ -3,13 +3,15 @@ import os
 from difflib import unified_diff
 from logging import getLogger
 from pathlib import Path
+from queue import Empty, Queue
+from threading import Thread
 from typing import Any, Iterator, Optional
 from uuid import uuid4
 
 import requests
 from toolforge_weld.kubernetes import K8sClient, parse_quantity
 from toolforge_weld.kubernetes_config import Kubeconfig
-from toolforge_weld.logs.kubernetes import KubernetesSource
+from toolforge_weld.logs.source import LogEntry
 
 from ...core.error import TjfError, TjfValidationError
 from ...core.job import Job, JobType
@@ -19,7 +21,14 @@ from ..base import BaseRuntime
 from .account import ToolAccount
 from .command import resolve_filelog_path
 from .images import update_available_images
-from .jobs import K8sJobKind, format_logs, get_job_for_k8s, get_job_from_k8s, prune_spec
+from .jobs import (
+    K8sJobKind,
+    format_logs,
+    get_job_for_k8s,
+    get_job_from_k8s,
+    prune_spec,
+    queue_log_entries,
+)
 from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
 from .ops import trigger_scheduled_job, validate_job_limits, wait_for_pods_exit
@@ -269,14 +278,49 @@ class K8sRuntime(BaseRuntime):
 
     def get_logs(self, *, job: Job, follow: bool, lines: int | None = None) -> Iterator[str]:
         tool_account = ToolAccount(name=job.tool_name)
-        log_source = KubernetesSource(client=tool_account.k8s_cli)
-        logs = log_source.query(
-            selector=labels_selector(job_name=job.job_name, user_name=tool_account.name),
-            follow=follow,
-            lines=lines,
-        )
+        selector = labels_selector(job_name=job.job_name, user_name=job.tool_name)
 
-        return format_logs(logs)
+        # FIXME: in follow mode, might want to periodically query
+        # if there are new pods
+        pods = tool_account.k8s_cli.get_objects(
+            kind="pods",
+            label_selector=selector,
+        )
+        if not pods:
+            return
+
+        log_queue: Queue[LogEntry] = Queue()
+        threads = []
+
+        for pod in pods:
+            pod_name = pod["metadata"]["name"]
+            for container in pod["spec"]["containers"]:
+                container_name = container["name"]
+                thread = Thread(
+                    target=queue_log_entries,
+                    kwargs={
+                        "tool_account": tool_account,
+                        "pod_name": pod_name,
+                        "container_name": container_name,
+                        "follow": follow,
+                        "lines": lines,
+                        "queue": log_queue,
+                    },
+                    daemon=True,
+                )
+                thread.start()
+                threads.append(thread)
+
+        while follow or any(thread.is_alive() for thread in threads) or not log_queue.empty():
+            try:
+                yield format_logs(log_queue.get(timeout=0.1))
+            except Empty:
+                if not follow and not any(thread.is_alive() for thread in threads):
+                    break
+
+        if not follow:
+            for thread in threads:
+                thread.join()
 
     def resolve_filelog_err_path(
         self, *, tool: str, job_name: str, filelog_stderr: str | None

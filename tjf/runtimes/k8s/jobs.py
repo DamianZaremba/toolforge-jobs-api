@@ -4,11 +4,13 @@ import time
 from copy import deepcopy
 from enum import Enum
 from functools import cache
-from typing import Any, Iterator
+from queue import Queue
+from typing import Any, Optional
 
 from toolforge_weld.errors import ToolforgeError
 from toolforge_weld.kubernetes import ApiData, K8sClient, MountOption, parse_quantity
 from toolforge_weld.logs import LogEntry
+from toolforge_weld.logs.kubernetes import KubernetesSource
 
 from ...core.cron import CronExpression
 from ...core.error import TjfError
@@ -16,6 +18,7 @@ from ...core.health_check import HealthCheckType, HttpHealthCheck, ScriptHealthC
 from ...core.images import image_by_container_url
 from ...core.job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY, Job, JobType
 from ...core.utils import dict_get_object
+from .account import ToolAccount
 from .command import get_command_for_k8s, get_command_from_k8s
 from .healthchecks import get_healthcheck_for_k8s
 from .labels import generate_labels
@@ -379,21 +382,35 @@ def prune_spec(spec: K8S_OBJECT_TYPE, template: K8S_OBJECT_TYPE) -> K8S_OBJECT_T
     return spec
 
 
-def format_logs(logs: Iterator[LogEntry]) -> Iterator[str]:
-    for entry in logs:
-        if entry.container != JOB_CONTAINER_NAME:
-            continue
+def queue_log_entries(
+    tool_account: ToolAccount,
+    pod_name: str,
+    container_name: str,
+    follow: bool,
+    lines: Optional[int],
+    queue: Queue[LogEntry],
+) -> None:
+    log_source = KubernetesSource(client=tool_account.k8s_cli)
+    for entry in log_source._get_pod_logs(
+        pod_name=pod_name,
+        container_name=container_name,
+        follow=follow,
+        lines=lines,
+    ):
+        queue.put(entry)
 
-        dumped = json.dumps(
-            {
-                "pod": entry.pod,
-                "container": entry.container,
-                "datetime": entry.datetime.replace(microsecond=0).isoformat("T"),
-                "message": entry.message,
-            }
-        )
 
-        yield f"{dumped}\n"
+def format_logs(entry: LogEntry) -> str:
+    dumped = json.dumps(
+        {
+            "pod": entry.pod,
+            "container": entry.container,
+            "datetime": entry.datetime.replace(microsecond=0).isoformat("T"),
+            "message": entry.message,
+        }
+    )
+
+    return f"{dumped}\n"
 
 
 def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
