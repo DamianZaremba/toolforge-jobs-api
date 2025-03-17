@@ -85,6 +85,7 @@ class HttpHealthCheck(BaseModel):
 class CommonJob(BaseModel):
     name: str
     cmd: str
+    imagename: str
     filelog: bool = False
     filelog_stdout: str | None = None
     filelog_stderr: str | None = None
@@ -145,24 +146,17 @@ class CommonJob(BaseModel):
             )
         return job_name
 
-    def validate_imagename(self, imagename: str) -> None:
-        image = image_by_name(imagename)
+
+class NewJob(CommonJob):
+    @model_validator(mode="after")
+    def validate_image(self) -> Self:
+        # image validation is only done when the job is first created because
+        # the image might become invalid later (deleted, etc).
+        image = image_by_name(self.imagename)
         if image.type != ImageType.BUILDPACK and not self.mount.supports_non_buildservice:
             raise ValueError(
                 f"Mount type {self.mount.value} is only supported for build service images"
             )
-        if image.type == ImageType.BUILDPACK and not self.cmd.startswith("launcher"):
-            # this allows using either a procfile entry point or any command as command
-            # for a buildservice-based job
-            self.cmd = f"launcher {self.cmd}"
-
-
-class NewJob(CommonJob):
-    imagename: str
-
-    @model_validator(mode="after")
-    def validate_image(self) -> Self:
-        self.validate_imagename(imagename=self.imagename)
         return self
 
     @model_validator(mode="after")
@@ -202,6 +196,10 @@ class NewJob(CommonJob):
         else:
             filelog_stdout = filelog_stderr = None
 
+        if image.type == ImageType.BUILDPACK and not self.cmd.startswith("launcher"):
+            # this allows using either a procfile entry point or any command as command
+            # for a buildservice-based job
+            self.cmd = f"launcher {self.cmd}"
         command = Command(
             user_command=self.cmd,
             filelog=self.filelog,
@@ -258,7 +256,7 @@ class NewJob(CommonJob):
 
 
 class DefinedJob(CommonJob):
-    image: str
+    image: str  # for backwards compatibility. Should be removed in the future when no longer in use by anyone
     image_state: str
     status_short: str
     status_long: str
@@ -269,7 +267,8 @@ class DefinedJob(CommonJob):
         obj: dict[str, Any] = {
             "name": job.job_name,
             "cmd": job.command.user_command,
-            "image": job.image.canonical_name,  # not being validated because image from k8s might not exist
+            "image": job.image.canonical_name,
+            "imagename": job.image.canonical_name,  # not being validated because image from k8s might not exist
             "image_state": job.image.state,
             "filelog": f"{job.command.filelog}",
             "filelog_stdout": (
