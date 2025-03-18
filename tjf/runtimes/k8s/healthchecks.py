@@ -1,6 +1,6 @@
 from typing import Any
 
-from ...core.models import HttpHealthCheck, Job, PortProtocol, ScriptHealthCheck
+from ...core.models import HttpHealthCheck, PortProtocol, ScriptHealthCheck
 
 STARTUP_PROBE_DEFAULT_INITIAL_DELAY_SECONDS = 0
 STARTUP_PROBE_DEFAULT_PERIOD_SECONDS = 1
@@ -25,16 +25,20 @@ LIVENESS_PROBE_DEFAULTS = {
 }
 
 
-def get_healthcheck_for_k8s(job: Job) -> dict[str, Any]:
-    match job.health_check:
+def get_healthcheck_for_k8s(
+    health_check: ScriptHealthCheck | HttpHealthCheck | None,
+    port: int | None,
+    port_protocol: PortProtocol,
+) -> dict[str, Any]:
+    match health_check:
         case ScriptHealthCheck():
-            return _get_script_healthcheck_for_k8s(health_check=job.health_check)
+            return _get_script_healthcheck_for_k8s(health_check=health_check)
         case HttpHealthCheck():
             return _get_http_healthcheck_for_k8s(
-                health_check=job.health_check, port=job.port, port_protocol=job.port_protocol
+                health_check=health_check, port=port, port_protocol=port_protocol
             )
         case _:
-            return _get_tcp_healthcheck_for_k8s(port=job.port, port_protocol=job.port_protocol)
+            return _get_tcp_healthcheck_for_k8s(port=port, port_protocol=port_protocol)
 
 
 def _get_script_healthcheck_for_k8s(health_check: ScriptHealthCheck) -> dict[str, Any]:

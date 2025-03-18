@@ -17,23 +17,22 @@
 import http
 import logging
 
-from anyio import from_thread
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from ..core.error import TjfValidationError
 from .auth import ensure_authenticated
 from .models import (
+    AnyNewJob,
     CommonJob,
-    DefinedJob,
     DeleteResponse,
     FlushResponse,
     JobListResponse,
     JobResponse,
-    NewJob,
     ResponseMessages,
     RestartResponse,
     UpdateResponse,
+    get_job_for_api,
 )
 from .utils import current_app
 
@@ -58,7 +57,7 @@ def api_get_jobs(
 
     user_jobs = current_app(request).core.get_jobs(toolname=toolname)
     response = JobListResponse(
-        jobs=[DefinedJob.from_job(job) for job in user_jobs],
+        jobs=[get_job_for_api(job) for job in user_jobs],
         messages=ResponseMessages(),
     )
     if include_unset:
@@ -72,25 +71,11 @@ def api_get_jobs(
 @jobs.post("/", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
 @jobs.put("", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
 @jobs.put("/", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
-def api_create_job(request: Request, toolname: str) -> JobResponse:
+def api_create_job(request: Request, toolname: str, new_job: AnyNewJob) -> JobResponse:
     ensure_authenticated(request=request)
     core = current_app(request).core
-
-    # TODO: Use FastAPI body parsing once the client does not send None for unset fields
-    # Note that until all the code is async (ex. toolforge-weld, harbor requests), we have to declare the function
-    # non-async and use from_thread.run so fastapi parallelizes it correctly, as it will expect the function to be
-    # non-blocking when declaring it async
-    request_json = from_thread.run(request.json)
-    logging.debug(f"Received new job: {request_json}")
-    request_without_nones = (
-        {key: value for key, value in request_json.items() if value is not None}
-        if request_json
-        else {}
-    )
-
-    new_job = NewJob.model_validate(request_without_nones)
     logging.debug(f"Generated NewJob: {new_job}")
-    job = new_job.to_job(tool_name=toolname)
+    job = new_job.to_core_job(tool_name=toolname)
     logging.debug(f"Generated job: {job}")
 
     existing_job = core.get_job(toolname=job.tool_name, name=job.job_name)
@@ -103,7 +88,7 @@ def api_create_job(request: Request, toolname: str) -> JobResponse:
         logging.debug(f"Deleted existing job: {existing_job}")
 
     core.create_job(job=job)
-    defined_job = DefinedJob.from_job(job)
+    defined_job = get_job_for_api(job=job)
     logging.debug(f"Generated DefinedJob: {defined_job}")
 
     return JobResponse(job=defined_job, messages=ResponseMessages())
@@ -111,10 +96,10 @@ def api_create_job(request: Request, toolname: str) -> JobResponse:
 
 @jobs.patch("")
 @jobs.patch("/", include_in_schema=False)
-def api_update_job(request: Request, toolname: str, new_job: NewJob) -> UpdateResponse:
+def api_update_job(request: Request, toolname: str, new_job: AnyNewJob) -> UpdateResponse:
     ensure_authenticated(request=request)
     core = current_app(request).core
-    job = new_job.to_job(tool_name=toolname)
+    job = new_job.to_core_job(tool_name=toolname)
 
     message = core.update_job(job=job)
     messages = ResponseMessages(info=[message])
@@ -149,12 +134,15 @@ def api_get_job(
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    response = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
+    response = JobResponse(job=get_job_for_api(job), messages=ResponseMessages())
     if include_unset:
+        LOGGER.debug(f"Returning object directly: {response}")
         return response
     else:
         # FastAPI will not re-wrap the response if it's actually a fastapi.Response subclass
-        return JSONResponse(content=response.model_dump(exclude_unset=True, mode="json"))  # type: ignore
+        response = JSONResponse(content=response.model_dump(exclude_unset=True, mode="json"))  # type: ignore
+        LOGGER.debug(f"Wrapping object in JSONResponse: {response}")
+        return response
 
 
 @jobs.delete("/{name}")

@@ -1,9 +1,9 @@
 from typing import Any
 
-import pytest
 from helpers.fakes import get_fake_account
 
 import tests.helpers.fake_k8s as fake_k8s
+from tests.test_utils import cases
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.jobs import get_job_from_k8s
 from tjf.runtimes.k8s.ops_status import _get_quota_error, refresh_job_short_status
@@ -14,14 +14,34 @@ def test_get_quota_error():
     assert _get_quota_error(message) == "out of quota for cpu, memory"
 
 
-@pytest.mark.parametrize(
+@cases(
     "cronjob, job, status_short",
     [
+        "New cronjob not scheduled yet",
         [fake_k8s.CRONJOB_NOT_RUN_YET, {}, "Waiting for scheduled time"],
+    ],
+    [
+        "Restarted cronjob not scheduled yet",
         [fake_k8s.CRONJOB_NOT_RUN_YET, fake_k8s.JOB_FROM_A_CRONJOB_RESTART, "Running for "],
-        [fake_k8s.CRONJOB_WITH_RUNNING_JOB, fake_k8s.JOB_FROM_A_CRONJOB_RESTART, "Running for "],
+    ],
+    [
+        "Restarted cronjob already running",
+        [
+            fake_k8s.CRONJOB_WITH_RUNNING_JOB,
+            fake_k8s.JOB_FROM_A_CRONJOB_RESTART,
+            "Running for ",
+        ],
+    ],
+    [
+        "New cronjob already running",
         [fake_k8s.CRONJOB_WITH_RUNNING_JOB, fake_k8s.JOB_FROM_A_CRONJOB, "Running for "],
+    ],
+    [
+        "Finished cronjob with job finished",
         [fake_k8s.CRONJOB_WITH_RUNNING_JOB, {}, "Last schedule time: 2023-04-13T15:05:00Z"],
+    ],
+    [
+        "Finished cronjob without job",
         [
             fake_k8s.CRONJOB_PREVIOUS_RUN_BUT_NO_RUNNING_JOB,
             {},
@@ -31,9 +51,9 @@ def test_get_quota_error():
 )
 def test_refresh_job_short_status_cronjob(
     fake_tool_account_uid: None,
-    cronjob,
-    job,
-    status_short,
+    cronjob: dict[str, Any],
+    job: dict[str, Any],
+    status_short: str,
     fake_auth_headers: ToolAccount,
     fake_images: dict[str, Any],
 ):

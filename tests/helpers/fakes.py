@@ -1,15 +1,18 @@
 from typing import Any
 from unittest.mock import MagicMock
 
-from tjf.core.images import Image
+from tjf.core.images import Image, ImageType
 from tjf.core.models import (
-    Job,
+    AnyJob,
+    ContinuousJob,
     JobType,
+    OneOffJob,
+    ScheduledJob,
 )
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.images import HarborConfig
 
-from .fake_k8s import FAKE_HARBOR_HOST
+FAKE_HARBOR_HOST = "harbor.example.org"
 
 
 def get_fake_harbor_config() -> HarborConfig:
@@ -28,17 +31,27 @@ def get_fake_account(fake_k8s_cli: Any | None = None, name: str = "tf-test") -> 
     return FakeToolAccount(name=name)
 
 
-def get_dummy_job(**overrides) -> Job:
+def get_dummy_job(**overrides) -> AnyJob:
     params = {
         "job_type": JobType.CONTINUOUS,
         "cmd": "silly command",
-        "filelog": False,
         "image": Image(
+            type=ImageType.STANDARD,
             canonical_name="silly-image",
+            aliases=[],
+            container="silly-container",
+            state="silly state",
         ),
         "job_name": "silly-job-name",
         "tool_name": "silly-user",
-        "cont": True,
     }
     params.update(overrides)
-    return Job.model_validate(params)
+    match params["job_type"]:
+        case JobType.ONE_OFF:
+            return OneOffJob.model_validate(params)
+        case JobType.SCHEDULED:
+            return ScheduledJob.model_validate(params)
+        case JobType.CONTINUOUS:
+            return ContinuousJob.model_validate(params)
+        case _:
+            raise ValueError(f"Invalid job type: {params['job_type']}")

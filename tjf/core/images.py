@@ -15,8 +15,9 @@
 #
 
 import logging
-from dataclasses import dataclass, field
 from enum import Enum
+
+from pydantic import BaseModel
 
 LOGGER = logging.getLogger(__name__)
 
@@ -29,10 +30,9 @@ class ImageType(str, Enum):
         return self != ImageType.BUILDPACK
 
 
-@dataclass(frozen=True)
-class Image:
+class Image(BaseModel):
     canonical_name: str
     type: ImageType | None = None
-    aliases: list[str] = field(default_factory=list)
+    aliases: list[str] = []
     container: str | None = None
     state: str = "unknown"

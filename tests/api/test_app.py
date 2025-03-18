@@ -11,15 +11,16 @@ from toolforge_weld.errors import ToolforgeUserError
 from tests.helpers.fakes import get_dummy_job
 from tjf.api.app import error_handler
 from tjf.api.models import (
-    DefinedJob,
     JobListResponse,
     JobResponse,
     ResponseMessages,
+    get_job_for_api,
 )
 from tjf.api.utils import JobsApi
 from tjf.core.cron import CronExpression
 from tjf.core.error import TjfClientError, TjfError
 from tjf.core.models import (
+    AnyJob,
     HealthCheckType,
     JobType,
     ScriptHealthCheck,
@@ -132,6 +133,67 @@ class TestJobsEndpoint:
         assert gotten_response.status_code == http.HTTPStatus.OK
         assert gotten_response.json() == expected_response
 
+    @pytest.mark.parametrize(
+        "job_type, job",
+        [
+            [
+                JobType.CONTINUOUS,
+                get_dummy_job(
+                    job_name="job1", tool_name="silly-user", job_type=JobType.CONTINUOUS
+                ),
+            ],
+            [
+                JobType.SCHEDULED,
+                get_dummy_job(
+                    job_name="job1",
+                    tool_name="silly-user",
+                    job_type=JobType.SCHEDULED,
+                    schedule=CronExpression.parse(
+                        value="* * * * *", job_name="job1", tool_name="silly-user"
+                    ),
+                ),
+            ],
+            [
+                JobType.ONE_OFF,
+                get_dummy_job(
+                    job_name="job1",
+                    tool_name="silly-user",
+                    job_type=JobType.ONE_OFF,
+                ),
+            ],
+        ],
+    )
+    def test_returns_job_type_for_all(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+        job_type: JobType,
+        job: AnyJob,
+    ) -> None:
+        monkeypatch.setattr(
+            app.core,
+            "get_jobs",
+            value=lambda *args, **kwargs: [job],
+        )
+
+        gotten_response = client.get(
+            "/v1/tool/silly-user/jobs/", headers=fake_auth_headers, params={"include_unset": False}
+        )
+
+        assert gotten_response.status_code == http.HTTPStatus.OK
+
+        response_json = gotten_response.json()
+        assert response_json is not None, "Response JSON is None"
+
+        gotten_jobs: list[dict[str, Any]] = response_json["jobs"]
+        if job_type == JobType.CONTINUOUS:
+            assert gotten_jobs[0]["continuous"]
+        assert gotten_jobs[0]["job_type"] == job_type.value
+        # to make sure not all fields are set
+        assert "cpu" not in gotten_jobs[0]
+
     def test_returns_more_than_one(
         self,
         client: TestClient,
@@ -140,7 +202,9 @@ class TestJobsEndpoint:
         fake_auth_headers: dict[str, str],
     ) -> None:
         expected_names = ["job1", "job2"]
-        dummy_jobs = [get_dummy_job(job_name=name) for name in expected_names]
+        dummy_jobs = [
+            get_dummy_job(job_name=name, tool_name="silly-user") for name in expected_names
+        ]
         monkeypatch.setattr(
             app.core,
             "get_jobs",
@@ -188,7 +252,7 @@ class TestJobsEndpoint:
         fake_auth_headers: dict[str, str],
     ) -> None:
         expected_port = 8080
-        dummy_job = get_dummy_job(port=expected_port)
+        dummy_job = get_dummy_job(port=expected_port, tool_name="silly-user")
         monkeypatch.setattr(
             app.core,
             "get_jobs",
@@ -240,7 +304,7 @@ class TestJobsEndpoint:
             value=lambda *args, **kwargs: [dummy_job],
         )
         expected_response = JobListResponse(
-            jobs=[DefinedJob.from_job(dummy_job)], messages=ResponseMessages()
+            jobs=[get_job_for_api(dummy_job)], messages=ResponseMessages()
         )
         gotten_response = client.get(
             "/v1/tool/silly-user/jobs/", headers=fake_auth_headers, params={"include_unset": False}
@@ -266,7 +330,7 @@ class TestJobsEndpoint:
             value=lambda *args, **kwargs: [dummy_job],
         )
         expected_response = JobListResponse(
-            jobs=[DefinedJob.from_job(dummy_job)], messages=ResponseMessages()
+            jobs=[get_job_for_api(dummy_job)], messages=ResponseMessages()
         )
         gotten_response = client.get(
             "/v1/tool/silly-user/jobs/", headers=fake_auth_headers, params={"include_unset": False}
@@ -295,7 +359,7 @@ class TestApiGetJob:
             value=lambda *args, **kwargs: dummy_job,
         )
         expected_response = JobResponse(
-            job=DefinedJob.from_job(dummy_job), messages=ResponseMessages()
+            job=get_job_for_api(dummy_job), messages=ResponseMessages()
         )
         gotten_response = client.get(
             f"/v1/tool/silly-user/jobs/{dummy_job.job_name}",
@@ -323,7 +387,6 @@ class TestApiGetJob:
             schedule=CronExpression.parse(
                 value="@daily", job_name="dummy-name", tool_name="dummy-tool"
             ),
-            cont=False,
         )
         monkeypatch.setattr(
             app.core,
@@ -331,7 +394,7 @@ class TestApiGetJob:
             value=lambda *args, **kwargs: dummy_job,
         )
         expected_response = JobResponse(
-            job=DefinedJob.from_job(dummy_job), messages=ResponseMessages()
+            job=get_job_for_api(dummy_job), messages=ResponseMessages()
         )
         gotten_response = client.get(
             f"/v1/tool/silly-user/jobs/{dummy_job.job_name}",
@@ -359,7 +422,7 @@ class TestApiGetJob:
             value=lambda *args, **kwargs: dummy_job,
         )
         expected_response = JobResponse(
-            job=DefinedJob.from_job(dummy_job), messages=ResponseMessages()
+            job=get_job_for_api(dummy_job), messages=ResponseMessages()
         )
         gotten_response = client.get(
             f"/v1/tool/silly-user/jobs/{dummy_job.job_name}", headers=fake_auth_headers

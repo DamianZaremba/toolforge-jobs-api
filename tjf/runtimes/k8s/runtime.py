@@ -1,13 +1,21 @@
 from difflib import unified_diff
 from logging import getLogger
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, cast
 
 import requests
 from toolforge_weld.kubernetes import MountOption, parse_quantity
 
 from ...core.error import TjfError, TjfJobNotFoundError, TjfValidationError
 from ...core.images import Image, ImageType
-from ...core.models import Job, JobType, QuotaCategoryType, QuotaData
+from ...core.models import (
+    AnyJob,
+    ContinuousJob,
+    JobType,
+    OneOffJob,
+    QuotaCategoryType,
+    QuotaData,
+    ScheduledJob,
+)
 from ...core.utils import format_quantity, parse_and_format_mem
 from ...loki_logs import LokiSource
 from ...settings import Settings
@@ -35,7 +43,7 @@ class K8sRuntime(BaseRuntime):
         self.loki_url = settings.loki_url
         self.default_cpu_limit = settings.default_cpu_limit
 
-    def get_jobs(self, *, tool: str) -> list[Job]:
+    def get_jobs(self, *, tool: str) -> list[AnyJob]:
         job_list = []
         tool_account = ToolAccount(name=tool)
         for job_type in JobType:
@@ -45,7 +53,7 @@ class K8sRuntime(BaseRuntime):
                 kind=kind, label_selector=label_selector
             ):
                 job = get_job_from_k8s(
-                    object=k8s_obj,
+                    k8s_object=k8s_obj,
                     kind=kind,
                     image_refresh_interval=self.image_refresh_interval,
                     default_cpu_limit=self.default_cpu_limit,
@@ -56,7 +64,7 @@ class K8sRuntime(BaseRuntime):
 
         return job_list
 
-    def get_job(self, *, job_name: str, tool: str) -> Job | None:
+    def get_job(self, *, job_name: str, tool: str) -> AnyJob | None:
         tool_account = ToolAccount(name=tool)
         for job_type in JobType:
             kind = K8sJobKind.from_job_type(job_type).api_path_name
@@ -67,7 +75,7 @@ class K8sRuntime(BaseRuntime):
                 kind=kind, label_selector=label_selector
             ):
                 job = get_job_from_k8s(
-                    object=k8s_obj,
+                    k8s_object=k8s_obj,
                     kind=kind,
                     image_refresh_interval=self.image_refresh_interval,
                     default_cpu_limit=self.default_cpu_limit,
@@ -78,14 +86,14 @@ class K8sRuntime(BaseRuntime):
 
         return None
 
-    def restart_job(self, *, job: Job, tool: str) -> None:
+    def restart_job(self, *, job: AnyJob, tool: str) -> None:
         user = ToolAccount(name=tool)
         k8s_type = K8sJobKind.from_job_type(job.job_type)
         label_selector = labels_selector(
             job_name=job.job_name, user_name=user.name, type=k8s_type.api_path_name
         )
 
-        if k8s_type == K8sJobKind.CRON_JOB:
+        if isinstance(job, ScheduledJob):
             # Delete currently running jobs to avoid duplication
             user.k8s_cli.delete_objects("jobs", label_selector=label_selector)
             user.k8s_cli.delete_objects("pods", label_selector=label_selector)
@@ -94,35 +102,42 @@ class K8sRuntime(BaseRuntime):
 
             trigger_scheduled_job(user, job)
 
-        elif k8s_type == K8sJobKind.DEPLOYMENT:
+        elif isinstance(job, ContinuousJob):
             # Simply delete the pods and let Kubernetes re-create them
             user.k8s_cli.delete_objects("pods", label_selector=label_selector)
-        elif k8s_type == K8sJobKind.JOB:
+        elif isinstance(job, OneOffJob):
             raise TjfValidationError("Unable to restart a single job")
         else:
             raise TjfError(f"Unable to restart unknown job type: {job}")
 
-    def create_service(self, job: Job) -> dict[str, Any] | None:
+    def create_service(self, job: ContinuousJob) -> dict[str, Any] | None:
         tool_account = ToolAccount(name=job.tool_name)
-        if job.port and job.cont:
+        if job.port:
             kind = "services"
             spec = get_k8s_service_object(job)
             try:
-                return tool_account.k8s_cli.create_object(kind=kind, spec=spec)  # type: ignore
+                tool_account.k8s_cli.delete_object(kind=kind, name=spec["metadata"]["name"])
+            except requests.exceptions.HTTPError:
+                pass
+            try:
+                # TODO: fix the return type in toolforge-weld
+                return cast(
+                    dict[str, Any], tool_account.k8s_cli.create_object(kind=kind, spec=spec)
+                )
             except requests.exceptions.HTTPError as error:
                 raise create_error_from_k8s_response(
                     error=error, job=job, spec=spec, tool_account=tool_account
                 )
         return None
 
-    def create_job(self, *, job: Job, tool: str) -> None:
+    def create_job(self, *, job: AnyJob, tool: str) -> None:
         tool_account = ToolAccount(name=tool)
         validate_job_limits(tool_account, job)
 
         set_fields = job.model_dump(exclude_unset=True)
 
         image = image_by_name(
-            job.image.canonical_name, refresh_interval=self.image_refresh_interval
+            name=job.image.canonical_name, refresh_interval=self.image_refresh_interval
         )
         if not job.mount:
             if image.type == ImageType.BUILDPACK:
@@ -141,10 +156,14 @@ class K8sRuntime(BaseRuntime):
             raise TjfValidationError("File logging is only available with --mount=all")
         job.image = image
 
+        # TODO,REFACTOR: instead of mixing creating multiple k8s objects, have a function for each type of job that
+        # creates all the needed objects for that job
         spec = get_job_for_k8s(job=job, default_cpu_limit=self.default_cpu_limit)
         LOGGER.debug(f"Got k8s spec: {spec}")
 
-        self.create_service(job=job)
+        if isinstance(job, ContinuousJob):
+            self.create_service(job=job)
+
         try:
             k8s_result = tool_account.k8s_cli.create_object(
                 kind=K8sJobKind.from_job_type(job.job_type).api_path_name,
@@ -170,7 +189,7 @@ class K8sRuntime(BaseRuntime):
             tool_account.k8s_cli.delete_objects(object_type, label_selector=label_selector)
         wait_for_pods_exit(tool=tool_account)
 
-    def delete_job(self, *, tool: str, job: Job) -> None:
+    def delete_job(self, *, tool: str, job: AnyJob) -> None:
         """Deletes a specified job."""
         LOGGER.debug("Deleting job %s for tool %s", job.job_name, tool)
         tool_account = ToolAccount(name=tool)
@@ -185,7 +204,7 @@ class K8sRuntime(BaseRuntime):
             )
         wait_for_pods_exit(tool=tool_account, job_name=job.job_name, job_type=kind)
 
-    def diff_with_running_job(self, *, job: Job) -> str:
+    def diff_with_running_job(self, *, job: AnyJob) -> str:
         """
         Check for differences between job and running job
         """

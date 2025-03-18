@@ -26,18 +26,22 @@ from tests.helpers.fake_k8s import (
     CRONJOB_NOT_RUN_YET,
     FAKE_K8S_HOST,
     LIMIT_RANGE_OBJECT,
-    FakeJob,
 )
-from tests.helpers.fakes import get_fake_account
+from tests.helpers.fakes import get_dummy_job, get_fake_account
 from tjf.core.error import TjfError, TjfValidationError
-from tjf.core.models import Job
+from tjf.core.models import AnyJob, JobType
 from tjf.runtimes.k8s.account import ToolAccount
-from tjf.runtimes.k8s.jobs import get_job_for_k8s, get_job_from_k8s
+from tjf.runtimes.k8s.jobs import (
+    JOB_DEFAULT_CPU,
+    JOB_DEFAULT_MEMORY,
+    get_job_for_k8s,
+    get_job_from_k8s,
+)
 from tjf.runtimes.k8s.ops import create_error_from_k8s_response, validate_job_limits
 
 
 @pytest.fixture
-def fake_job(fake_tool_account_uid: None, fake_images: dict[str, Any]) -> Job:
+def fake_job(fake_tool_account_uid: None, fake_images: dict[str, Any]) -> AnyJob:
     return get_job_from_k8s(CRONJOB_NOT_RUN_YET, "cronjobs", default_cpu_limit="4000m")
 
 
@@ -65,7 +69,9 @@ def _create_fake_http_error(
 
 class TestCreateErrorFromK8sResponse:
     def test_no_data(
-        self, patch_kube_config_loading, fake_job: Job, fake_tool_account: ToolAccount
+        self,
+        fake_job: AnyJob,
+        fake_tool_account: ToolAccount,
     ):
         error = create_error_from_k8s_response(
             error=HTTPError("Foobar"),
@@ -85,7 +91,7 @@ class TestCreateErrorFromK8sResponse:
     def test_has_http_response(
         self,
         patch_kube_config_loading,
-        fake_job: Job,
+        fake_job: AnyJob,
         fake_tool_account: ToolAccount,
         requests_mock: RequestsMockMocker,
     ):
@@ -113,7 +119,7 @@ class TestCreateErrorFromK8sResponse:
     def test_already_exists(
         self,
         patch_kube_config_loading,
-        fake_job: Job,
+        fake_job: AnyJob,
         fake_tool_account: ToolAccount,
         requests_mock: RequestsMockMocker,
         fixtures_path: Path,
@@ -139,24 +145,40 @@ class TestCreateErrorFromK8sResponse:
 
 class TestValidateJobLimits:
     def test_default_job(self, account_with_limit_range):
-        job_with_defaults = FakeJob()
+        job_with_defaults = get_dummy_job(
+            cpu=JOB_DEFAULT_CPU,
+            memory=JOB_DEFAULT_MEMORY,
+            job_type=JobType.ONE_OFF,
+        )
         assert validate_job_limits(account_with_limit_range, job_with_defaults) is None
 
     def test_custom(self, account_with_limit_range):
-        job = FakeJob(cpu="0.5", memory="1Gi")
+        job = get_dummy_job(
+            cpu="0.5",
+            memory="1Gi",
+            job_type=JobType.ONE_OFF,
+        )
         assert validate_job_limits(account_with_limit_range, job) is None
 
     def test_under_minimum(self, account_with_limit_range):
-        job = FakeJob(memory="50Mi")
+        job = get_dummy_job(
+            cpu=JOB_DEFAULT_CPU,
+            memory="0.049Gi",
+            job_type=JobType.ONE_OFF,
+        )
 
         with pytest.raises(
             TjfValidationError,
-            match="Requested memory 50Mi is less than minimum required per container \\(100Mi\\)",
+            match="Requested memory 0.049Gi is less than minimum required per container \\(100Mi\\)",
         ):
             validate_job_limits(account_with_limit_range, job)
 
     def test_over_maximum(self, account_with_limit_range):
-        job = FakeJob(cpu="2.5")
+        job = get_dummy_job(
+            cpu="2.5",
+            memory=JOB_DEFAULT_MEMORY,
+            job_type=JobType.ONE_OFF,
+        )
 
         with pytest.raises(
             TjfValidationError,

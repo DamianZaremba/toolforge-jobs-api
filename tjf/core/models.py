@@ -21,7 +21,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Annotated, Any, Literal, Type
 
-from pydantic import BaseModel as PydanticModel
+from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict, Field, field_validator, model_validator
 from toolforge_weld.kubernetes import MountOption, parse_quantity
 from typing_extensions import Self
@@ -52,7 +52,7 @@ JOB_DEFAULT_CPU = "100m"
 JOB_DEFAULT_REPLICAS = 1
 
 
-class BaseModel(PydanticModel):
+class BaseModel(PydanticBaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
@@ -63,7 +63,7 @@ class EmailOption(str, Enum):
     onfailure = "onfailure"
 
 
-class JobType(Enum):
+class JobType(str, Enum):
     """
     Represents types of jobs exposed to users. In practice each user-facing job
     type can have a 1:x map with Kubernetes object types. For example scheduled
@@ -87,15 +87,13 @@ class PortProtocol(str, Enum):
 
 class ScriptHealthCheck(BaseModel):
     script: str
-    health_check_type: Literal[HealthCheckType.SCRIPT] = Field(
-        HealthCheckType.SCRIPT, alias="type"
-    )
+    health_check_type: Literal[HealthCheckType.SCRIPT] = Field(alias="type")
     model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
 
 class HttpHealthCheck(BaseModel):
     path: str
-    health_check_type: Literal[HealthCheckType.HTTP] = Field(HealthCheckType.HTTP, alias="type")
+    health_check_type: Literal[HealthCheckType.HTTP] = Field(alias="type")
     model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
 
@@ -109,8 +107,7 @@ class Command:
     filelog_stderr: Path | None
 
 
-class Job(BaseModel):
-    job_type: JobType
+class CommonJob(PydanticBaseModel):
     cmd: str
     filelog: bool = False
     filelog_stderr: Path | None = None
@@ -118,70 +115,28 @@ class Job(BaseModel):
     image: Image
     job_name: str
     tool_name: str
-    schedule: CronExpression | None = None
-    cont: bool = False
-    port: int | None = None
-    port_protocol: PortProtocol = PortProtocol.TCP
-    replicas: int | None = None
-    # TODO: remove this from here, probably to the runtime
     k8s_object: dict[str, Any] = {}
-    retry: int = 0
     memory: str = parse_and_format_mem(JOB_DEFAULT_MEMORY)
     cpu: str = format_quantity(parse_quantity(JOB_DEFAULT_CPU))
     emails: EmailOption = EmailOption.none
     mount: MountOption = MountOption.ALL
-    health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
-        default=None,
-        discriminator="health_check_type",
-    )
-    timeout: Annotated[int, Field(ge=0)] | None = None
     status_short: str | None = "Unknown"
     status_long: str | None = "Unknown"
 
     @field_validator("memory")
     @classmethod
-    def memory_validator(cls: Type["Job"], value: str) -> str:
+    def memory_validator(cls: Type["CommonJob"], value: str) -> str | None:
         return value and parse_and_format_mem(mem=value)
 
     @field_validator("cpu")
     @classmethod
-    def cpu_validator(cls: Type["Job"], value: str) -> str:
+    def cpu_validator(cls: Type["CommonJob"], value: str) -> str | None:
         return value and format_quantity(quantity_value=parse_quantity(value))
 
     @model_validator(mode="after")
-    def validate_replicas(self) -> Self:
-        if self.job_type == JobType.CONTINUOUS and not self.replicas:
-            self.replicas = JOB_DEFAULT_REPLICAS
-
-        return self
-
-    @model_validator(mode="after")
-    # TODO: remove/refactor after model has been split to OneOff, Scheduled and Continuous
-    def validate_job(self) -> Self:
-        if self.schedule and self.cont:
-            raise ValueError("Only one of 'continuous' and 'schedule' can be set at the same time")
-
-        if self.port and not self.cont:
-            raise ValueError("Port can only be set for continuous jobs")
-
-        if self.replicas is not None and not self.cont:
-            raise ValueError("Replicas can only be set for continuous jobs")
-
-        if self.health_check and not self.cont:
-            raise ValueError("Health checks can only be set for continuous jobs")
-
+    def validate_common_job(self) -> Self:
         if self.filelog and self.mount != MountOption.ALL:
             raise ValueError("File logging is only available with --mount=all")
-
-        if not self.schedule and self.timeout is not None:
-            raise ValueError("Timeout can only be set on a scheduled job")
-
-        if (
-            self.health_check
-            and self.health_check.health_check_type == HealthCheckType.HTTP
-            and (not self.port or self.port_protocol == PortProtocol.UDP)
-        ):
-            raise ValueError("A tcp port must be set for HTTP health checks")
 
         if self.filelog:
             tool_home = get_tool_home(name=self.tool_name)
@@ -195,6 +150,43 @@ class Job(BaseModel):
                 )
 
         return self
+
+
+class OneOffJob(CommonJob, BaseModel):
+    job_type: Literal[JobType.ONE_OFF] = JobType.ONE_OFF
+    retry: Annotated[int, Field(ge=0, le=5)] = 0
+
+
+class ScheduledJob(CommonJob, BaseModel):
+    job_type: Literal[JobType.SCHEDULED] = JobType.SCHEDULED
+    schedule: CronExpression
+    retry: Annotated[int, Field(ge=0, le=5)] = 0
+    timeout: Annotated[int, Field(ge=0)] = 0
+
+
+class ContinuousJob(CommonJob, BaseModel):
+    job_type: Literal[JobType.CONTINUOUS] = JobType.CONTINUOUS
+    port: Annotated[int, Field(ge=1, le=65535)] | None = None
+    port_protocol: PortProtocol = PortProtocol.TCP
+    replicas: int = Field(default=JOB_DEFAULT_REPLICAS, ge=0)
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
+        default=None,
+        discriminator="health_check_type",
+    )
+
+    @model_validator(mode="after")
+    def validate_continuous_job(self) -> Self:
+        if (
+            self.health_check
+            and self.health_check.health_check_type == HealthCheckType.HTTP
+            and not self.port
+        ):
+            raise ValueError("Port must be set for HTTP health checks")
+
+        return self
+
+
+AnyJob = OneOffJob | ContinuousJob | ScheduledJob
 
 
 class QuotaCategoryType(Enum):

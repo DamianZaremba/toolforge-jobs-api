@@ -1,8 +1,9 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
 ---
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.6.0"
+  version: "4.6.1"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -94,7 +95,17 @@ paths:
         content:
           "application/json":
             schema:
-              $ref: "#/components/schemas/NewJob"
+              oneOf:
+                - $ref: "#/components/schemas/NewOneOffJob"
+                - $ref: "#/components/schemas/NewScheduledJob"
+                - $ref: "#/components/schemas/NewContinuousJob"
+              ## TODO: Uncomment once job_type is enforced everywhere
+              # discriminator:
+              #   propertyName: job_type
+              #   mapping:
+              #      one-off: "#/components/schemas/NewOneOffJob"
+              #      scheduled: "#/components/schemas/NewScheduledJob"
+              #      continuous: "#/components/schemas/NewContinuousJob"
       responses:
         "200":
           description: "A new job was created."
@@ -123,7 +134,17 @@ paths:
         content:
           "application/json":
             schema:
-              $ref: "#/components/schemas/NewJob"
+              oneOf:
+                - $ref: "#/components/schemas/NewOneOffJob"
+                - $ref: "#/components/schemas/NewScheduledJob"
+                - $ref: "#/components/schemas/NewContinuousJob"
+              ## TODO: Uncomment once job_type is enforced everywhere
+              # discriminator:
+              #   propertyName: job_type
+              #   mapping:
+              #      one-off: "#/components/schemas/NewOneOffJob"
+              #      scheduled: "#/components/schemas/NewScheduledJob"
+              #      continuous: "#/components/schemas/NewContinuousJob"
       responses:
         "200":
           description: "Operation was successful"
@@ -363,14 +384,34 @@ components:
         jobs:
           type: array
           items:
-            $ref: "#/components/schemas/DefinedJob"
+            oneOf:
+              - $ref: "#/components/schemas/DefinedOneOffJob"
+              - $ref: "#/components/schemas/DefinedScheduledJob"
+              - $ref: "#/components/schemas/DefinedContinuousJob"
+            ## TODO: Uncomment once job_type is enforced everywhere
+            # discriminator:
+            #   propertyName: job_type
+            #   mapping:
+            #      one-off: "#/components/schemas/DefinedOneOffJob"
+            #      scheduled: "#/components/schemas/DefinedScheduledJob"
+            #      continuous: "#/components/schemas/DefinedContinuousJob"
         messages:
           $ref: "#/components/schemas/ResponseMessages"
     JobResponse:
       type: object
       properties:
         job:
-          $ref: "#/components/schemas/DefinedJob"
+          oneOf:
+            - $ref: "#/components/schemas/DefinedOneOffJob"
+            - $ref: "#/components/schemas/DefinedScheduledJob"
+            - $ref: "#/components/schemas/DefinedContinuousJob"
+          ## TODO: Uncomment once job_type is enforced everywhere
+          # discriminator:
+          #   propertyName: job_type
+          #   mapping:
+          #      one-off: "#/components/schemas/DefinedOneOffJob"
+          #      scheduled: "#/components/schemas/DefinedScheduledJob"
+          #      continuous: "#/components/schemas/DefinedContinuousJob"
         messages:
           $ref: "#/components/schemas/ResponseMessages"
     RestartResponse:
@@ -467,7 +508,15 @@ components:
           $ref: "#/components/schemas/HealthCheckType"
         path:
           type: string
-    # common job fields
+    EmailOption:
+      type: string
+      description: "job emails setting."
+      enum:
+        - none
+        - all
+        - onfinish
+        - onfailure
+      example: "all"
     CommonJob:
       type: object
       required:
@@ -497,29 +546,28 @@ components:
           type: boolean
           description: "Whether this job uses filelog or not."
           example: false
+          default: false
         filelog_stdout:
-          type: string
+          type:
+            - string
+            - "null"
           description: "Path to the stdout file log."
           example: "logs/my-job.out"
         filelog_stderr:
-          type: string
+          type:
+            - string
+            - "null"
           description: "Path to the stderr file log."
           example: "logs/my-job.err"
         emails:
-          type: string
-          description: "Job emails setting."
-          enum:
-            - "none"
-            - "all"
-            - "onfinish"
-            - "onfailure"
-          example: "all"
+          $ref: "#/components/schemas/EmailOption"
         retry:
           type: integer
           description: "Job retry policy. Zero means don't retry at all (the default)"
           minimum: 0
           maximum: 5
           example: 0
+          default: 0
         mount:
           type: string
           description: "NFS mount configuration for the job."
@@ -527,70 +575,103 @@ components:
             - "all"
             - "none"
           example: "none"
-        schedule:
-          type: string
-          description: "If the job is a cronjob, execution schedule."
-          example: "@hourly"
-        continuous:
-          type: boolean
-          description: "If a job should be always running."
-          example: false
-        port:
-          type: integer
-          description: "Port to expose for the job. Applicable only when continuous is true."
-          minimum: 1
-          maximum: 65535
-          example: 8080
-        port_protocol:
-          type: string
-          description: "Protocol to configure when exposing a port for the job. Applicable only when continuous is true (default ´tcp´."
-          enum:
-            - "tcp"
-            - "udp"
-          example: "tcp"
-        replicas:
-          type: integer
-          description: "Number of replicas to be used for the job. Configurable only when continuous is true."
-          minimum: 1
-          example: 1
-        cpu:
-          type: string
-          description: "Job CPU resource limit."
-          example: "1"
-        health_check:
-          type: object
-          description: "Health check configuration for the job. Applicable only when continuous is true."
-          oneOf:
-            - $ref: "#/components/schemas/ScriptHealthCheck"
-            - $ref: "#/components/schemas/HttpHealthCheck"
-          discriminator:
-            propertyName: type
-            mapping:
-              script: "#/components/schemas/ScriptHealthCheck"
-              http: "#/components/schemas/HttpHealthCheck"
+          default: "all"
         memory:
-          type: string
+          type:
+            - string
+            - "null"
           description: "Job memory resource limit."
           example: "1G"
-        timeout:
-          type: integer
-          description: "Maximum amount of seconds the job will be allowed to run before it is failed"
-          minimum: 0
-          example: 120
-    # job as created by the user
-    NewJob:
+        cpu:
+          type:
+            - string
+            - "null"
+          description: "Job CPU resource limit."
+          example: "1"
+    NewOneOffJob:
       allOf:
         - $ref: "#/components/schemas/CommonJob"
-    # job, once defined, as reported by the API
-    DefinedJob:
+        - type: object
+          # TODO: uncomment required when all clients have been migrated to job_type
+          # required:
+          #   - job_type
+          properties:
+            job_type:
+              type: string
+              enum: ["one-off"]
+    NewScheduledJob:
       allOf:
         - $ref: "#/components/schemas/CommonJob"
         - type: object
           required:
-            - image
-            - image_state
-            - status_short
-            - status_long
+            - schedule
+            # TODO: uncomment required when all clients have been migrated to job_type
+            # - job_type
+          properties:
+            job_type:
+              type: string
+              enum: ["scheduled"]
+            schedule:
+              type: string
+              description: "If the job is a cronjob, execution schedule."
+              example: "@hourly"
+            timeout:
+              type:
+                - integer
+                - "null"
+              description: "Maximum amount of seconds the job will be allowed to run before it is failed"
+              minimum: 0
+              example: 120
+    NewContinuousJob:
+      allOf:
+        - $ref: "#/components/schemas/CommonJob"
+        - type: object
+          # TODO: uncomment required when all clients have been migrated to job_type
+          # required:
+          #   - job_type
+          properties:
+            continuous: # TODO: For backward compatibility. Remove when every client using this api starts using job_ype
+              type: boolean
+              description: |
+                If a job should be always running.
+                This is deprecated and is only here for backward compatibility.
+                Use job_type instead.
+              example: true
+            job_type:
+              type: string
+              enum: ["continuous"]
+            replicas:
+              type:
+                - integer
+                - "null"
+              description: "Number of replicas to be used for the job"
+              minimum: 1
+              example: 1
+            port:
+              type:
+                - integer
+                - "null"
+              description: "Port to expose for the job"
+              minimum: 1
+              maximum: 65535
+              example: 8080
+            health_check:
+              type:
+                - object
+                - "null"
+              description: "Health check configuration for the job"
+              oneOf:
+                - $ref: "#/components/schemas/ScriptHealthCheck"
+                - $ref: "#/components/schemas/HttpHealthCheck"
+              discriminator:
+                propertyName: type
+                mapping:
+                  script: "#/components/schemas/ScriptHealthCheck"
+                  http: "#/components/schemas/HttpHealthCheck"
+    DefinedCommonJob:
+      allOf:
+        - $ref: "#/components/schemas/CommonJob"
+        - type: object
           properties:
             image:
               type: string
@@ -608,10 +689,87 @@ components:
               type: string
               description: "Job status, extended text."
               example: "Running since 30 seconds ago."
+    DefinedOneOffJob:
+      allOf:
+        - $ref: "#/components/schemas/DefinedCommonJob"
+        - type: object
+          required:
+            - job_type
+          properties:
+            job_type:
+              type: string
+              enum: ["one-off"]
+    DefinedScheduledJob:
+      allOf:
+        - $ref: "#/components/schemas/DefinedCommonJob"
+        - type: object
+          required:
+            - schedule
+            - job_type
+          properties:
+            job_type:
+              type: string
+              enum: ["scheduled"]
+            schedule:
+              type: string
+              description: "If the job is a cronjob, execution schedule."
+              example: "@hourly"
             schedule_actual:
               type: string
               description: "If the job is a cronjob, actual execution schedule."
               example: "15 * * * *"
+            timeout:
+              type:
+                - integer
+                - "null"
+              description: "Maximum amount of seconds the job will be allowed to run before it is failed"
+              minimum: 0
+              example: 120
+    DefinedContinuousJob:
+      allOf:
+        - $ref: "#/components/schemas/DefinedCommonJob"
+        - type: object
+          required:
+            - job_type
+          properties:
+            continuous: # TODO: For backward compatibility. Remove when every client using this api starts using job_ype
+              type: boolean
+              description: |
+                If a job should be always running.
+                This is deprecated and is only here for backward compatibility.
+                Use job_type instead.
+              example: true
+            job_type:
+              type: string
+              enum: ["continuous"]
+            replicas:
+              type:
+                - integer
+                - "null"
+              description: "Number of replicas to be used for the job"
+              minimum: 1
+              example: 1
+            port:
+              type:
+                - integer
+                - "null"
+              description: "Port to expose for the job"
+              minimum: 1
+              maximum: 65535
+              example: 8080
+            health_check:
+              type:
+                - object
+                - "null"
+              description: "Health check configuration for the job"
+              oneOf:
+                - $ref: "#/components/schemas/ScriptHealthCheck"
+                - $ref: "#/components/schemas/HttpHealthCheck"
+              discriminator:
+                propertyName: type
+                mapping:
+                  script: "#/components/schemas/ScriptHealthCheck"
+                  path: "#/components/schemas/HttpHealthCheck"
   responses:
     unauthorized_error:
       description: "Unauthorized error."

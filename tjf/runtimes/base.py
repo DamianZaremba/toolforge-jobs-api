@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import AsyncIterator
 
 from ..core.images import Image
-from ..core.models import Job, QuotaData
+from ..core.models import AnyJob, QuotaData
 from ..settings import Settings
 
 
@@ -12,20 +12,20 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_jobs(self, *, tool: str) -> list[Job]:
+    def get_jobs(self, *, tool: str) -> list[AnyJob]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_job(self, *, job_name: str, tool: str) -> Job | None:
+    def get_job(self, *, job_name: str, tool: str) -> AnyJob | None:
         raise NotImplementedError
 
     # TODO: Job already has the tool name within it, maybe we don't need it as extra parameter, or inside each Job
     @abstractmethod
-    def create_job(self, *, job: Job, tool: str) -> None:
+    def create_job(self, *, job: AnyJob, tool: str) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def restart_job(self, *, job: Job, tool: str) -> None:
+    def restart_job(self, *, job: AnyJob, tool: str) -> None:
         raise NotImplementedError
 
     @abstractmethod
@@ -33,7 +33,7 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def delete_job(self, *, tool: str, job: Job) -> None:
+    def delete_job(self, *, tool: str, job: AnyJob) -> None:
         raise NotImplementedError
 
     @abstractmethod
@@ -43,7 +43,7 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def diff_with_running_job(self, *, job: Job) -> str | None:
+    def diff_with_running_job(self, *, job: AnyJob) -> str | None:
         """
         Compare job with the one in the runtime and return the diff.
         This is done here instead of the business side because:

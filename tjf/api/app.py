@@ -43,7 +43,11 @@ def create_app(settings: Settings | None = None) -> JobsApi:
 
     level = logging.DEBUG if settings.debug else logging.INFO
 
-    logging.basicConfig(level=level)
+    logging.basicConfig(
+        level=level,
+        # this adds the file and line number, quite useful
+        format="[%(asctime)s] p%(process)s:t%(thread)d %(pathname)s:%(lineno)d:%(funcName)s %(levelname)s - %(message)s",
+    )
     # this is needed mostly for the tests, as you can't change the loglevel with basicConfig once it has
     # been changed once
     logging.root.setLevel(level=level)

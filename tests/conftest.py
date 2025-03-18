@@ -22,12 +22,10 @@ TESTS_PATH = Path(__file__).parent.resolve()
 sys.path.append(str(TESTS_PATH))
 
 # Needed after sys.path.append
-from tests.helpers.fake_k8s import FAKE_HARBOR_HOST, FAKE_IMAGE_CONFIG  # noqa
-from tests.helpers.fakes import get_fake_harbor_config  # noqa
+from tests.helpers.fake_k8s import FAKE_IMAGE_CONFIG, FIXTURES_PATH  # noqa
+from tests.helpers.fakes import FAKE_HARBOR_HOST, get_fake_harbor_config  # noqa
 
 FAKE_VALID_TOOL_TOOL_HEADER = "O=toolforge,CN=some-tool"
-
-FIXTURES_PATH = TESTS_PATH / "helpers" / "fixtures"
 
 
 @pytest.fixture
@@ -164,7 +162,7 @@ def fake_images(monkeymodule, fake_harbor_content, patch_kube_config_loading) ->
 
 @pytest.fixture
 def app(monkeypatch: pytest.MonkeyPatch) -> Generator[JobsApi, None, None]:
-    settings = Settings(skip_metrics=False, debug=True)
+    settings = Settings(debug=True, skip_metrics=False)
     app = create_app(settings=settings)
     yield app
 

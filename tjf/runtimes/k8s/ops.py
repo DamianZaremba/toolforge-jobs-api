@@ -20,14 +20,14 @@ import requests
 from toolforge_weld.kubernetes import parse_quantity
 
 from ...core.error import TjfValidationError
-from ...core.models import Job
+from ...core.models import AnyJob, ScheduledJob
 from .account import ToolAccount
 from .jobs import get_k8s_job_from_cronjob
 from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
 
 
-def validate_job_limits(account: ToolAccount, job: Job) -> None:
+def validate_job_limits(account: ToolAccount, job: AnyJob) -> None:
     limits = account.k8s_cli.get_object("limitranges", name=account.namespace)["spec"]["limits"]
 
     for limit in limits:
@@ -73,7 +73,7 @@ def validate_job_limits(account: ToolAccount, job: Job) -> None:
                     )
 
 
-def trigger_scheduled_job(tool_account: ToolAccount, scheduled_job: Job) -> None:
+def trigger_scheduled_job(tool_account: ToolAccount, scheduled_job: ScheduledJob) -> None:
     validate_job_limits(tool_account, scheduled_job)
 
     k8s_cronjob = tool_account.k8s_cli.get_object("cronjobs", scheduled_job.job_name)

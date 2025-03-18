@@ -37,7 +37,11 @@ class TestGetHealthcheckForK8s:
                 health_check_type=HealthCheckType.SCRIPT, script="Some script"
             )
         )
-        gotten_k8s_object = get_healthcheck_for_k8s(job=dummy_job)
+        gotten_k8s_object = get_healthcheck_for_k8s(
+            health_check=dummy_job.health_check,
+            port=dummy_job.port,
+            port_protocol=dummy_job.port_protocol,
+        )
 
         assert gotten_k8s_object == expected_k8s_object
 
@@ -57,7 +61,11 @@ class TestGetHealthcheckForK8s:
             health_check=HttpHealthCheck(health_check_type=HealthCheckType.HTTP, path="/healthz"),
             port=8080,
         )
-        gotten_k8s_object = get_healthcheck_for_k8s(job=dummy_job)
+        gotten_k8s_object = get_healthcheck_for_k8s(
+            health_check=dummy_job.health_check,
+            port=dummy_job.port,
+            port_protocol=dummy_job.port_protocol,
+        )
 
         assert gotten_k8s_object == expected_k8s_object
 
@@ -73,11 +81,21 @@ class TestGetHealthcheckForK8s:
             },
         }
 
-        gotten_k8s_object = get_healthcheck_for_k8s(get_dummy_job(port=8080))
+        dummy_job = get_dummy_job(port=8080)
+        gotten_k8s_object = get_healthcheck_for_k8s(
+            health_check=dummy_job.health_check,
+            port=dummy_job.port,
+            port_protocol=dummy_job.port_protocol,
+        )
         assert gotten_k8s_object == expected_k8s_object
 
     def test_we_get_no_healthcheck(self):
         expected_k8s_object = {}
-        gotten_k8s_object = get_healthcheck_for_k8s(get_dummy_job())
+        dummy_job = get_dummy_job()
+        gotten_k8s_object = get_healthcheck_for_k8s(
+            health_check=dummy_job.health_check,
+            port=dummy_job.port,
+            port_protocol=dummy_job.port_protocol,
+        )
 
         assert gotten_k8s_object == expected_k8s_object

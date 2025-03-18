@@ -44,7 +44,7 @@ def generate_labels(
     if filelog is True:
         obj["jobs.toolforge.org/filelog"] = "yes"
 
-    if emails is not None:
+    if emails:
         obj["jobs.toolforge.org/emails"] = emails
 
     if mount:

@@ -5,7 +5,7 @@ from logging import getLogger
 from typing import Any
 
 from ...core.error import TjfError
-from ...core.models import Command, Job
+from ...core.models import AnyJob, Command, ContinuousJob, OneOffJob, ScheduledJob
 from ...core.utils import (
     KUBERNETES_DATE_FORMAT,
     dict_get_object,
@@ -88,7 +88,7 @@ def _get_job_object_status(
 
 
 def _refresh_status_cronjob_from_restarted_cronjob(
-    user: ToolAccount, original_cronjob: Job
+    user: ToolAccount, original_cronjob: ScheduledJob
 ) -> str | None:
     """This function scans all job resources that may or may not be manually defined to see if
     it may be related to the original_cronjob."""
@@ -168,7 +168,7 @@ def _refresh_status_cronjob_from_restarted_cronjob(
     return None
 
 
-def _refresh_status_cronjob(user: ToolAccount, job: Job) -> None:
+def _refresh_status_cronjob(user: ToolAccount, job: ScheduledJob) -> None:
     status_dict = dict_get_object(job.k8s_object, "status")
     if status_dict is None:
         return None
@@ -196,7 +196,7 @@ def _refresh_status_cronjob(user: ToolAccount, job: Job) -> None:
         job.status_short = job_status
 
 
-def _refresh_status_dp(user: ToolAccount, job: Job) -> None:
+def _refresh_status_dp(user: ToolAccount, job: ContinuousJob) -> None:
     status_dict = dict_get_object(job.k8s_object, "status")
     if status_dict is None:
         return
@@ -244,7 +244,7 @@ def _refresh_status_dp(user: ToolAccount, job: Job) -> None:
                     job.status_short = "Specified command fails to run"
 
 
-def _refresh_status_job(user: ToolAccount, job: Job) -> None:
+def _refresh_status_job(user: ToolAccount, job: OneOffJob) -> None:
     job_status = _get_job_object_status(user, job.k8s_object, for_complete=True)
     if job_status:
         job.status_short = job_status
@@ -252,19 +252,18 @@ def _refresh_status_job(user: ToolAccount, job: Job) -> None:
         job.status_short = "Unknown"
 
 
-def refresh_job_short_status(user: ToolAccount, job: Job) -> None:
-    k8s_type = K8sJobKind.from_job_type(job.job_type)
-    if k8s_type == K8sJobKind.CRON_JOB:
+def refresh_job_short_status(user: ToolAccount, job: AnyJob) -> None:
+    if isinstance(job, ScheduledJob):
         _refresh_status_cronjob(user, job)
-    elif k8s_type == K8sJobKind.DEPLOYMENT:
+    elif isinstance(job, ContinuousJob):
         _refresh_status_dp(user, job)
-    elif k8s_type == K8sJobKind.JOB:
+    elif isinstance(job, OneOffJob):
         _refresh_status_job(user, job)
     else:
         raise TjfError(f"Unable to refresh status for unknown job type: {job}")
 
 
-def refresh_job_long_status(user: ToolAccount, job: Job) -> None:
+def refresh_job_long_status(user: ToolAccount, job: AnyJob) -> None:
     label_selector = labels_selector(
         job_name=job.job_name,
         user_name=user.name,

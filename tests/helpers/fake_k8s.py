@@ -1,7 +1,15 @@
-from tjf.runtimes.k8s.jobs import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY
-
 # TODO: replace most of this file with json/yaml files in helpers/fixtures
+import json
+from pathlib import Path
 
+from toolforge_weld.kubernetes import MountOption
+
+from tests.helpers.fakes import get_dummy_job
+from tjf.core.images import Image, ImageType
+from tjf.core.models import AnyJob, JobType
+
+TESTS_PATH = Path(__file__).parent.resolve()
+FIXTURES_PATH = TESTS_PATH / "fixtures"
 FAKE_IMAGE_CONFIG = """
 bullseye:
   state: stable
@@ -48,7 +56,6 @@ php7.4:
       image: docker-registry.tools.wmflabs.org/toolforge-php74-sssd-web
 """
 
-FAKE_HARBOR_HOST = "harbor.example.org"
 FAKE_K8S_HOST = "k8s.example.org"
 
 CRONJOB_NOT_RUN_YET = {
@@ -66,6 +73,7 @@ CRONJOB_NOT_RUN_YET = {
             "jobs.toolforge.org/command-new-format": "yes",
             "jobs.toolforge.org/emails": "none",
             "jobs.toolforge.org/filelog": "yes",
+            "toolforge.org/mount-storage": "all",
             "toolforge": "tool",
         },
         "name": "test",
@@ -146,6 +154,7 @@ CRONJOB_PREVIOUS_RUN_BUT_NO_RUNNING_JOB = {
             "jobs.toolforge.org/command-new-format": "yes",
             "jobs.toolforge.org/emails": "none",
             "jobs.toolforge.org/filelog": "yes",
+            "toolforge.org/mount-storage": "all",
             "toolforge": "tool",
         },
         "name": "test",
@@ -226,6 +235,7 @@ CRONJOB_WITH_RUNNING_JOB = {
             "jobs.toolforge.org/command-new-format": "yes",
             "jobs.toolforge.org/emails": "none",
             "jobs.toolforge.org/filelog": "yes",
+            "toolforge.org/mount-storage": "all",
             "toolforge": "tool",
         },
         "name": "test",
@@ -962,13 +972,79 @@ LIMIT_RANGE_OBJECT = {
     },
 }
 
+K8S_CONTINUOUS_JOB_OBJ = json.loads(
+    (FIXTURES_PATH / "jobs" / "deployment-simple-buildpack.json").read_text()
+)
+K8S_SCHEDULED_JOB_OBJ = json.loads((FIXTURES_PATH / "jobs" / "daily_cronjob.json").read_text())
+K8S_ONEOFF_JOB_OBJ = json.loads(
+    (FIXTURES_PATH / "jobs" / "oneoff-simple-prebuilt.json").read_text()
+)
 
-class FakeJob:
-    def __init__(
-        self,
-        *,
-        cpu: str | None = None,
-        memory: str | None = None,
-    ) -> None:
-        self.cpu = cpu or JOB_DEFAULT_CPU
-        self.memory = memory or JOB_DEFAULT_MEMORY
+
+def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
+    """Returns a job matching the only fixture used in this suite.
+
+    Pass a custom job_name to get a non-matching job instead.
+    """
+    params = dict(
+        job_name="migrate",
+        cmd="cmdname with-arguments 'other argument with spaces'",
+        # When creating a new job, the job that comes as input only has the canonical_name for the image
+        image=Image(
+            canonical_name="bullseye",
+            type=ImageType.BUILDPACK,
+        ),
+        job_type=JobType.CONTINUOUS,
+        tool_name="majavah-test",
+        k8s_object=K8S_CONTINUOUS_JOB_OBJ,
+        mount=MountOption.NONE,
+    )
+    if add_status:
+        overrides["status_short"] = "Not running"
+        overrides["status_long"] = "No pods were created for this job."
+
+    job = get_dummy_job(**(params | overrides))
+    # this is needed as the mount field has a dynamic default
+    job.model_fields_set.remove("mount")
+    return job
+
+
+def get_continuous_job_fixture_as_new_job(**overrides) -> AnyJob:
+    """
+    When checking if a job matches an existing one, the incoming job has no image and no statuses, this helper is to
+    fetch a job that matches the fixture without those fields as if it was being created anew.
+    """
+    new_job = get_continuous_job_fixture_as_job(add_status=False, **overrides)
+    new_job.image = Image(canonical_name=new_job.image.canonical_name)
+    return new_job
+
+
+def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
+    """Returns a job matching the only fixture used in this suite.
+
+    Pass a custom job_name to get a non-matching job instead.
+    """
+    params = dict(
+        job_name="testoneoff",
+        cmd="date",
+        # When creating a new job, the job that comes as input only has the canonical_name for the image
+        image=Image(
+            canonical_name="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+            type=ImageType.STANDARD,
+            state="stable",
+            container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+        ),
+        job_type=JobType.ONE_OFF,
+        tool_name="tf-test",
+    )
+    optional_params = {
+        "filelog": True,
+        "filelog_stderr": Path("/data/project/tf-test/testoneoff.err"),
+        "filelog_stdout": Path("/data/project/tf-test/testoneoff.out"),
+        "k8s_object": K8S_ONEOFF_JOB_OBJ,
+    }
+    if add_status:
+        overrides["status_short"] = "Unknown"
+        overrides["status_long"] = "Unknown"
+
+    return get_dummy_job(**(params | optional_params | overrides))

@@ -24,7 +24,7 @@ from ..runtimes.k8s.runtime import K8sRuntime
 from ..settings import Settings
 from .error import TjfError, TjfJobNotFoundError, TjfValidationError
 from .images import Image
-from .models import Job, QuotaData
+from .models import AnyJob, QuotaData
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class Core:
     def __init__(self, settings: Settings) -> None:
         self.runtime = K8sRuntime(settings=settings)
 
-    def create_job(self, job: Job) -> Job:
+    def create_job(self, job: AnyJob) -> AnyJob:
         try:
             self.runtime.create_job(tool=job.tool_name, job=job)
         except TjfError as e:
@@ -42,7 +42,7 @@ class Core:
             raise TjfError("Unable to start job") from e
         return job
 
-    def update_job(self, job: Job) -> str:
+    def update_job(self, job: AnyJob) -> str:
         message = f"Job {job.job_name} is already up to date"
 
         try:
@@ -102,17 +102,17 @@ class Core:
     def get_quotas(self, toolname: str) -> list[QuotaData]:
         return self.runtime.get_quotas(tool=toolname)
 
-    def get_jobs(self, toolname: str) -> list[Job]:
+    def get_jobs(self, toolname: str) -> list[AnyJob]:
         return self.runtime.get_jobs(tool=toolname)
 
     def flush_job(self, toolname: str) -> None:
         self.runtime.delete_all_jobs(tool=toolname)
 
-    def get_job(self, toolname: str, name: str) -> Job | None:
+    def get_job(self, toolname: str, name: str) -> AnyJob | None:
         return self.runtime.get_job(job_name=name, tool=toolname)
 
-    def delete_job(self, job: Job) -> None:
+    def delete_job(self, job: AnyJob) -> None:
         self.runtime.delete_job(tool=job.tool_name, job=job)
 
-    def restart_job(self, job: Job) -> None:
+    def restart_job(self, job: AnyJob) -> None:
         self.runtime.restart_job(job=job, tool=job.tool_name)

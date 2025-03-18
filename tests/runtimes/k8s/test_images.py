@@ -2,7 +2,7 @@ import datetime
 
 import pytest
 
-from tests.helpers.fake_k8s import FAKE_HARBOR_HOST
+from tests.helpers.fakes import FAKE_HARBOR_HOST
 from tjf.core.error import TjfError, TjfValidationError
 from tjf.runtimes.k8s.images import get_images, image_by_container_url, image_by_name
 
