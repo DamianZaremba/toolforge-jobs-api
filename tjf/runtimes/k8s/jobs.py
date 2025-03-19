@@ -12,11 +12,12 @@ from toolforge_weld.kubernetes import ApiData, K8sClient, MountOption, parse_qua
 from toolforge_weld.logs import LogEntry
 from toolforge_weld.logs.kubernetes import KubernetesSource
 
+from ...core.command import Command
 from ...core.cron import CronExpression
-from ...core.error import TjfError
+from ...core.error import TjfError, TjfValidationError
 from ...core.health_check import HealthCheckType, HttpHealthCheck, ScriptHealthCheck
-from ...core.images import image_by_container_url
-from ...core.job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY, Job, JobType
+from ...core.images import ImageType, image_by_container_url
+from ...core.job import EmailOption, Job, JobType
 from ...core.utils import dict_get_object
 from .account import ToolAccount
 from .command import get_command_for_k8s, get_command_from_k8s
@@ -33,6 +34,8 @@ JOB_TTLAFTERFINISHED = 30
 # still giving some grace for jobs to quit after the initial SIGTERM.
 JOB_TERMINATION_GRACE_PERIOD = 15
 JOB_CONTAINER_NAME = "job"
+JOB_DEFAULT_MEMORY = "512Mi"
+JOB_DEFAULT_CPU = "500m"
 
 
 class K8sJobKind(Enum):
@@ -107,8 +110,8 @@ def _get_k8s_cronjob_object(job: Job) -> K8S_OBJECT_TYPE:
         jobname=job.job_name,
         tool_name=job.tool_name,
         type=K8sJobKind.from_job_type(job.job_type).api_path_name,
-        filelog=job.command.filelog,
-        emails=job.emails,
+        filelog=job.filelog,
+        emails=job.emails.value,
         mount=job.mount,
     )
     obj: dict[str, Any] = {
@@ -150,11 +153,10 @@ def _get_k8s_podtemplate(
         jobname=job.job_name,
         tool_name=job.tool_name,
         type=K8sJobKind.from_job_type(job_type=job.job_type).api_path_name,
-        filelog=job.command.filelog,
-        emails=job.emails,
+        filelog=job.filelog,
+        emails=job.emails.value,
         mount=job.mount,
     )
-    generated_command = get_command_for_k8s(command=job.command)
 
     if job.image.type.use_standard_nfs():
         working_dir = f"/data/project/{job.tool_name}"
@@ -171,6 +173,22 @@ def _get_k8s_podtemplate(
     ports = {}
     if job.port:
         ports = {"ports": [{"containerPort": job.port}]}
+
+    if job.image.type != ImageType.BUILDPACK and not job.mount.supports_non_buildservice:
+        raise TjfValidationError(
+            f"Mount type {job.mount.value} is only supported for build service images"
+        )
+
+    command = Command(
+        user_command=job.cmd,
+        filelog=job.filelog,
+        filelog_stderr=job.filelog_stderr,
+        filelog_stdout=job.filelog_stdout,
+    )
+
+    generated_command = get_command_for_k8s(
+        command=command, job_name=job.job_name, tool_name=job.tool_name
+    )
 
     return {
         "metadata": {"labels": labels},
@@ -273,13 +291,14 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
         jobname=job.job_name,
         tool_name=job.tool_name,
         type=K8sJobKind.from_job_type(job.job_type).api_path_name,
-        filelog=job.command.filelog,
-        emails=job.emails,
+        filelog=job.filelog,
+        emails=job.emails.value,
         mount=job.mount,
     )
 
     # only add health-check to continuous jobs
     probes = get_healthcheck_for_k8s(job.health_check, port=job.port) if job.health_check else {}
+    replicas = job.replicas or 1
 
     obj = {
         "apiVersion": K8sJobKind.DEPLOYMENT.api_version,
@@ -291,7 +310,7 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
         },
         "spec": {
             "template": _get_k8s_podtemplate(job=job, restart_policy="Always", probes=probes),
-            "replicas": job.replicas,
+            "replicas": replicas,
             "selector": {
                 "matchLabels": labels,
             },
@@ -306,8 +325,8 @@ def _get_k8s_job_object(job: Job) -> K8S_OBJECT_TYPE:
         jobname=job.job_name,
         tool_name=job.tool_name,
         type=K8sJobKind.from_job_type(job.job_type).api_path_name,
-        filelog=job.command.filelog,
-        emails=job.emails,
+        filelog=job.filelog,
+        emails=job.emails.value,
         mount=job.mount,
     )
     obj: dict[str, Any] = {
@@ -471,6 +490,9 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
 
     imageurl = podspec["template"]["spec"]["containers"][0]["image"]
     retry = podspec.get("backoffLimit", 0)
+    emails = EmailOption(
+        metadata["labels"].get("jobs.toolforge.org/emails", EmailOption.none.value)
+    )
     port = (
         podspec["template"]["spec"]["containers"][0]
         .get("ports", [{}])[0]
@@ -479,7 +501,7 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
             None,
         )
     )
-    replicas = spec.get("replicas", 1)
+    replicas = spec.get("replicas", None)
     resources = podspec["template"]["spec"]["containers"][0].get("resources", {})
     resources_limits = resources.get("limits", {})
     memory = resources_limits.get("memory", JOB_DEFAULT_MEMORY)
@@ -505,7 +527,10 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
 
     return Job(
         job_type=job_type,
-        command=command,
+        cmd=command.user_command,
+        filelog=command.filelog,
+        filelog_stderr=command.filelog_stderr,
+        filelog_stdout=command.filelog_stdout,
         image=image,
         jobname=jobname,
         tool_name=user,

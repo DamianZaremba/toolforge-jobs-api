@@ -17,18 +17,18 @@ class HealthCheck(ABC):
 
     @classmethod
     @abstractmethod
-    def handles_type(cls: Type[T], check_type: str | None) -> bool:
+    def handles_type(cls: Type[T], type: HealthCheckType | None) -> bool:
         pass
 
 
 class ScriptHealthCheck(HealthCheck):
 
     def __init__(self, type: HealthCheckType, script: str) -> None:
-        self.type = type
+        self.type = HealthCheckType(type)
         self.script = script
 
     @classmethod
-    def handles_type(cls: Type[T], type: str | HealthCheckType | None) -> bool:
+    def handles_type(cls: Type[T], type: HealthCheckType | None) -> bool:
         try:
             health_check_type = HealthCheckType(type)
         except ValueError:
@@ -46,11 +46,11 @@ class ScriptHealthCheck(HealthCheck):
 class HttpHealthCheck(HealthCheck):
 
     def __init__(self, type: HealthCheckType, path: str) -> None:
-        self.type = type
+        self.type = HealthCheckType(type)
         self.path = path
 
     @classmethod
-    def handles_type(cls: Type[T], type: str | HealthCheckType | None) -> bool:
+    def handles_type(cls: Type[T], type: HealthCheckType | None) -> bool:
         try:
             health_check_type = HealthCheckType(type)
         except ValueError:

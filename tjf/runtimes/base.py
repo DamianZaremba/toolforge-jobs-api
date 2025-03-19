@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Iterator, Optional
 
 from ..core.job import Job
@@ -51,16 +50,4 @@ class BaseRuntime(ABC):
 
     @abstractmethod
     def get_quota(self, *, tool: str) -> list[Quota]:
-        raise NotImplementedError
-
-    @abstractmethod
-    def resolve_filelog_out_path(
-        self, *, tool: str, job_name: str, filelog_stdout: str | None
-    ) -> Path:
-        raise NotImplementedError
-
-    @abstractmethod
-    def resolve_filelog_err_path(
-        self, *, tool: str, job_name: str, filelog_stderr: str | None
-    ) -> Path:
         raise NotImplementedError

@@ -4,6 +4,7 @@ from datetime import datetime
 from logging import getLogger
 from typing import Any, Optional
 
+from ...core.command import Command
 from ...core.error import TjfError
 from ...core.job import Job
 from ...core.utils import (
@@ -13,7 +14,8 @@ from ...core.utils import (
     remove_prefixes,
 )
 from .account import ToolAccount
-from .jobs import K8sJobKind, get_job_from_k8s
+from .command import GeneratedCommand, get_command_for_k8s
+from .jobs import K8sJobKind
 from .labels import labels_selector
 
 LOGGER = getLogger(__name__)
@@ -133,8 +135,28 @@ def _refresh_status_cronjob_from_restarted_cronjob(
         if not matching_reference:
             continue
 
-        maybe_job = get_job_from_k8s(maybe_manual_job_data, "jobs")
-        if maybe_job.command != original_cronjob.command:
+        # maybe_manual_job_data comes from k8s so if we can't get command and args, let things blow up.
+        # because in that case something is seriously wrong
+        maybe_manual_job_container = maybe_manual_job_data["spec"]["template"]["spec"][
+            "containers"
+        ][0]
+        maybe_manual_job_cmd = maybe_manual_job_container["command"]
+        maybe_manual_job_args = maybe_manual_job_container.get("args", None)
+        maybe_manual_job_generated_command = GeneratedCommand(
+            command=maybe_manual_job_cmd, args=maybe_manual_job_args
+        )
+        command = Command(
+            user_command=original_cronjob.cmd,
+            filelog=original_cronjob.filelog,
+            filelog_stdout=original_cronjob.filelog_stdout,
+            filelog_stderr=original_cronjob.filelog_stderr,
+        )
+        original_cronjob_generated_command = get_command_for_k8s(
+            command=command,
+            job_name=original_cronjob.job_name,
+            tool_name=original_cronjob.tool_name,
+        )
+        if maybe_manual_job_generated_command != original_cronjob_generated_command:
             continue
 
         # finally, everything matches, we are certain this job was manually created from the cronjob

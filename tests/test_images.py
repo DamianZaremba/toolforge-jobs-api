@@ -1,7 +1,7 @@
 import pytest
 
 from tests.helpers.fake_k8s import FAKE_HARBOR_HOST
-from tjf.core.error import TjfError
+from tjf.core.error import TjfError, TjfValidationError
 from tjf.core.images import AVAILABLE_IMAGES, image_by_container_url, image_by_name
 
 
@@ -36,7 +36,7 @@ def test_image_by_name(fake_images, name, url):
 
 
 def test_image_by_name_raises_value_error(fake_images):
-    with pytest.raises(ValueError):
+    with pytest.raises(TjfValidationError):
         image_by_name("invalid")
 
 

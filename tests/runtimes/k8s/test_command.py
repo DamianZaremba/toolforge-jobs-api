@@ -32,7 +32,9 @@ class TestGetCommandForK8s:
             filelog_stderr=None,
         )
 
-        generated = get_command_for_k8s(command=cmd)
+        generated = get_command_for_k8s(
+            command=cmd, job_name="some-job", tool_name=fake_tool_account.name
+        )
         assert generated.args is None
 
         result = subprocess.run(
@@ -63,7 +65,9 @@ class TestGetCommandForK8s:
             filelog_stderr=stderr_file,
         )
 
-        generated = get_command_for_k8s(command=cmd)
+        generated = get_command_for_k8s(
+            command=cmd, job_name="some-job", tool_name=fake_tool_account.name
+        )
         assert generated.args is None
 
         result = subprocess.run(
@@ -88,22 +92,22 @@ class TestGetCommandFromK8s:
                 "./command-by-the-user.sh --with-args",
                 fake_k8s.JOB_CONT_NO_EMAILS_NO_FILELOG_OLD_ARRAY,
                 False,
-                "/dev/null",
-                "/dev/null",
+                Path("/dev/null"),
+                Path("/dev/null"),
             ],
             [
                 "./command-by-the-user.sh --with-args",
                 fake_k8s.JOB_CONT_NO_EMAILS_YES_FILELOG_OLD_ARRAY,
                 True,
-                "myjob.out",
-                "myjob.err",
+                Path("myjob.out"),
+                Path("myjob.err"),
             ],
             [
                 "./command-by-the-user.sh --with-args ; ./other-command.sh",
                 fake_k8s.JOB_CONT_NO_EMAILS_NO_FILELOG_NEW_ARRAY,
                 False,
-                "/dev/null",
-                "/dev/null",
+                Path("/dev/null"),
+                Path("/dev/null"),
             ],
             [
                 "./command-by-the-user.sh --with-args ; ./other-command.sh",
@@ -125,22 +129,22 @@ class TestGetCommandFromK8s:
                 "./command-by-the-user.sh --with-args ; ./other-command.sh",
                 fake_k8s.JOB_CONT_NO_EMAILS_YES_FILELOG_NEW_ARRAY,
                 True,
-                "myjob.out",
-                "myjob.err",
+                Path("/data/project/test/myjob.out"),
+                Path("/data/project/test/myjob.err"),
             ],
             [
                 "./command-by-the-user.sh --with-args",
                 fake_k8s.JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT,
                 True,
-                "/data/project/test/logs/myjob.log",
-                "myjob.err",
+                Path("/data/project/test/logs/myjob.log"),
+                Path("myjob.err"),
             ],
             [
                 "./command-by-the-user.sh --with-args",
                 fake_k8s.JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT_STDERR,
                 True,
-                "/dev/null",
-                "logs/customlog.err",
+                Path("/dev/null"),
+                Path("logs/customlog.err"),
             ],
             [
                 "cmdname",
@@ -157,8 +161,8 @@ class TestGetCommandFromK8s:
         user_command,
         object,
         filelog: bool,
-        filelog_stdout: str | None,
-        filelog_stderr: str | None,
+        filelog_stdout: Path | None,
+        filelog_stderr: Path | None,
     ) -> None:
         if isinstance(object, str):
             object = json.loads((fixtures_path / "jobs" / object).read_text())
@@ -181,20 +185,19 @@ class TestGetCommandFromK8s:
         assert command
         assert command.user_command == user_command
         assert command.filelog == filelog
-        assert command.filelog_stdout == (Path(filelog_stdout) if filelog_stdout else None)
-        assert command.filelog_stderr == (Path(filelog_stderr) if filelog_stderr else None)
+        assert command.filelog_stdout == filelog_stdout
+        assert command.filelog_stderr == filelog_stderr
 
 
 class TestResolveFilelogPath:
     @pytest.mark.parametrize(
         "param, expected",
         [
-            ["/tmp/foo", "/tmp/foo"],
-            ["bar", "/data/project/foo/bar"],
-            ["aa/bb", "/data/project/foo/aa/bb"],
-            [None, "/data/project/foo/default"],
-            ["", "/data/project/foo/default"],
+            [Path("/tmp/foo"), Path("/tmp/foo")],
+            [Path("bar"), Path("/data/project/foo/bar")],
+            [Path("aa/bb"), Path("/data/project/foo/aa/bb")],
+            [None, Path("/data/project/foo/default")],
         ],
     )
-    def test_happy_path(self, param: str | None, expected: str) -> None:
-        assert str(resolve_filelog_path(param, Path("/data/project/foo"), "default")) == expected
+    def test_happy_path(self, param: Path | None, expected: Path) -> None:
+        assert resolve_filelog_path(param, Path("/data/project/foo"), Path("default")) == expected

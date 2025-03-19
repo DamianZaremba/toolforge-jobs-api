@@ -15,7 +15,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 import logging
-from pathlib import Path
 from typing import Iterator, Optional
 
 from toolforge_weld.utils import peek
@@ -121,17 +120,3 @@ class Core:
 
     def restart_job(self, job: Job) -> None:
         self.runtime.restart_job(job=job, tool=job.tool_name)
-
-    def resolve_filelog_out_path(
-        self, filelog_stdout: str | None, tool: str, job_name: str
-    ) -> Path:
-        return self.runtime.resolve_filelog_out_path(
-            filelog_stdout=filelog_stdout, tool=tool, job_name=job_name
-        )
-
-    def resolve_filelog_err_path(
-        self, filelog_stderr: str | None, tool: str, job_name: str
-    ) -> Path:
-        return self.runtime.resolve_filelog_err_path(
-            filelog_stderr=filelog_stderr, tool=tool, job_name=job_name
-        )

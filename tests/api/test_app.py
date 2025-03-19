@@ -13,7 +13,6 @@ from tjf.api.app import error_handler
 from tjf.api.auth import TOOL_HEADER, ToolAuthError, ensure_authenticated
 from tjf.api.models import EmailOption, JobListResponse, ResponseMessages
 from tjf.api.utils import JobsApi
-from tjf.core.command import Command
 from tjf.core.error import TjfClientError, TjfError
 from tjf.core.health_check import HealthCheckType, ScriptHealthCheck
 from tjf.core.images import AVAILABLE_IMAGES, Image, ImageType
@@ -27,9 +26,10 @@ class Silly(BaseModel):
 def get_dummy_job(**overrides) -> Job:
     params = {
         "job_type": JobType.CONTINUOUS,
-        "command": Command(
-            user_command="silly command", filelog=False, filelog_stderr=None, filelog_stdout=None
-        ),
+        "cmd": "silly command",
+        "filelog": False,
+        "filelog_stderr": None,
+        "filelog_stdout": None,
         "image": Image(
             type=ImageType.STANDARD,
             canonical_name="silly-image",

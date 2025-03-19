@@ -2,7 +2,6 @@ import json
 import os
 from difflib import unified_diff
 from logging import getLogger
-from pathlib import Path
 from queue import Empty, Queue
 from threading import Thread
 from typing import Any, Iterator, Optional
@@ -19,7 +18,6 @@ from ...core.quota import Quota, QuotaCategoryType
 from ...core.utils import USER_AGENT, format_quantity, parse_and_format_mem
 from ..base import BaseRuntime
 from .account import ToolAccount
-from .command import resolve_filelog_path
 from .images import update_available_images
 from .jobs import (
     K8sJobKind,
@@ -321,15 +319,3 @@ class K8sRuntime(BaseRuntime):
         if not follow:
             for thread in threads:
                 thread.join()
-
-    def resolve_filelog_err_path(
-        self, *, tool: str, job_name: str, filelog_stderr: str | None
-    ) -> Path:
-        tool_account = ToolAccount(name=tool)
-        return resolve_filelog_path(filelog_stderr, tool_account.home, f"{job_name}.err")
-
-    def resolve_filelog_out_path(
-        self, tool: str, job_name: str, filelog_stdout: str | None
-    ) -> Path:
-        tool_account = ToolAccount(name=tool)
-        return resolve_filelog_path(filelog_stdout, tool_account.home, f"{job_name}.out")

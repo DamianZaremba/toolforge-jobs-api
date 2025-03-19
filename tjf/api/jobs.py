@@ -62,7 +62,7 @@ def api_create_job(toolname: str) -> ResponseReturnValue:
     logging.debug(f"Received new job: {request.json}")
     new_job = NewJob.model_validate(request.json)
     logging.debug(f"Generated NewJob: {new_job}")
-    job = new_job.to_job(tool_name=toolname, core=core)
+    job = new_job.to_job(tool_name=toolname)
     logging.debug(f"Generated job: {job}")
 
     existing_job = core.get_job(toolname=job.tool_name, name=job.job_name)
@@ -90,7 +90,7 @@ def api_create_job(toolname: str) -> ResponseReturnValue:
 def api_update_job(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
     core = current_app().core
-    job = NewJob.model_validate(request.json).to_job(tool_name=toolname, core=core)
+    job = NewJob.model_validate(request.json).to_job(tool_name=toolname)
 
     message = core.update_job(job=job)
     messages = ResponseMessages(info=[message])
@@ -147,7 +147,7 @@ def api_get_logs(toolname: str, name: str) -> ResponseReturnValue:
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    if job.command.filelog:
+    if job.filelog:
         raise TjfValidationError(
             f"Job '{name}' has file logging enabled, which is incompatible with the logs command",
             http_status_code=404,

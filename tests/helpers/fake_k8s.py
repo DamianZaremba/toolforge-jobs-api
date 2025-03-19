@@ -1,4 +1,4 @@
-from tjf.core.job import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY
+from tjf.runtimes.k8s.jobs import JOB_DEFAULT_CPU, JOB_DEFAULT_MEMORY
 
 # TODO: replace most of this file with json/yaml files in helpers/fixtures
 
@@ -102,7 +102,7 @@ CRONJOB_NOT_RUN_YET = {
                                     "/bin/sh",
                                     "-c",
                                     "--",
-                                    "exec 1>>test.out;exec 2>>test.err;./restart.sh",
+                                    "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                                 ],
                                 "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",  # noqa:E501
                                 "imagePullPolicy": "Always",
@@ -182,7 +182,7 @@ CRONJOB_PREVIOUS_RUN_BUT_NO_RUNNING_JOB = {
                                     "/bin/sh",
                                     "-c",
                                     "--",
-                                    "exec 1>>test.out;exec 2>>test.err;./restart.sh",
+                                    "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                                 ],
                                 "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",  # noqa:E501
                                 "imagePullPolicy": "Always",
@@ -262,7 +262,7 @@ CRONJOB_WITH_RUNNING_JOB = {
                                     "/bin/sh",
                                     "-c",
                                     "--",
-                                    "exec 1>>test.out;exec 2>>test.err;./restart.sh",
+                                    "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                                 ],
                                 "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",  # noqa:E501
                                 "imagePullPolicy": "Always",
@@ -368,7 +368,7 @@ JOB_FROM_A_CRONJOB = {
                             "/bin/sh",
                             "-c",
                             "--",
-                            "exec 1>>test.out;exec 2>>test.err;./restart.sh",
+                            "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                         ],
                         "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
@@ -453,7 +453,7 @@ JOB_FROM_A_CRONJOB_RESTART = {
                             "/bin/sh",
                             "-c",
                             "--",
-                            "exec 1>>test.out;exec 2>>test.err;./restart.sh",
+                            "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                         ],
                         "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
@@ -784,7 +784,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_NEW_ARRAY = {
                             "/bin/sh",
                             "-c",
                             "--",
-                            "exec 1>>myjob.out;exec 2>>myjob.err;./command-by-the-user.sh --with-args ; ./other-command.sh",  # noqa:E501
+                            "exec 1>>/data/project/test/myjob.out;exec 2>>/data/project/test/myjob.err;./command-by-the-user.sh --with-args ; ./other-command.sh",  # noqa:E501
                         ],
                         "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",

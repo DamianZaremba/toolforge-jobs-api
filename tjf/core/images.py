@@ -23,7 +23,7 @@ from enum import Enum
 
 import requests
 
-from .error import TjfError
+from .error import TjfError, TjfValidationError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -175,7 +175,7 @@ def image_by_name(name: str) -> Image:
             if image.canonical_name == name:
                 return image
 
-    raise ValueError(f"No such image '{name}'")
+    raise TjfValidationError(f"No such image '{name}'")
 
 
 def image_by_container_url(url: str) -> Image:

@@ -75,7 +75,6 @@ def test_diff_raises_exception_getting_object(
         **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye"}  # type: ignore
     ).to_job(
         tool_name="some-tool",
-        core=app.core,
     )
 
     with pytest.raises(TjfJobNotFoundError):
@@ -123,7 +122,6 @@ def test_diff_with_running_job_returns_empty_str(
         **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye"}  # type: ignore
     ).to_job(
         tool_name="some-tool",
-        core=app.core,
     )
 
     diff = app.core.runtime.diff_with_running_job(job=job)
@@ -173,7 +171,6 @@ def test_diff_with_running_job_returns_diff_str(
         **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye"}  # type: ignore
     ).to_job(
         tool_name="some-tool",
-        core=app.core,
     )
 
     diff = app.core.runtime.diff_with_running_job(job=job)
