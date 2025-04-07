@@ -9,15 +9,15 @@ from pytest import MonkeyPatch
 from toolforge_weld.errors import ToolforgeUserError
 from toolforge_weld.kubernetes import MountOption
 
-from tjf.api.app import error_handler
+from tjf.api.app import create_app, error_handler
 from tjf.api.auth import TOOL_HEADER, ToolAuthError, ensure_authenticated
 from tjf.api.models import EmailOption, JobListResponse, ResponseMessages
 from tjf.api.utils import JobsApi
-from tjf.core.command import Command
-from tjf.core.error import TjfClientError, TjfError
-from tjf.core.health_check import HealthCheckType, ScriptHealthCheck
-from tjf.core.images import AVAILABLE_IMAGES, Image, ImageType
-from tjf.core.job import Job, JobType
+from tjf.command import Command
+from tjf.error import TjfClientError, TjfError
+from tjf.health_check import HealthCheckType, ScriptHealthCheck
+from tjf.images import AVAILABLE_IMAGES, Image, ImageType
+from tjf.job import Job, JobType
 
 
 class Silly(BaseModel):
@@ -59,12 +59,11 @@ def update_available_images(image: Image):
     AVAILABLE_IMAGES.append(image)
 
 
-# @pytest.fixture()
-# def app(monkeypatch) -> Generator[Flask, None, None]:
-#     monkeypatch.setenv("SKIP_IMAGES", "1")
-#     my_app = create_app(init_metrics=False)
-#     with my_app.app_context():
-#         yield my_app
+@pytest.fixture()
+def app() -> Generator[Flask, None, None]:
+    my_app = create_app(load_images=False, init_metrics=False)
+    with my_app.app_context():
+        yield my_app
 
 
 @pytest.fixture()
@@ -195,10 +194,10 @@ class TestJobsEndpoint:
         app: JobsApi,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        expected_response: dict[str, Any] = JobListResponse(
+        expected_response: list[dict[str, Any]] = JobListResponse(
             jobs=[], messages=ResponseMessages()
         ).model_dump(mode="json", exclude_unset=True)
-        monkeypatch.setattr(app.core, "get_jobs", value=lambda *args, **kwargs: [])
+        monkeypatch.setattr(app.runtime, "get_jobs", value=lambda *args, **kwargs: [])
 
         gotten_response = authorized_client.get(f"/v1/tool/silly-user/jobs{trailing_slash}")
 
@@ -215,7 +214,7 @@ class TestJobsEndpoint:
         expected_names = ["job1", "job2"]
         dummy_jobs = [get_dummy_job(jobname=name) for name in expected_names]
         monkeypatch.setattr(
-            app.core,
+            app.runtime,
             "get_jobs",
             value=lambda *args, **kwargs: dummy_jobs,
         )
@@ -225,10 +224,9 @@ class TestJobsEndpoint:
 
         assert gotten_response.status_code == http.HTTPStatus.OK
 
-        response_json = gotten_response.json
-        assert response_json is not None, "Response JSON is None"
-
-        gotten_jobs: list[dict[str, Any]] = cast(list[dict[str, Any]], response_json["jobs"])
+        gotten_jobs: list[dict[str, Any]] = cast(
+            list[dict[str, Any]], gotten_response.json["jobs"]
+        )
         assert [job["name"] for job in gotten_jobs] == expected_names
 
     def test_listing_job_with_healthcheck_works(
@@ -246,7 +244,7 @@ class TestJobsEndpoint:
             )
         )
         monkeypatch.setattr(
-            app.core,
+            app.runtime,
             "get_jobs",
             value=lambda *args, **kwargs: [dummy_job],
         )
@@ -255,10 +253,8 @@ class TestJobsEndpoint:
         gotten_response = authorized_client.get("/v1/tool/silly-user/jobs/")
 
         assert gotten_response.status_code == http.HTTPStatus.OK
-        response_json = gotten_response.json
-        assert response_json is not None, "Response JSON is None"
         assert (
-            cast(list[dict[str, Any]], response_json["jobs"])[0]["health_check"]
+            cast(list[dict[str, Any]], gotten_response.json["jobs"])[0]["health_check"]
             == expected_health_check
         )
 
@@ -272,7 +268,7 @@ class TestJobsEndpoint:
         expected_port = 8080
         dummy_job = get_dummy_job(port=expected_port)
         monkeypatch.setattr(
-            app.core,
+            app.runtime,
             "get_jobs",
             value=lambda *args, **kwargs: [dummy_job],
         )
@@ -281,6 +277,4 @@ class TestJobsEndpoint:
         gotten_response = authorized_client.get("/v1/tool/silly-user/jobs/")
 
         assert gotten_response.status_code == http.HTTPStatus.OK
-        response_json = gotten_response.json
-        assert response_json is not None, "Response JSON is None"
-        assert cast(list[dict[str, Any]], response_json["jobs"])[0]["port"] == expected_port
+        assert cast(list[dict[str, Any]], gotten_response.json["jobs"])[0]["port"] == expected_port

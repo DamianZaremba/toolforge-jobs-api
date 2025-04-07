@@ -1,6 +1,6 @@
 from flask.wrappers import Request
 
-from ..core.error import TjfClientError
+from ..error import TjfClientError
 
 TOOL_HEADER = "x-toolforge-tool"
 

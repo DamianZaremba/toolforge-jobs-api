@@ -1,5 +1,4 @@
 # Copyright (C) 2023 Taavi Väänänen <hi@taavi.wtf>
-# Copyright (C) 2025 Raymond Ndibe <rndibe@wikimedia.org>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -13,27 +12,22 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
 import http
 
 from flask import Blueprint, request
 from flask.typing import ResponseReturnValue
 
 from .auth import ensure_authenticated
-from .models import (
-    Quota,
-    QuotaResponse,
-    ResponseMessages,
-)
+from .models import Quota, QuotaResponse, ResponseMessages
 from .utils import current_app
 
 quotas = Blueprint("quotas", __name__, url_prefix="/v1/tool/<toolname>/quotas")
 
 
 @quotas.route("/", methods=["GET"], strict_slashes=False)
-def api_get_quota(toolname: str) -> ResponseReturnValue:
+def get_quota(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
-    quota_data = current_app().core.get_quota(toolname=toolname)
+    quota_data = current_app().runtime.get_quota(tool=toolname)
 
     return (
         QuotaResponse(

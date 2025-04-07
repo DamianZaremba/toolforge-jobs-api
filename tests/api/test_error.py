@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from pytest import mark
 
 from tjf.api.error import error_handler
-from tjf.core.error import TjfError, ToolforgeError
+from tjf.error import TjfError, ToolforgeError
 
 
 class TestErrorHandler:

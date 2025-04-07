@@ -10,20 +10,19 @@ from flask.testing import FlaskClient
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig, fake_kube_config
 
-import tjf.core.images
+import tjf.images
 from tjf.api.app import JobsApi, create_app
 from tjf.api.auth import TOOL_HEADER
-from tjf.core.images import HarborConfig
+from tjf.images import HarborConfig, update_available_images
 from tjf.runtimes.k8s import jobs
 from tjf.runtimes.k8s.account import ToolAccount
-from tjf.runtimes.k8s.images import update_available_images
 
 TESTS_PATH = Path(__file__).parent.resolve()
 sys.path.append(str(TESTS_PATH))
 
 # Needed after sys.path.append
-from tests.helpers.fake_k8s import FAKE_HARBOR_HOST, FAKE_IMAGE_CONFIG  # noqa
-from tests.helpers.fakes import get_fake_harbor_config  # noqa
+from helpers.fake_k8s import FAKE_HARBOR_HOST, FAKE_IMAGE_CONFIG  # noqa
+from helpers.fakes import get_fake_harbor_config  # noqa
 
 FAKE_VALID_TOOL_TOOL_HEADER = "O=toolforge,CN=some-tool"
 
@@ -83,7 +82,7 @@ def fake_tool_account(patch_kube_config_loading) -> ToolAccount:
 
 @pytest.fixture
 def fake_harbor_config(monkeymodule: pytest.MonkeyPatch) -> HarborConfig:
-    monkeymodule.setattr(tjf.core.images, "get_harbor_config", get_fake_harbor_config)
+    monkeymodule.setattr(tjf.images, "get_harbor_config", get_fake_harbor_config)
 
     return get_fake_harbor_config()
 
@@ -157,9 +156,8 @@ def fake_images(fake_harbor_content) -> dict[str, Any]:
 
 
 @pytest.fixture
-def app(monkeypatch: pytest.MonkeyPatch) -> Generator[JobsApi, None, None]:
-    monkeypatch.setenv("SKIP_IMAGES", "1")
-    app = create_app(init_metrics=False)
+def app() -> Generator[JobsApi, None, None]:
+    app = create_app(load_images=False, init_metrics=False)
     with app.app_context():
         yield app
 

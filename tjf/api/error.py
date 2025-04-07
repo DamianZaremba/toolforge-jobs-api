@@ -8,7 +8,7 @@ from flask import Response, jsonify
 from pydantic import ValidationError
 from toolforge_weld.errors import ToolforgeError
 
-from ..core.error import TjfError, tjf_error_from_weld_error
+from ..error import TjfError, tjf_error_from_weld_error
 from .models import ResponseMessages
 
 LOGGER = logging.getLogger(__name__)

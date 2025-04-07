@@ -4,9 +4,9 @@ from datetime import datetime
 from logging import getLogger
 from typing import Any, Optional
 
-from ...core.error import TjfError
-from ...core.job import Job
-from ...core.utils import (
+from ...error import TjfError
+from ...job import Job
+from ...utils import (
     KUBERNETES_DATE_FORMAT,
     dict_get_object,
     format_duration,

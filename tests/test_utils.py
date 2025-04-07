@@ -1,6 +1,6 @@
 import pytest
 
-from tjf.core.utils import format_duration
+from tjf.utils import format_duration
 
 
 @pytest.mark.parametrize(

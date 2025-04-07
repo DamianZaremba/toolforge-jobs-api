@@ -18,8 +18,12 @@ import http
 import logging
 
 from flask.typing import ResponseReturnValue
+from toolforge_weld.kubernetes import K8sClient
+from toolforge_weld.kubernetes_config import Kubeconfig
 
-from ..core.core import Core
+from ..images import update_available_images
+from ..runtimes.k8s.runtime import K8sRuntime
+from ..utils import USER_AGENT
 from .error import error_handler
 from .images import images
 from .jobs import jobs
@@ -37,8 +41,8 @@ def healthz() -> ResponseReturnValue:
     return health.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
 
 
-def create_app(*, init_metrics: bool = True) -> JobsApi:
-    app = JobsApi(__name__, core=Core())
+def create_app(*, load_images: bool = True, init_metrics: bool = True) -> JobsApi:
+    app = JobsApi(__name__, runtime=K8sRuntime())
 
     app.register_error_handler(Exception, error_handler)
 
@@ -48,6 +52,15 @@ def create_app(*, init_metrics: bool = True) -> JobsApi:
     app.register_blueprint(jobs)
     app.register_blueprint(images)
     app.register_blueprint(quotas)
+
+    if load_images:
+        # before app startup!
+        tf_public_client = K8sClient(
+            kubeconfig=Kubeconfig.from_container_service_account(namespace="tf-public"),
+            user_agent=USER_AGENT,
+        )
+
+        update_available_images(tf_public_client)
 
     if init_metrics:
         metrics_app = get_metrics_app(app)

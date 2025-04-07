@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from enum import Enum
 
 import requests
+import yaml
+from toolforge_weld.kubernetes import K8sClient
 
 from .error import TjfError
 
@@ -65,6 +67,31 @@ HARBOR_IMAGE_STATE = "stable"
 
 def get_harbor_project(tool: str) -> str:
     return f"tool-{tool}"
+
+
+def update_available_images(client: K8sClient) -> None:
+    configmap = client.get_object("configmaps", "image-config")
+    yaml_data = yaml.safe_load(configmap["data"]["images-v1.yaml"])
+
+    AVAILABLE_IMAGES.clear()
+
+    for name, data in yaml_data.items():
+        if CONFIG_VARIANT_KEY not in data["variants"]:
+            continue
+
+        container = data["variants"][CONFIG_VARIANT_KEY]["image"]
+        image = Image(
+            type=ImageType.STANDARD,
+            canonical_name=name,
+            aliases=data.get("aliases", []),
+            container=f"{container}:{CONFIG_CONTAINER_TAG}",
+            state=data["state"],
+        )
+
+        AVAILABLE_IMAGES.append(image)
+
+    if len(AVAILABLE_IMAGES) < 1:
+        raise TjfError("Empty list of available images")
 
 
 @functools.lru_cache(maxsize=None)

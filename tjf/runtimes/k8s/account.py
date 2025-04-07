@@ -19,7 +19,7 @@ from pathlib import Path
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig
 
-from ...core.utils import USER_AGENT
+from ...utils import USER_AGENT
 
 
 class ToolAccount:

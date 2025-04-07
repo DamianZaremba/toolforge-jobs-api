@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from tjf.api.models import HttpHealthCheck, ScriptHealthCheck
-from tjf.core.health_check import HealthCheckType
+from tjf.health_check import HealthCheckType
 
 
 class TestScriptHealthCheck:

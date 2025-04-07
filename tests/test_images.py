@@ -1,8 +1,8 @@
 import pytest
+from helpers.fake_k8s import FAKE_HARBOR_HOST
 
-from tests.helpers.fake_k8s import FAKE_HARBOR_HOST
-from tjf.core.error import TjfError
-from tjf.core.images import AVAILABLE_IMAGES, image_by_container_url, image_by_name
+from tjf.error import TjfError
+from tjf.images import AVAILABLE_IMAGES, image_by_container_url, image_by_name
 
 
 def test_available_images_len(fake_images):

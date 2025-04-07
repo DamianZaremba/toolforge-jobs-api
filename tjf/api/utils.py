@@ -3,15 +3,15 @@ from typing import Any, cast
 from flask import Flask
 from flask import current_app as flask_current_app
 
-from ..core.core import Core
+from ..runtimes.base import BaseRuntime
 
 
 class JobsApi(Flask):
-    core: Core
+    runtime: BaseRuntime
 
-    def __init__(self, *args: Any, core: Core, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, runtime: BaseRuntime, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.core = core
+        self.runtime = runtime
 
 
 def current_app() -> JobsApi:

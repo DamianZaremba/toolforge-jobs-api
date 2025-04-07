@@ -35,7 +35,6 @@ repos:
             "types-requests",
             "types-setuptools",
             "prometheus-client",
-            "requests-mock",
           ]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
