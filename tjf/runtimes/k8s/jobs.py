@@ -423,6 +423,12 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
     if not metadata:
         raise TjfError("Invalid k8s object, did not contain metadata", data={"k8s_object": object})
 
+    jobname = metadata["name"]
+    namespace = metadata["namespace"]
+    emails = metadata["labels"].get("jobs.toolforge.org/emails", "none")
+    mount = MountOption.parse_labels(metadata["labels"])
+    user = "".join(namespace.split("-", 1)[1:])
+
     if kind == "cronjobs":
         job_type = JobType.SCHEDULED
         if "annotations" in metadata:
@@ -430,7 +436,13 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
                 "jobs.toolforge.org/cron-expression", spec["schedule"]
             )
         else:
-            configured_schedule = spec["schedule"]
+            # pass spec["schedule"] through CronExpression.parse because
+            # the schedule of certain old tools can't be directly handled by CronExpression.from_job.
+            # see T391786 for more details.
+            # TODO: cleanup when T359649 is resolved.
+            configured_schedule = CronExpression.parse(
+                value=spec["schedule"], job_name=jobname, tool_name=user
+            ).format()
 
         schedule = CronExpression.from_job(
             actual=spec["schedule"],
@@ -452,12 +464,8 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
     else:
         raise TjfError("Unable to parse Kubernetes object", data={"object": object})
 
-    jobname = metadata["name"]
-    namespace = metadata["namespace"]
-    user = "".join(namespace.split("-", 1)[1:])
     imageurl = podspec["template"]["spec"]["containers"][0]["image"]
     retry = podspec.get("backoffLimit", 0)
-    emails = metadata["labels"].get("jobs.toolforge.org/emails", "none")
     port = (
         podspec["template"]["spec"]["containers"][0]
         .get("ports", [{}])[0]
@@ -485,8 +493,6 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
     elif container_spec.get("startupProbe", {}).get("httpGet", None):
         path = container_spec["startupProbe"]["httpGet"]["path"]
         health_check = HttpHealthCheck(type=HealthCheckType.HTTP, path=path)
-
-    mount = MountOption.parse_labels(metadata["labels"])
 
     image = image_by_container_url(url=imageurl)
 
