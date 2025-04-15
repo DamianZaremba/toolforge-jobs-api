@@ -432,20 +432,25 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
     if kind == "cronjobs":
         job_type = JobType.SCHEDULED
         if "annotations" in metadata:
-            configured_schedule = metadata["annotations"].get(
+            configured_schedule_str = metadata["annotations"].get(
                 "jobs.toolforge.org/cron-expression", spec["schedule"]
             )
         else:
-            # pass spec["schedule"] through CronExpression.parse because
-            # the schedule of certain old tools can't be directly handled by CronExpression.from_job.
-            # see T391786 for more details.
-            # TODO: cleanup when T359649 is resolved.
-            configured_schedule = CronExpression.parse(
-                value=spec["schedule"], job_name=jobname, tool_name=user
-            ).format()
+            configured_schedule_str = spec["schedule"]
+
+        # pass spec["schedule"] through CronExpression.parse because
+        # the schedule of certain old tools can't be directly handled by CronExpression.from_job.
+        # see T391786 for more details.
+        # TODO: cleanup when T359649 is resolved.
+        actual_schedule = CronExpression.parse(
+            value=spec["schedule"], job_name=jobname, tool_name=user
+        ).format()
+        configured_schedule = CronExpression.parse(
+            value=configured_schedule_str, job_name=jobname, tool_name=user
+        ).format()
 
         schedule = CronExpression.from_job(
-            actual=spec["schedule"],
+            actual=actual_schedule,
             configured=configured_schedule,
         )
 
