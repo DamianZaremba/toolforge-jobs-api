@@ -65,10 +65,14 @@ def api_create_job(toolname: str) -> ResponseReturnValue:
     job = new_job.to_job(tool_name=toolname, core=core)
     logging.debug(f"Generated job: {job}")
 
-    if core.get_job(toolname=job.tool_name, name=job.job_name) is not None:
-        raise TjfValidationError(
-            f"A job with the name {job.job_name} already exists", http_status_code=409
-        )
+    existing_job = core.get_job(toolname=job.tool_name, name=job.job_name)
+    if existing_job:
+        if existing_job.status_short.lower() != "completed":
+            raise TjfValidationError(
+                f"A job with the name {job.job_name} already exists", http_status_code=409
+            )
+        core.delete_job(job=existing_job)
+        logging.debug(f"Deleted existing job: {existing_job}")
 
     core.create_job(job=job)
     defined_job = DefinedJob.from_job(job)
