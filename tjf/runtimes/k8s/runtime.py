@@ -1,11 +1,8 @@
-import json
 import os
-from difflib import unified_diff
 from logging import getLogger
 from queue import Empty, Queue
 from threading import Thread
-from typing import Any, Iterator, Optional
-from uuid import uuid4
+from typing import Iterator
 
 import requests
 from toolforge_weld.kubernetes import K8sClient, parse_quantity
@@ -23,20 +20,19 @@ from .jobs import (
     format_logs,
     get_job_for_k8s,
     get_job_from_k8s,
-    prune_spec,
     queue_log_entries,
 )
-from .k8s_errors import create_error_from_k8s_response
+from .k8s_errors import K8sServiceNotFound, create_error_from_k8s_response
 from .labels import labels_selector
 from .ops import trigger_scheduled_job, validate_job_limits, wait_for_pods_exit
 from .ops_status import refresh_job_long_status, refresh_job_short_status
-from .services import get_k8s_service_object
+from .services import SERVICE_KIND, create_service, get_k8s_service_object, get_service
+from .utils import calculate_diff
 
 LOGGER = getLogger(__name__)
 
 
 class K8sRuntime(BaseRuntime):
-
     def __init__(self) -> None:
         super().__init__()
         skip_images = bool(os.environ.get("SKIP_IMAGES", None))
@@ -101,26 +97,15 @@ class K8sRuntime(BaseRuntime):
         else:
             raise TjfError(f"Unable to restart unknown job type: {job}")
 
-    def create_service(self, job: Job) -> Optional[dict[str, Any]]:
-        tool_account = ToolAccount(name=job.tool_name)
-        if job.port and job.cont:
-            kind = "services"
-            spec = get_k8s_service_object(job)
-            try:
-                return tool_account.k8s_cli.create_object(kind=kind, spec=spec)  # type: ignore
-            except requests.exceptions.HTTPError as error:
-                raise create_error_from_k8s_response(
-                    error=error, job=job, spec=spec, tool_account=tool_account
-                )
-        return None
-
     def create_job(self, *, job: Job, tool: str) -> None:
         tool_account = ToolAccount(name=tool)
         validate_job_limits(tool_account, job)
         spec = get_job_for_k8s(job=job)
         LOGGER.debug(f"Got k8s spec: {spec}")
 
-        self.create_service(job=job)
+        if job.port and job.cont:
+            create_service(job=job)
+
         try:
             k8s_result = tool_account.k8s_cli.create_object(
                 kind=K8sJobKind.from_job_type(job.job_type).api_path_name,
@@ -163,67 +148,53 @@ class K8sRuntime(BaseRuntime):
 
     def diff_with_running_job(self, *, job: Job) -> str:
         """
-        Check for differences between job and running job
+        Check for differences between incoming job and running job
         """
         LOGGER.debug("Checking for diff in job %s for tool %s", job.job_name, job.tool_name)
-
         tool_account = ToolAccount(name=job.tool_name)
-        kind = K8sJobKind.from_job_type(job.job_type).api_path_name
-        new_spec = get_job_for_k8s(job=job)
 
+        job_kind = K8sJobKind.from_job_type(job.job_type).api_path_name
+        incoming_job_spec = get_job_for_k8s(job=job)
         try:
             # we can't use get_objects here since that omits things like kind.
             # when we start persisting the job object we can skip this,
             # since we will no longer need get_job_from_k8s to get the job object.
-            k8s_obj = tool_account.k8s_cli.get_object(
-                kind, name=job.job_name, namespace=tool_account.namespace
+            current_job_k8s_obj = tool_account.k8s_cli.get_object(
+                kind=job_kind, name=job.job_name, namespace=tool_account.namespace
             )
-            current_spec = get_job_for_k8s(job=get_job_from_k8s(object=k8s_obj, kind=kind))
+            current_spec = get_job_for_k8s(
+                job=get_job_from_k8s(object=current_job_k8s_obj, kind=job_kind)
+            )
         except requests.exceptions.HTTPError as error:
             raise create_error_from_k8s_response(
-                error=error, job=job, spec=new_spec, tool_account=tool_account
+                error=error, job=job, spec=incoming_job_spec, tool_account=tool_account
             )
 
-        ###################################################################
-        # At first glance it might appear you can directly sort and compare new_spec and current_spec (so maybe this block is not neccessary),
-        # but doing that leaves us at the mercy of any future change made to the function that generates these specs.
-        # what we are doing here is to use k8s to standardize some values like cpu and memory limits and requests,
-        # so we don't have to care whatever unit these values are in our code generated specs, k8s will always standardize it for easy comparision.
-        new_spec["metadata"]["name"] = str(
-            uuid4()
-        )  # use random name for dry-run object to avoid conflicts
-        new_k8s_obj = tool_account.k8s_cli.create_object(
-            kind=kind,
-            spec=new_spec,
-            dry_run=True,
+        job_diff = calculate_diff(
+            tool_account=tool_account,
+            job_name=job.job_name,
+            kind=job_kind,
+            current_k8s_obj=current_spec,
+            incoming_k8s_obj=incoming_job_spec,
         )
-        new_spec["metadata"]["name"] = job.job_name
-        new_k8s_obj["metadata"]["name"] = job.job_name
 
-        current_spec["metadata"]["name"] = str(uuid4())
-        current_k8s_obj = tool_account.k8s_cli.create_object(
-            kind=kind,
-            spec=current_spec,
-            dry_run=True,
-        )
-        current_spec["metadata"]["name"] = job.job_name
-        current_k8s_obj["metadata"]["name"] = job.job_name
+        service_diff = ""
+        if job.port and job.cont:
+            incoming_service_spec = get_k8s_service_object(job=job)
+            try:
+                current_service_k8s_obj = get_service(job=job)
+            except K8sServiceNotFound:
+                current_service_k8s_obj = {}
 
-        new_k8s_obj = prune_spec(spec=new_k8s_obj, template=new_spec)
-        current_k8s_obj = prune_spec(spec=current_k8s_obj, template=current_spec)
-        ################################################################
+            service_diff = calculate_diff(
+                tool_account=tool_account,
+                job_name=job.job_name,
+                kind=SERVICE_KIND,
+                current_k8s_obj=current_service_k8s_obj,
+                incoming_k8s_obj=incoming_service_spec,
+            )
 
-        new_k8s_obj_str = json.dumps(new_k8s_obj, sort_keys=True, indent=4)
-        current_k8s_obj_str = json.dumps(current_k8s_obj, sort_keys=True, indent=4)
-        LOGGER.debug("new k8s_obj: %s", new_k8s_obj_str)
-        LOGGER.debug("current k8s_obj: %s", current_k8s_obj_str)
-
-        diff = unified_diff(
-            current_k8s_obj_str.splitlines(keepends=True),
-            new_k8s_obj_str.splitlines(keepends=True),
-            lineterm="",
-        )
-        return "".join([line for line in list(diff) if line is not None])
+        return job_diff + service_diff
 
     def get_quotas(self, *, tool: str) -> list[QuotaData]:
         tool_account = ToolAccount(name=tool)

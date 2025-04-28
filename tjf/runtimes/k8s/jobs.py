@@ -30,8 +30,8 @@ from .account import ToolAccount
 from .command import get_command_for_k8s, get_command_from_k8s
 from .healthchecks import get_healthcheck_for_k8s
 from .labels import generate_labels
+from .utils import K8S_OBJECT_TYPE
 
-K8S_OBJECT_TYPE = dict[str, Any]
 # tell kubernetes to delete jobs this many seconds after they finish
 JOB_TTLAFTERFINISHED = 30
 # k8s default is 30s, but our HTTP request timeout is also 30s and
@@ -48,6 +48,7 @@ JOB_DEFAULT_CPU = "500m"
 LOGGER = getLogger(__name__)
 
 
+# TODO: create K8sJob classes
 class K8sJobKind(Enum):
     """
     Represents a Kubernetes object type that a jobs framework managed job can
@@ -391,32 +392,6 @@ def get_k8s_job_from_cronjob(k8s_cronjob: K8S_OBJECT_TYPE) -> K8S_OBJECT_TYPE:
     k8s_job["spec"] = deepcopy(k8s_cronjob["spec"]["jobTemplate"]["spec"])
 
     return k8s_job
-
-
-def prune_spec(spec: K8S_OBJECT_TYPE, template: K8S_OBJECT_TYPE) -> K8S_OBJECT_TYPE:
-    """
-    Recursively prune 'spec' so that only keys present in 'template' remain.
-
-    This function assumes:
-      - If template is a dict, then for each key in template, if that key exists in spec,
-        include it (recursively pruned).
-      - If template is a list and spec is a list, then process each corresponding element.
-      - Otherwise, return the spec value.
-    """
-    if isinstance(template, dict) and isinstance(spec, dict):
-        pruned = {}
-        for key in template:
-            if key in spec:
-                pruned[key] = prune_spec(spec[key], template[key])
-        return pruned
-
-    if isinstance(template, list) and isinstance(spec, list):
-        # Here, we assume that the lists are in a corresponding order. You may need to
-        # adjust if your lists are unordered or require merging by a specific key.
-        return [prune_spec(spc, templ) for spc, templ in zip(spec, template)]
-
-    # For other data types (or if the structure doesn't match), just return the spec value.
-    return spec
 
 
 def queue_log_entries(
