@@ -10,13 +10,13 @@ from fastapi.testclient import TestClient
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig, fake_kube_config
 
-import tjf.core.images
+import tjf.runtimes.k8s.images
 from tjf.api.app import JobsApi, create_app
 from tjf.api.auth import TOOL_HEADER
-from tjf.core.images import HarborConfig
 from tjf.runtimes.k8s import jobs
 from tjf.runtimes.k8s.account import ToolAccount
-from tjf.runtimes.k8s.images import update_available_images
+from tjf.runtimes.k8s.images import HarborConfig, get_images_data
+from tjf.settings import Settings
 
 TESTS_PATH = Path(__file__).parent.resolve()
 sys.path.append(str(TESTS_PATH))
@@ -54,6 +54,7 @@ def patch_kube_config_loading(monkeymodule):
         return fake_kube_config()
 
     monkeymodule.setattr(Kubeconfig, "from_path", load_fake)
+    monkeymodule.setattr(Kubeconfig, "from_container_service_account", load_fake)
 
 
 @pytest.fixture
@@ -83,7 +84,7 @@ def fake_tool_account(patch_kube_config_loading) -> ToolAccount:
 
 @pytest.fixture
 def fake_harbor_config(monkeymodule: pytest.MonkeyPatch) -> HarborConfig:
-    monkeymodule.setattr(tjf.core.images, "get_harbor_config", get_fake_harbor_config)
+    monkeymodule.setattr(tjf.runtimes.k8s.images, "get_harbor_config", get_fake_harbor_config)
 
     return get_fake_harbor_config()
 
@@ -136,30 +137,36 @@ def fake_harbor_content(
 
 
 @pytest.fixture
-def fake_images(fake_harbor_content) -> dict[str, Any]:
-    class FakeClient(K8sClient):
-        def __init__(self, **kwargs):
-            pass
+def fake_images(monkeymodule, fake_harbor_content, patch_kube_config_loading) -> dict[str, Any]:
+    get_images_data.cache_clear()
 
-        def get_object(self, kind, name):
-            if kind == "configmaps" and name == "image-config":
-                return {
-                    "kind": "ConfigMap",
-                    "apiVersion": "v1",
-                    # spec omitted, since it's not really relevant
-                    "data": {
-                        "images-v1.yaml": FAKE_IMAGE_CONFIG,
-                    },
-                }
+    def fake_init(*args, **kwargs):
+        pass
 
-    update_available_images(FakeClient())
+    def fake_get_object(*args, **kwargs):
+        if kwargs["kind"] == "configmaps" and kwargs["name"] == "image-config":
+            return {
+                "kind": "ConfigMap",
+                "apiVersion": "v1",
+                # spec omitted, since it's not really relevant
+                "data": {
+                    "images-v1.yaml": FAKE_IMAGE_CONFIG,
+                },
+            }
+        raise ValueError(
+            f"Unsupported kind={kwargs['kind']}, name={kwargs['name']} for FakeK8sClient"
+        )
+
+    monkeymodule.setattr(K8sClient, "__init__", fake_init)
+    monkeymodule.setattr(K8sClient, "get_object", fake_get_object)
     return yaml.safe_load(FAKE_IMAGE_CONFIG)
 
 
 @pytest.fixture
 def app(monkeypatch: pytest.MonkeyPatch) -> Generator[JobsApi, None, None]:
-    monkeypatch.setenv("SKIP_IMAGES", "1")
-    app = create_app(init_metrics=False)
+    settings = Settings()
+    settings.skip_metrics = False
+    app = create_app(settings=settings)
     yield app
 
 

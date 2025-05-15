@@ -16,7 +16,10 @@
 #
 import logging
 
+from fastapi import FastAPI
+
 from ..core.core import Core
+from ..settings import Settings, get_settings
 from .error import error_handler
 from .images import images
 from .jobs import jobs
@@ -26,6 +29,8 @@ from .openapi import openapi
 from .quotas import quotas
 from .utils import JobsApi
 
+LOGGER = logging.getLogger(__name__)
+
 
 def healthz() -> HealthResponse:
     return HealthResponse(
@@ -34,8 +39,20 @@ def healthz() -> HealthResponse:
     )
 
 
-def create_app(*, init_metrics: bool = True) -> JobsApi:
-    app = JobsApi(core=Core())
+def create_app(settings: Settings | None = None) -> FastAPI:
+    if not settings:
+        settings = get_settings()
+
+    level = logging.DEBUG if settings.debug else logging.INFO
+
+    logging.basicConfig(level=level)
+    # this is needed mostly for the tests, as you can't change the loglevel with basicConfig once it has
+    # been changed once
+    logging.root.setLevel(level=level)
+    LOGGER.debug("Got settings: %r", settings)
+
+    app = JobsApi()
+    app.set_core(core=Core(settings=settings))
 
     app.add_exception_handler(Exception, error_handler)
 
@@ -52,7 +69,7 @@ def create_app(*, init_metrics: bool = True) -> JobsApi:
     app.include_router(images)
     app.include_router(quotas)
 
-    if init_metrics:
+    if not settings.skip_metrics:
         get_metrics_app(app)
 
     logging.info("Registered urls:")

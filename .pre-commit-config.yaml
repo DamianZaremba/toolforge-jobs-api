@@ -36,6 +36,7 @@ repos:
             "types-setuptools",
             "prometheus-client",
             "prometheus-fastapi-instrumentator",
+            "pydantic-settings",
             "requests-mock",
             "websockets",
           ]

@@ -65,10 +65,7 @@ def _create_fake_http_error(
 
 class TestCreateErrorFromK8sResponse:
     def test_no_data(
-        self,
-        patch_kube_config_loading,
-        fake_job: Job,
-        fake_tool_account: ToolAccount,
+        self, patch_kube_config_loading, fake_job: Job, fake_tool_account: ToolAccount
     ):
         error = create_error_from_k8s_response(
             error=HTTPError("Foobar"),

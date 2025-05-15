@@ -14,16 +14,9 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-import functools
-import json
 import logging
-import urllib.parse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-
-import requests
-
-from .error import TjfError, TjfValidationError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -38,162 +31,8 @@ class ImageType(Enum):
 
 @dataclass(frozen=True)
 class Image:
-    type: ImageType
     canonical_name: str
-    aliases: list[str]
-    container: str
-    state: str
-
-
-@dataclass(frozen=True)
-class HarborConfig:
-    host: str
-    protocol: str = "https"
-
-
-# The ConfigMap is only read at startup. Restart the webservice to reload the available images
-AVAILABLE_IMAGES: list[Image] = []
-
-
-CONFIG_VARIANT_KEY = "jobs-framework"
-# TODO: make configurable
-CONFIG_CONTAINER_TAG = "latest"
-
-HARBOR_CONFIG_PATH = "/etc/jobs-api/harbor.json"
-HARBOR_IMAGE_STATE = "stable"
-
-
-def get_harbor_project(tool: str) -> str:
-    return f"tool-{tool}"
-
-
-@functools.lru_cache(maxsize=None)
-def get_harbor_config() -> HarborConfig:
-    with open(HARBOR_CONFIG_PATH, "r") as f:
-        data = json.load(f)
-    return HarborConfig(
-        host=data["host"],
-        protocol=data.get("protocol", HarborConfig.protocol),
-    )
-
-
-def get_harbor_images_for_name(project: str, name: str) -> list[Image]:
-    config = get_harbor_config()
-
-    encoded_project = urllib.parse.quote_plus(project)
-    encoded_name = urllib.parse.quote_plus(name)
-
-    try:
-        response = requests.get(
-            f"{config.protocol}://{config.host}/api/v2.0/projects/{encoded_project}/repositories/{encoded_name}/artifacts",
-            params={
-                # TODO: pagination if needed
-                "page": "1",
-                "page_size": "25",
-            },
-            headers={
-                "User-Agent": f"jobs-framework-api python-requests/{requests.__version__}",
-            },
-            timeout=5,
-        )
-        response.raise_for_status()
-    except requests.exceptions.HTTPError:
-        LOGGER.warning("Failed to load Harbor tags for %s/%s", project, name, exc_info=True)
-        return []
-
-    images: list[Image] = []
-    for artifact in response.json():
-        if artifact["type"] != "IMAGE":
-            continue
-        if not artifact["tags"]:
-            continue
-
-        for tag in artifact["tags"]:
-            tag_name = tag["name"]
-            images.append(
-                Image(
-                    type=ImageType.BUILDPACK,
-                    canonical_name=f"{project}/{name}:{tag_name}",
-                    aliases=[],
-                    container=f"{config.host}/{project}/{name}:{tag_name}",
-                    state=HARBOR_IMAGE_STATE,
-                )
-            )
-
-    return images
-
-
-def get_harbor_images(tool: str) -> list[Image]:
-    config = get_harbor_config()
-
-    harbor_project = get_harbor_project(tool=tool)
-    encoded_project = urllib.parse.quote_plus(harbor_project)
-
-    try:
-        response = requests.get(
-            f"{config.protocol}://{config.host}/api/v2.0/projects/{encoded_project}/repositories",
-            params={
-                "with_tag": "true",
-                # TODO: pagination if needed
-                "page": "1",
-                "page_size": "25",
-            },
-            headers={
-                "User-Agent": f"jobs-framework-api python-requests/{requests.__version__}",
-            },
-            timeout=5,
-        )
-        response.raise_for_status()
-    except requests.exceptions.HTTPError as e:
-        if (not e.response) or e.response.status_code != 401:
-            # You seem to get a 401 when the project does not exist for whatever reason
-            # don't log those, they are usually typos
-            LOGGER.warning(
-                "Failed to load Harbor images for project %s", harbor_project, exc_info=True
-            )
-        return []
-
-    images: list[Image] = []
-
-    for repository in response.json():
-        name = repository["name"][len(harbor_project) + 1 :]
-        images.extend(get_harbor_images_for_name(project=harbor_project, name=name))
-
-    return images
-
-
-def image_by_name(name: str) -> Image:
-    for image in AVAILABLE_IMAGES:
-        if image.canonical_name == name or name in image.aliases:
-            return image
-
-    if "/" in name and ":" in name:
-        # harbor image?
-        project, image_name = name.split("/", 1)
-        image_name, _ = image_name.split(":", 1)
-        for image in get_harbor_images_for_name(project, image_name):
-            if image.canonical_name == name:
-                return image
-
-    raise TjfValidationError(f"No such image '{name}'")
-
-
-def image_by_container_url(url: str) -> Image:
-    for image in AVAILABLE_IMAGES:
-        if image.container == url:
-            return image
-
-    harbor_config = get_harbor_config()
-    if url.startswith(harbor_config.host):
-        # we assume images loaded from URLs exist
-
-        image_name_with_tag = url[len(harbor_config.host) + 1 :]
-        return Image(
-            type=ImageType.BUILDPACK,
-            canonical_name=image_name_with_tag,
-            aliases=[],
-            container=url,
-            state=HARBOR_IMAGE_STATE,
-        )
-
-    raise TjfError("Unable to find image in the supported list or harbor", data={"image": url})
+    type: ImageType | None = None
+    aliases: list[str] = field(default_factory=list)
+    container: str | None = None
+    state: str = "unknown"

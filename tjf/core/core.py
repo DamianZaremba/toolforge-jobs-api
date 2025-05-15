@@ -21,16 +21,17 @@ from typing import AsyncIterator, Optional
 from toolforge_weld.utils import apeek
 
 from ..runtimes.k8s.runtime import K8sRuntime
+from ..settings import Settings
 from .error import TjfError, TjfJobNotFoundError, TjfValidationError
-from .images import AVAILABLE_IMAGES, Image, get_harbor_images
+from .images import Image
 from .models import Job, QuotaData
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Core:
-    def __init__(self) -> None:
-        self.runtime = K8sRuntime()
+    def __init__(self, settings: Settings) -> None:
+        self.runtime = K8sRuntime(settings=settings)
 
     def create_job(self, job: Job) -> Job:
         try:
@@ -96,13 +97,7 @@ class Core:
         return logs
 
     def get_images(self, toolname: str) -> list[Image]:
-        images = AVAILABLE_IMAGES + get_harbor_images(tool=toolname)
-        images = [
-            image
-            for image in sorted(images, key=lambda image: image.canonical_name)
-            if image.state == "stable"
-        ]
-        return images
+        return self.runtime.get_images(toolname=toolname)
 
     def get_quotas(self, toolname: str) -> list[QuotaData]:
         return self.runtime.get_quotas(tool=toolname)

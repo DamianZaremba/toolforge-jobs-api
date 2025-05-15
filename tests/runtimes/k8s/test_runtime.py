@@ -54,6 +54,7 @@ def exception(*args, **kwargs):
 
 def test_diff_raises_exception_getting_object(
     fake_tool_account_uid: None,
+    fake_images: dict[str, Any],
     app: JobsApi,
     monkeymodule: pytest.MonkeyPatch,
     tmp_path_factory: pytest.TempPathFactory,
@@ -99,7 +100,7 @@ def test_diff_raises_exception_getting_object(
 def test_diff_with_running_job_returns_empty_str(
     patch: dict[str, Any] | None,
     fake_tool_account_uid: None,
-    fake_images,
+    fake_images: dict[str, Any],
     app: JobsApi,
     monkeymodule: pytest.MonkeyPatch,
     tmp_path_factory: pytest.TempPathFactory,
@@ -149,7 +150,7 @@ def test_diff_with_running_job_returns_empty_str(
 def test_diff_with_running_job_returns_diff_str(
     patch: dict[str, Any] | None,
     fake_tool_account_uid: None,
-    fake_images,
+    fake_images: dict[str, Any],
     app: JobsApi,
     monkeymodule: pytest.MonkeyPatch,
     tmp_path_factory: pytest.TempPathFactory,

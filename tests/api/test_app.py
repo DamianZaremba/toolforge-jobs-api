@@ -16,7 +16,7 @@ from tjf.api.models import (
 )
 from tjf.api.utils import JobsApi
 from tjf.core.error import TjfClientError, TjfError
-from tjf.core.images import AVAILABLE_IMAGES, Image, ImageType
+from tjf.core.images import Image
 from tjf.core.models import (
     EmailOption,
     Job,
@@ -37,11 +37,7 @@ def get_dummy_job(**overrides) -> Job:
         "filelog_stderr": None,
         "filelog_stdout": None,
         "image": Image(
-            type=ImageType.STANDARD,
             canonical_name="silly-image",
-            aliases=[],
-            container="silly-container",
-            state="silly state",
         ),
         "job_name": "silly-job-name",
         "tool_name": "silly-user",
@@ -56,10 +52,6 @@ def get_dummy_job(**overrides) -> Job:
     }
     params.update(overrides)
     return Job.model_validate(params)
-
-
-def update_available_images(image: Image):
-    AVAILABLE_IMAGES.append(image)
 
 
 @pytest.fixture()
@@ -179,7 +171,6 @@ class TestJobsEndpoint:
             "get_jobs",
             value=lambda *args, **kwargs: dummy_jobs,
         )
-        update_available_images(dummy_jobs[0].image)
 
         gotten_response = client.get("/v1/tool/silly-user/jobs/", headers=fake_auth_headers)
 
@@ -211,8 +202,6 @@ class TestJobsEndpoint:
             "get_jobs",
             value=lambda *args, **kwargs: [dummy_job],
         )
-        update_available_images(dummy_job.image)
-
         gotten_response = client.get("/v1/tool/silly-user/jobs/", headers=fake_auth_headers)
 
         assert gotten_response.status_code == http.HTTPStatus.OK
@@ -238,7 +227,6 @@ class TestJobsEndpoint:
             "get_jobs",
             value=lambda *args, **kwargs: [dummy_job],
         )
-        update_available_images(dummy_job.image)
 
         gotten_response = client.get("/v1/tool/silly-user/jobs/", headers=fake_auth_headers)
 

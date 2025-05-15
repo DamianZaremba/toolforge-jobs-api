@@ -1,3 +1,4 @@
+import datetime
 import json
 import pwd
 import time
@@ -13,7 +14,7 @@ from toolforge_weld.logs import LogEntry
 
 from ...core.cron import CronExpression
 from ...core.error import TjfError, TjfValidationError
-from ...core.images import ImageType, image_by_container_url
+from ...core.images import ImageType
 from ...core.models import (
     JOB_DEFAULT_CPU,
     JOB_DEFAULT_MEMORY,
@@ -28,6 +29,7 @@ from ...core.models import (
 from ...core.utils import dict_get_object
 from .command import get_command_for_k8s, get_command_from_k8s
 from .healthchecks import get_healthcheck_for_k8s
+from .images import image_by_container_url
 from .labels import generate_labels
 
 K8S_OBJECT_TYPE = dict[str, Any]
@@ -165,7 +167,27 @@ def _get_k8s_podtemplate(
         mount=job.mount,
     )
 
-    if job.image.type.use_standard_nfs():
+    command = Command(
+        user_command=job.cmd,
+        filelog=job.filelog,
+        filelog_stdout=job.filelog_stdout,
+        filelog_stderr=job.filelog_stderr,
+    )
+    if job.image.type == ImageType.BUILDPACK and not job.cmd.startswith("launcher"):
+        # this allows using either a procfile entry point or any command as command
+        # for a buildservice-based job
+        command = Command(
+            user_command=f"launcher {job.cmd}",
+            filelog=job.filelog,
+            filelog_stdout=job.filelog_stdout,
+            filelog_stderr=job.filelog_stderr,
+        )
+
+    generated_command = get_command_for_k8s(
+        command=command, job_name=job.job_name, tool_name=job.tool_name
+    )
+
+    if job.image.type and job.image.type.use_standard_nfs():
         working_dir = f"/data/project/{job.tool_name}"
         env = []
     else:
@@ -395,7 +417,11 @@ def format_logs(entry: LogEntry) -> str:
     return f"{dumped}\n"
 
 
-def get_job_from_k8s(object: dict[str, Any], kind: str) -> Job:
+def get_job_from_k8s(
+    object: dict[str, Any],
+    kind: str,
+    image_refresh_interval: datetime.timedelta = datetime.timedelta(hours=1),
+) -> "Job":
     # TODO: why not just index the dict directly instead of dict_get_object?
     spec = dict_get_object(object, "spec")
     if not spec:
@@ -486,7 +512,7 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> Job:
         path = container_spec["startupProbe"]["httpGet"]["path"]
         health_check = HttpHealthCheck(health_check_type=HealthCheckType.HTTP, path=path)  # type: ignore[call-arg]
 
-    image = image_by_container_url(url=imageurl)
+    image = image_by_container_url(url=imageurl, refresh_interval=image_refresh_interval)
 
     timeout = podspec.get("activeDeadlineSeconds", None)
 

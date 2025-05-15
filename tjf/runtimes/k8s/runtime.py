@@ -1,19 +1,19 @@
-import os
 from difflib import unified_diff
 from logging import getLogger
 from typing import Any, AsyncIterator, Optional
 
 import requests
-from toolforge_weld.kubernetes import K8sClient, parse_quantity
-from toolforge_weld.kubernetes_config import Kubeconfig
+from toolforge_weld.kubernetes import MountOption, parse_quantity
 
 from ...core.error import TjfError, TjfValidationError
+from ...core.images import Image, ImageType
 from ...core.models import Job, JobType, QuotaCategoryType, QuotaData
-from ...core.utils import USER_AGENT, format_quantity, parse_and_format_mem
+from ...core.utils import format_quantity, parse_and_format_mem
 from ...loki_logs import LokiSource
+from ...settings import Settings
 from ..base import BaseRuntime
 from .account import ToolAccount
-from .images import update_available_images
+from .images import get_harbor_images, get_images, image_by_name
 from .jobs import (
     K8sJobKind,
     format_logs,
@@ -30,17 +30,9 @@ LOGGER = getLogger(__name__)
 
 
 class K8sRuntime(BaseRuntime):
-
-    def __init__(self) -> None:
-        super().__init__()
-        skip_images = bool(os.environ.get("SKIP_IMAGES", None))
-        if not skip_images:
-            # before app startup!
-            tf_public_client = K8sClient(
-                kubeconfig=Kubeconfig.from_container_service_account(namespace="tf-public"),
-                user_agent=USER_AGENT,
-            )
-            update_available_images(tf_public_client)
+    def __init__(self, *, settings: Settings):
+        self.image_refresh_interval = settings.images_config_refresh_interval
+        self.loki_url = settings.loki_url
 
     def get_jobs(self, *, tool: str) -> list[Job]:
         job_list = []
@@ -49,7 +41,11 @@ class K8sRuntime(BaseRuntime):
             kind = K8sJobKind.from_job_type(job_type).api_path_name
             label_selector = labels_selector(user_name=tool_account.name, type=kind)
             for k8s_obj in tool_account.k8s_cli.get_objects(kind, label_selector=label_selector):
-                job = get_job_from_k8s(object=k8s_obj, kind=kind)
+                job = get_job_from_k8s(
+                    object=k8s_obj,
+                    kind=kind,
+                    image_refresh_interval=self.image_refresh_interval,
+                )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
                 job_list.append(job)
@@ -64,7 +60,11 @@ class K8sRuntime(BaseRuntime):
                 job_name=job_name, user_name=tool_account.name, type=kind
             )
             for k8s_obj in tool_account.k8s_cli.get_objects(kind, label_selector=label_selector):
-                job = get_job_from_k8s(object=k8s_obj, kind=kind)
+                job = get_job_from_k8s(
+                    object=k8s_obj,
+                    kind=kind,
+                    image_refresh_interval=self.image_refresh_interval,
+                )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
                 return job
@@ -111,6 +111,23 @@ class K8sRuntime(BaseRuntime):
     def create_job(self, *, job: Job, tool: str) -> None:
         tool_account = ToolAccount(name=tool)
         validate_job_limits(tool_account, job)
+
+        image = image_by_name(
+            job.image.canonical_name, refresh_interval=self.image_refresh_interval
+        )
+        if not job.mount:
+            if image.type == ImageType.BUILDPACK:
+                job.mount = MountOption.NONE
+            else:
+                job.mount = MountOption.ALL
+        if image.type != ImageType.BUILDPACK and not job.mount.supports_non_buildservice:
+            raise TjfValidationError(
+                f"Mount type {job.mount.value} is only supported for build service images"
+            )
+        if job.filelog and job.mount != MountOption.ALL:
+            raise TjfValidationError("File logging is only available with --mount=all")
+        job.image = image
+
         spec = get_job_for_k8s(job=job)
         LOGGER.debug(f"Got k8s spec: {spec}")
 
@@ -171,7 +188,14 @@ class K8sRuntime(BaseRuntime):
             k8s_obj = tool_account.k8s_cli.get_object(
                 kind, name=job.job_name, namespace=tool_account.namespace
             )
-            current_job = get_job_from_k8s(object=k8s_obj, kind=kind)
+            current_job = get_job_from_k8s(
+                object=k8s_obj,
+                kind=kind,
+                image_refresh_interval=self.image_refresh_interval,
+            )
+            # imagestate and other fields are not available for the incoming job,
+            # so normalize by remove those from here too
+            current_job.image = Image(canonical_name=job.image.canonical_name)
         except requests.exceptions.HTTPError as error:
             raise create_error_from_k8s_response(
                 error=error, job=job, spec={}, tool_account=tool_account
@@ -270,12 +294,22 @@ class K8sRuntime(BaseRuntime):
     ) -> AsyncIterator[str]:
         tool_account = ToolAccount(name=tool)
 
-        loki_url = os.environ.get("LOKI_URL")
-        if not loki_url:
+        if not self.loki_url:
             raise TjfError("No Loki URL specified, unable to query logs")
 
-        source = LokiSource(base_url=loki_url, tenant=tool_account.namespace)
+        source = LokiSource(base_url=self.loki_url, tenant=tool_account.namespace)
         selector = {"job": job_name}
 
         async for log in source.query(selector=selector, follow=follow, lines=lines):
             yield format_logs(log)
+
+    def get_images(self, toolname: str) -> list[Image]:
+        images = get_images(refresh_interval=self.image_refresh_interval) + get_harbor_images(
+            tool=toolname
+        )
+        images = [
+            image
+            for image in sorted(images, key=lambda image: image.canonical_name)
+            if image.state == "stable"
+        ]
+        return images

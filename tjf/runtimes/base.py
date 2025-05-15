@@ -1,10 +1,16 @@
 from abc import ABC, abstractmethod
 from typing import AsyncIterator, Optional
 
+from ..core.images import Image
 from ..core.models import Job, QuotaData
+from ..settings import Settings
 
 
 class BaseRuntime(ABC):
+    @abstractmethod
+    def __init__(self, *, settings: Settings):
+        raise NotImplementedError
+
     @abstractmethod
     def get_jobs(self, *, tool: str) -> list[Job]:
         raise NotImplementedError
@@ -51,4 +57,8 @@ class BaseRuntime(ABC):
 
     @abstractmethod
     def get_quotas(self, *, tool: str) -> list[QuotaData]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_images(self, toolname: str) -> list[Image]:
         raise NotImplementedError

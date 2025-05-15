@@ -6,6 +6,7 @@ from typing import Any, AsyncIterator, Dict, Iterator, Optional
 from urllib.parse import urlencode
 
 import requests
+from pydantic import AnyHttpUrl
 from toolforge_weld.logs import LogEntry
 from websockets.asyncio.client import connect
 from websockets.http11 import USER_AGENT as WEBSOCKETS_UA
@@ -37,7 +38,7 @@ def _parse_stream(result: dict[str, Any]) -> Iterator[LogEntry]:
 class LokiSource:
     # https://grafana.com/docs/loki/latest/reference/loki-http-api
 
-    def __init__(self, base_url: str, tenant: str, *, entry_limit: int = 5000) -> None:
+    def __init__(self, base_url: AnyHttpUrl, tenant: str, *, entry_limit: int = 5000) -> None:
         self.base_url = base_url
         # This is in theory customizable in the Loki config so we make it a variable,
         # but in practice our deployment does not customize it as of time of writing.
@@ -53,7 +54,7 @@ class LokiSource:
 
     async def _do_follow(self, logql: str, lines: int) -> AsyncIterator[LogEntry]:
         # Replace http prefix with ws, this also would work for https -> wss
-        ws_url = f"ws{self.base_url.removeprefix('http')}"
+        ws_url = f"ws{str(self.base_url).removeprefix('http')}"
         query = urlencode(
             {
                 "query": logql,

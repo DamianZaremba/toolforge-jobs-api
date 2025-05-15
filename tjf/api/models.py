@@ -10,7 +10,6 @@ from typing_extensions import Annotated
 from ..core.cron import CronExpression, CronParsingError
 from ..core.error import TjfValidationError
 from ..core.images import Image as ImageData
-from ..core.images import ImageType, image_by_name
 from ..core.models import (
     JOB_DEFAULT_CPU,
     JOB_DEFAULT_MEMORY,
@@ -37,7 +36,7 @@ class CommonJob(BaseModel):
     filelog_stderr: Path | None = None
     emails: EmailOption = EmailOption.none
     retry: Annotated[int, Field(ge=0, le=5)] = 0
-    mount: MountOption | None = None
+    mount: MountOption = MountOption.ALL
     schedule: str | None = None
     continuous: bool = False
     replicas: Annotated[int, Field(ge=0)] | None = None
@@ -78,23 +77,6 @@ class CommonJob(BaseModel):
 
 class NewJob(CommonJob):
     def to_job(self, tool_name: str) -> Job:
-        # image validation is only done when the job is first created because
-        # the image might become invalid later (deleted, etc).
-        image = image_by_name(self.imagename)
-        if not self.mount:
-            if image.type == ImageType.BUILDPACK:
-                self.mount = MountOption.NONE
-            else:
-                self.mount = MountOption.ALL
-
-        if image.type != ImageType.BUILDPACK and not self.mount.supports_non_buildservice:
-            raise TjfValidationError(
-                f"Mount type {self.mount.value} is only supported for build service images"
-            )
-        if image.type == ImageType.BUILDPACK and not self.cmd.startswith("launcher"):
-            # this allows using either a procfile entry point or any command as command
-            # for a buildservice-based job
-            self.cmd = f"launcher {self.cmd}"
 
         if self.schedule:
             job_type = JobType.SCHEDULED
@@ -118,7 +100,7 @@ class NewJob(CommonJob):
             filelog=self.filelog,
             filelog_stderr=self.filelog_stderr,
             filelog_stdout=self.filelog_stdout,
-            image=image,
+            image=ImageData(canonical_name=self.imagename),
             job_name=self.name,
             tool_name=tool_name,
             schedule=schedule,
@@ -161,7 +143,7 @@ class DefinedJob(CommonJob):
             "replicas": job.replicas,
             "emails": job.emails.value,
             "retry": job.retry,
-            "mount": job.mount.value,
+            "mount": job.mount.value if job.mount else None,
             "health_check": None,
             "memory": job.memory,
             "cpu": job.cpu,
@@ -195,7 +177,7 @@ class Health(BaseModel):
 
 class Image(BaseModel):
     shortname: str
-    image: str
+    image: str | None
 
     @classmethod
     def from_image_data(cls: Type["Image"], image_data: ImageData) -> "Image":

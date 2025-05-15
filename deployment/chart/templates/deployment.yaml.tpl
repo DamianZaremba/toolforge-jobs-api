@@ -53,6 +53,8 @@ spec:
             value: "{{ .Values.webservice.skip_metrics }}"
           - name: "SKIP_IMAGES"
             value: "{{ .Values.webservice.skip_images }}"
+          - name: "IMAGES_CONFIG_REFRESH_INTERVAL"
+            value: "{{ .Values.webservice.images_config_refresh_interval }}"
           {{- with .Values.loki.url }}
           - name: "LOKI_URL"
             value: "{{ . }}"
