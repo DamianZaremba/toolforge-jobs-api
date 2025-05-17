@@ -16,13 +16,14 @@
 #
 import http
 import logging
-from typing import Any
+from typing import Any, cast
 
 from flask import Blueprint, Response, request
 from flask.typing import ResponseReturnValue
 
 from ..core.error import TjfValidationError
 from .auth import ensure_authenticated
+from .metrics import inc_deprecated_usage
 from .models import (
     DefinedJob,
     DeleteResponse,
@@ -58,6 +59,9 @@ def api_get_jobs(toolname: str) -> ResponseReturnValue:
 def api_create_job(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
     core = current_app().core
+
+    if cast(dict[str, Any], request.json).get("health_check", {}).get("type", None):
+        inc_deprecated_usage(deprecation_id="health_check type")
 
     logging.debug(f"Received new job: {request.json}")
     new_job = NewJob.model_validate(request.json)
