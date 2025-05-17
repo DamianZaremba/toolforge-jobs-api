@@ -1,13 +1,42 @@
 import logging
 import re
 
-from flask import Flask
-from prometheus_client import Histogram
+from flask import Flask, request
+from prometheus_client import Counter, Histogram
 from prometheus_flask_exporter.multiprocess import (  # type: ignore
     GunicornPrometheusMetrics,
 )
 
 LOGGER = logging.getLogger(__name__)
+
+DEPRECATED_USAGE_COUNTER = Counter(
+    name="toolforge_deprecated_usage",
+    documentation="Counts usage of deprecated API features",
+    labelnames=["path", "method", "deprecation_id", "user_agent"],
+)
+
+
+def inc_deprecated_usage(deprecation_id: str) -> None:
+    """
+    Increments the deprecated usage counter.
+    Args:
+        deprecation_id: A unique identifier for the deprecated feature.
+    """
+    if not request:
+        LOGGER.warning(
+            "inc_deprecated_usage called outside of a Flask request context. "
+            "Skipping metric increment for deprecation_id: %s",
+            deprecation_id,
+        )
+        return
+
+    path = request.path
+    method = request.method
+    user_agent = request.headers.get("User-Agent", "unknown")
+
+    DEPRECATED_USAGE_COUNTER.labels(
+        path=path, method=method, deprecation_id=deprecation_id, user_agent=user_agent
+    ).inc()
 
 
 def get_metrics_app(app: Flask) -> GunicornPrometheusMetrics:
