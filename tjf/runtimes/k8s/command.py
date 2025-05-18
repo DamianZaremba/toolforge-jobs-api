@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from ...core.command import Command
+from ...core.error import TjfValidationError
 from .account import ToolAccount
 
 COMMAND_WRAPPER = ["/bin/sh", "-c", "--"]
@@ -79,6 +80,13 @@ def get_command_for_k8s(command: Command, job_name: str, tool_name: str) -> Gene
     """Generate the command array for the kubernetes object."""
     wrapped_command = COMMAND_WRAPPER.copy()
     tool_home = ToolAccount(name=tool_name).home
+
+    # Validate command raise custom user friendly error if validation fails
+    try:
+        list(shlex.shlex(command.user_command))
+    except ValueError as e:
+        raise TjfValidationError(f"Error: Unable to parse the value of --command. {e}")
+
     command_str = ""
     filelog_stdout = filelog_stderr = None
 

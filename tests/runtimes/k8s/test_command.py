@@ -9,7 +9,7 @@ import pytest
 import tjf.core.utils as utils
 from tests.helpers import fake_k8s
 from tjf.core.command import Command
-from tjf.core.error import TjfError
+from tjf.core.error import TjfError, TjfValidationError
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.command import (
     get_command_for_k8s,
@@ -19,6 +19,20 @@ from tjf.runtimes.k8s.command import (
 
 
 class TestGetCommandForK8s:
+    def test_malformed_command_raises_validation_error(self, fake_tool_account: ToolAccount):
+        malformed_cmd = "sh -c 'env; echo somethingsomethingsomething; echo; env''"
+        cmd = Command(
+            user_command=malformed_cmd,
+            filelog=False,
+            filelog_stdout=None,
+            filelog_stderr=None,
+        )
+
+        with pytest.raises(
+            TjfValidationError, match="Error: Unable to parse the value of --command"
+        ):
+            get_command_for_k8s(command=cmd, job_name="some-job", tool_name=fake_tool_account.name)
+
     def test_execution_without_filelog_creates_nothing(
         self, fixtures_path: Path, patch_tool_account_init: Path, fake_tool_account: ToolAccount
     ):
