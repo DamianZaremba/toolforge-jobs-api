@@ -262,14 +262,15 @@ def _generate_container_security_context(job: Job) -> dict[str, Any]:
 
 def _generate_container_resources(job: Job) -> dict[str, Any]:
     # this function was adapted from toollabs-webservice toolsws/backends/kubernetes.py
-    container_resources: dict[str, Any] = {}
 
-    if job.memory or job.cpu:
-        container_resources = {"limits": {}, "requests": {}}
+    container_resources = {
+        "limits": {"cpu": JOB_DEFAULT_CPU, "memory": JOB_DEFAULT_MEMORY},
+        "requests": {"cpu": JOB_DEFAULT_CPU, "memory": JOB_DEFAULT_MEMORY},
+    }
 
     if job.memory:
         dec_mem = parse_quantity(job.memory)
-        if dec_mem < parse_quantity(JOB_DEFAULT_MEMORY):
+        if dec_mem <= parse_quantity(JOB_DEFAULT_MEMORY):
             container_resources["requests"]["memory"] = job.memory
         else:
             container_resources["requests"]["memory"] = str(dec_mem / 2)
@@ -277,7 +278,7 @@ def _generate_container_resources(job: Job) -> dict[str, Any]:
 
     if job.cpu:
         dec_cpu = parse_quantity(job.cpu)
-        if dec_cpu < parse_quantity(JOB_DEFAULT_CPU):
+        if dec_cpu <= parse_quantity(JOB_DEFAULT_CPU):
             container_resources["requests"]["cpu"] = job.cpu
         else:
             container_resources["requests"]["cpu"] = str(dec_cpu / 2)
