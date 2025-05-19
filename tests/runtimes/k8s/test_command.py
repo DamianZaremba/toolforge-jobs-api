@@ -119,7 +119,7 @@ class TestGetCommandFromK8s:
             [
                 "cmdname with-arguments 'other argument with spaces'",
                 # file generated with:
-                # toolforge jobs run --image tool-django-test/tool-django-test:latest --command "cmdname with-arguments 'other argument with spaces'" --no-filelog migrate --continuous ; kubectl get deployment -o json ; toolforge jobs flush
+                # toolforge jobs run --image bullseye --command "cmdname with-arguments 'other argument with spaces'" --no-filelog migrate --continuous ; kubectl get deployment -o json ; toolforge jobs flush
                 "deployment-simple-buildpack.json",
                 False,
                 None,

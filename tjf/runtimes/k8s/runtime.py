@@ -169,36 +169,58 @@ class K8sRuntime(BaseRuntime):
 
         tool_account = ToolAccount(name=job.tool_name)
         kind = K8sJobKind.from_job_type(job.job_type).api_path_name
-        spec = get_job_for_k8s(job=job)
-
-        # use random name for dry-run object to avoid conflicts
-        spec["metadata"]["name"] = str(uuid4())
-        spec_dry_run = tool_account.k8s_cli.create_object(
-            kind=kind,
-            spec=spec,
-            dry_run=True,
-        )
-        spec_dry_run["metadata"]["name"] = job.job_name
+        new_spec = get_job_for_k8s(job=job)
 
         try:
             # we can't use get_objects here since that omits things like kind.
+            # when we start persisting the job object we can skip this,
+            # since we will no longer need get_job_from_k8s to get the job object.
             k8s_obj = tool_account.k8s_cli.get_object(
                 kind, name=job.job_name, namespace=tool_account.namespace
             )
+            current_spec = get_job_for_k8s(job=get_job_from_k8s(object=k8s_obj, kind=kind))
         except requests.exceptions.HTTPError as error:
             raise create_error_from_k8s_response(
-                error=error, job=job, spec=spec, tool_account=tool_account
+                error=error, job=job, spec=new_spec, tool_account=tool_account
             )
 
-        k8s_obj = prune_spec(spec=k8s_obj, template=spec)
-        spec_dry_run = prune_spec(spec=spec_dry_run, template=spec)
+        ###################################################################
+        # At first glance it might appear you can directly sort and compare new_spec and current_spec (so maybe this block is not neccessary),
+        # but doing that leaves us at the mercy of any future change made to the function that generates these specs.
+        # what we are doing here is to use k8s to standardize some values like cpu and memory limits and requests,
+        # so we don't have to care whatever unit these values are in our code generated specs, k8s will always standardize it for easy comparision.
+        new_spec["metadata"]["name"] = str(
+            uuid4()
+        )  # use random name for dry-run object to avoid conflicts
+        new_k8s_obj = tool_account.k8s_cli.create_object(
+            kind=kind,
+            spec=new_spec,
+            dry_run=True,
+        )
+        new_spec["metadata"]["name"] = job.job_name
+        new_k8s_obj["metadata"]["name"] = job.job_name
 
-        sorted_k8s_obj_str = json.dumps(k8s_obj, sort_keys=True, indent=4)
-        sorted_spec_dry_run_str = json.dumps(spec_dry_run, sort_keys=True, indent=4)
+        current_spec["metadata"]["name"] = str(uuid4())
+        current_k8s_obj = tool_account.k8s_cli.create_object(
+            kind=kind,
+            spec=current_spec,
+            dry_run=True,
+        )
+        current_spec["metadata"]["name"] = job.job_name
+        current_k8s_obj["metadata"]["name"] = job.job_name
+
+        new_k8s_obj = prune_spec(spec=new_k8s_obj, template=new_spec)
+        current_k8s_obj = prune_spec(spec=current_k8s_obj, template=current_spec)
+        ################################################################
+
+        new_k8s_obj_str = json.dumps(new_k8s_obj, sort_keys=True, indent=4)
+        current_k8s_obj_str = json.dumps(current_k8s_obj, sort_keys=True, indent=4)
+        LOGGER.debug("new k8s_obj: %s", new_k8s_obj_str)
+        LOGGER.debug("current k8s_obj: %s", current_k8s_obj_str)
 
         diff = unified_diff(
-            sorted_k8s_obj_str.splitlines(keepends=True),
-            sorted_spec_dry_run_str.splitlines(keepends=True),
+            current_k8s_obj_str.splitlines(keepends=True),
+            new_k8s_obj_str.splitlines(keepends=True),
             lineterm="",
         )
         return "".join([line for line in list(diff) if line is not None])
