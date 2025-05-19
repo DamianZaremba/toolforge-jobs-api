@@ -30,7 +30,12 @@ from typing_extensions import Self
 
 from .cron import CronExpression
 from .images import Image
-from .utils import format_quantity, parse_and_format_mem
+from .utils import (
+    format_quantity,
+    get_tool_home,
+    parse_and_format_mem,
+    resolve_filelog_path,
+)
 
 # This is a restriction by Kubernetes:
 # a lowercase RFC 1123 subdomain must consist of lower case alphanumeric
@@ -42,6 +47,10 @@ JOBNAME_PATTERN = re.compile("^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-
 # As far as I can tell, deployments don't actually have a k8s-enforced limit.
 # to make the whole thing consistent, use the min()
 JOBNAME_MAX_LENGTH = 52
+
+JOB_DEFAULT_MEMORY = "512Mi"
+JOB_DEFAULT_CPU = "500m"
+JOB_DEFAULT_REPLICAS = 1
 
 
 class BaseModel(PydanticModel):
@@ -106,13 +115,14 @@ class Job(BaseModel):
     job_name: str
     tool_name: str
     schedule: Optional[CronExpression] = None
-    cont: Optional[bool] = False
+    cont: bool = False
     port: Optional[int] = None
     replicas: Optional[int] = None
+    # TODO: remove this from here, probably to the runtime
     k8s_object: dict[str, Any]
-    retry: Optional[int] = 0
-    memory: Optional[str] = None
-    cpu: Optional[str] = None
+    retry: int = 0
+    memory: str = format_quantity(parse_quantity(JOB_DEFAULT_MEMORY))
+    cpu: str = format_quantity(parse_quantity(JOB_DEFAULT_CPU))
     emails: EmailOption
     mount: MountOption
     health_check: Optional[Union[ScriptHealthCheck, HttpHealthCheck]] = Field(
@@ -125,13 +135,20 @@ class Job(BaseModel):
 
     @field_validator("memory")
     @classmethod
-    def memory_validator(cls: Type["Job"], value: str) -> str | None:
+    def memory_validator(cls: Type["Job"], value: str) -> str:
         return value and parse_and_format_mem(mem=value)
 
     @field_validator("cpu")
     @classmethod
-    def cpu_validator(cls: Type["Job"], value: str) -> str | None:
+    def cpu_validator(cls: Type["Job"], value: str) -> str:
         return value and format_quantity(quantity_value=parse_quantity(value))
+
+    @model_validator(mode="after")
+    def validate_replicas(self) -> Self:
+        if self.job_type == JobType.CONTINUOUS and not self.replicas:
+            self.replicas = JOB_DEFAULT_REPLICAS
+
+        return self
 
     @model_validator(mode="after")
     # TODO: remove/refactor after model has been split to OneOff, Scheduled and Continuous
@@ -160,6 +177,17 @@ class Job(BaseModel):
             and not self.port
         ):
             raise ValueError("Port must be set for HTTP health checks")
+
+        if self.filelog:
+            tool_home = get_tool_home(name=self.tool_name)
+            if not self.filelog_stdout:
+                self.filelog_stdout = resolve_filelog_path(
+                    path=self.filelog_stdout, home=tool_home, default=Path(f"{self.job_name}.out")
+                )
+            if not self.filelog_stderr:
+                self.filelog_stderr = resolve_filelog_path(
+                    path=self.filelog_stderr, home=tool_home, default=Path(f"{self.job_name}.out")
+                )
 
         return self
 

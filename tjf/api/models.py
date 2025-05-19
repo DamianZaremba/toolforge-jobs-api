@@ -12,6 +12,8 @@ from ..core.error import TjfValidationError
 from ..core.images import Image as ImageData
 from ..core.images import ImageType, image_by_name
 from ..core.models import (
+    JOB_DEFAULT_CPU,
+    JOB_DEFAULT_MEMORY,
     JOBNAME_MAX_LENGTH,
     JOBNAME_PATTERN,
     BaseModel,
@@ -40,8 +42,8 @@ class CommonJob(BaseModel):
     continuous: bool = False
     replicas: Annotated[int, Field(ge=0)] | None = None
     port: Annotated[int, Field(ge=1, le=65535)] | None = None
-    memory: str | None = None
-    cpu: str | None = None
+    memory: str = JOB_DEFAULT_MEMORY
+    cpu: str = JOB_DEFAULT_CPU
     health_check: Optional[Union[ScriptHealthCheck, HttpHealthCheck]] = Field(
         None,
         discriminator="health_check_type",

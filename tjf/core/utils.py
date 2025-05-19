@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from pathlib import Path
 from typing import Set, TypeVar
 
 from toolforge_weld.kubernetes import VALID_KUBE_QUANT_SUFFIXES, parse_quantity
@@ -114,3 +115,16 @@ def remove_prefixes(text: str, prefixes: Set[str]) -> str:
         if text.startswith(prefix):
             text = text[len(prefix) :]
     return text
+
+
+def get_tool_home(name: str) -> Path:
+    # TODO: fetch this from LDAP instead?
+    return Path(f"/data/project/{name}")
+
+
+def resolve_filelog_path(path: Path | None, home: Path, default: Path) -> Path:
+    if not path:
+        return home / default
+    if path.is_absolute():
+        return path
+    return home / path

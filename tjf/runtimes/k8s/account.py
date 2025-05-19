@@ -14,12 +14,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-from pathlib import Path
-
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig
 
-from ...core.utils import USER_AGENT
+from ...core.utils import USER_AGENT, get_tool_home
 
 
 class ToolAccount:
@@ -27,9 +25,9 @@ class ToolAccount:
         self.name = name
         self.namespace = f"tool-{self.name}"
 
-        # TODO: fetch this from LDAP instead?
-        self.home = Path(f"/data/project/{name}")
+        self.home = get_tool_home(name=name)
 
+        # TODO: probably change this to use a service account instead
         self.k8s_cli = K8sClient(
             kubeconfig=Kubeconfig.from_path(path=(self.home / ".kube" / "config")),
             user_agent=USER_AGENT,

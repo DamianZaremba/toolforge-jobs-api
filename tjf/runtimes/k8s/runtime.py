@@ -1,9 +1,7 @@
-import json
 import os
 from difflib import unified_diff
 from logging import getLogger
 from typing import Any, Iterator, Optional
-from uuid import uuid4
 
 import requests
 from toolforge_weld.kubernetes import K8sClient, parse_quantity
@@ -23,7 +21,6 @@ from .jobs import (
     format_logs,
     get_job_for_k8s,
     get_job_from_k8s,
-    prune_spec,
 )
 from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
@@ -168,36 +165,34 @@ class K8sRuntime(BaseRuntime):
 
         tool_account = ToolAccount(name=job.tool_name)
         kind = K8sJobKind.from_job_type(job.job_type).api_path_name
-        spec = get_job_for_k8s(job=job)
-
-        # use random name for dry-run object to avoid conflicts
-        spec["metadata"]["name"] = str(uuid4())
-        spec_dry_run = tool_account.k8s_cli.create_object(
-            kind=kind,
-            spec=spec,
-            dry_run=True,
-        )
-        spec_dry_run["metadata"]["name"] = job.job_name
 
         try:
             # we can't use get_objects here since that omits things like kind.
+            # when we start persisting the job object we can skip this,
+            # since we will no longer need get_job_from_k8s to get the job object.
             k8s_obj = tool_account.k8s_cli.get_object(
                 kind, name=job.job_name, namespace=tool_account.namespace
             )
+            current_job = get_job_from_k8s(object=k8s_obj, kind=kind)
         except requests.exceptions.HTTPError as error:
             raise create_error_from_k8s_response(
-                error=error, job=job, spec=spec, tool_account=tool_account
+                error=error, job=job, spec={}, tool_account=tool_account
             )
 
-        k8s_obj = prune_spec(spec=k8s_obj, template=spec)
-        spec_dry_run = prune_spec(spec=spec_dry_run, template=spec)
-
-        sorted_k8s_obj_str = json.dumps(k8s_obj, sort_keys=True, indent=4)
-        sorted_spec_dry_run_str = json.dumps(spec_dry_run, sort_keys=True, indent=4)
+        clean_current_job = current_job.model_dump_json(
+            exclude={"k8s_object"}, exclude_defaults=True, indent=4
+        )
+        clean_new_job = job.model_dump_json(
+            exclude={"k8s_object"}, exclude_defaults=True, indent=4
+        )
+        LOGGER.debug(f"Got new job:\n{clean_new_job}")
+        LOGGER.debug(f"Got current job:\n{clean_current_job}")
+        jobs_same = clean_new_job == clean_current_job
+        LOGGER.debug(f"Got job == current_job:\n{jobs_same}")
 
         diff = unified_diff(
-            sorted_k8s_obj_str.splitlines(keepends=True),
-            sorted_spec_dry_run_str.splitlines(keepends=True),
+            clean_current_job.splitlines(keepends=True),
+            clean_new_job.splitlines(keepends=True),
             lineterm="",
         )
         return "".join([line for line in list(diff) if line is not None])

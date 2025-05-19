@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 
 from ...core.models import Command
-from .account import ToolAccount
 
 COMMAND_WRAPPER = ["/bin/sh", "-c", "--"]
 COMMAND_STDOUT_PREFIX = "exec 1>>"
@@ -78,21 +77,9 @@ def get_command_from_k8s(
 def get_command_for_k8s(command: Command, job_name: str, tool_name: str) -> GeneratedCommand:
     """Generate the command array for the kubernetes object."""
     wrapped_command = COMMAND_WRAPPER.copy()
-    tool_home = ToolAccount(name=tool_name).home
     command_str = ""
-    filelog_stdout = filelog_stderr = None
-
-    if command.filelog:
-        filelog_stdout = str(
-            resolve_filelog_path(
-                path=command.filelog_stdout, home=tool_home, default=Path(f"{job_name}.out")
-            )
-        )
-        filelog_stderr = str(
-            resolve_filelog_path(
-                path=command.filelog_stderr, home=tool_home, default=Path(f"{job_name}.err")
-            )
-        )
+    filelog_stdout = str(command.filelog_stdout) if command.filelog_stdout else None
+    filelog_stderr = str(command.filelog_stderr) if command.filelog_stderr else None
 
     if filelog_stdout is not None:
         command_str += f"{COMMAND_STDOUT_PREFIX}{filelog_stdout};"
@@ -103,11 +90,3 @@ def get_command_for_k8s(command: Command, job_name: str, tool_name: str) -> Gene
     wrapped_command.append(command_str)
 
     return GeneratedCommand(command=wrapped_command, args=None)
-
-
-def resolve_filelog_path(path: Path | None, home: Path, default: Path) -> Path:
-    if not path:
-        return home / default
-    if path.is_absolute():
-        return path
-    return home / path

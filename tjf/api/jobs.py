@@ -60,7 +60,13 @@ def api_create_job(toolname: str) -> ResponseReturnValue:
     core = current_app().core
 
     logging.debug(f"Received new job: {request.json}")
-    new_job = NewJob.model_validate(request.json)
+    # TODO: remove once the client does not send None for unset fields
+    request_without_nones = (
+        {key: value for key, value in request.json.items() if value is not None}
+        if request.json
+        else {}
+    )
+    new_job = NewJob.model_validate(request_without_nones)
     logging.debug(f"Generated NewJob: {new_job}")
     job = new_job.to_job(tool_name=toolname)
     logging.debug(f"Generated job: {job}")

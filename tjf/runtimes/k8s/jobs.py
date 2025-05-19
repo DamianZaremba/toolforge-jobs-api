@@ -15,6 +15,8 @@ from ...core.cron import CronExpression
 from ...core.error import TjfError, TjfValidationError
 from ...core.images import ImageType, image_by_container_url
 from ...core.models import (
+    JOB_DEFAULT_CPU,
+    JOB_DEFAULT_MEMORY,
     Command,
     EmailOption,
     HealthCheckType,
@@ -38,8 +40,6 @@ JOB_TTLAFTERFINISHED = 30
 # still giving some grace for jobs to quit after the initial SIGTERM.
 JOB_TERMINATION_GRACE_PERIOD = 15
 JOB_CONTAINER_NAME = "job"
-JOB_DEFAULT_MEMORY = "512Mi"
-JOB_DEFAULT_CPU = "500m"
 
 
 LOGGER = getLogger(__name__)
@@ -268,28 +268,21 @@ def _generate_container_security_context(job: Job) -> dict[str, Any]:
 
 
 def _generate_container_resources(job: Job) -> dict[str, Any]:
-    # this function was adapted from toollabs-webservice toolsws/backends/kubernetes.py
+    container_resources: dict[str, Any] = {"requests": {}, "limits": {}}
 
-    container_resources = {
-        "limits": {"cpu": JOB_DEFAULT_CPU, "memory": JOB_DEFAULT_MEMORY},
-        "requests": {"cpu": JOB_DEFAULT_CPU, "memory": JOB_DEFAULT_MEMORY},
-    }
+    dec_mem = parse_quantity(job.memory)
+    if dec_mem <= parse_quantity(JOB_DEFAULT_MEMORY):
+        container_resources["requests"]["memory"] = job.memory
+    else:
+        container_resources["requests"]["memory"] = str(dec_mem / 2)
+    container_resources["limits"]["memory"] = job.memory
 
-    if job.memory:
-        dec_mem = parse_quantity(job.memory)
-        if dec_mem <= parse_quantity(JOB_DEFAULT_MEMORY):
-            container_resources["requests"]["memory"] = job.memory
-        else:
-            container_resources["requests"]["memory"] = str(dec_mem / 2)
-        container_resources["limits"]["memory"] = job.memory
-
-    if job.cpu:
-        dec_cpu = parse_quantity(job.cpu)
-        if dec_cpu <= parse_quantity(JOB_DEFAULT_CPU):
-            container_resources["requests"]["cpu"] = job.cpu
-        else:
-            container_resources["requests"]["cpu"] = str(dec_cpu / 2)
-        container_resources["limits"]["cpu"] = job.cpu
+    dec_cpu = parse_quantity(job.cpu)
+    if dec_cpu <= parse_quantity(JOB_DEFAULT_CPU):
+        container_resources["requests"]["cpu"] = job.cpu
+    else:
+        container_resources["requests"]["cpu"] = str(dec_cpu / 2)
+    container_resources["limits"]["cpu"] = job.cpu
 
     return container_resources
 
@@ -389,32 +382,6 @@ def get_k8s_job_from_cronjob(k8s_cronjob: K8S_OBJECT_TYPE) -> K8S_OBJECT_TYPE:
     return k8s_job
 
 
-def prune_spec(spec: K8S_OBJECT_TYPE, template: K8S_OBJECT_TYPE) -> K8S_OBJECT_TYPE:
-    """
-    Recursively prune 'spec' so that only keys present in 'template' remain.
-
-    This function assumes:
-      - If template is a dict, then for each key in template, if that key exists in spec,
-        include it (recursively pruned).
-      - If template is a list and spec is a list, then process each corresponding element.
-      - Otherwise, return the spec value.
-    """
-    if isinstance(template, dict) and isinstance(spec, dict):
-        pruned = {}
-        for key in template:
-            if key in spec:
-                pruned[key] = prune_spec(spec[key], template[key])
-        return pruned
-
-    if isinstance(template, list) and isinstance(spec, list):
-        # Here, we assume that the lists are in a corresponding order. You may need to
-        # adjust if your lists are unordered or require merging by a specific key.
-        return [prune_spec(spc, templ) for spc, templ in zip(spec, template)]
-
-    # For other data types (or if the structure doesn't match), just return the spec value.
-    return spec
-
-
 def format_logs(entry: LogEntry) -> str:
     dumped = json.dumps(
         {
@@ -428,7 +395,7 @@ def format_logs(entry: LogEntry) -> str:
     return f"{dumped}\n"
 
 
-def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
+def get_job_from_k8s(object: dict[str, Any], kind: str) -> Job:
     # TODO: why not just index the dict directly instead of dict_get_object?
     spec = dict_get_object(object, "spec")
     if not spec:

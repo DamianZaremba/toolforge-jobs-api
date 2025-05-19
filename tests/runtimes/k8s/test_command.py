@@ -10,11 +10,11 @@ import tjf.core.utils as utils
 from tests.helpers import fake_k8s
 from tjf.core.error import TjfError
 from tjf.core.models import Command
+from tjf.core.utils import resolve_filelog_path
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.command import (
     get_command_for_k8s,
     get_command_from_k8s,
-    resolve_filelog_path,
 )
 
 
@@ -119,7 +119,7 @@ class TestGetCommandFromK8s:
             [
                 "cmdname with-arguments 'other argument with spaces'",
                 # file generated with:
-                # toolforge jobs run --image tool-django-test/tool-django-test:latest --command "cmdname with-arguments 'other argument with spaces'" --no-filelog migrate --continuous ; kubectl get deployment -o json ; toolforge jobs flush
+                # toolforge jobs run --image bullseye --command "cmdname with-arguments 'other argument with spaces'" --no-filelog migrate --continuous ; kubectl get deployment -o json ; toolforge jobs flush
                 "deployment-simple-buildpack.json",
                 False,
                 None,

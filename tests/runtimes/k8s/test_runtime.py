@@ -21,12 +21,12 @@ def mock_tool_account_init(
     self,
     name: str,
     get_object_mock: Callable,
-    create_object_mock: Callable,
+    create_object_mocks: list[dict[str, Any]],
     tmp_path_factory: pytest.TempPathFactory,
 ):
     mock_k8s_cli = MagicMock()
     mock_k8s_cli.get_object = get_object_mock
-    mock_k8s_cli.create_object = create_object_mock
+    mock_k8s_cli.create_object.side_effect = create_object_mocks
 
     temp_home_dir = tmp_path_factory.mktemp("home")
     self.name = name
@@ -66,13 +66,13 @@ def test_diff_raises_exception_getting_object(
             self=self,
             name=name,
             get_object_mock=exception,
-            create_object_mock=lambda *args, **kwargs: deepcopy(K8S_OBJ),
+            create_object_mocks=[deepcopy(K8S_OBJ)],
             tmp_path_factory=tmp_path_factory,
         ),
     )
 
     job = NewJob(
-        **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye"}  # type: ignore
+        **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye", "continuous": True}  # type: ignore
     ).to_job(
         tool_name="some-tool",
     )
@@ -99,6 +99,7 @@ def test_diff_raises_exception_getting_object(
 def test_diff_with_running_job_returns_empty_str(
     patch: dict[str, Any] | None,
     fake_tool_account_uid: None,
+    fake_images,
     app: JobsApi,
     monkeymodule: pytest.MonkeyPatch,
     tmp_path_factory: pytest.TempPathFactory,
@@ -113,15 +114,15 @@ def test_diff_with_running_job_returns_empty_str(
             self=self,
             name=name,
             get_object_mock=lambda *args, **kwargs: deepcopy(K8S_OBJ),
-            create_object_mock=lambda *args, **kwargs: applied_spec,
+            create_object_mocks=[applied_spec, deepcopy(K8S_OBJ)],
             tmp_path_factory=tmp_path_factory,
         ),
     )
 
     job = NewJob(
-        **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye"}  # type: ignore
+        **{"name": "migrate", "cmd": "cmdname with-arguments 'other argument with spaces'", "imagename": "bullseye", "continuous": True}  # type: ignore
     ).to_job(
-        tool_name="some-tool",
+        tool_name="majavah-test",
     )
 
     diff = app.core.runtime.diff_with_running_job(job=job)
@@ -148,6 +149,7 @@ def test_diff_with_running_job_returns_empty_str(
 def test_diff_with_running_job_returns_diff_str(
     patch: dict[str, Any] | None,
     fake_tool_account_uid: None,
+    fake_images,
     app: JobsApi,
     monkeymodule: pytest.MonkeyPatch,
     tmp_path_factory: pytest.TempPathFactory,
@@ -162,13 +164,13 @@ def test_diff_with_running_job_returns_diff_str(
             self=self,
             name=name,
             get_object_mock=lambda *args, **kwargs: deepcopy(K8S_OBJ),
-            create_object_mock=lambda *args, **kwargs: applied_spec,
+            create_object_mocks=[applied_spec, deepcopy(K8S_OBJ)],
             tmp_path_factory=tmp_path_factory,
         ),
     )
 
     job = NewJob(
-        **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye"}  # type: ignore
+        **{"name": "migrate", "cmd": "./myothercommand.py -v", "imagename": "bullseye", "continuous": True}  # type: ignore
     ).to_job(
         tool_name="some-tool",
     )
