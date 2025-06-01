@@ -20,7 +20,7 @@ repos:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0
+    rev: v1.16.0
     hooks:
       - id: mypy
         exclude: ^tests/
@@ -57,6 +57,6 @@ repos:
       - id: openapi-spec-validator
 
   - repo: https://gitlab.wikimedia.org/repos/cloud/cicd/gitlab-ci
-    rev: 39b14b9c7d6803d95cd6c753cb3546910d118e78
+    rev: 71c9784ea83fe6d114199d062d6e20b8db330434
     hooks:
       - id: check-openapi-version-bump
