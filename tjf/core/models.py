@@ -74,6 +74,7 @@ class HealthCheckType(str, Enum):
 
 class ScriptHealthCheck(BaseModel):
     script: str
+    # TODO: remove 'alias="type"' after the ongoing migration from type to health_check_type. See https://phabricator.wikimedia.org/T396210
     health_check_type: Literal[HealthCheckType.SCRIPT] = Field(
         HealthCheckType.SCRIPT, alias="type"
     )
@@ -82,6 +83,7 @@ class ScriptHealthCheck(BaseModel):
 
 class HttpHealthCheck(BaseModel):
     path: str
+    # TODO: remove 'alias="type"' after the ongoing migration from type to health_check_type. See https://phabricator.wikimedia.org/T396210
     health_check_type: Literal[HealthCheckType.HTTP] = Field(HealthCheckType.HTTP, alias="type")
     model_config = ConfigDict(populate_by_name=True)
 

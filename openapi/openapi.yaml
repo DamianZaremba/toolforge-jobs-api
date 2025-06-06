@@ -2,7 +2,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.5.0"
+  version: "5.0.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -449,10 +449,10 @@ components:
       type: object
       description: "Health check implemented as a script that runs inside the container"
       required:
-        - type
+        - health_check_type
         - script
       properties:
-        type:
+        health_check_type:
           $ref: "#/components/schemas/HealthCheckType"
         script:
           type: string
@@ -460,10 +460,10 @@ components:
       type: object
       description: "Health check implemented as an HTTP request inside the container"
       required:
-        - type
+        - health_check_type
         - path
       properties:
-        type:
+        health_check_type:
           $ref: "#/components/schemas/HealthCheckType"
         path:
           type: string
@@ -557,7 +557,7 @@ components:
             - $ref: "#/components/schemas/ScriptHealthCheck"
             - $ref: "#/components/schemas/HttpHealthCheck"
           discriminator:
-            propertyName: type
+            propertyName: health_check_type
             mapping:
               script: "#/components/schemas/ScriptHealthCheck"
               http: "#/components/schemas/HttpHealthCheck"

@@ -166,7 +166,7 @@ class DefinedJob(CommonJob):
             obj["continuous"] = True
 
         if job.health_check:
-            obj["health_check"] = job.health_check.model_dump(by_alias=True)
+            obj["health_check"] = job.health_check.model_dump()
 
         return cls.model_validate(obj)
 

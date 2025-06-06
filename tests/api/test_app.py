@@ -237,7 +237,12 @@ class TestJobsEndpoint:
         patch_kube_config_loading,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        expected_health_check = {"script": "silly script", "health_check_type": "script"}
+        # TODO: remove '"type": "script"' after the ongoing migration from type to health_check_type. See https://phabricator.wikimedia.org/T396210
+        expected_health_check = {
+            "script": "silly script",
+            "health_check_type": "script",
+            "type": "script",
+        }
         dummy_job = get_dummy_job(
             health_check=ScriptHealthCheck(
                 health_check_type=expected_health_check["health_check_type"],

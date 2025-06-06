@@ -16,13 +16,14 @@
 #
 import http
 import logging
-from typing import Any
+from typing import Any, cast
 
 from flask import Blueprint, Response, request
 from flask.typing import ResponseReturnValue
 
 from ..core.error import TjfValidationError
 from .auth import ensure_authenticated
+from .metrics import inc_deprecated_usage
 from .models import (
     DefinedJob,
     DeleteResponse,
@@ -51,13 +52,39 @@ def api_get_jobs(toolname: str) -> ResponseReturnValue:
         messages=ResponseMessages(),
     )
 
-    return job_list_response.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
+    job_list_response_dict = job_list_response.model_dump(mode="json", exclude_unset=True)
+
+    #############################################################
+    # This block is here to assist in the deprecation of "type" key in "health_check" to "health_check_type".
+    # TODO: Remove this block after the ongoing migration from type to health_check_type. See https://phabricator.wikimedia.org/T396210
+    for job_dict in job_list_response_dict["jobs"]:
+        health_check: dict[str, str] | None = job_dict.get("health_check", None)
+        if health_check:
+            health_check = {**health_check, "type": health_check["health_check_type"]}
+            job_dict["health_check"] = health_check
+
+            if not job_list_response_dict["messages"].get("warning", None):
+                job_list_response_dict["messages"]["warning"] = [
+                    '"type" key in "health_check" is being deprecated. Please use "health_check_type" instead.'
+                ]
+    ############################################################
+    return (
+        job_list_response_dict,
+        http.HTTPStatus.OK,
+    )
 
 
 @jobs.route("/", methods=["POST", "PUT"], strict_slashes=False)
 def api_create_job(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
     core = current_app().core
+
+    # TODO: remove after the ongoing migration from type to health_check_type. See https://phabricator.wikimedia.org/T396236
+    health_check: dict[str, str] | None = cast(dict[str, Any], request.json).get(
+        "health_check", None
+    )
+    if health_check and health_check.get("type", None):
+        inc_deprecated_usage(deprecation_id="health_check.type")
 
     logging.debug(f"Received new job: {request.json}")
     new_job = NewJob.model_validate(request.json)
@@ -81,6 +108,18 @@ def api_create_job(toolname: str) -> ResponseReturnValue:
     job_response = JobResponse(job=defined_job, messages=ResponseMessages())
     logging.debug(f"Generated JobResponse: {job_response}")
     json_job_response = job_response.model_dump(mode="json", exclude_unset=True)
+
+    #############################################################
+    # This block is here to assist in the deprecation of "type" key in "health_check" to "health_check_type".
+    # TODO: Remove this block after the ongoing migration from type to health_check_type. See https://phabricator.wikimedia.org/T396210
+    health_check = json_job_response["job"].get("health_check", None)
+    if health_check:
+        health_check = {**health_check, "type": health_check["health_check_type"]}
+        json_job_response["job"]["health_check"] = health_check
+        json_job_response["messages"]["warning"] = [
+            '"type" key in "health_check" is being deprecated. Please use "health_check_type" instead.'
+        ]
+    ############################################################
     logging.debug(f"Generated JobResponse json: {json_job_response}")
 
     return (json_job_response, http.HTTPStatus.CREATED)
@@ -90,6 +129,14 @@ def api_create_job(toolname: str) -> ResponseReturnValue:
 def api_update_job(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
     core = current_app().core
+
+    # TODO: remove after the ongoing migration from type to health_check_type. See https://phabricator.wikimedia.org/T396236
+    health_check: dict[str, str] | None = cast(dict[str, Any], request.json).get(
+        "health_check", None
+    )
+    if health_check and health_check.get("type", None):
+        inc_deprecated_usage(deprecation_id="health_check.type")
+
     job = NewJob.model_validate(request.json).to_job(tool_name=toolname)
 
     message = core.update_job(job=job)
@@ -120,7 +167,23 @@ def api_get_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
     job_response = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
-    return job_response.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
+    json_job_response = job_response.model_dump(mode="json", exclude_unset=True)
+
+    #############################################################
+    # This block is here to assist in the deprecation of "type" key in "health_check" to "health_check_type".
+    # TODO: Remove this block after the ongoing migration from type to health_check_type. See https://phabricator.wikimedia.org/T396210
+    health_check: dict[str, str] | None = json_job_response["job"].get("health_check", None)
+    if health_check:
+        health_check = {**health_check, "type": health_check["health_check_type"]}
+        json_job_response["job"]["health_check"] = health_check
+        json_job_response["messages"]["warning"] = [
+            '"type" key in "health_check" is being deprecated. Please use "health_check_type" instead.'
+        ]
+    ############################################################
+    return (
+        json_job_response,
+        http.HTTPStatus.OK,
+    )
 
 
 @jobs.route("/<name>", methods=["DELETE"], strict_slashes=False)
