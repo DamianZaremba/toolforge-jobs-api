@@ -237,10 +237,10 @@ class TestJobsEndpoint:
         patch_kube_config_loading,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        expected_health_check = {"script": "silly script", "health_check_type": "script"}
+        expected_health_check = {"script": "silly script", "type": "script"}
         dummy_job = get_dummy_job(
             health_check=ScriptHealthCheck(
-                health_check_type=expected_health_check["health_check_type"],
+                health_check_type=expected_health_check["type"],
                 script=expected_health_check["script"],
             )  # type: ignore[call-arg]
         )

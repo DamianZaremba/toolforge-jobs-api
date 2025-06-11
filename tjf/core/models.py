@@ -77,13 +77,13 @@ class ScriptHealthCheck(BaseModel):
     health_check_type: Literal[HealthCheckType.SCRIPT] = Field(
         HealthCheckType.SCRIPT, alias="type"
     )
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
 
 class HttpHealthCheck(BaseModel):
     path: str
     health_check_type: Literal[HealthCheckType.HTTP] = Field(HealthCheckType.HTTP, alias="type")
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
 
 @dataclass(frozen=True)
