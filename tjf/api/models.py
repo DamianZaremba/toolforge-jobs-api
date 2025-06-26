@@ -32,7 +32,7 @@ class CommonJob(BaseModel):
     filelog_stderr: Path | None = None
     emails: EmailOption = EmailOption.none
     retry: Annotated[int, Field(ge=0, le=5)] = 0
-    mount: MountOption = MountOption.ALL
+    mount: MountOption | None = None
     schedule: str | None = None
     continuous: bool = False
     replicas: Annotated[int, Field(ge=0)] | None = None
@@ -76,6 +76,12 @@ class NewJob(CommonJob):
         # image validation is only done when the job is first created because
         # the image might become invalid later (deleted, etc).
         image = image_by_name(self.imagename)
+        if not self.mount:
+            if image.type == ImageType.BUILDPACK:
+                self.mount = MountOption.NONE
+            else:
+                self.mount = MountOption.ALL
+
         if image.type != ImageType.BUILDPACK and not self.mount.supports_non_buildservice:
             raise TjfValidationError(
                 f"Mount type {self.mount.value} is only supported for build service images"
