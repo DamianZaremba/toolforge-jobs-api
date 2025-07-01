@@ -15,12 +15,12 @@ repos:
         files: \.py$
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.2.0
+    rev: 7.3.0
     hooks:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.16.0
+    rev: v1.16.1
     hooks:
       - id: mypy
         exclude: ^tests/
@@ -52,7 +52,7 @@ repos:
       - id: check-merge-conflict
 
   - repo: https://github.com/python-openapi/openapi-spec-validator
-    rev: 0.7.1
+    rev: 0.8.0b1
     hooks:
       - id: openapi-spec-validator
 
