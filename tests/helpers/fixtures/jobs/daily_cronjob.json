@@ -1,0 +1,224 @@
+{
+  "metadata": {
+    "name": "cronjobtest",
+    "namespace": "tool-tf-test",
+    "uid": "8e1c39b9-7560-4fe2-b811-faec8ba28add",
+    "resourceVersion": "422486",
+    "generation": 1,
+    "creationTimestamp": "2025-07-02T12:18:52Z",
+    "labels": {
+      "app.kubernetes.io/component": "cronjobs",
+      "app.kubernetes.io/created-by": "tf-test",
+      "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+      "app.kubernetes.io/name": "cronjobtest",
+      "app.kubernetes.io/version": "2",
+      "jobs.toolforge.org/emails": "none",
+      "jobs.toolforge.org/filelog": "yes",
+      "toolforge": "tool",
+      "toolforge.org/mount-storage": "all"
+    },
+    "annotations": {
+      "jobs.toolforge.org/cron-expression": "@daily"
+    },
+    "managedFields": [
+      {
+        "manager": "jobs-api toolforge_weld",
+        "operation": "Update",
+        "apiVersion": "batch/v1",
+        "time": "2025-07-02T12:18:52Z",
+        "fieldsType": "FieldsV1",
+        "fieldsV1": {
+          "f:metadata": {
+            "f:annotations": {
+              ".": {},
+              "f:jobs.toolforge.org/cron-expression": {}
+            },
+            "f:labels": {
+              ".": {},
+              "f:app.kubernetes.io/component": {},
+              "f:app.kubernetes.io/created-by": {},
+              "f:app.kubernetes.io/managed-by": {},
+              "f:app.kubernetes.io/name": {},
+              "f:app.kubernetes.io/version": {},
+              "f:jobs.toolforge.org/emails": {},
+              "f:jobs.toolforge.org/filelog": {},
+              "f:toolforge": {},
+              "f:toolforge.org/mount-storage": {}
+            }
+          },
+          "f:spec": {
+            "f:concurrencyPolicy": {},
+            "f:failedJobsHistoryLimit": {},
+            "f:jobTemplate": {
+              "f:spec": {
+                "f:backoffLimit": {},
+                "f:template": {
+                  "f:metadata": {
+                    "f:labels": {
+                      ".": {},
+                      "f:app.kubernetes.io/component": {},
+                      "f:app.kubernetes.io/created-by": {},
+                      "f:app.kubernetes.io/managed-by": {},
+                      "f:app.kubernetes.io/name": {},
+                      "f:app.kubernetes.io/version": {},
+                      "f:jobs.toolforge.org/emails": {},
+                      "f:jobs.toolforge.org/filelog": {},
+                      "f:toolforge": {},
+                      "f:toolforge.org/mount-storage": {}
+                    }
+                  },
+                  "f:spec": {
+                    "f:containers": {
+                      "k:{\"name\":\"job\"}": {
+                        ".": {},
+                        "f:command": {},
+                        "f:image": {},
+                        "f:imagePullPolicy": {},
+                        "f:name": {},
+                        "f:resources": {
+                          ".": {},
+                          "f:limits": {
+                            ".": {},
+                            "f:cpu": {},
+                            "f:memory": {}
+                          },
+                          "f:requests": {
+                            ".": {},
+                            "f:cpu": {},
+                            "f:memory": {}
+                          }
+                        },
+                        "f:securityContext": {
+                          ".": {},
+                          "f:allowPrivilegeEscalation": {},
+                          "f:capabilities": {
+                            ".": {},
+                            "f:drop": {}
+                          },
+                          "f:privileged": {},
+                          "f:readOnlyRootFilesystem": {},
+                          "f:runAsGroup": {},
+                          "f:runAsNonRoot": {},
+                          "f:runAsUser": {}
+                        },
+                        "f:terminationMessagePath": {},
+                        "f:terminationMessagePolicy": {},
+                        "f:workingDir": {}
+                      }
+                    },
+                    "f:dnsPolicy": {},
+                    "f:restartPolicy": {},
+                    "f:schedulerName": {},
+                    "f:securityContext": {
+                      ".": {},
+                      "f:fsGroup": {},
+                      "f:runAsGroup": {},
+                      "f:runAsNonRoot": {},
+                      "f:runAsUser": {},
+                      "f:seccompProfile": {
+                        ".": {},
+                        "f:type": {}
+                      }
+                    },
+                    "f:terminationGracePeriodSeconds": {}
+                  }
+                },
+                "f:ttlSecondsAfterFinished": {}
+              }
+            },
+            "f:schedule": {},
+            "f:startingDeadlineSeconds": {},
+            "f:successfulJobsHistoryLimit": {},
+            "f:suspend": {}
+          }
+        }
+      }
+    ]
+  },
+  "spec": {
+    "schedule": "13 13 * * *",
+    "startingDeadlineSeconds": 30,
+    "concurrencyPolicy": "Forbid",
+    "suspend": false,
+    "jobTemplate": {
+      "metadata": {
+        "creationTimestamp": null
+      },
+      "spec": {
+        "backoffLimit": 0,
+        "template": {
+          "metadata": {
+            "creationTimestamp": null,
+            "labels": {
+              "app.kubernetes.io/component": "cronjobs",
+              "app.kubernetes.io/created-by": "tf-test",
+              "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+              "app.kubernetes.io/name": "cronjobtest",
+              "app.kubernetes.io/version": "2",
+              "jobs.toolforge.org/emails": "none",
+              "jobs.toolforge.org/filelog": "yes",
+              "toolforge": "tool",
+              "toolforge.org/mount-storage": "all"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "name": "job",
+                "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+                "command": [
+                  "/bin/sh",
+                  "-c",
+                  "--",
+                  "exec 1>>/data/project/tf-test/cronjobtest.out;exec 2>>/data/project/tf-test/cronjobtest.err;date"
+                ],
+                "workingDir": "/data/project/tf-test",
+                "resources": {
+                  "limits": {
+                    "cpu": "500m",
+                    "memory": "512Mi"
+                  },
+                  "requests": {
+                    "cpu": "500m",
+                    "memory": "512Mi"
+                  }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "imagePullPolicy": "Always",
+                "securityContext": {
+                  "capabilities": {
+                    "drop": ["ALL"]
+                  },
+                  "privileged": false,
+                  "runAsUser": 50001,
+                  "runAsGroup": 50001,
+                  "runAsNonRoot": true,
+                  "readOnlyRootFilesystem": false,
+                  "allowPrivilegeEscalation": false
+                }
+              }
+            ],
+            "restartPolicy": "Never",
+            "terminationGracePeriodSeconds": 15,
+            "dnsPolicy": "ClusterFirst",
+            "securityContext": {
+              "runAsUser": 50001,
+              "runAsGroup": 50001,
+              "runAsNonRoot": true,
+              "fsGroup": 50001,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "schedulerName": "default-scheduler"
+          }
+        },
+        "ttlSecondsAfterFinished": 30
+      }
+    },
+    "successfulJobsHistoryLimit": 0,
+    "failedJobsHistoryLimit": 0
+  },
+  "status": {}
+}

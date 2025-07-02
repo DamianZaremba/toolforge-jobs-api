@@ -1,4 +1,5 @@
 from enum import Enum
+from logging import getLogger
 from pathlib import Path
 from typing import Any, Optional, Type, Union
 
@@ -21,6 +22,8 @@ from ..core.models import (
     Quota,
     ScriptHealthCheck,
 )
+
+LOGGER = getLogger(__name__)
 
 
 class CommonJob(BaseModel):
@@ -140,6 +143,7 @@ class DefinedJob(CommonJob):
 
     @classmethod
     def from_job(cls: Type["DefinedJob"], job: Job) -> "DefinedJob":
+        LOGGER.debug(f"creating DefinedJob from Job {job}")
         obj: dict[str, Any] = {
             "name": job.job_name,
             "cmd": job.cmd,

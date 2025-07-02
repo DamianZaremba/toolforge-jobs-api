@@ -4,6 +4,7 @@ import time
 from copy import deepcopy
 from enum import Enum
 from functools import cache
+from logging import getLogger
 from queue import Queue
 from typing import Any, Optional
 
@@ -42,6 +43,9 @@ JOB_TERMINATION_GRACE_PERIOD = 15
 JOB_CONTAINER_NAME = "job"
 JOB_DEFAULT_MEMORY = "512Mi"
 JOB_DEFAULT_CPU = "500m"
+
+
+LOGGER = getLogger(__name__)
 
 
 class K8sJobKind(Enum):
@@ -468,7 +472,9 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
             configured_schedule_str = metadata["annotations"].get(
                 "jobs.toolforge.org/cron-expression", spec["schedule"]
             )
+            LOGGER.debug(f"Got to schedule from annotation: {configured_schedule_str}")
         else:
+            LOGGER.warning(f"Unable to read schedule from annotation: {metadata}")
             configured_schedule_str = spec["schedule"]
 
         # pass spec["schedule"] through CronExpression.parse because
@@ -478,9 +484,9 @@ def get_job_from_k8s(object: dict[str, Any], kind: str) -> "Job":
         actual_schedule = str(
             CronExpression.parse(value=spec["schedule"], job_name=jobname, tool_name=user)
         )
-        configured_schedule = str(
-            CronExpression.parse(value=configured_schedule_str, job_name=jobname, tool_name=user)
-        )
+        configured_schedule = CronExpression.parse(
+            value=configured_schedule_str, job_name=jobname, tool_name=user
+        ).text
 
         schedule = CronExpression.from_runtime(
             actual=actual_schedule,
