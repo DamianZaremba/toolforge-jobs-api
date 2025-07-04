@@ -53,6 +53,10 @@ spec:
             value: "{{ .Values.webservice.skip_metrics }}"
           - name: "SKIP_IMAGES"
             value: "{{ .Values.webservice.skip_images }}"
+          {{- with .Values.loki.url }}
+          - name: "LOKI_URL"
+            value: "{{ . }}"
+          {{- end }}
         volumeMounts:
         - mountPath: /data/project
           name: home

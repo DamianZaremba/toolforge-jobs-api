@@ -8,11 +8,13 @@ from uuid import uuid4
 import requests
 from toolforge_weld.kubernetes import K8sClient, parse_quantity
 from toolforge_weld.kubernetes_config import Kubeconfig
+from toolforge_weld.logs import LogSource
 from toolforge_weld.logs.kubernetes import KubernetesSource
 
 from ...core.error import TjfError, TjfValidationError
 from ...core.models import Job, JobType, QuotaCategoryType, QuotaData
 from ...core.utils import USER_AGENT, format_quantity, parse_and_format_mem
+from ...loki_logs import LokiSource
 from ..base import BaseRuntime
 from .account import ToolAccount
 from .images import update_available_images
@@ -272,8 +274,15 @@ class K8sRuntime(BaseRuntime):
 
     def get_logs(self, *, job: Job, follow: bool, lines: int | None = None) -> Iterator[str]:
         tool_account = ToolAccount(name=job.tool_name)
-        selector = labels_selector(job_name=job.job_name, user_name=job.tool_name)
-        source = KubernetesSource(client=tool_account.k8s_cli)
+
+        loki_url = os.environ.get("LOKI_URL")
+        # TODO: The Loki integration code does not support following yet
+        if loki_url and not follow:
+            source: LogSource = LokiSource(base_url=loki_url, tenant=tool_account.namespace)
+            selector = {"job": job.job_name}
+        else:
+            source = KubernetesSource(client=tool_account.k8s_cli)
+            selector = labels_selector(job_name=job.job_name, user_name=job.tool_name)
 
         for log in source.query(selector=selector, follow=follow, lines=lines):
             yield format_logs(log)

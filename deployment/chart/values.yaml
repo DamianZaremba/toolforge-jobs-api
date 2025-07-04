@@ -25,3 +25,6 @@ certificates:
     name: api-gateway-backend-ca
     kind: ClusterIssuer
     group: cert-manager.io
+
+loki:
+  url: ~
