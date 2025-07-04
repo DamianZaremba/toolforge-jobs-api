@@ -5,13 +5,11 @@ from copy import deepcopy
 from enum import Enum
 from functools import cache
 from logging import getLogger
-from queue import Queue
-from typing import Any, Optional
+from typing import Any
 
 from toolforge_weld.errors import ToolforgeError
 from toolforge_weld.kubernetes import ApiData, K8sClient, MountOption, parse_quantity
 from toolforge_weld.logs import LogEntry
-from toolforge_weld.logs.kubernetes import KubernetesSource
 
 from ...core.cron import CronExpression
 from ...core.error import TjfError, TjfValidationError
@@ -26,7 +24,6 @@ from ...core.models import (
     ScriptHealthCheck,
 )
 from ...core.utils import dict_get_object
-from .account import ToolAccount
 from .command import get_command_for_k8s, get_command_from_k8s
 from .healthchecks import get_healthcheck_for_k8s
 from .labels import generate_labels
@@ -417,24 +414,6 @@ def prune_spec(spec: K8S_OBJECT_TYPE, template: K8S_OBJECT_TYPE) -> K8S_OBJECT_T
 
     # For other data types (or if the structure doesn't match), just return the spec value.
     return spec
-
-
-def queue_log_entries(
-    tool_account: ToolAccount,
-    pod_name: str,
-    container_name: str,
-    follow: bool,
-    lines: Optional[int],
-    queue: Queue[LogEntry],
-) -> None:
-    log_source = KubernetesSource(client=tool_account.k8s_cli)
-    for entry in log_source._get_pod_logs(
-        pod_name=pod_name,
-        container_name=container_name,
-        follow=follow,
-        lines=lines,
-    ):
-        queue.put(entry)
 
 
 def format_logs(entry: LogEntry) -> str:
