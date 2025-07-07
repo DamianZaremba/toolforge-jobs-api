@@ -25,6 +25,10 @@ from .account import ToolAccount
 from .jobs import K8sJobKind
 
 
+class K8sServiceNotFound(TjfError):
+    http_status_code = 404
+
+
 def _is_out_of_quota(
     e: requests.exceptions.HTTPError, job: Job, tool_account: ToolAccount
 ) -> bool:
@@ -70,7 +74,7 @@ def create_error_from_k8s_response(
     error: requests.exceptions.HTTPError, job: Job, spec: dict[str, Any], tool_account: ToolAccount
 ) -> TjfError:
     """Function to handle some known kubernetes API exceptions."""
-    error_data = {
+    error_data: dict[str, Any] = {
         "k8s_object": spec,
         "k8s_error": str(error),
     }
@@ -100,9 +104,17 @@ def create_error_from_k8s_response(
             "An object with the same name exists already", http_status_code=409, data=error_data
         )
 
-    if error.response.status_code == 404:
+    if error.response.status_code == 404 and error_data["k8s_object"]["kind"] in [
+        en.value for en in K8sJobKind
+    ]:
         return TjfJobNotFoundError(
             f"Job {job.job_name} does not exist",
+            data=error_data,
+        )
+
+    if error.response.status_code == 404 and error_data["k8s_object"]["kind"] == "Service":
+        return K8sServiceNotFound(
+            f"Service {job.job_name} does not exist",
             data=error_data,
         )
 

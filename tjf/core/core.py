@@ -57,6 +57,7 @@ class Core:
 
         except TjfJobNotFoundError:
             LOGGER.debug(f"Creating job {job.job_name}")
+
             self.create_job(
                 job=job,
             )
