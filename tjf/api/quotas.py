@@ -21,6 +21,7 @@ from flask.typing import ResponseReturnValue
 
 from ..core.models import Quota
 from .auth import ensure_authenticated
+from .metrics import inc_deprecated_usage
 from .models import (
     QuotaResponse,
     ResponseMessages,
@@ -33,6 +34,8 @@ quotas = Blueprint("quotas", __name__, url_prefix="/v1/tool/<toolname>/quotas")
 @quotas.route("/", methods=["GET"], strict_slashes=False)
 def api_get_quota(toolname: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
+    # TODO: remove before merging https://gitlab.wikimedia.org/repos/cloud/toolforge/jobs-api/-/merge_requests/164
+    inc_deprecated_usage(deprecation_id="quota")
     quota_data = current_app().core.get_quotas(toolname=toolname)
 
     return (
