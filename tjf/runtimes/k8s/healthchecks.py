@@ -1,6 +1,5 @@
 from typing import Any
 
-from ...core.error import TjfJobParsingError
 from ...core.models import HttpHealthCheck, ScriptHealthCheck
 
 STARTUP_PROBE_DEFAULT_INITIAL_DELAY_SECONDS = 0
@@ -27,17 +26,17 @@ LIVENESS_PROBE_DEFAULTS = {
 
 
 def get_healthcheck_for_k8s(
-    health_check: ScriptHealthCheck | HttpHealthCheck | None, port: int | None
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = None, port: int | None = None
 ) -> dict[str, Any]:
     match health_check:
         case ScriptHealthCheck():
             return _get_script_healthcheck_for_k8s(health_check=health_check)
         case HttpHealthCheck():
             return _get_http_healthcheck_for_k8s(health_check=health_check, port=port)
-        case None:
-            return _get_default_healthcheck_for_k8s(port=port)
+        case _ if port is not None:
+            return _get_tcp_healthcheck_for_k8s(port=port)
         case _:
-            raise TjfJobParsingError(f"Invalid health check found: {health_check}")
+            return {}
 
 
 def _get_script_healthcheck_for_k8s(health_check: ScriptHealthCheck) -> dict[str, Any]:
@@ -81,10 +80,7 @@ def _get_http_healthcheck_for_k8s(
     }
 
 
-def _get_default_healthcheck_for_k8s(port: int | None) -> dict[str, Any]:
-    if not port:
-        return {}
-
+def _get_tcp_healthcheck_for_k8s(port: int) -> dict[str, Any]:
     return {
         "startupProbe": {
             "tcpSocket": {

@@ -1,8 +1,5 @@
 from typing import Literal
 
-import pytest
-
-from tjf.core.error import TjfJobParsingError
 from tjf.core.models import (
     BaseModel,
     HealthCheckType,
@@ -22,12 +19,6 @@ class UnhandledCheck(BaseModel):
 
 
 class TestGetHealthcheckForK8s:
-    def test_we_get_error_when_healthcheck_is_unknown(self):
-        with pytest.raises(TjfJobParsingError, match="Invalid health check"):
-            get_healthcheck_for_k8s(
-                health_check=UnhandledCheck(health_check_type="unknown", path="unknown"), port=None
-            )
-
     def test_we_get_script_healthcheck(self):
         expected_k8s_object = {
             "livenessProbe": {
@@ -68,14 +59,48 @@ class TestGetHealthcheckForK8s:
 
         assert gotten_k8s_object == expected_k8s_object
 
-    def test_we_get_default_healthcheck(self):
-        expected_k8s_object = {}
-        gotten_k8s_object = get_healthcheck_for_k8s(health_check=None, port=None)
+    def test_we_get_default_tcp_healthcheck(self):
+        expected_k8s_object = {
+            "livenessProbe": {
+                "tcpSocket": {"port": 8080},
+                **LIVENESS_PROBE_DEFAULTS,
+            },
+            "startupProbe": {
+                "tcpSocket": {"port": 8080},
+                **STARTUP_PROBE_DEFAULTS,
+            },
+        }
+
+        gotten_k8s_object = get_healthcheck_for_k8s(
+            port=8080,
+        )
+
         assert gotten_k8s_object == expected_k8s_object
 
+    def test_we_get_default_healthcheck(self):
         expected_k8s_object = {
-            "livenessProbe": {"tcpSocket": {"port": 8080}, **LIVENESS_PROBE_DEFAULTS},
-            "startupProbe": {"tcpSocket": {"port": 8080}, **STARTUP_PROBE_DEFAULTS},
+            "livenessProbe": {
+                "tcpSocket": {"port": 8080},
+                **LIVENESS_PROBE_DEFAULTS,
+            },
+            "startupProbe": {
+                "tcpSocket": {"port": 8080},
+                **STARTUP_PROBE_DEFAULTS,
+            },
         }
-        gotten_k8s_object = get_healthcheck_for_k8s(health_check=None, port=8080)
+
+        gotten_k8s_object = get_healthcheck_for_k8s(
+            health_check=None,
+            port=8080,
+        )
+
+        assert gotten_k8s_object == expected_k8s_object
+
+    def test_we_get_no_healthcheck(self):
+        expected_k8s_object = {}
+        gotten_k8s_object = get_healthcheck_for_k8s(
+            health_check=None,
+            port=None,
+        )
+
         assert gotten_k8s_object == expected_k8s_object

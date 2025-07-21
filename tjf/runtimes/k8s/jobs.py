@@ -304,8 +304,7 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
         mount=job.mount,
     )
 
-    # only add health-check to continuous jobs
-    probes = get_healthcheck_for_k8s(job.health_check, port=job.port) if job.health_check else {}
+    probes = get_healthcheck_for_k8s(job.health_check, port=job.port)
     replicas = job.replicas or 1
 
     # see https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#recreate-deployment
