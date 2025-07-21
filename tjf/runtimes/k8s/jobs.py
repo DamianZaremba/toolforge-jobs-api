@@ -210,7 +210,7 @@ def _get_k8s_podtemplate(
 
     ports = {}
     if job.port:
-        ports = {"ports": [{"containerPort": job.port}]}
+        ports = {"ports": [{"containerPort": job.port, "protocol": job.port_protocol.upper()}]}
 
     if job.image.type != ImageType.BUILDPACK and not job.mount.supports_non_buildservice:
         raise TjfValidationError(
@@ -317,7 +317,7 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
         mount=job.mount,
     )
 
-    probes = get_healthcheck_for_k8s(job.health_check, port=job.port)
+    probes = get_healthcheck_for_k8s(job=job)
     replicas = job.replicas or 1
 
     # see https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#recreate-deployment
@@ -482,14 +482,10 @@ def get_job_from_k8s(
     emails = EmailOption(
         metadata["labels"].get("jobs.toolforge.org/emails", EmailOption.none.value)
     )
-    port = (
-        podspec["template"]["spec"]["containers"][0]
-        .get("ports", [{}])[0]
-        .get(
-            "containerPort",
-            None,
-        )
-    )
+
+    container_port = podspec["template"]["spec"]["containers"][0].get("ports", [{}])[0]
+    port = container_port.get("containerPort", None)
+
     replicas = spec.get("replicas", None)
     resources = podspec["template"]["spec"]["containers"][0].get("resources", {})
     resources_limits = resources.get("limits", {})
@@ -514,7 +510,7 @@ def get_job_from_k8s(
 
     timeout = podspec.get("activeDeadlineSeconds", None)
 
-    return Job(
+    params = dict(
         job_type=job_type,
         cmd=command.user_command,
         filelog=command.filelog,
@@ -536,3 +532,9 @@ def get_job_from_k8s(
         health_check=health_check,
         timeout=timeout,
     )
+
+    port_protocol = container_port.get("protocol", None)
+    if port_protocol:
+        params["port_protocol"] = port_protocol.lower()
+
+    return Job.model_validate(params)

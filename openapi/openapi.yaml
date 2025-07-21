@@ -2,7 +2,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.5.0"
+  version: "4.6.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -541,6 +541,13 @@ components:
           minimum: 1
           maximum: 65535
           example: 8080
+        port_protocol:
+          type: string
+          description: "Protocol to configure when exposing a port for the job. Applicable only when continuous is true (default ´tcp´."
+          enum:
+            - "tcp"
+            - "udp"
+          example: "tcp"
         replicas:
           type: integer
           description: "Number of replicas to be used for the job. Configurable only when continuous is true."

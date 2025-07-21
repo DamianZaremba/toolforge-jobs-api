@@ -27,7 +27,7 @@ def get_k8s_service_object(job: Job) -> K8S_OBJECT_TYPE:
             "type": "ClusterIP",
             "ports": [
                 {
-                    "protocol": "TCP",
+                    "protocol": job.port_protocol.upper(),
                     "port": job.port,
                     "targetPort": job.port,
                 }

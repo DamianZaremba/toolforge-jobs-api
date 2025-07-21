@@ -1,5 +1,6 @@
 from typing import Literal
 
+from tests.helpers.fakes import get_dummy_job
 from tjf.core.models import (
     BaseModel,
     HealthCheckType,
@@ -31,12 +32,12 @@ class TestGetHealthcheckForK8s:
             },
         }
 
-        gotten_k8s_object = get_healthcheck_for_k8s(
+        dummy_job = get_dummy_job(
             health_check=ScriptHealthCheck(
                 health_check_type=HealthCheckType.SCRIPT, script="Some script"
-            ),
-            port=None,
+            )
         )
+        gotten_k8s_object = get_healthcheck_for_k8s(job=dummy_job)
 
         assert gotten_k8s_object == expected_k8s_object
 
@@ -52,10 +53,11 @@ class TestGetHealthcheckForK8s:
             },
         }
 
-        gotten_k8s_object = get_healthcheck_for_k8s(
+        dummy_job = get_dummy_job(
             health_check=HttpHealthCheck(health_check_type=HealthCheckType.HTTP, path="/healthz"),
             port=8080,
         )
+        gotten_k8s_object = get_healthcheck_for_k8s(job=dummy_job)
 
         assert gotten_k8s_object == expected_k8s_object
 
@@ -71,36 +73,11 @@ class TestGetHealthcheckForK8s:
             },
         }
 
-        gotten_k8s_object = get_healthcheck_for_k8s(
-            port=8080,
-        )
-
-        assert gotten_k8s_object == expected_k8s_object
-
-    def test_we_get_default_healthcheck(self):
-        expected_k8s_object = {
-            "livenessProbe": {
-                "tcpSocket": {"port": 8080},
-                **LIVENESS_PROBE_DEFAULTS,
-            },
-            "startupProbe": {
-                "tcpSocket": {"port": 8080},
-                **STARTUP_PROBE_DEFAULTS,
-            },
-        }
-
-        gotten_k8s_object = get_healthcheck_for_k8s(
-            health_check=None,
-            port=8080,
-        )
-
+        gotten_k8s_object = get_healthcheck_for_k8s(get_dummy_job(port=8080))
         assert gotten_k8s_object == expected_k8s_object
 
     def test_we_get_no_healthcheck(self):
         expected_k8s_object = {}
-        gotten_k8s_object = get_healthcheck_for_k8s(
-            health_check=None,
-            port=None,
-        )
+        gotten_k8s_object = get_healthcheck_for_k8s(get_dummy_job())
 
         assert gotten_k8s_object == expected_k8s_object

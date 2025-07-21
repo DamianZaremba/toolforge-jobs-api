@@ -81,6 +81,11 @@ class HealthCheckType(str, Enum):
     HTTP = "http"
 
 
+class PortProtocol(str, Enum):
+    TCP = "tcp"
+    UDP = "udp"
+
+
 class ScriptHealthCheck(BaseModel):
     script: str
     health_check_type: Literal[HealthCheckType.SCRIPT] = Field(
@@ -117,6 +122,7 @@ class Job(BaseModel):
     schedule: Optional[CronExpression] = None
     cont: bool = False
     port: Optional[int] = None
+    port_protocol: PortProtocol = PortProtocol.TCP
     replicas: Optional[int] = None
     # TODO: remove this from here, probably to the runtime
     k8s_object: dict[str, Any]
@@ -174,9 +180,9 @@ class Job(BaseModel):
         if (
             self.health_check
             and self.health_check.health_check_type == HealthCheckType.HTTP
-            and not self.port
+            and (not self.port or self.port_protocol == PortProtocol.UDP)
         ):
-            raise ValueError("Port must be set for HTTP health checks")
+            raise ValueError("A tcp port must be set for HTTP health checks")
 
         if self.filelog:
             tool_home = get_tool_home(name=self.tool_name)

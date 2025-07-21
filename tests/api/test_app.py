@@ -1,5 +1,5 @@
 import http
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel
 from pytest import MonkeyPatch
 from toolforge_weld.errors import ToolforgeUserError
-from toolforge_weld.kubernetes import MountOption
 
+from tests.helpers.fakes import get_dummy_job
 from tjf.api.app import error_handler
 from tjf.api.models import (
     JobListResponse,
@@ -16,42 +16,13 @@ from tjf.api.models import (
 )
 from tjf.api.utils import JobsApi
 from tjf.core.error import TjfClientError, TjfError
-from tjf.core.images import Image
 from tjf.core.models import (
-    EmailOption,
-    Job,
-    JobType,
     ScriptHealthCheck,
 )
 
 
 class Silly(BaseModel):
     someint: int
-
-
-def get_dummy_job(**overrides) -> Job:
-    params = {
-        "job_type": JobType.CONTINUOUS,
-        "cmd": "silly command",
-        "filelog": False,
-        "filelog_stderr": None,
-        "filelog_stdout": None,
-        "image": Image(
-            canonical_name="silly-image",
-        ),
-        "job_name": "silly-job-name",
-        "tool_name": "silly-user",
-        "schedule": None,
-        "cont": True,
-        "k8s_object": {},
-        "emails": EmailOption.none,
-        "mount": MountOption.ALL,
-        "health_check": None,
-        "port": None,
-        "replicas": None,
-    }
-    params.update(overrides)
-    return Job.model_validate(params)
 
 
 @pytest.fixture()
@@ -160,7 +131,6 @@ class TestJobsEndpoint:
         self,
         client: TestClient,
         app: JobsApi,
-        patch_kube_config_loading,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:
@@ -179,14 +149,13 @@ class TestJobsEndpoint:
         response_json = gotten_response.json()
         assert response_json is not None, "Response JSON is None"
 
-        gotten_jobs: list[dict[str, Any]] = cast(list[dict[str, Any]], response_json["jobs"])
+        gotten_jobs: list[dict[str, Any]] = response_json["jobs"]
         assert [job["name"] for job in gotten_jobs] == expected_names
 
     def test_listing_job_with_healthcheck_works(
         self,
         client: TestClient,
         app: JobsApi,
-        patch_kube_config_loading,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:
@@ -207,16 +176,12 @@ class TestJobsEndpoint:
         assert gotten_response.status_code == http.HTTPStatus.OK
         response_json = gotten_response.json()
         assert response_json is not None, "Response JSON is None"
-        assert (
-            cast(list[dict[str, Any]], response_json["jobs"])[0]["health_check"]
-            == expected_health_check
-        )
+        assert response_json["jobs"][0]["health_check"] == expected_health_check
 
     def test_listing_job_with_port_works(
         self,
         client: TestClient,
         app: JobsApi,
-        patch_kube_config_loading,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:
@@ -233,4 +198,28 @@ class TestJobsEndpoint:
         assert gotten_response.status_code == http.HTTPStatus.OK
         response_json = gotten_response.json()
         assert response_json is not None, "Response JSON is None"
-        assert cast(list[dict[str, Any]], response_json["jobs"])[0]["port"] == expected_port
+        assert response_json["jobs"][0]["port"] == expected_port
+
+    def test_listing_job_with_port_protocol_works(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        expected_port = 1234
+        expected_protocol = "udp"
+        dummy_job = get_dummy_job(port=expected_port, port_protocol=expected_protocol)
+        monkeypatch.setattr(
+            app.core,
+            "get_jobs",
+            value=lambda *args, **kwargs: [dummy_job],
+        )
+        gotten_response = client.get("/v1/tool/silly-user/jobs/", headers=fake_auth_headers)
+
+        assert gotten_response.status_code == http.HTTPStatus.OK
+        response_json = gotten_response.json()
+
+        assert response_json is not None, "Response JSON is None"
+        assert response_json["jobs"][0]["port"] == expected_port
+        assert response_json["jobs"][0]["port_protocol"] == expected_protocol

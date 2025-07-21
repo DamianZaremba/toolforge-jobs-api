@@ -20,6 +20,7 @@ from ..core.models import (
     HttpHealthCheck,
     Job,
     JobType,
+    PortProtocol,
     Quota,
     ScriptHealthCheck,
 )
@@ -43,6 +44,7 @@ class CommonJob(BaseModel):
     port: Annotated[int, Field(ge=1, le=65535)] | None = None
     memory: str = JOB_DEFAULT_MEMORY
     cpu: str = JOB_DEFAULT_CPU
+    port_protocol: PortProtocol = PortProtocol.TCP
     health_check: Optional[Union[ScriptHealthCheck, HttpHealthCheck]] = Field(
         None,
         discriminator="health_check_type",
@@ -106,6 +108,7 @@ class NewJob(CommonJob):
             schedule=schedule,
             cont=self.continuous,
             port=self.port,
+            port_protocol=self.port_protocol,
             replicas=self.replicas,
             k8s_object={},
             retry=self.retry,
@@ -140,6 +143,7 @@ class DefinedJob(CommonJob):
             "status_short": job.status_short,
             "status_long": job.status_long,
             "port": job.port,
+            "port_protocol": job.port_protocol,
             "replicas": job.replicas,
             "emails": job.emails.value,
             "retry": job.retry,

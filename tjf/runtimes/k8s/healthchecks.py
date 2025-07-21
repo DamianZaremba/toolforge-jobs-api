@@ -1,6 +1,6 @@
 from typing import Any
 
-from ...core.models import HttpHealthCheck, ScriptHealthCheck
+from ...core.models import HttpHealthCheck, Job, PortProtocol, ScriptHealthCheck
 
 STARTUP_PROBE_DEFAULT_INITIAL_DELAY_SECONDS = 0
 STARTUP_PROBE_DEFAULT_PERIOD_SECONDS = 1
@@ -25,18 +25,16 @@ LIVENESS_PROBE_DEFAULTS = {
 }
 
 
-def get_healthcheck_for_k8s(
-    health_check: ScriptHealthCheck | HttpHealthCheck | None = None, port: int | None = None
-) -> dict[str, Any]:
-    match health_check:
+def get_healthcheck_for_k8s(job: Job) -> dict[str, Any]:
+    match job.health_check:
         case ScriptHealthCheck():
-            return _get_script_healthcheck_for_k8s(health_check=health_check)
+            return _get_script_healthcheck_for_k8s(health_check=job.health_check)
         case HttpHealthCheck():
-            return _get_http_healthcheck_for_k8s(health_check=health_check, port=port)
-        case _ if port is not None:
-            return _get_tcp_healthcheck_for_k8s(port=port)
+            return _get_http_healthcheck_for_k8s(
+                health_check=job.health_check, port=job.port, port_protocol=job.port_protocol
+            )
         case _:
-            return {}
+            return _get_tcp_healthcheck_for_k8s(port=job.port, port_protocol=job.port_protocol)
 
 
 def _get_script_healthcheck_for_k8s(health_check: ScriptHealthCheck) -> dict[str, Any]:
@@ -57,9 +55,9 @@ def _get_script_healthcheck_for_k8s(health_check: ScriptHealthCheck) -> dict[str
 
 
 def _get_http_healthcheck_for_k8s(
-    health_check: HttpHealthCheck, port: int | None
+    health_check: HttpHealthCheck, port: int | None, port_protocol: PortProtocol
 ) -> dict[str, Any]:
-    if not port:
+    if not port or port_protocol != PortProtocol.TCP:
         return {}
 
     return {
@@ -80,7 +78,10 @@ def _get_http_healthcheck_for_k8s(
     }
 
 
-def _get_tcp_healthcheck_for_k8s(port: int) -> dict[str, Any]:
+def _get_tcp_healthcheck_for_k8s(port: int | None, port_protocol: PortProtocol) -> dict[str, Any]:
+    if not port or port_protocol != PortProtocol.TCP:
+        return {}
+
     return {
         "startupProbe": {
             "tcpSocket": {
