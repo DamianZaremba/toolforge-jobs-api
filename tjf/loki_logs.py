@@ -4,6 +4,8 @@ from typing import Dict, Iterator, Optional
 import requests
 from toolforge_weld.logs import LogEntry, LogSource
 
+from tjf.core.error import TjfValidationError
+
 
 def build_logql(selector: Dict[str, str]) -> str:
     if not selector:
@@ -14,8 +16,11 @@ def build_logql(selector: Dict[str, str]) -> str:
 
 
 class LokiSource(LogSource):
-    def __init__(self, base_url: str, tenant: str) -> None:
+    def __init__(self, base_url: str, tenant: str, *, entry_limit: int = 5000) -> None:
         self.base_url = base_url
+        # This is in theory customizable in the Loki config so we make it a variable,
+        # but in practice our deployment does not customize it as of time of writing.
+        self.entry_limit = entry_limit
 
         self.session = requests.Session()
         self.session.headers.update(
@@ -26,6 +31,11 @@ class LokiSource(LogSource):
         )
 
     def _do_query(self, logql: str, follow: bool, lines: Optional[int]) -> Iterator[LogEntry]:
+        if lines and lines > self.entry_limit:
+            raise TjfValidationError(
+                f"Requested number of {lines} lines is over limit of {self.entry_limit}"
+            )
+
         # TODO: follow mode, based on https://grafana.com/docs/loki/latest/reference/loki-http-api/#stream-logs
         # which will need websocket support
         response = self.session.get(
