@@ -267,17 +267,19 @@ class K8sRuntime(BaseRuntime):
             ),
         ]
 
-    def get_logs(self, *, job: Job, follow: bool, lines: int | None = None) -> Iterator[str]:
-        tool_account = ToolAccount(name=job.tool_name)
+    def get_logs(
+        self, *, tool: str, job_name: str, follow: bool, lines: int | None = None
+    ) -> Iterator[str]:
+        tool_account = ToolAccount(name=tool)
 
         loki_url = os.environ.get("LOKI_URL")
         # TODO: The Loki integration code does not support following yet
         if loki_url and not follow:
             source: LogSource = LokiSource(base_url=loki_url, tenant=tool_account.namespace)
-            selector = {"job": job.job_name}
+            selector = {"job": job_name}
         else:
             source = KubernetesSource(client=tool_account.k8s_cli)
-            selector = labels_selector(job_name=job.job_name, user_name=job.tool_name)
+            selector = labels_selector(job_name=job_name, user_name=tool)
 
         for log in source.query(selector=selector, follow=follow, lines=lines):
             yield format_logs(log)

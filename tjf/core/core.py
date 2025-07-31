@@ -65,8 +65,9 @@ class Core:
         LOGGER.info(message)
         return message
 
-    def get_logs(self, job: Job, request_args: MultiDict[str, str]) -> Iterator[str]:
-
+    def get_logs(
+        self, toolname: str, job_name: str, request_args: MultiDict[str, str]
+    ) -> Iterator[str]:
         lines = None
         if "lines" in request_args:
             try:
@@ -76,7 +77,8 @@ class Core:
                 raise TjfValidationError("Unable to parse lines as integer") from e
 
         logs = self.runtime.get_logs(
-            job=job,
+            tool=toolname,
+            job_name=job_name,
             follow=request_args.get("follow", "") == "true",
             lines=lines,
         )
@@ -87,7 +89,7 @@ class Core:
             # Instead raise core errors here,
             # then capture in the api and re-raise, adding 404 status code in the process
             raise TjfValidationError(
-                f"Job '{job.job_name}' does not have any logs available",
+                f"Job '{job_name}' does not have any logs available",
                 http_status_code=404,
             )
 

@@ -31,7 +31,9 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_logs(self, *, job: Job, follow: bool, lines: int | None = None) -> Iterator[str]:
+    def get_logs(
+        self, *, tool: str, job_name: str, follow: bool, lines: int | None = None
+    ) -> Iterator[str]:
         raise NotImplementedError
 
     @abstractmethod

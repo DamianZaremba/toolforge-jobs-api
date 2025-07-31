@@ -24,6 +24,7 @@ from flask.typing import ResponseReturnValue
 from ..core.error import TjfValidationError
 from .auth import ensure_authenticated
 from .models import (
+    CommonJob,
     DefinedJob,
     DeleteResponse,
     FlushResponse,
@@ -149,16 +150,19 @@ def api_get_logs(toolname: str, name: str) -> ResponseReturnValue:
     ensure_authenticated(request=request)
     core = current_app().core
 
-    job = core.get_job(toolname=toolname, name=name)
-    if not job:
-        raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
+    # Prevent injection attacks onto the Loki LogQL query.
+    # (In theory LogQL is safe, but I don't want to learn that that's not the case
+    # the hard way.)
+    job_name = CommonJob.validate_job_name(name)
 
-    if job.filelog:
+    job = core.get_job(toolname=toolname, name=job_name)
+    if job and job.filelog:
         raise TjfValidationError(
-            f"Job '{name}' has file logging enabled, which is incompatible with the logs command",
+            f"Job '{job_name}' has file logging enabled, which is incompatible with the logs command",
             http_status_code=404,
         )
-    logs = core.get_logs(job=job, request_args=request.args)
+
+    logs = core.get_logs(toolname=toolname, job_name=job_name, request_args=request.args)
     return (
         Response(
             logs,
