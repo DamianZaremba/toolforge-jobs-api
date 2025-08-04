@@ -1,18 +1,22 @@
-from typing import Any, cast
+from typing import cast
 
-from flask import Flask
-from flask import current_app as flask_current_app
+from fastapi import FastAPI
+from starlette.requests import Request
 
 from ..core.core import Core
 
 
-class JobsApi(Flask):
+class JobsApi(FastAPI):
     core: Core
 
-    def __init__(self, *args: Any, core: Core, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, core: Core) -> None:
+        super().__init__(
+            redirect_slashes=False,
+            # TODO: use this one instead of manually maintained version
+            openapi_url="/internal-openapi.json",
+        )
         self.core = core
 
 
-def current_app() -> JobsApi:
-    return cast(JobsApi, flask_current_app)
+def current_app(request: Request) -> JobsApi:
+    return cast(JobsApi, request.app)

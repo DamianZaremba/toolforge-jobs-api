@@ -1,7 +1,7 @@
 from typing import Any
 
 import pytest
-from flask.testing import FlaskClient
+from fastapi.testclient import TestClient
 
 
 class TestGetImages:
@@ -10,7 +10,7 @@ class TestGetImages:
         self,
         trailing_slash: str,
         fake_images: dict[str, Any],
-        client: FlaskClient,
+        client: TestClient,
         fake_auth_headers: dict[str, str],
     ) -> None:
         expected_messages = {}
@@ -18,18 +18,18 @@ class TestGetImages:
             f"/v1/tool/some-tool/images{trailing_slash}", headers=fake_auth_headers
         )
         assert response.status_code == 200
-        assert response.json["messages"] == expected_messages
+        assert response.json()["messages"] == expected_messages
 
     def test_gets_active_images(
         self,
         fake_images: dict[str, Any],
-        client: FlaskClient,
+        client: TestClient,
         fake_auth_headers: dict[str, str],
     ) -> None:
         response = client.get("/v1/tool/some-tool/images/", headers=fake_auth_headers)
         assert response.status_code == 200
 
-        gotten_image_names = [image["shortname"] for image in response.json["images"] or []]
+        gotten_image_names = [image["shortname"] for image in response.json()["images"] or []]
 
         expected_active_images = [
             image_name
@@ -44,13 +44,13 @@ class TestGetImages:
     def test_skips_inactive_images(
         self,
         fake_images: dict[str, Any],
-        client: FlaskClient,
+        client: TestClient,
         fake_auth_headers: dict[str, str],
     ) -> None:
         response = client.get("/v1/tool/some-tool/images/", headers=fake_auth_headers)
         assert response.status_code == 200
 
-        gotten_image_names = [image["shortname"] for image in response.json["images"] or []]
+        gotten_image_names = [image["shortname"] for image in response.json()["images"] or []]
 
         expected_deprecated_images = [
             image_name
@@ -65,13 +65,13 @@ class TestGetImages:
     def test_gets_tool_harbor_images(
         self,
         fake_harbor_content: dict[str, Any],
-        client: FlaskClient,
+        client: TestClient,
         fake_auth_headers: dict[str, str],
     ) -> None:
         response = client.get("/v1/tool/some-tool/images/", headers=fake_auth_headers)
         assert response.status_code == 200
 
-        gotten_image_names = [image["shortname"] for image in response.json["images"] or []]
+        gotten_image_names = [image["shortname"] for image in response.json()["images"] or []]
 
         expected_some_tool_harbor_images = []
         for artifact in fake_harbor_content["tool-some-tool"]["artifact-list"]:
@@ -90,13 +90,13 @@ class TestGetImages:
     def test_skips_other_tools_harbor_images(
         self,
         fake_harbor_content: dict[str, Any],
-        client: FlaskClient,
+        client: TestClient,
         fake_auth_headers: dict[str, str],
     ):
         response = client.get("/v1/tool/some-tool/images/", headers=fake_auth_headers)
         assert response.status_code == 200
 
-        gotten_image_names = [image["shortname"] for image in response.json["images"] or []]
+        gotten_image_names = [image["shortname"] for image in response.json()["images"] or []]
 
         expected_other_tool_harbor_images = []
         for artifact in fake_harbor_content["tool-other"]["artifact-list"]:

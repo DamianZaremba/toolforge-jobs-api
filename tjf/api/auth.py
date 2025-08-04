@@ -1,4 +1,4 @@
-from flask.wrappers import Request
+from fastapi import Request
 
 from ..core.error import TjfClientError
 

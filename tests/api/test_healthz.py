@@ -12,23 +12,16 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import pytest
-from flask import Flask
-from flask.testing import FlaskClient
+from fastapi.testclient import TestClient
 
 from tjf.api.models import Health, HealthResponse, HealthState, ResponseMessages
 
 
-@pytest.fixture
-def client(app: Flask) -> FlaskClient:
-    return app.test_client()
-
-
-def test_healthz_endpoint(client: FlaskClient):
+def test_healthz_endpoint(client: TestClient):
     expected_health = HealthResponse(
         health=Health(message="OK", status=HealthState.ok),
         messages=ResponseMessages(),
     ).model_dump(mode="json", exclude_unset=True)
     response = client.get("/v1/healthz")
     assert response.status_code == 200
-    assert response.json == expected_health
+    assert response.json() == expected_health

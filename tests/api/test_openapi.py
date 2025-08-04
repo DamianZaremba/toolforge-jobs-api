@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 import yaml
-from flask.testing import FlaskClient
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture
@@ -13,7 +13,7 @@ def openapi_content() -> str:
         return yaml.safe_load(yaml_file)
 
 
-def test_openapi(client: FlaskClient, openapi_content: dict[str, Any]):
+def test_openapi(client: TestClient, openapi_content: dict[str, Any]):
     response = client.get("/openapi.json")
     assert response.status_code == 200
-    assert response.json == openapi_content
+    assert response.json() == openapi_content

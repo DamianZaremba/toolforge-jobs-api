@@ -33,8 +33,7 @@ variants:
     entrypoint:
       - poetry
       - run
-      - gunicorn
+      - uvicorn
+      - --factory
+      - tjf.api.app:create_app
       - --workers=4
-      - --worker-class=gevent
-      - --config=config.py
-      - api:app

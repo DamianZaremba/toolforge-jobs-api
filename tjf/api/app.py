@@ -14,46 +14,48 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-import http
 import logging
-
-from flask.typing import ResponseReturnValue
 
 from ..core.core import Core
 from .error import error_handler
 from .images import images
 from .jobs import jobs
-from .metrics import get_metrics_app, initialize_all_metrics
+from .metrics import get_metrics_app
 from .models import Health, HealthResponse, HealthState, ResponseMessages
 from .openapi import openapi
 from .quotas import quotas
 from .utils import JobsApi
 
 
-def healthz() -> ResponseReturnValue:
-    health = HealthResponse(
-        health=Health(status=HealthState.ok, message="OK"), messages=ResponseMessages()
+def healthz() -> HealthResponse:
+    return HealthResponse(
+        health=Health(message="OK", status=HealthState.ok),
+        messages=ResponseMessages(),
     )
-    return health.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
 
 
 def create_app(*, init_metrics: bool = True) -> JobsApi:
-    app = JobsApi(__name__, core=Core())
+    app = JobsApi(core=Core())
 
-    app.register_error_handler(Exception, error_handler)
+    app.add_exception_handler(Exception, error_handler)
 
-    app.add_url_rule("/v1/healthz", view_func=healthz, methods=["GET"])
-    app.add_url_rule("/openapi.json", view_func=openapi, methods=["GET"])
+    app.add_api_route(
+        "/v1/healthz",
+        healthz,
+        methods=["GET"],
+        response_model=HealthResponse,
+        response_model_exclude_unset=True,
+    )
+    app.add_api_route("/openapi.json", openapi, methods=["GET"])
 
-    app.register_blueprint(jobs)
-    app.register_blueprint(images)
-    app.register_blueprint(quotas)
+    app.include_router(jobs)
+    app.include_router(images)
+    app.include_router(quotas)
 
     if init_metrics:
-        metrics_app = get_metrics_app(app)
-        initialize_all_metrics(metrics_app=metrics_app, app=app)
+        get_metrics_app(app)
 
     logging.info("Registered urls:")
-    logging.info("%s", str(app.url_map))
+    logging.info("%s", str(app.routes))
 
     return app

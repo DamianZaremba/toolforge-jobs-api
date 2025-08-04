@@ -13,11 +13,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-import http
 import logging
 
-from flask import Blueprint, request
-from flask.typing import ResponseReturnValue
+from fastapi import APIRouter, Request
 
 from .auth import ensure_authenticated
 from .models import (
@@ -29,20 +27,21 @@ from .utils import current_app
 
 LOGGER = logging.getLogger(__name__)
 
-images = Blueprint("images", __name__, url_prefix="/v1/tool/<toolname>/images")
+images = APIRouter(prefix="/v1/tool/{toolname}/images", redirect_slashes=False)
 
 
-@images.route("/", methods=["GET"], strict_slashes=False)
-def api_get_images(toolname: str) -> ResponseReturnValue:
+@images.get("", response_model=ImageListResponse, response_model_exclude_unset=True)
+@images.get(
+    "/",
+    response_model=ImageListResponse,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
+)
+def api_get_images(request: Request, toolname: str) -> ImageListResponse:
     ensure_authenticated(request=request)
 
-    images_data = current_app().core.get_images(toolname=toolname)
-    image_list_response = ImageListResponse(
+    images_data = current_app(request).core.get_images(toolname=toolname)
+    return ImageListResponse(
         images=[Image.from_image_data(image_data) for image_data in images_data],
         messages=ResponseMessages(),
-    )
-
-    return (
-        image_list_response.model_dump(mode="json", exclude_unset=True),
-        http.HTTPStatus.OK,
     )

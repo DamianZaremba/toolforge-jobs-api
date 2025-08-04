@@ -14,12 +14,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+import asyncio
 import http
 import logging
-from typing import Any
 
-from flask import Blueprint, Response, request
-from flask.typing import ResponseReturnValue
+from fastapi import APIRouter, Request, Response
+from fastapi.responses import StreamingResponse
 
 from ..core.error import TjfValidationError
 from .auth import ensure_authenticated
@@ -39,116 +39,159 @@ from .utils import current_app
 
 LOGGER = logging.getLogger(__name__)
 
-jobs = Blueprint("jobs", __name__, url_prefix="/v1/tool/<toolname>/jobs")
+jobs = APIRouter(prefix="/v1/tool/{toolname}/jobs", redirect_slashes=False)
 
 
-@jobs.route("/", methods=["GET"], strict_slashes=False)
-def api_get_jobs(toolname: str) -> ResponseReturnValue:
+@jobs.get("", response_model=JobListResponse, response_model_exclude_unset=True)
+@jobs.get(
+    "/", response_model=JobListResponse, response_model_exclude_unset=True, include_in_schema=False
+)
+def api_get_jobs(request: Request, toolname: str) -> JobListResponse:
     ensure_authenticated(request=request)
 
-    user_jobs = current_app().core.get_jobs(toolname=toolname)
-    job_list_response = JobListResponse(
+    user_jobs = current_app(request).core.get_jobs(toolname=toolname)
+    return JobListResponse(
         jobs=[DefinedJob.from_job(job) for job in user_jobs],
         messages=ResponseMessages(),
     )
 
-    return job_list_response.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
 
-
-@jobs.route("/", methods=["POST", "PUT"], strict_slashes=False)
-def api_create_job(toolname: str) -> ResponseReturnValue:
+@jobs.post(
+    "",
+    status_code=http.HTTPStatus.CREATED,
+    response_model=JobResponse,
+    response_model_exclude_unset=True,
+)
+@jobs.post(
+    "/",
+    status_code=http.HTTPStatus.CREATED,
+    response_model=JobResponse,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
+)
+@jobs.put(
+    "",
+    status_code=http.HTTPStatus.CREATED,
+    response_model=JobResponse,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
+)
+@jobs.put(
+    "/",
+    status_code=http.HTTPStatus.CREATED,
+    response_model=JobResponse,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
+)
+async def api_create_job(request: Request, toolname: str) -> JobResponse:
     ensure_authenticated(request=request)
-    core = current_app().core
+    core = current_app(request).core
 
-    logging.debug(f"Received new job: {request.json}")
-    # TODO: remove once the client does not send None for unset fields
+    # TODO: Use FastAPI body parsing once the client does not send None for unset fields
+    request_json = await request.json()
+    logging.debug(f"Received new job: {request_json}")
     request_without_nones = (
-        {key: value for key, value in request.json.items() if value is not None}
-        if request.json
+        {key: value for key, value in request_json.items() if value is not None}
+        if request_json
         else {}
     )
-    new_job = NewJob.model_validate(request_without_nones)
-    logging.debug(f"Generated NewJob: {new_job}")
-    job = new_job.to_job(tool_name=toolname)
-    logging.debug(f"Generated job: {job}")
 
-    existing_job = core.get_job(toolname=job.tool_name, name=job.job_name)
-    if existing_job:
-        if existing_job.status_short and existing_job.status_short.lower() != "completed":
-            raise TjfValidationError(
-                f"A job with the name {job.job_name} already exists", http_status_code=409
-            )
-        core.delete_job(job=existing_job)
-        logging.debug(f"Deleted existing job: {existing_job}")
+    def do_create_job() -> DefinedJob:
+        new_job = NewJob.model_validate(request_without_nones)
+        logging.debug(f"Generated NewJob: {new_job}")
+        job = new_job.to_job(tool_name=toolname)
+        logging.debug(f"Generated job: {job}")
 
-    core.create_job(job=job)
-    defined_job = DefinedJob.from_job(job)
-    logging.debug(f"Generated DefinedJob: {defined_job}")
+        existing_job = core.get_job(toolname=job.tool_name, name=job.job_name)
+        if existing_job:
+            if existing_job.status_short and existing_job.status_short.lower() != "completed":
+                raise TjfValidationError(
+                    f"A job with the name {job.job_name} already exists", http_status_code=409
+                )
+            core.delete_job(job=existing_job)
+            logging.debug(f"Deleted existing job: {existing_job}")
 
-    job_response = JobResponse(job=defined_job, messages=ResponseMessages())
-    logging.debug(f"Generated JobResponse: {job_response}")
-    json_job_response = job_response.model_dump(mode="json", exclude_unset=True)
-    logging.debug(f"Generated JobResponse json: {json_job_response}")
+        core.create_job(job=job)
+        defined_job = DefinedJob.from_job(job)
+        logging.debug(f"Generated DefinedJob: {defined_job}")
+        return defined_job
 
-    return (json_job_response, http.HTTPStatus.CREATED)
+    # TODO: migrate Harbor client and toolforge-weld to an asyncio-native
+    # HTTP client. Otherwise we have to do this to avoid blocking the event loop.
+    loop = asyncio.get_event_loop()
+    job = await loop.run_in_executor(
+        None,
+        do_create_job,
+    )
+
+    return JobResponse(job=job, messages=ResponseMessages())
 
 
-@jobs.route("/", methods=["PATCH"], strict_slashes=False)
-def api_update_job(toolname: str) -> ResponseReturnValue:
+@jobs.patch("", response_model=UpdateResponse, response_model_exclude_unset=True)
+@jobs.patch(
+    "/", response_model=UpdateResponse, response_model_exclude_unset=True, include_in_schema=False
+)
+def api_update_job(request: Request, toolname: str, new_job: NewJob) -> UpdateResponse:
     ensure_authenticated(request=request)
-    core = current_app().core
-    job = NewJob.model_validate(request.json).to_job(tool_name=toolname)
+    core = current_app(request).core
+    job = new_job.to_job(tool_name=toolname)
 
     message = core.update_job(job=job)
     messages = ResponseMessages(info=[message])
-    return (
-        UpdateResponse(messages=messages).model_dump(mode="json", exclude_unset=True),
-        http.HTTPStatus.OK,
-    )
+    return UpdateResponse(messages=messages)
 
 
-@jobs.route("/", methods=["DELETE"], strict_slashes=False)
-def api_flush_job(toolname: str) -> ResponseReturnValue:
+@jobs.delete("", response_model=FlushResponse, response_model_exclude_unset=True)
+@jobs.delete(
+    "/", response_model=FlushResponse, response_model_exclude_unset=True, include_in_schema=False
+)
+def api_flush_job(request: Request, toolname: str) -> FlushResponse:
     ensure_authenticated(request=request)
 
-    current_app().core.flush_job(toolname=toolname)
-    return (
-        FlushResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
-        http.HTTPStatus.OK,
-    )
+    current_app(request).core.flush_job(toolname=toolname)
+    return FlushResponse(messages=ResponseMessages())
 
 
-@jobs.route("/<name>", methods=["GET"], strict_slashes=False)
-def api_get_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
+@jobs.get("/{name}", response_model=JobResponse, response_model_exclude_unset=True)
+@jobs.get(
+    "/{name}/",
+    response_model=JobResponse,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
+)
+def api_get_job(request: Request, toolname: str, name: str) -> JobResponse:
     ensure_authenticated(request=request)
 
-    job = current_app().core.get_job(name=name, toolname=toolname)
+    job = current_app(request).core.get_job(name=name, toolname=toolname)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    job_response = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
-    return job_response.model_dump(mode="json", exclude_unset=True), http.HTTPStatus.OK
+    return JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
 
 
-@jobs.route("/<name>", methods=["DELETE"], strict_slashes=False)
-def api_delete_job(toolname: str, name: str) -> tuple[dict[str, Any], int]:
+@jobs.delete("/{name}", response_model=DeleteResponse, response_model_exclude_unset=True)
+@jobs.delete(
+    "/{name}/",
+    response_model=DeleteResponse,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
+)
+def api_delete_job(request: Request, toolname: str, name: str) -> DeleteResponse:
     ensure_authenticated(request=request)
 
-    job = current_app().core.get_job(toolname=toolname, name=name)
+    job = current_app(request).core.get_job(toolname=toolname, name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    current_app().core.delete_job(job=job)
-    return (
-        DeleteResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
-        http.HTTPStatus.OK,
-    )
+    current_app(request).core.delete_job(job=job)
+    return DeleteResponse(messages=ResponseMessages())
 
 
-@jobs.route("/<name>/logs", methods=["GET"], strict_slashes=False)
-def api_get_logs(toolname: str, name: str) -> ResponseReturnValue:
+@jobs.get("/{name}/logs")
+@jobs.get("/{name}/logs/", include_in_schema=False)
+def api_get_logs(request: Request, toolname: str, name: str) -> Response:
     ensure_authenticated(request=request)
-    core = current_app().core
+    core = current_app(request).core
 
     # Prevent injection attacks onto the Loki LogQL query.
     # (In theory LogQL is safe, but I don't want to learn that that's not the case
@@ -162,30 +205,30 @@ def api_get_logs(toolname: str, name: str) -> ResponseReturnValue:
             http_status_code=404,
         )
 
-    logs = core.get_logs(toolname=toolname, job_name=job_name, request_args=request.args)
-    return (
-        Response(
-            logs,
-            content_type="text/plain; charset=utf8",
-            # Disable nginx-level buffering:
-            # https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering
-            headers={"X-Accel-Buffering": "no"},
-        ),
-        http.HTTPStatus.OK,
+    logs = core.get_logs(toolname=toolname, job_name=job_name, request_args=request.query_params)
+    return StreamingResponse(
+        logs,
+        media_type="text/plain; charset=utf8",
+        # Disable nginx-level buffering:
+        # https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering
+        headers={"X-Accel-Buffering": "no"},
     )
 
 
-@jobs.route("/<name>/restart", methods=["POST"], strict_slashes=False)
-def api_restart_job(toolname: str, name: str) -> ResponseReturnValue:
+@jobs.post("/{name}/restart", response_model=RestartResponse, response_model_exclude_unset=True)
+@jobs.post(
+    "/{name}/restart/",
+    response_model=RestartResponse,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
+)
+def api_restart_job(request: Request, toolname: str, name: str) -> RestartResponse:
     ensure_authenticated(request=request)
 
-    job = current_app().core.get_job(toolname=toolname, name=name)
+    job = current_app(request).core.get_job(toolname=toolname, name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    current_app().core.restart_job(job=job)
+    current_app(request).core.restart_job(job=job)
 
-    return (
-        RestartResponse(messages=ResponseMessages()).model_dump(mode="json", exclude_unset=True),
-        http.HTTPStatus.OK,
-    )
+    return RestartResponse(messages=ResponseMessages())

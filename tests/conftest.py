@@ -6,7 +6,7 @@ from typing import Any, Generator
 import pytest
 import requests_mock
 import yaml
-from flask.testing import FlaskClient
+from fastapi.testclient import TestClient
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig, fake_kube_config
 
@@ -160,13 +160,12 @@ def fake_images(fake_harbor_content) -> dict[str, Any]:
 def app(monkeypatch: pytest.MonkeyPatch) -> Generator[JobsApi, None, None]:
     monkeypatch.setenv("SKIP_IMAGES", "1")
     app = create_app(init_metrics=False)
-    with app.app_context():
-        yield app
+    yield app
 
 
 @pytest.fixture
-def client(app: JobsApi) -> FlaskClient:
-    return app.test_client()
+def client(app: JobsApi) -> TestClient:
+    return TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture

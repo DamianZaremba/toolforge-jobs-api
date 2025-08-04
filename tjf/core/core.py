@@ -15,10 +15,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 import logging
+from collections.abc import Mapping
 from typing import Iterator, Optional
 
 from toolforge_weld.utils import peek
-from werkzeug.datastructures import MultiDict
 
 from ..runtimes.k8s.runtime import K8sRuntime
 from .error import TjfError, TjfJobNotFoundError, TjfValidationError
@@ -66,7 +66,7 @@ class Core:
         return message
 
     def get_logs(
-        self, toolname: str, job_name: str, request_args: MultiDict[str, str]
+        self, toolname: str, job_name: str, request_args: Mapping[str, str]
     ) -> Iterator[str]:
         lines = None
         if "lines" in request_args:

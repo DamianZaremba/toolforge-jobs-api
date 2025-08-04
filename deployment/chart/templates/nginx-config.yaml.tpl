@@ -47,11 +47,11 @@ data:
 
             # Support both old and new metrics endpoints
             location = /metrics {
-                proxy_pass http://127.0.0.1:9200/metrics;
+                proxy_pass http://127.0.0.1:8000/metrics;
             }
 
             location = /v1/metrics {
-                proxy_pass http://127.0.0.1:9200/metrics;
+                proxy_pass http://127.0.0.1:8000/metrics;
             }
 
         }
@@ -65,11 +65,11 @@ data:
 
             # Support both old and new metrics endpoints
             location = /metrics {
-                proxy_pass http://127.0.0.1:9200/metrics;
+                proxy_pass http://127.0.0.1:8000/metrics;
             }
 
             location = /v1/metrics {
-                proxy_pass http://127.0.0.1:9200/metrics;
+                proxy_pass http://127.0.0.1:8000/metrics;
             }
         }
     }

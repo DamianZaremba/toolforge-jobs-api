@@ -4,7 +4,8 @@ import http
 import logging
 import traceback
 
-from flask import Response, jsonify
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from toolforge_weld.errors import ToolforgeError
 
@@ -20,7 +21,7 @@ def _polish_pydantic_error_message(pydantic_message: str) -> str:
     )
 
 
-def error_handler(error: ToolforgeError | TjfError | ValidationError) -> tuple[Response, int]:
+def error_handler(request: Request, error: Exception) -> JSONResponse:
     message = ""
     if isinstance(error, ToolforgeError):
         cause = error.__cause__
@@ -51,7 +52,7 @@ def error_handler(error: ToolforgeError | TjfError | ValidationError) -> tuple[R
         message += f" ({str(cause)})"
 
     LOGGER.error(f"{message}. context: {data}")
-    return (
-        jsonify(ResponseMessages(error=[message]).model_dump(mode="json", exclude_unset=True)),
-        http_status_code,
+    return JSONResponse(
+        ResponseMessages(error=[message]).model_dump(mode="json", exclude_unset=True),
+        status_code=http_status_code,
     )

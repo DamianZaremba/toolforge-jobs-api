@@ -1,5 +1,7 @@
 import http
+import json
 
+from fastapi import Request
 from pydantic import ValidationError
 from pytest import mark
 
@@ -63,8 +65,7 @@ class TestErrorHandler:
         app,
         caplog,
     ):
-        result = error_handler(error=exception)
-        # jsonify must run inside an app context, so can't be used in the parametrize decorator
-        assert result[0].json == expected_response
-        assert result[1] == expected_status_code
+        result = error_handler(request=Request({"type": "http"}), error=exception)
+        assert json.loads(result.body.decode("utf-8")) == expected_response
+        assert result.status_code == expected_status_code
         assert expected_log in caplog.text

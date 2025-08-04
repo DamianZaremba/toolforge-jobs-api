@@ -17,7 +17,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from flask.testing import FlaskClient
+from fastapi.testclient import TestClient
 
 from tests.helpers.fakes import get_fake_account
 from tjf.api.models import QuotaResponse, ResponseMessages
@@ -45,7 +45,7 @@ def patch_account_to_have_quotas(account_with_quotas):
 @pytest.mark.parametrize("trailing_slash", ["", "/"])
 def test_quota_endpoint(
     trailing_slash: str,
-    client: FlaskClient,
+    client: TestClient,
     fixtures_path: Path,
     patch_account_to_have_quotas,
     fake_auth_headers: dict[str, str],
@@ -57,4 +57,4 @@ def test_quota_endpoint(
     response = client.get(f"/v1/tool/some-tool/quotas{trailing_slash}", headers=fake_auth_headers)
 
     assert response.status_code == 200
-    assert response.json == expected
+    assert response.json() == expected

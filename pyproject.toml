@@ -12,14 +12,14 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-flask = "^3.0.0"
-prometheus-flask-exporter = "^0.23.0"
 pyyaml = "^6.0.1"
 requests = "^2.31.0"
 toolforge-weld = "^1.6.11"
-gunicorn = "^21.2.0"
 pydantic = "^2.6.4"
 gevent = "^24.2.1"
+fastapi = "^0.116.1"
+prometheus-fastapi-instrumentator = "^7.1.0"
+uvicorn = "^0.35.0"
 
 [tool.poetry.group.dev.dependencies]
 openapi-schema-validator = "^0.6.2"

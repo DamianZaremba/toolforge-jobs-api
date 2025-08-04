@@ -14,10 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-import http
-
-from flask import Blueprint, request
-from flask.typing import ResponseReturnValue
+from fastapi import APIRouter, Request
 
 from ..core.models import Quota
 from .auth import ensure_authenticated
@@ -27,17 +24,15 @@ from .models import (
 )
 from .utils import current_app
 
-quotas = Blueprint("quotas", __name__, url_prefix="/v1/tool/<toolname>/quotas")
+quotas = APIRouter(prefix="/v1/tool/{toolname}/quotas", redirect_slashes=False)
 
 
-@quotas.route("/", methods=["GET"], strict_slashes=False)
-def api_get_quota(toolname: str) -> ResponseReturnValue:
+@quotas.get("", response_model=QuotaResponse, response_model_exclude_unset=True)
+@quotas.get(
+    "/", response_model=QuotaResponse, response_model_exclude_unset=True, include_in_schema=False
+)
+def api_get_quota(request: Request, toolname: str) -> QuotaResponse:
     ensure_authenticated(request=request)
-    quota_data = current_app().core.get_quotas(toolname=toolname)
+    quota_data = current_app(request).core.get_quotas(toolname=toolname)
 
-    return (
-        QuotaResponse(
-            quota=Quota.from_quota_data(quota_data), messages=ResponseMessages()
-        ).model_dump(mode="json", exclude_unset=True),
-        http.HTTPStatus.OK,
-    )
+    return QuotaResponse(quota=Quota.from_quota_data(quota_data), messages=ResponseMessages())

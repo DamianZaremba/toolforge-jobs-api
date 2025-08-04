@@ -31,12 +31,12 @@ repos:
             "pydantic",
             "toolforge-weld",
             "types-PyYAML",
-            "flask",
+            "fastapi",
             "types-requests",
             "types-setuptools",
             "prometheus-client",
+            "prometheus-fastapi-instrumentator",
             "requests-mock",
-            "cryptography<41.0", # TODO: remove when T394593 is fixed
           ]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
