@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Iterator, Optional
+from typing import AsyncIterator, Optional
 
 from ..core.models import Job, QuotaData
 
@@ -33,7 +33,7 @@ class BaseRuntime(ABC):
     @abstractmethod
     def get_logs(
         self, *, tool: str, job_name: str, follow: bool, lines: int | None = None
-    ) -> Iterator[str]:
+    ) -> AsyncIterator[str]:
         raise NotImplementedError
 
     @abstractmethod

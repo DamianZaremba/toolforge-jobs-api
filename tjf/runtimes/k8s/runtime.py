@@ -1,13 +1,11 @@
 import os
 from difflib import unified_diff
 from logging import getLogger
-from typing import Any, Iterator, Optional
+from typing import Any, AsyncIterator, Optional
 
 import requests
 from toolforge_weld.kubernetes import K8sClient, parse_quantity
 from toolforge_weld.kubernetes_config import Kubeconfig
-from toolforge_weld.logs import LogSource
-from toolforge_weld.logs.kubernetes import KubernetesSource
 
 from ...core.error import TjfError, TjfValidationError
 from ...core.models import Job, JobType, QuotaCategoryType, QuotaData
@@ -267,19 +265,17 @@ class K8sRuntime(BaseRuntime):
             ),
         ]
 
-    def get_logs(
+    async def get_logs(
         self, *, tool: str, job_name: str, follow: bool, lines: int | None = None
-    ) -> Iterator[str]:
+    ) -> AsyncIterator[str]:
         tool_account = ToolAccount(name=tool)
 
         loki_url = os.environ.get("LOKI_URL")
-        # TODO: The Loki integration code does not support following yet
-        if loki_url and not follow:
-            source: LogSource = LokiSource(base_url=loki_url, tenant=tool_account.namespace)
-            selector = {"job": job_name}
-        else:
-            source = KubernetesSource(client=tool_account.k8s_cli)
-            selector = labels_selector(job_name=job_name, user_name=tool)
+        if not loki_url:
+            raise TjfError("No Loki URL specified, unable to query logs")
 
-        for log in source.query(selector=selector, follow=follow, lines=lines):
+        source = LokiSource(base_url=loki_url, tenant=tool_account.namespace)
+        selector = {"job": job_name}
+
+        async for log in source.query(selector=selector, follow=follow, lines=lines):
             yield format_logs(log)

@@ -16,9 +16,9 @@
 #
 import logging
 from collections.abc import Mapping
-from typing import Iterator, Optional
+from typing import AsyncIterator, Optional
 
-from toolforge_weld.utils import peek
+from toolforge_weld.utils import apeek
 
 from ..runtimes.k8s.runtime import K8sRuntime
 from .error import TjfError, TjfJobNotFoundError, TjfValidationError
@@ -65,9 +65,9 @@ class Core:
         LOGGER.info(message)
         return message
 
-    def get_logs(
+    async def get_logs(
         self, toolname: str, job_name: str, request_args: Mapping[str, str]
-    ) -> Iterator[str]:
+    ) -> AsyncIterator[str]:
         lines = None
         if "lines" in request_args:
             try:
@@ -83,7 +83,7 @@ class Core:
             lines=lines,
         )
 
-        first, logs = peek(logs)
+        first, logs = await apeek(logs)
         if not first:
             # TODO: refactor error handling. We shouldn't really be doing "http_status_code=404" in core.
             # Instead raise core errors here,

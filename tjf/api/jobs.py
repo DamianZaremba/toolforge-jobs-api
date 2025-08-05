@@ -189,7 +189,7 @@ def api_delete_job(request: Request, toolname: str, name: str) -> DeleteResponse
 
 @jobs.get("/{name}/logs")
 @jobs.get("/{name}/logs/", include_in_schema=False)
-def api_get_logs(request: Request, toolname: str, name: str) -> Response:
+async def api_get_logs(request: Request, toolname: str, name: str) -> Response:
     ensure_authenticated(request=request)
     core = current_app(request).core
 
@@ -205,7 +205,9 @@ def api_get_logs(request: Request, toolname: str, name: str) -> Response:
             http_status_code=404,
         )
 
-    logs = core.get_logs(toolname=toolname, job_name=job_name, request_args=request.query_params)
+    logs = await core.get_logs(
+        toolname=toolname, job_name=job_name, request_args=request.query_params
+    )
     return StreamingResponse(
         logs,
         media_type="text/plain; charset=utf8",
