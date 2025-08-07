@@ -47,7 +47,6 @@ repos:
       - id: end-of-file-fixer
       - id: check-toml
       - id: check-yaml
-        exclude: cmd-checklist.yaml$
       - id: check-shebang-scripts-are-executable
       - id: check-executables-have-shebangs
       - id: check-merge-conflict
