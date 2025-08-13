@@ -173,7 +173,12 @@ def _get_k8s_podtemplate(
         filelog_stdout=job.filelog_stdout,
         filelog_stderr=job.filelog_stderr,
     )
-    if job.image.type == ImageType.BUILDPACK and not job.cmd.startswith("launcher"):
+
+    if job.image.type is None:
+        raise TjfValidationError(f"Unexpected job without image type: {job}")
+
+    if job.image.type == ImageType.BUILDPACK and not job.cmd.startswith("launcher "):
+        LOGGER.debug(f"Found a buildservice image without launcher, prefixing the command: {job}")
         # this allows using either a procfile entry point or any command as command
         # for a buildservice-based job
         command = Command(
@@ -181,6 +186,10 @@ def _get_k8s_podtemplate(
             filelog=job.filelog,
             filelog_stdout=job.filelog_stdout,
             filelog_stderr=job.filelog_stderr,
+        )
+    else:
+        LOGGER.debug(
+            f"Found a non-buildservice image, or command alread starting with launcher, skipping prefix: {job}"
         )
 
     generated_command = get_command_for_k8s(
@@ -207,17 +216,6 @@ def _get_k8s_podtemplate(
         raise TjfValidationError(
             f"Mount type {job.mount.value} is only supported for build service images"
         )
-
-    command = Command(
-        user_command=job.cmd,
-        filelog=job.filelog,
-        filelog_stderr=job.filelog_stderr,
-        filelog_stdout=job.filelog_stdout,
-    )
-
-    generated_command = get_command_for_k8s(
-        command=command, job_name=job.job_name, tool_name=job.tool_name
-    )
 
     return {
         "metadata": {"labels": labels},

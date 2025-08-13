@@ -21,7 +21,7 @@ from enum import Enum
 LOGGER = logging.getLogger(__name__)
 
 
-class ImageType(Enum):
+class ImageType(str, Enum):
     STANDARD = "standard"
     BUILDPACK = "buildpack"
 
