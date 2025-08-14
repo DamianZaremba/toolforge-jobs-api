@@ -507,12 +507,16 @@ def get_job_from_k8s(
         health_check = HttpHealthCheck(health_check_type=HealthCheckType.HTTP, path=path)  # type: ignore[call-arg]
 
     image = image_by_container_url(url=imageurl, refresh_interval=image_refresh_interval)
+    if image.type == ImageType.BUILDPACK and command.user_command.startswith("launcher "):
+        user_command = command.user_command.split(" ", 1)[-1]
+    else:
+        user_command = command.user_command
 
     timeout = podspec.get("activeDeadlineSeconds", None)
 
     params = dict(
         job_type=job_type,
-        cmd=command.user_command,
+        cmd=user_command,
         filelog=command.filelog,
         filelog_stderr=command.filelog_stderr,
         filelog_stdout=command.filelog_stdout,

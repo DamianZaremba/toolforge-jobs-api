@@ -193,13 +193,18 @@ class K8sRuntime(BaseRuntime):
                 kind=kind,
                 image_refresh_interval=self.image_refresh_interval,
             )
-            # imagestate and other fields are not available for the incoming job,
-            # so normalize by remove those from here too
-            current_job.image = Image(canonical_name=job.image.canonical_name)
         except requests.exceptions.HTTPError as error:
             raise create_error_from_k8s_response(
                 error=error, job=job, spec={}, tool_account=tool_account
             )
+
+        # TODO: remove once we store the original command
+        # Note: the incoming job does not have an image type, so we get it from the existing job
+        if job.cmd.startswith("launcher ") and current_job.image.type == ImageType.BUILDPACK:
+            job.cmd = job.cmd.split(" ", 1)[-1]
+        # imagestate and other fields are not available for the incoming job,
+        # so normalize by remove those from here too, done after checking the type
+        current_job.image = Image(canonical_name=current_job.image.canonical_name)
 
         clean_current_job = current_job.model_dump_json(
             exclude={"k8s_object"}, exclude_defaults=True, indent=4
