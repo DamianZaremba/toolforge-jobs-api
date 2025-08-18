@@ -38,7 +38,7 @@ def test_refresh_job_short_status_cronjob(
     fake_images: dict[str, Any],
 ):
     class FakeK8sCli:
-        def get_objects(self, kind, *, label_selector):
+        def get_objects(self, *, kind, label_selector):
             if kind == "jobs":
                 return [job]
             raise Exception("not supposed to happen")

@@ -189,7 +189,7 @@ def _get_k8s_podtemplate(
         )
     else:
         LOGGER.debug(
-            f"Found a non-buildservice image, or command alread starting with launcher, skipping prefix: {job}"
+            f"Found a non-buildservice image, or command already starting with launcher, skipping prefix: {job}"
         )
 
     generated_command = get_command_for_k8s(

@@ -5,7 +5,7 @@ from typing import Any, AsyncIterator
 import requests
 from toolforge_weld.kubernetes import MountOption, parse_quantity
 
-from ...core.error import TjfError, TjfValidationError
+from ...core.error import TjfError, TjfJobNotFoundError, TjfValidationError
 from ...core.images import Image, ImageType
 from ...core.models import Job, JobType, QuotaCategoryType, QuotaData
 from ...core.utils import format_quantity, parse_and_format_mem
@@ -40,7 +40,9 @@ class K8sRuntime(BaseRuntime):
         for job_type in JobType:
             kind = K8sJobKind.from_job_type(job_type).api_path_name
             label_selector = labels_selector(user_name=tool_account.name, type=kind)
-            for k8s_obj in tool_account.k8s_cli.get_objects(kind, label_selector=label_selector):
+            for k8s_obj in tool_account.k8s_cli.get_objects(
+                kind=kind, label_selector=label_selector
+            ):
                 job = get_job_from_k8s(
                     object=k8s_obj,
                     kind=kind,
@@ -59,7 +61,9 @@ class K8sRuntime(BaseRuntime):
             label_selector = labels_selector(
                 job_name=job_name, user_name=tool_account.name, type=kind
             )
-            for k8s_obj in tool_account.k8s_cli.get_objects(kind, label_selector=label_selector):
+            for k8s_obj in tool_account.k8s_cli.get_objects(
+                kind=kind, label_selector=label_selector
+            ):
                 job = get_job_from_k8s(
                     object=k8s_obj,
                     kind=kind,
@@ -178,24 +182,10 @@ class K8sRuntime(BaseRuntime):
         """
         LOGGER.debug("Checking for diff in job %s for tool %s", job.job_name, job.tool_name)
 
-        tool_account = ToolAccount(name=job.tool_name)
-        kind = K8sJobKind.from_job_type(job.job_type).api_path_name
-
-        try:
-            # we can't use get_objects here since that omits things like kind.
-            # when we start persisting the job object we can skip this,
-            # since we will no longer need get_job_from_k8s to get the job object.
-            k8s_obj = tool_account.k8s_cli.get_object(
-                kind, name=job.job_name, namespace=tool_account.namespace
-            )
-            current_job = get_job_from_k8s(
-                object=k8s_obj,
-                kind=kind,
-                image_refresh_interval=self.image_refresh_interval,
-            )
-        except requests.exceptions.HTTPError as error:
-            raise create_error_from_k8s_response(
-                error=error, job=job, spec={}, tool_account=tool_account
+        current_job = self.get_job(job_name=job.job_name, tool=job.tool_name)
+        if current_job is None:
+            raise TjfJobNotFoundError(
+                f"Unable to find job {job.job_name} for tool {job.tool_name}"
             )
 
         # TODO: remove once we store the original command
@@ -207,8 +197,11 @@ class K8sRuntime(BaseRuntime):
         current_job.image = Image(canonical_name=current_job.image.canonical_name)
 
         clean_current_job = current_job.model_dump_json(
-            exclude={"k8s_object"}, exclude_defaults=True, indent=4
+            exclude={"k8s_object", "status_short", "status_long"},
+            exclude_defaults=True,
+            indent=4,
         )
+
         clean_new_job = job.model_dump_json(
             exclude={"k8s_object"}, exclude_defaults=True, indent=4
         )

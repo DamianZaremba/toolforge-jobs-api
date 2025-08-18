@@ -69,7 +69,9 @@ def _get_job_object_status(
 
     LOGGER.debug("Got uid %s for job, getting events", job_uid)
 
-    events = user.k8s_cli.get_objects("events", field_selector=f"involvedObject.uid={job_uid}")
+    events = user.k8s_cli.get_objects(
+        kind="events", field_selector=f"involvedObject.uid={job_uid}"
+    )
     for event in sorted(events, key=lambda event: event["lastTimestamp"], reverse=True):
         reason = event.get("reason", None)
 
@@ -101,7 +103,7 @@ def _refresh_status_cronjob_from_restarted_cronjob(
     label_selector = labels_selector(
         job_name=original_cronjob.job_name, user_name=user.name, type="cronjobs"
     )
-    all_cronjob_jobs = user.k8s_cli.get_objects("jobs", label_selector=label_selector)
+    all_cronjob_jobs = user.k8s_cli.get_objects(kind="jobs", label_selector=label_selector)
     for maybe_manual_job_data in all_cronjob_jobs:
         metadata = maybe_manual_job_data.get("metadata", None)
         if not metadata:
@@ -222,7 +224,7 @@ def _refresh_status_dp(user: ToolAccount, job: Job) -> None:
             user_name=user.name,
             type=K8sJobKind.from_job_type(job.job_type).api_path_name,
         )
-        pods = user.k8s_cli.get_objects("pods", label_selector=pod_selector)
+        pods = user.k8s_cli.get_objects(kind="pods", label_selector=pod_selector)
 
         for pod in pods:
             if "containerStatuses" not in pod["status"]:
@@ -268,7 +270,7 @@ def refresh_job_long_status(user: ToolAccount, job: Job) -> None:
         user_name=user.name,
         type=K8sJobKind.from_job_type(job.job_type).api_path_name,
     )
-    podlist = user.k8s_cli.get_objects("pods", label_selector=label_selector)
+    podlist = user.k8s_cli.get_objects(kind="pods", label_selector=label_selector)
 
     if len(podlist) == 0:
         job.status_long = "No pods were created for this job."

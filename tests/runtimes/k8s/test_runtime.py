@@ -4,7 +4,6 @@ from typing import Any, Callable
 from unittest.mock import MagicMock
 
 import pytest
-import requests
 
 from tests.conftest import FIXTURES_PATH
 from tjf.api.app import JobsApi
@@ -20,11 +19,11 @@ K8S_OBJ = json.loads((FIXTURES_PATH / "jobs" / "deployment-simple-buildpack.json
 def mock_tool_account_init(
     self,
     name: str,
-    get_object_mock: Callable,
+    get_objects_mock: Callable,
     tmp_path_factory: pytest.TempPathFactory,
 ):
     mock_k8s_cli = MagicMock()
-    mock_k8s_cli.get_object = get_object_mock
+    mock_k8s_cli.get_objects = get_objects_mock
 
     temp_home_dir = tmp_path_factory.mktemp("home")
     self.name = name
@@ -44,13 +43,7 @@ def patch_spec(spec: dict, patch: dict[str, Any] | None) -> None:
             spec[key] = value
 
 
-def exception(*args, **kwargs):
-    response = requests.Response()
-    response.status_code = 404
-    raise requests.exceptions.HTTPError(response=response)
-
-
-def test_diff_raises_exception_getting_object(
+def test_diff_raises_exception_when_job_is_not_found(
     fake_tool_account_uid: None,
     fake_images: dict[str, Any],
     app: JobsApi,
@@ -64,7 +57,7 @@ def test_diff_raises_exception_getting_object(
         lambda self, name: mock_tool_account_init(
             self=self,
             name=name,
-            get_object_mock=exception,
+            get_objects_mock=lambda *args, **kwargs: [],
             tmp_path_factory=tmp_path_factory,
         ),
     )
@@ -131,7 +124,9 @@ def test_diff_with_running_job_returns_empty_str(
         lambda self, name: mock_tool_account_init(
             self=self,
             name=name,
-            get_object_mock=lambda *args, **kwargs: deepcopy(applied_spec),
+            get_objects_mock=lambda *args, kind, **kwargs: (
+                [deepcopy(applied_spec)] if kind == "deployments" else []
+            ),
             tmp_path_factory=tmp_path_factory,
         ),
     )
@@ -191,7 +186,9 @@ def test_diff_with_running_job_returns_diff_str(
         lambda self, name: mock_tool_account_init(
             self=self,
             name=name,
-            get_object_mock=lambda *args, **kwargs: deepcopy(K8S_OBJ),
+            get_objects_mock=lambda *args, kind, **kwargs: (
+                [deepcopy(K8S_OBJ)] if kind == "deployments" else []
+            ),
             tmp_path_factory=tmp_path_factory,
         ),
     )
@@ -248,7 +245,9 @@ def test_diff_with_launcher_in_both_jobs_returns_no_diff(
         lambda self, name: mock_tool_account_init(
             self=self,
             name=name,
-            get_object_mock=lambda *args, **kwargs: deepcopy(applied_spec),
+            get_objects_mock=lambda *args, kind, **kwargs: (
+                [deepcopy(applied_spec)] if kind == "deployments" else []
+            ),
             tmp_path_factory=tmp_path_factory,
         ),
     )
@@ -288,7 +287,9 @@ def test_diff_with_launcher_only_in_new_job_returns_no_diff(
         lambda self, name: mock_tool_account_init(
             self=self,
             name=name,
-            get_object_mock=lambda *args, **kwargs: deepcopy(K8S_OBJ),
+            get_objects_mock=lambda *args, kind, **kwargs: (
+                [deepcopy(K8S_OBJ)] if kind == "deployments" else []
+            ),
             tmp_path_factory=tmp_path_factory,
         ),
     )
