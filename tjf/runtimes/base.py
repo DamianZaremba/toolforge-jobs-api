@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator
 
 from ..core.images import Image
 from ..core.models import Job, QuotaData
@@ -43,7 +43,7 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def diff_with_running_job(self, *, job: Job) -> Optional[str]:
+    def diff_with_running_job(self, *, job: Job) -> str | None:
         """
         Compare job with the one in the runtime and return the diff.
         This is done here instead of the business side because:

@@ -15,7 +15,6 @@
 #
 
 import time
-from typing import Optional
 
 import requests
 from toolforge_weld.kubernetes import parse_quantity
@@ -89,8 +88,8 @@ def trigger_scheduled_job(tool_account: ToolAccount, scheduled_job: Job) -> None
 
 def wait_for_pods_exit(
     tool: ToolAccount,
-    job_name: Optional[str] = None,
-    job_type: Optional[str] = None,
+    job_name: str | None = None,
+    job_type: str | None = None,
     timeout: int = 30,
 ) -> bool:
     """Wait for all pods belonging to a specific job to exit."""

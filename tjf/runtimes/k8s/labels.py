@@ -13,21 +13,19 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-from typing import Dict, Optional
-
 from toolforge_weld.kubernetes import MountOption
 
 
 def generate_labels(
     *,
-    jobname: Optional[str],
+    jobname: str | None,
     tool_name: str,
-    type: Optional[str],
+    type: str | None,
     filelog: bool = False,
     emails: str | None = None,
     version: bool = True,
     mount: MountOption | None = None,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     obj = {
         "toolforge": "tool",
         "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
@@ -57,7 +55,7 @@ def generate_labels(
 
 def labels_selector(
     user_name: str, job_name: str | None = None, type: str | None = None
-) -> Dict[str, str]:
+) -> dict[str, str]:
     return generate_labels(
         jobname=job_name,
         tool_name=user_name,

@@ -16,7 +16,7 @@
 #
 import logging
 from collections.abc import Mapping
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator
 
 from toolforge_weld.utils import apeek
 
@@ -108,7 +108,7 @@ class Core:
     def flush_job(self, toolname: str) -> None:
         self.runtime.delete_all_jobs(tool=toolname)
 
-    def get_job(self, toolname: str, name: str) -> Optional[Job]:
+    def get_job(self, toolname: str, name: str) -> Job | None:
         return self.runtime.get_job(job_name=name, tool=toolname)
 
     def delete_job(self, job: Job) -> None:

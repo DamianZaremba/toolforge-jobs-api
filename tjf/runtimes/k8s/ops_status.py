@@ -2,7 +2,7 @@
 # Copyright (C) 2023 Arturo Borrero Gonzalez <aborrero@wikimedia.org>
 from datetime import datetime
 from logging import getLogger
-from typing import Any, Optional
+from typing import Any
 
 from ...core.error import TjfError
 from ...core.models import Command, Job
@@ -35,7 +35,7 @@ def _get_quota_error(message: str) -> str:
 
 def _get_job_object_status(
     user: ToolAccount, job: dict[str, Any], for_complete: bool = False
-) -> Optional[str]:
+) -> str | None:
     if not job:
         return None
 
@@ -87,7 +87,7 @@ def _get_job_object_status(
 
 def _refresh_status_cronjob_from_restarted_cronjob(
     user: ToolAccount, original_cronjob: Job
-) -> Optional[str]:
+) -> str | None:
     """This function scans all job resources that may or may not be manually defined to see if
     it may be related to the original_cronjob."""
     original_cronjob_metadata = original_cronjob.k8s_object.get("metadata", None)

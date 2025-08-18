@@ -19,7 +19,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal, Optional, Type, Union
+from typing import Any, Literal, Type
 
 from pydantic import BaseModel as PydanticModel
 from pydantic import ConfigDict, Field, field_validator, model_validator
@@ -112,16 +112,16 @@ class Job(BaseModel):
     job_type: JobType
     cmd: str
     filelog: bool
-    filelog_stderr: Optional[Path] = None
-    filelog_stdout: Optional[Path] = None
+    filelog_stderr: Path | None = None
+    filelog_stdout: Path | None = None
     image: Image
     job_name: str
     tool_name: str
-    schedule: Optional[CronExpression] = None
+    schedule: CronExpression | None = None
     cont: bool = False
-    port: Optional[int] = None
+    port: int | None = None
     port_protocol: PortProtocol = PortProtocol.TCP
-    replicas: Optional[int] = None
+    replicas: int | None = None
     # TODO: remove this from here, probably to the runtime
     k8s_object: dict[str, Any]
     retry: int = 0
@@ -129,13 +129,13 @@ class Job(BaseModel):
     cpu: str = format_quantity(parse_quantity(JOB_DEFAULT_CPU))
     emails: EmailOption
     mount: MountOption
-    health_check: Optional[Union[ScriptHealthCheck, HttpHealthCheck]] = Field(
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
         None,
         discriminator="health_check_type",
     )
-    timeout: Optional[int] = None
-    status_short: Optional[str] = "Unknown"
-    status_long: Optional[str] = "Unknown"
+    timeout: int | None = None
+    status_short: str | None = "Unknown"
+    status_long: str | None = "Unknown"
 
     @field_validator("memory")
     @classmethod

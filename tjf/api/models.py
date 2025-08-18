@@ -1,7 +1,7 @@
 from enum import Enum
 from logging import getLogger
 from pathlib import Path
-from typing import Any, Optional, Type, Union
+from typing import Any, Type
 
 from pydantic import Field, field_validator
 from toolforge_weld.kubernetes import MountOption
@@ -45,7 +45,7 @@ class CommonJob(BaseModel):
     memory: str = JOB_DEFAULT_MEMORY
     cpu: str = JOB_DEFAULT_CPU
     port_protocol: PortProtocol = PortProtocol.TCP
-    health_check: Optional[Union[ScriptHealthCheck, HttpHealthCheck]] = Field(
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
         None,
         discriminator="health_check_type",
     )

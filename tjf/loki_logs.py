@@ -2,7 +2,7 @@ import asyncio
 import functools
 import json
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, Iterator, Optional
+from typing import Any, AsyncIterator, Iterator
 from urllib.parse import urlencode
 
 import requests
@@ -14,7 +14,7 @@ from websockets.http11 import USER_AGENT as WEBSOCKETS_UA
 from tjf.core.error import TjfValidationError
 
 
-def build_logql(selector: Dict[str, str]) -> str:
+def build_logql(selector: dict[str, str]) -> str:
     if not selector:
         raise ValueError("At least one selector is required")
 
@@ -91,7 +91,7 @@ class LokiSource:
             yield from _parse_stream(result)
 
     async def query(
-        self, *, selector: Dict[str, str], follow: bool, lines: Optional[int]
+        self, *, selector: dict[str, str], follow: bool, lines: int | None
     ) -> AsyncIterator[LogEntry]:
         if not lines:
             lines = 500

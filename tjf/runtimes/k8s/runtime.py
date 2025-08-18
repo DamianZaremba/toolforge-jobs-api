@@ -1,6 +1,6 @@
 from difflib import unified_diff
 from logging import getLogger
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator
 
 import requests
 from toolforge_weld.kubernetes import MountOption, parse_quantity
@@ -95,7 +95,7 @@ class K8sRuntime(BaseRuntime):
         else:
             raise TjfError(f"Unable to restart unknown job type: {job}")
 
-    def create_service(self, job: Job) -> Optional[dict[str, Any]]:
+    def create_service(self, job: Job) -> dict[str, Any] | None:
         tool_account = ToolAccount(name=job.tool_name)
         if job.port and job.cont:
             kind = "services"
