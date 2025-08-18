@@ -190,7 +190,7 @@ class Job(BaseModel):
                 )
             if not self.filelog_stderr:
                 self.filelog_stderr = resolve_filelog_path(
-                    path=self.filelog_stderr, home=tool_home, default=Path(f"{self.job_name}.out")
+                    path=self.filelog_stderr, home=tool_home, default=Path(f"{self.job_name}.err")
                 )
 
         return self
