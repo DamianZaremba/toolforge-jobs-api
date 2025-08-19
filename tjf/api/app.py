@@ -16,8 +16,6 @@
 #
 import logging
 
-from fastapi import FastAPI
-
 from ..core.core import Core
 from ..settings import Settings, get_settings
 from .error import error_handler
@@ -39,7 +37,7 @@ def healthz() -> HealthResponse:
     )
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None) -> JobsApi:
     if not settings:
         settings = get_settings()
 

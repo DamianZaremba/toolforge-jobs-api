@@ -164,8 +164,7 @@ def fake_images(monkeymodule, fake_harbor_content, patch_kube_config_loading) ->
 
 @pytest.fixture
 def app(monkeypatch: pytest.MonkeyPatch) -> Generator[JobsApi, None, None]:
-    settings = Settings()
-    settings.skip_metrics = False
+    settings = Settings(skip_metrics=False, debug=True)
     app = create_app(settings=settings)
     yield app
 
