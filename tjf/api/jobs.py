@@ -14,10 +14,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-import asyncio
 import http
 import logging
 
+from anyio import from_thread
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import StreamingResponse
 
@@ -83,12 +83,15 @@ def api_get_jobs(request: Request, toolname: str) -> JobListResponse:
     response_model_exclude_unset=True,
     include_in_schema=False,
 )
-async def api_create_job(request: Request, toolname: str) -> JobResponse:
+def api_create_job(request: Request, toolname: str) -> JobResponse:
     ensure_authenticated(request=request)
     core = current_app(request).core
 
     # TODO: Use FastAPI body parsing once the client does not send None for unset fields
-    request_json = await request.json()
+    # Note that until all the code is async (ex. toolforge-weld, harbor requests), we have to declare the function
+    # non-async and use from_thread.run so fastapi parallelizes it correctly, as it will expect the function to be
+    # non-blocking when declaring it async
+    request_json = from_thread.run(request.json)
     logging.debug(f"Received new job: {request_json}")
     request_without_nones = (
         {key: value for key, value in request_json.items() if value is not None}
@@ -96,35 +99,25 @@ async def api_create_job(request: Request, toolname: str) -> JobResponse:
         else {}
     )
 
-    def do_create_job() -> DefinedJob:
-        new_job = NewJob.model_validate(request_without_nones)
-        logging.debug(f"Generated NewJob: {new_job}")
-        job = new_job.to_job(tool_name=toolname)
-        logging.debug(f"Generated job: {job}")
+    new_job = NewJob.model_validate(request_without_nones)
+    logging.debug(f"Generated NewJob: {new_job}")
+    job = new_job.to_job(tool_name=toolname)
+    logging.debug(f"Generated job: {job}")
 
-        existing_job = core.get_job(toolname=job.tool_name, name=job.job_name)
-        if existing_job:
-            if existing_job.status_short and existing_job.status_short.lower() != "completed":
-                raise TjfValidationError(
-                    f"A job with the name {job.job_name} already exists", http_status_code=409
-                )
-            core.delete_job(job=existing_job)
-            logging.debug(f"Deleted existing job: {existing_job}")
+    existing_job = core.get_job(toolname=job.tool_name, name=job.job_name)
+    if existing_job:
+        if existing_job.status_short and existing_job.status_short.lower() != "completed":
+            raise TjfValidationError(
+                f"A job with the name {job.job_name} already exists", http_status_code=409
+            )
+        core.delete_job(job=existing_job)
+        logging.debug(f"Deleted existing job: {existing_job}")
 
-        core.create_job(job=job)
-        defined_job = DefinedJob.from_job(job)
-        logging.debug(f"Generated DefinedJob: {defined_job}")
-        return defined_job
+    core.create_job(job=job)
+    defined_job = DefinedJob.from_job(job)
+    logging.debug(f"Generated DefinedJob: {defined_job}")
 
-    # TODO: migrate Harbor client and toolforge-weld to an asyncio-native
-    # HTTP client. Otherwise we have to do this to avoid blocking the event loop.
-    loop = asyncio.get_event_loop()
-    job = await loop.run_in_executor(
-        None,
-        do_create_job,
-    )
-
-    return JobResponse(job=job, messages=ResponseMessages())
+    return JobResponse(job=defined_job, messages=ResponseMessages())
 
 
 @jobs.patch("", response_model=UpdateResponse, response_model_exclude_unset=True)
