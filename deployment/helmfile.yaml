@@ -9,16 +9,19 @@ releases:
     values:
       - replicas: 1
         webservice:
+          debug: true
           image:
-            name: jobs-api
+            name: toolsbeta-harbor.wmcloud.org/toolforge/jobs-api
             tag: dev
             pullpolicy: Never
 
         harbor:
-          host: toolsbeta-harbor.wmcloud.org
-          protocol: https
+          host: "192.168.5.15"
+          protocol: http
         certificates:
           internalClusterDomain: cluster.local
+        loki:
+          url: http://loki-tools.loki.svc:3100/loki
 
 environments:
   local: {}
