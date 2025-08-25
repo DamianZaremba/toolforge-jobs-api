@@ -11,12 +11,17 @@ from toolforge_weld.errors import ToolforgeUserError
 from tests.helpers.fakes import get_dummy_job
 from tjf.api.app import error_handler
 from tjf.api.models import (
+    DefinedJob,
     JobListResponse,
+    JobResponse,
     ResponseMessages,
 )
 from tjf.api.utils import JobsApi
+from tjf.core.cron import CronExpression
 from tjf.core.error import TjfClientError, TjfError
 from tjf.core.models import (
+    HealthCheckType,
+    JobType,
     ScriptHealthCheck,
 )
 
@@ -107,7 +112,7 @@ class TestApiErrorHandler:
 
 class TestJobsEndpoint:
     @pytest.mark.parametrize("trailing_slash", ["", "/"])
-    def test_listing_jobs_when_theres_none_returns_empty(
+    def test_when_theres_none_returns_empty(
         self,
         trailing_slash: str,
         client: TestClient,
@@ -117,7 +122,7 @@ class TestJobsEndpoint:
     ) -> None:
         expected_response: dict[str, Any] = JobListResponse(
             jobs=[], messages=ResponseMessages()
-        ).model_dump(mode="json", exclude_unset=True)
+        ).model_dump(mode="json")
         monkeypatch.setattr(app.core, "get_jobs", value=lambda *args, **kwargs: [])
 
         gotten_response = client.get(
@@ -127,7 +132,7 @@ class TestJobsEndpoint:
         assert gotten_response.status_code == http.HTTPStatus.OK
         assert gotten_response.json() == expected_response
 
-    def test_listing_multiple_jobs_returns_all(
+    def test_returns_more_than_one(
         self,
         client: TestClient,
         app: JobsApi,
@@ -152,20 +157,17 @@ class TestJobsEndpoint:
         gotten_jobs: list[dict[str, Any]] = response_json["jobs"]
         assert [job["name"] for job in gotten_jobs] == expected_names
 
-    def test_listing_job_with_healthcheck_works(
+    def test_with_healthcheck_works(
         self,
         client: TestClient,
         app: JobsApi,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:
-        expected_health_check = {"script": "silly script", "type": "script"}
-        dummy_job = get_dummy_job(
-            health_check=ScriptHealthCheck(
-                type=expected_health_check["type"],
-                script=expected_health_check["script"],
-            )  # type: ignore[call-arg]
+        expected_health_check = ScriptHealthCheck(
+            type=HealthCheckType.SCRIPT, script="silly script"
         )
+        dummy_job = get_dummy_job(health_check=expected_health_check.model_dump())
         monkeypatch.setattr(
             app.core,
             "get_jobs",
@@ -176,9 +178,9 @@ class TestJobsEndpoint:
         assert gotten_response.status_code == http.HTTPStatus.OK
         response_json = gotten_response.json()
         assert response_json is not None, "Response JSON is None"
-        assert response_json["jobs"][0]["health_check"] == expected_health_check
+        assert response_json["jobs"][0]["health_check"] == expected_health_check.model_dump()
 
-    def test_listing_job_with_port_works(
+    def test_with_port_works(
         self,
         client: TestClient,
         app: JobsApi,
@@ -200,7 +202,7 @@ class TestJobsEndpoint:
         assert response_json is not None, "Response JSON is None"
         assert response_json["jobs"][0]["port"] == expected_port
 
-    def test_listing_job_with_port_protocol_works(
+    def test_with_port_protocol_works(
         self,
         client: TestClient,
         app: JobsApi,
@@ -223,3 +225,148 @@ class TestJobsEndpoint:
         assert response_json is not None, "Response JSON is None"
         assert response_json["jobs"][0]["port"] == expected_port
         assert response_json["jobs"][0]["port_protocol"] == expected_protocol
+
+    def test_with_include_unset_false_returns_only_set_fields(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_job()
+        monkeypatch.setattr(
+            app.core,
+            "get_jobs",
+            value=lambda *args, **kwargs: [dummy_job],
+        )
+        expected_response = JobListResponse(
+            jobs=[DefinedJob.from_job(dummy_job)], messages=ResponseMessages()
+        )
+        gotten_response = client.get(
+            "/v1/tool/silly-user/jobs/", headers=fake_auth_headers, params={"include_unset": False}
+        )
+
+        assert gotten_response.status_code == http.HTTPStatus.OK
+        response_json = gotten_response.json()
+
+        assert response_json is not None, "Response JSON is None"
+        assert expected_response.model_dump(exclude_unset=True, mode="json") == response_json
+
+    def test_without_include_unset_returns_all_fields(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_job()
+        monkeypatch.setattr(
+            app.core,
+            "get_jobs",
+            value=lambda *args, **kwargs: [dummy_job],
+        )
+        expected_response = JobListResponse(
+            jobs=[DefinedJob.from_job(dummy_job)], messages=ResponseMessages()
+        )
+        gotten_response = client.get(
+            "/v1/tool/silly-user/jobs/", headers=fake_auth_headers, params={"include_unset": False}
+        )
+
+        assert gotten_response.status_code == http.HTTPStatus.OK
+        response_json = gotten_response.json()
+
+        assert response_json is not None, "Response JSON is None"
+        assert expected_response.model_dump(exclude_unset=True, mode="json") == response_json
+
+
+class TestApiGetJob:
+    def test_skips_unset_fields_for_continuous_job(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        # a common issue is non-serializable PosixPath due to wrong serialization, this tests that too
+        dummy_job = get_dummy_job(filelog=True)
+        monkeypatch.setattr(
+            app.core,
+            "get_job",
+            value=lambda *args, **kwargs: dummy_job,
+        )
+        expected_response = JobResponse(
+            job=DefinedJob.from_job(dummy_job), messages=ResponseMessages()
+        )
+        gotten_response = client.get(
+            f"/v1/tool/silly-user/jobs/{dummy_job.job_name}",
+            headers=fake_auth_headers,
+            params={"include_unset": False},
+        )
+
+        assert gotten_response.status_code == http.HTTPStatus.OK
+        response_json = gotten_response.json()
+
+        assert response_json is not None, "Response JSON is None"
+        assert expected_response.model_dump(exclude_unset=True, mode="json") == response_json
+
+    def test_skips_unset_fields_for_scheduled_job(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_job(
+            job_name="dummy-name",
+            tool_name="dummy-tool",
+            job_type=JobType.SCHEDULED,
+            schedule=CronExpression.parse(
+                value="@daily", job_name="dummy-name", tool_name="dummy-tool"
+            ),
+            cont=False,
+        )
+        monkeypatch.setattr(
+            app.core,
+            "get_job",
+            value=lambda *args, **kwargs: dummy_job,
+        )
+        expected_response = JobResponse(
+            job=DefinedJob.from_job(dummy_job), messages=ResponseMessages()
+        )
+        gotten_response = client.get(
+            f"/v1/tool/silly-user/jobs/{dummy_job.job_name}",
+            headers=fake_auth_headers,
+            params={"include_unset": False},
+        )
+
+        assert gotten_response.status_code == http.HTTPStatus.OK
+        response_json = gotten_response.json()
+
+        assert response_json is not None, "Response JSON is None"
+        assert expected_response.model_dump(exclude_unset=True, mode="json") == response_json
+
+    def test_keeps_unset_fields_if_no_params_passed(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_job()
+        monkeypatch.setattr(
+            app.core,
+            "get_job",
+            value=lambda *args, **kwargs: dummy_job,
+        )
+        expected_response = JobResponse(
+            job=DefinedJob.from_job(dummy_job), messages=ResponseMessages()
+        )
+        gotten_response = client.get(
+            f"/v1/tool/silly-user/jobs/{dummy_job.job_name}", headers=fake_auth_headers
+        )
+
+        assert gotten_response.status_code == http.HTTPStatus.OK
+        response_json = gotten_response.json()
+
+        assert response_json is not None, "Response JSON is None"
+        assert expected_response.model_dump(exclude_unset=False, mode="json") == response_json

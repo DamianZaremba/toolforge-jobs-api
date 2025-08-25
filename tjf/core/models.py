@@ -19,7 +19,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal, Type
+from typing import Annotated, Any, Literal, Type
 
 from pydantic import BaseModel as PydanticModel
 from pydantic import ConfigDict, Field, field_validator, model_validator
@@ -111,7 +111,7 @@ class Command:
 class Job(BaseModel):
     job_type: JobType
     cmd: str
-    filelog: bool
+    filelog: bool = False
     filelog_stderr: Path | None = None
     filelog_stdout: Path | None = None
     image: Image
@@ -123,17 +123,17 @@ class Job(BaseModel):
     port_protocol: PortProtocol = PortProtocol.TCP
     replicas: int | None = None
     # TODO: remove this from here, probably to the runtime
-    k8s_object: dict[str, Any]
+    k8s_object: dict[str, Any] = {}
     retry: int = 0
     memory: str = format_quantity(parse_quantity(JOB_DEFAULT_MEMORY))
     cpu: str = format_quantity(parse_quantity(JOB_DEFAULT_CPU))
-    emails: EmailOption
-    mount: MountOption
+    emails: EmailOption = EmailOption.none
+    mount: MountOption = MountOption.ALL
     health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
-        None,
+        default=None,
         discriminator="health_check_type",
     )
-    timeout: int | None = None
+    timeout: Annotated[int, Field(ge=0)] | None = None
     status_short: str | None = "Unknown"
     status_long: str | None = "Unknown"
 

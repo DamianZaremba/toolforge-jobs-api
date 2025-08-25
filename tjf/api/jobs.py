@@ -18,8 +18,8 @@ import http
 import logging
 
 from anyio import from_thread
-from fastapi import APIRouter, Request, Response
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from ..core.error import TjfValidationError
 from .auth import ensure_authenticated
@@ -42,47 +42,36 @@ LOGGER = logging.getLogger(__name__)
 jobs = APIRouter(prefix="/v1/tool/{toolname}/jobs", redirect_slashes=False)
 
 
-@jobs.get("", response_model=JobListResponse, response_model_exclude_unset=True)
-@jobs.get(
-    "/", response_model=JobListResponse, response_model_exclude_unset=True, include_in_schema=False
-)
-def api_get_jobs(request: Request, toolname: str) -> JobListResponse:
+@jobs.get("")
+@jobs.get("/", include_in_schema=False)
+def api_get_jobs(
+    request: Request,
+    toolname: str,
+    include_unset: bool = Query(
+        True,
+        description="If unset or `true`, include all the fields including those that were not passed on job creation.",
+    ),
+) -> JobListResponse:
+    # `response_model` and `dict[str, Any]` as return type are needed because we want to dynamically return with or
+    # without excluding unset fields
     ensure_authenticated(request=request)
 
     user_jobs = current_app(request).core.get_jobs(toolname=toolname)
-    return JobListResponse(
+    response = JobListResponse(
         jobs=[DefinedJob.from_job(job) for job in user_jobs],
         messages=ResponseMessages(),
     )
+    if include_unset:
+        return response
+    else:
+        # FastAPI will not re-wrap the response if it's actually a fastapi.Response subclass
+        return JSONResponse(content=response.model_dump(exclude_unset=True, mode="json"))  # type: ignore
 
 
-@jobs.post(
-    "",
-    status_code=http.HTTPStatus.CREATED,
-    response_model=JobResponse,
-    response_model_exclude_unset=True,
-)
-@jobs.post(
-    "/",
-    status_code=http.HTTPStatus.CREATED,
-    response_model=JobResponse,
-    response_model_exclude_unset=True,
-    include_in_schema=False,
-)
-@jobs.put(
-    "",
-    status_code=http.HTTPStatus.CREATED,
-    response_model=JobResponse,
-    response_model_exclude_unset=True,
-    include_in_schema=False,
-)
-@jobs.put(
-    "/",
-    status_code=http.HTTPStatus.CREATED,
-    response_model=JobResponse,
-    response_model_exclude_unset=True,
-    include_in_schema=False,
-)
+@jobs.post("", status_code=http.HTTPStatus.CREATED)
+@jobs.post("/", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
+@jobs.put("", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
+@jobs.put("/", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
 def api_create_job(request: Request, toolname: str) -> JobResponse:
     ensure_authenticated(request=request)
     core = current_app(request).core
@@ -120,10 +109,8 @@ def api_create_job(request: Request, toolname: str) -> JobResponse:
     return JobResponse(job=defined_job, messages=ResponseMessages())
 
 
-@jobs.patch("", response_model=UpdateResponse, response_model_exclude_unset=True)
-@jobs.patch(
-    "/", response_model=UpdateResponse, response_model_exclude_unset=True, include_in_schema=False
-)
+@jobs.patch("")
+@jobs.patch("/", include_in_schema=False)
 def api_update_job(request: Request, toolname: str, new_job: NewJob) -> UpdateResponse:
     ensure_authenticated(request=request)
     core = current_app(request).core
@@ -134,10 +121,8 @@ def api_update_job(request: Request, toolname: str, new_job: NewJob) -> UpdateRe
     return UpdateResponse(messages=messages)
 
 
-@jobs.delete("", response_model=FlushResponse, response_model_exclude_unset=True)
-@jobs.delete(
-    "/", response_model=FlushResponse, response_model_exclude_unset=True, include_in_schema=False
-)
+@jobs.delete("")
+@jobs.delete("/", include_in_schema=False)
 def api_flush_job(request: Request, toolname: str) -> FlushResponse:
     ensure_authenticated(request=request)
 
@@ -145,30 +130,35 @@ def api_flush_job(request: Request, toolname: str) -> FlushResponse:
     return FlushResponse(messages=ResponseMessages())
 
 
-@jobs.get("/{name}", response_model=JobResponse, response_model_exclude_unset=True)
-@jobs.get(
-    "/{name}/",
-    response_model=JobResponse,
-    response_model_exclude_unset=True,
-    include_in_schema=False,
-)
-def api_get_job(request: Request, toolname: str, name: str) -> JobResponse:
+@jobs.get("/{name}")
+@jobs.get("/{name}/", include_in_schema=False)
+def api_get_job(
+    request: Request,
+    toolname: str,
+    name: str,
+    include_unset: bool = Query(
+        True,
+        description="If unset or `true`, include all the fields including those that were not passed on job creation.",
+    ),
+) -> JobResponse:
+    # `response_model` and `dict[str, Any]` as return type are needed because we want to dynamically return with or
+    # without excluding unset fields
     ensure_authenticated(request=request)
 
     job = current_app(request).core.get_job(name=name, toolname=toolname)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    return JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
+    response = JobResponse(job=DefinedJob.from_job(job), messages=ResponseMessages())
+    if include_unset:
+        return response
+    else:
+        # FastAPI will not re-wrap the response if it's actually a fastapi.Response subclass
+        return JSONResponse(content=response.model_dump(exclude_unset=True, mode="json"))  # type: ignore
 
 
-@jobs.delete("/{name}", response_model=DeleteResponse, response_model_exclude_unset=True)
-@jobs.delete(
-    "/{name}/",
-    response_model=DeleteResponse,
-    response_model_exclude_unset=True,
-    include_in_schema=False,
-)
+@jobs.delete("/{name}")
+@jobs.delete("/{name}/", include_in_schema=False)
 def api_delete_job(request: Request, toolname: str, name: str) -> DeleteResponse:
     ensure_authenticated(request=request)
 
@@ -210,13 +200,8 @@ async def api_get_logs(request: Request, toolname: str, name: str) -> Response:
     )
 
 
-@jobs.post("/{name}/restart", response_model=RestartResponse, response_model_exclude_unset=True)
-@jobs.post(
-    "/{name}/restart/",
-    response_model=RestartResponse,
-    response_model_exclude_unset=True,
-    include_in_schema=False,
-)
+@jobs.post("/{name}/restart")
+@jobs.post("/{name}/restart/", include_in_schema=False)
 def api_restart_job(request: Request, toolname: str, name: str) -> RestartResponse:
     ensure_authenticated(request=request)
 

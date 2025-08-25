@@ -116,6 +116,8 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool)
         validate_job_limits(tool_account, job)
 
+        set_fields = job.model_dump(exclude_unset=True)
+
         image = image_by_name(
             job.image.canonical_name, refresh_interval=self.image_refresh_interval
         )
@@ -128,6 +130,10 @@ class K8sRuntime(BaseRuntime):
             raise TjfValidationError(
                 f"Mount type {job.mount.value} is only supported for build service images"
             )
+
+        if "filelog" not in set_fields and image.type != ImageType.BUILDPACK:
+            job.filelog = True
+
         if job.filelog and job.mount != MountOption.ALL:
             raise TjfValidationError("File logging is only available with --mount=all")
         job.image = image
@@ -198,13 +204,11 @@ class K8sRuntime(BaseRuntime):
 
         clean_current_job = current_job.model_dump_json(
             exclude={"k8s_object", "status_short", "status_long"},
-            exclude_defaults=True,
+            exclude_unset=True,
             indent=4,
         )
 
-        clean_new_job = job.model_dump_json(
-            exclude={"k8s_object"}, exclude_defaults=True, indent=4
-        )
+        clean_new_job = job.model_dump_json(exclude={"k8s_object"}, exclude_unset=True, indent=4)
         LOGGER.debug(f"Got new job:\n{clean_new_job}")
         LOGGER.debug(f"Got current job:\n{clean_current_job}")
         jobs_same = clean_new_job == clean_current_job

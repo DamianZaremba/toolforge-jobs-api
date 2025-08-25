@@ -11,8 +11,6 @@ from ..core.cron import CronExpression, CronParsingError
 from ..core.error import TjfValidationError
 from ..core.images import Image as ImageData
 from ..core.models import (
-    JOB_DEFAULT_CPU,
-    JOB_DEFAULT_MEMORY,
     JOBNAME_MAX_LENGTH,
     JOBNAME_PATTERN,
     BaseModel,
@@ -32,24 +30,24 @@ class CommonJob(BaseModel):
     name: str
     cmd: str
     imagename: str
-    filelog: bool = False
-    filelog_stdout: Path | None = None
-    filelog_stderr: Path | None = None
-    emails: EmailOption = EmailOption.none
-    retry: Annotated[int, Field(ge=0, le=5)] = 0
-    mount: MountOption = MountOption.ALL
-    schedule: str | None = None
-    continuous: bool = False
-    replicas: Annotated[int, Field(ge=0)] | None = None
-    port: Annotated[int, Field(ge=1, le=65535)] | None = None
-    memory: str = JOB_DEFAULT_MEMORY
-    cpu: str = JOB_DEFAULT_CPU
-    port_protocol: PortProtocol = PortProtocol.TCP
+    filelog: bool = Job.model_fields["filelog"].default
+    filelog_stdout: Path | None = Job.model_fields["filelog_stdout"].default
+    filelog_stderr: Path | None = Job.model_fields["filelog_stderr"].default
+    emails: EmailOption = Job.model_fields["emails"].default
+    retry: Annotated[int, Field(ge=0, le=5)] = Job.model_fields["retry"].default
+    mount: MountOption = Job.model_fields["mount"].default
+    schedule: str | None = Job.model_fields["schedule"].default
+    continuous: bool = Job.model_fields["cont"].default
+    replicas: Annotated[int, Field(ge=0)] | None = Job.model_fields["replicas"].default
+    port: Annotated[int, Field(ge=1, le=65535)] | None = Job.model_fields["port"].default
+    memory: str = Job.model_fields["memory"].default
+    cpu: str = Job.model_fields["cpu"].default
+    port_protocol: PortProtocol = Job.model_fields["port_protocol"].default
     health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
-        None,
+        default=Job.model_fields["health_check"].default,
         discriminator="health_check_type",
     )
-    timeout: Annotated[int, Field(ge=0)] | None = None
+    timeout: Annotated[int, Field(ge=0)] | None = Job.model_fields["timeout"].default
 
     @field_validator("name")
     @classmethod
@@ -79,11 +77,12 @@ class CommonJob(BaseModel):
 
 class NewJob(CommonJob):
     def to_job(self, tool_name: str) -> Job:
+        set_params = self.model_dump(exclude_unset=True)
 
         if self.schedule:
             job_type = JobType.SCHEDULED
             try:
-                schedule = CronExpression.parse(
+                set_params["schedule"] = CronExpression.parse(
                     value=self.schedule,
                     job_name=self.name,
                     tool_name=tool_name,
@@ -93,80 +92,80 @@ class NewJob(CommonJob):
                     f'Unable to parse cron expression "{self.schedule}"'
                 ) from e
         else:
-            schedule = None
             job_type = JobType.CONTINUOUS if self.continuous else JobType.ONE_OFF
 
+        job_name = set_params.pop("name")
+        image = ImageData(canonical_name=set_params.pop("imagename"))
+        cmd = set_params.pop("cmd")
+
+        # only `cont` is named differently in the core model
+        if "continuous" in set_params:
+            set_params["cont"] = set_params.pop("continuous")
+
         return Job(
+            job_name=job_name,
+            image=image,
+            cmd=cmd,
             job_type=job_type,
-            cmd=self.cmd,
-            filelog=self.filelog,
-            filelog_stderr=self.filelog_stderr,
-            filelog_stdout=self.filelog_stdout,
-            image=ImageData(canonical_name=self.imagename),
-            job_name=self.name,
             tool_name=tool_name,
-            schedule=schedule,
-            cont=self.continuous,
-            port=self.port,
-            port_protocol=self.port_protocol,
-            replicas=self.replicas,
-            k8s_object={},
-            retry=self.retry,
-            memory=self.memory,
-            cpu=self.cpu,
-            emails=self.emails,
-            mount=self.mount,
-            health_check=self.health_check,
-            timeout=self.timeout,
+            **set_params,
         )
 
 
 class DefinedJob(CommonJob):
     image: str  # for backwards compatibility. Should be removed in the future when no longer in use by anyone
     image_state: str
-    status_short: str
-    status_long: str
+    status_short: str = Job.model_fields["status_short"].default
+    status_long: str = Job.model_fields["status_long"].default
     schedule_actual: str | None = None
 
     @classmethod
     def from_job(cls: Type["DefinedJob"], job: Job) -> "DefinedJob":
         LOGGER.debug(f"creating DefinedJob from Job {job}")
-        obj: dict[str, Any] = {
-            "name": job.job_name,
-            "cmd": job.cmd,
+        set_job_params = job.model_dump(exclude_unset=True)
+        LOGGER.debug(f"set Job parameters: {set_job_params}")
+        for unwanted_field in ["job_type", "tool_name", "k8s_object"]:
+            set_job_params.pop(unwanted_field, None)
+
+        params: dict[str, Any] = {
+            "name": set_job_params.pop("job_name"),
+            "cmd": set_job_params.pop("cmd"),
             "image": job.image.canonical_name,
             "imagename": job.image.canonical_name,  # not being validated because image from k8s might not exist
             "image_state": job.image.state,
-            "filelog": f"{job.filelog}",
-            "filelog_stdout": job.filelog_stdout,
-            "filelog_stderr": job.filelog_stderr,
-            "status_short": job.status_short,
-            "status_long": job.status_long,
-            "port": job.port,
-            "port_protocol": job.port_protocol,
-            "replicas": job.replicas,
-            "emails": job.emails.value,
-            "retry": job.retry,
-            "mount": job.mount.value if job.mount else None,
-            "health_check": None,
-            "memory": job.memory,
-            "cpu": job.cpu,
         }
+        if "filelog" in set_job_params:
+            # it's a string-wrapped boolean for historical reasons
+            params["filelog"] = f"{set_job_params.pop('filelog')}"
 
-        if job.timeout is not None:
-            obj["timeout"] = job.timeout
+        if "emails" in set_job_params:
+            emails = set_job_params.pop("emails")
+            params["emails"] = emails.value
 
-        if job.schedule is not None:
-            obj["schedule"] = job.schedule.text
-            obj["schedule_actual"] = str(job.schedule)
+        if "mount" in set_job_params:
+            mount = set_job_params.pop("mount")
+            params["mount"] = mount.value
 
-        if job.cont:
-            obj["continuous"] = True
+        if "schedule" in set_job_params:
+            set_job_params.pop("schedule")
+            if job.schedule is not None:
+                params["schedule"] = job.schedule.text
+                params["schedule_actual"] = str(job.schedule)
+            else:
+                params["schedule"] = job.schedule
 
-        if job.health_check:
-            obj["health_check"] = job.health_check.model_dump(by_alias=True)
+        if "cont" in set_job_params:
+            params["continuous"] = set_job_params.pop("cont")
 
-        return cls.model_validate(obj)
+        if "health_check" in set_job_params:
+            set_job_params.pop("health_check")
+            if job.health_check is not None:
+                params["health_check"] = job.health_check.model_dump(by_alias=True)
+            else:
+                params["health_check"] = job.health_check
+
+        # we overwrite any `set_job_params` with the `params`, just in case
+        return cls.model_validate(set_job_params | params)
 
 
 class HealthState(str, Enum):

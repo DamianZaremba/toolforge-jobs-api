@@ -429,9 +429,8 @@ def get_job_from_k8s(
     if not metadata:
         raise TjfError("Invalid k8s object, did not contain metadata", data={"k8s_object": object})
 
-    jobname = metadata["name"]
+    job_name = metadata["name"]
     namespace = metadata["namespace"]
-    emails = metadata["labels"].get("jobs.toolforge.org/emails", "none")
     mount = MountOption.parse_labels(metadata["labels"])
     user = "".join(namespace.split("-", 1)[1:])
 
@@ -451,10 +450,10 @@ def get_job_from_k8s(
         # see T391786 for more details.
         # TODO: cleanup when T359649 is resolved.
         actual_schedule = str(
-            CronExpression.parse(value=spec["schedule"], job_name=jobname, tool_name=user)
+            CronExpression.parse(value=spec["schedule"], job_name=job_name, tool_name=user)
         )
         configured_schedule = CronExpression.parse(
-            value=configured_schedule_str, job_name=jobname, tool_name=user
+            value=configured_schedule_str, job_name=job_name, tool_name=user
         ).text
 
         schedule = CronExpression.from_runtime(
@@ -478,15 +477,17 @@ def get_job_from_k8s(
         raise TjfError("Unable to parse Kubernetes object", data={"object": object})
 
     imageurl = podspec["template"]["spec"]["containers"][0]["image"]
-    retry = podspec.get("backoffLimit", 0)
+    retry = podspec.get("backoffLimit", Job.model_fields["retry"].default)
     emails = EmailOption(
-        metadata["labels"].get("jobs.toolforge.org/emails", EmailOption.none.value)
+        metadata["labels"].get(
+            "jobs.toolforge.org/emails", Job.model_fields["emails"].default.value
+        )
     )
 
     container_port = podspec["template"]["spec"]["containers"][0].get("ports", [{}])[0]
-    port = container_port.get("containerPort", None)
+    port = container_port.get("containerPort", Job.model_fields["port"].default)
 
-    replicas = spec.get("replicas", None)
+    replicas = spec.get("replicas", Job.model_fields["replicas"].default)
     resources = podspec["template"]["spec"]["containers"][0].get("resources", {})
     resources_limits = resources.get("limits", {})
     memory = resources_limits.get("memory", JOB_DEFAULT_MEMORY)
@@ -497,7 +498,9 @@ def get_job_from_k8s(
     command = get_command_from_k8s(
         k8s_metadata=metadata, k8s_command=k8s_command, k8s_arguments=k8s_arguments
     )
-    health_check: ScriptHealthCheck | HttpHealthCheck | None = None
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = Job.model_fields[
+        "health_check"
+    ].default
     container_spec = podspec["template"]["spec"]["containers"][0]
     if container_spec.get("startupProbe", {}).get("exec", None):
         script = container_spec["startupProbe"]["exec"]["command"][2]
@@ -512,33 +515,42 @@ def get_job_from_k8s(
     else:
         user_command = command.user_command
 
-    timeout = podspec.get("activeDeadlineSeconds", None)
+    timeout = podspec.get("activeDeadlineSeconds", Job.model_fields["timeout"].default)
+    port_protocol = container_port.get("protocol", Job.model_fields["port_protocol"].default.value)
+    if port_protocol:
+        port_protocol = port_protocol.lower()
 
-    params = dict(
+    # Remove defaults, this might remove things users actually specified, but until we store the original request we
+    # can't differentiate them from defaults, so we strip them to avoid returning all the fields.
+    params_with_defaults = {}
+    value_param_list: list[tuple[Any, str]] = [
+        (command.filelog, "filelog"),
+        (command.filelog_stderr, "filelog_stderr"),
+        (command.filelog_stdout, "filelog_stdout"),
+        (schedule, "schedule"),
+        (cont, "cont"),
+        (port, "port"),
+        (replicas, "replicas"),
+        (retry, "retry"),
+        (memory, "memory"),
+        (cpu, "cpu"),
+        (emails, "emails"),
+        (mount, "mount"),
+        (health_check, "health_check"),
+        (timeout, "timeout"),
+        (port_protocol, "port_protocol"),
+    ]
+    for value, name in value_param_list:
+        if name in Job.model_fields and Job.model_fields[name].default != value:
+            params_with_defaults[name] = value
+
+    params_without_defaults = dict(
         job_type=job_type,
         cmd=user_command,
-        filelog=command.filelog,
-        filelog_stderr=command.filelog_stderr,
-        filelog_stdout=command.filelog_stdout,
         image=image,
-        job_name=jobname,
+        job_name=job_name,
         tool_name=user,
-        schedule=schedule,
-        cont=cont,
-        port=port,
-        replicas=replicas,
         k8s_object=object,
-        retry=retry,
-        memory=memory,
-        cpu=cpu,
-        emails=emails,
-        mount=mount,
-        health_check=health_check,
-        timeout=timeout,
     )
 
-    port_protocol = container_port.get("protocol", None)
-    if port_protocol:
-        params["port_protocol"] = port_protocol.lower()
-
-    return Job.model_validate(params)
+    return Job.model_validate(params_without_defaults | params_with_defaults)
