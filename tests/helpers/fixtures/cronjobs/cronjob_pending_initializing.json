@@ -1,0 +1,78 @@
+{
+    "apiVersion": "batch/v1",
+    "kind": "CronJob",
+    "metadata": {
+        "creationTimestamp": "2025-10-15T19:39:09Z",
+        "name": "test-initializing",
+        "namespace": "default",
+        "uid": "d5bf44b1-9e8d-41f0-a6bf-7aff4be9ff11",
+        "labels": {
+            "app.kubernetes.io/component": "cronjobs",
+            "app.kubernetes.io/created-by": "tf-test",
+            "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+            "app.kubernetes.io/name": "test-initializing",
+            "app.kubernetes.io/version": "2",
+            "jobs.toolforge.org/emails": "none",
+            "jobs.toolforge.org/filelog": "no",
+            "toolforge": "tool",
+            "toolforge.org/mount-storage": "all"
+        }
+    },
+    "spec": {
+        "concurrencyPolicy": "Allow",
+        "failedJobsHistoryLimit": 1,
+        "jobTemplate": {
+            "metadata": {
+                "creationTimestamp": null
+            },
+            "spec": {
+                "backoffLimit": 6,
+                "template": {
+                    "metadata": {
+                        "creationTimestamp": null,
+                        "labels": {
+                            "name": "test-initializing"
+                        }
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "command": [
+                                    "echo",
+                                    "hello"
+                                ],
+                                "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:nonexistent-tag",
+                                "imagePullPolicy": "IfNotPresent",
+                                "name": "test-initializing",
+                                "resources": {},
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File"
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "restartPolicy": "OnFailure",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {},
+                        "terminationGracePeriodSeconds": 30
+                    }
+                }
+            }
+        },
+        "schedule": "*/5 * * * *",
+        "successfulJobsHistoryLimit": 3,
+        "suspend": false
+    },
+    "status": {
+        "active": [
+            {
+                "apiVersion": "batch/v1",
+                "kind": "Job",
+                "name": "test-initializing-29342620",
+                "namespace": "default",
+                "resourceVersion": "481600",
+                "uid": "d289bb21-ee25-4e09-82fe-62535c7b8ba7"
+            }
+        ],
+        "lastScheduleTime": "2025-10-15T19:40:00Z"
+    }
+}
