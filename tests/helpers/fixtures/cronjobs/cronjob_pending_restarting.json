@@ -1,0 +1,79 @@
+{
+    "apiVersion": "batch/v1",
+    "kind": "CronJob",
+    "metadata": {
+        "creationTimestamp": "2025-10-15T04:14:51Z",
+        "name": "test-restarting",
+        "namespace": "default",
+        "uid": "939b0946-61a1-4fc3-bd22-a25ebca29bac",
+        "labels": {
+            "app.kubernetes.io/component": "cronjobs",
+            "app.kubernetes.io/created-by": "tf-test",
+            "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+            "app.kubernetes.io/name": "test-restarting",
+            "app.kubernetes.io/version": "2",
+            "jobs.toolforge.org/emails": "none",
+            "jobs.toolforge.org/filelog": "no",
+            "toolforge": "tool",
+            "toolforge.org/mount-storage": "all"
+        }
+    },
+    "spec": {
+        "concurrencyPolicy": "Allow",
+        "failedJobsHistoryLimit": 1,
+        "jobTemplate": {
+            "metadata": {
+                "creationTimestamp": null
+            },
+            "spec": {
+                "backoffLimit": 5,
+                "template": {
+                    "metadata": {
+                        "creationTimestamp": null,
+                        "labels": {
+                            "name": "test-restarting"
+                        }
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "command": [
+                                    "/bin/sh",
+                                    "-c",
+                                    "exit 1"
+                                ],
+                                "image": "docker-registry.tools.wmflabs.org/toolforge-bookworm-sssd:latest",
+                                "imagePullPolicy": "Always",
+                                "name": "test-restarting",
+                                "resources": {},
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File"
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "restartPolicy": "OnFailure",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {},
+                        "terminationGracePeriodSeconds": 30
+                    }
+                }
+            }
+        },
+        "schedule": "* * * * *",
+        "successfulJobsHistoryLimit": 3,
+        "suspend": false
+    },
+    "status": {
+        "active": [
+            {
+                "apiVersion": "batch/v1",
+                "kind": "Job",
+                "name": "test-restarting-29341695",
+                "namespace": "default",
+                "resourceVersion": "251058",
+                "uid": "24ed6247-3847-4b38-bdbc-e162290367a9"
+            }
+        ],
+        "lastScheduleTime": "2025-10-15T04:15:00Z"
+    }
+}

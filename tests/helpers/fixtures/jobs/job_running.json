@@ -1,0 +1,63 @@
+{
+    "apiVersion": "batch/v1",
+    "kind": "Job",
+    "metadata": {
+        "creationTimestamp": "2025-10-15T19:45:00Z",
+        "labels": {
+            "batch.kubernetes.io/job-name": "test-running-29342625",
+            "job-name": "test-running-29342625",
+            "name": "test-running"
+        },
+        "name": "test-running-29342625",
+        "namespace": "default",
+        "uid": "1f44b978-1401-4bb7-bc5f-71d1276494ce"
+    },
+    "spec": {
+        "backoffLimit": 6,
+        "completionMode": "NonIndexed",
+        "completions": 1,
+        "manualSelector": false,
+        "parallelism": 1,
+        "podReplacementPolicy": "TerminatingOrFailed",
+        "suspend": false,
+        "template": {
+            "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                    "batch.kubernetes.io/job-name": "test-running-29342625",
+                    "job-name": "test-running-29342625",
+                    "name": "test-running"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "command": [
+                            "/bin/sh",
+                            "-c",
+                            "sleep infinity"
+                        ],
+                        "image": "docker-registry.tools.wmflabs.org/toolforge-bookworm-sssd:latest",
+                        "imagePullPolicy": "Always",
+                        "name": "test-running",
+                        "resources": {},
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File"
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "restartPolicy": "OnFailure",
+                "schedulerName": "default-scheduler",
+                "securityContext": {},
+                "terminationGracePeriodSeconds": 30
+            }
+        }
+    },
+    "status": {
+        "active": 1,
+        "ready": 1,
+        "startTime": "2025-10-15T19:45:00Z",
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+    }
+}

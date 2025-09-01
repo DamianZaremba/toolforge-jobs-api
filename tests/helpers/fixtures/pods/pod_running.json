@@ -1,0 +1,123 @@
+{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "creationTimestamp": "2025-10-15T19:45:00Z",
+        "labels": {
+            "batch.kubernetes.io/job-name": "test-running-29342625",
+            "job-name": "test-running-29342625",
+            "name": "test-running"
+        },
+        "name": "test-running-29342625-pnzb7",
+        "namespace": "default",
+        "uid": "5b9da031-10e5-4aa9-9128-157fd14e535a"
+    },
+    "spec": {
+        "containers": [
+            {
+                "command": [
+                    "/bin/sh",
+                    "-c",
+                    "sleep infinity"
+                ],
+                "image": "docker-registry.tools.wmflabs.org/toolforge-bookworm-sssd:latest",
+                "imagePullPolicy": "Always",
+                "name": "test-running",
+                "resources": {},
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File"
+            }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "nodeName": "toolforge-control-plane",
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "OnFailure",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/not-ready",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            },
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/unreachable",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            }
+        ]
+    },
+    "status": {
+        "conditions": [
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2025-10-15T19:45:02Z",
+                "status": "True",
+                "type": "PodReadyToStartContainers"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2025-10-15T19:45:00Z",
+                "status": "True",
+                "type": "Initialized"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2025-10-15T19:45:02Z",
+                "status": "True",
+                "type": "Ready"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2025-10-15T19:45:02Z",
+                "status": "True",
+                "type": "ContainersReady"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2025-10-15T19:45:00Z",
+                "status": "True",
+                "type": "PodScheduled"
+            }
+        ],
+        "containerStatuses": [
+            {
+                "containerID": "containerd://bb81462185360b76a99b713e612df4107a3ef55bfa4b6c62a3bccb222fe3e9ad",
+                "image": "docker-registry.tools.wmflabs.org/toolforge-bookworm-sssd:latest",
+                "imageID": "docker-registry.tools.wmflabs.org/toolforge-bookworm-sssd@sha256:c7a6a4e15d6379ede2bc4cf64ea3f144b8faa8d9b68c9f6af8ff81a21eec09c4",
+                "lastState": {},
+                "name": "test-running",
+                "ready": true,
+                "restartCount": 0,
+                "started": true,
+                "state": {
+                    "running": {
+                        "startedAt": "2025-10-15T19:45:01Z"
+                    }
+                }
+            }
+        ],
+        "hostIP": "172.18.0.2",
+        "hostIPs": [
+            {
+                "ip": "172.18.0.2"
+            }
+        ],
+        "phase": "Running",
+        "podIP": "192.168.211.240",
+        "podIPs": [
+            {
+                "ip": "192.168.211.240"
+            }
+        ],
+        "qosClass": "BestEffort",
+        "startTime": "2025-10-15T19:45:00Z"
+    }
+}

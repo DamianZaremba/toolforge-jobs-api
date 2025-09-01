@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.6.5"
+  version: "4.7.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -526,6 +526,51 @@ components:
         - onfinish
         - onfailure
       example: "all"
+    StatusShort:
+      type: string
+      description: "Short strings representing a job's status"
+      enum:
+        - pending
+        - running
+        - succeeded
+        - failed
+        - unknown
+    CommonJobStatus:
+      type: object
+      required:
+        - short
+        - duration
+      properties:
+        short:
+          $ref: "#/components/schemas/StatusShort"
+        messages:
+          type: array
+          description: "This field is to for more detailed explaination of a job's status"
+          example: ["scheduling", "initializing", "exitcode 1"]
+        duration:
+          type: string
+          description: "This shows an estimate of how long a job has been in the current status"
+          example: "24d24h59m45s"
+        up_to_date:
+          type: boolean
+          description: |
+            User's can bypass toolforge to directly modify resources in their runtime namespace.
+            This field is to report if such changes was made resulting in the copy of the job in
+            the runtime being different from what the user submitted during creation
+    ScheduledJobStatus:
+      allOf:
+        - $ref: "#/components/schemas/CommonJobStatus"
+        - type: object
+          properties:
+            previous_schedule:
+              type: string
+              description: "datetime string of the prev time the job was triggered"
+              example: "2025-08-27T10:07:48Z"
+            next_schedule:
+              type: string
+              description: "datetime string of the next time the job will be triggered"
+              example: "2025-08-28T10:07:48Z"
+    # common job fields
     CommonJob:
       type: object
       required:
@@ -706,6 +751,12 @@ components:
               type: string
               description: "Job status, extended text."
               example: "Running since 30 seconds ago."
+            status:
+              type: object
+              description: "v2 of status_long|status_short, for standardized job status reporting"
+              oneOf:
+                - $ref: "#/components/schemas/CommonJobStatus"
+                - $ref: "#/components/schemas/ScheduledJobStatus"
     DefinedOneOffJob:
       allOf:
         - $ref: "#/components/schemas/DefinedCommonJob"

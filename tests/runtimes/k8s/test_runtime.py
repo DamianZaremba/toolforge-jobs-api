@@ -1,3 +1,4 @@
+import json
 from copy import deepcopy
 from typing import Any, Callable
 from unittest.mock import MagicMock
@@ -6,17 +7,68 @@ import pytest
 from toolforge_weld.kubernetes import MountOption
 
 from tests.helpers.fake_k8s import (
+    FIXTURES_PATH,
     K8S_CONTINUOUS_JOB_OBJ,
     get_continuous_job_fixture_as_job,
     get_continuous_job_fixture_as_new_job,
 )
+from tests.helpers.fakes import get_dummy_job
 from tests.test_utils import cases, patch_spec
 from tjf.core.error import TjfJobNotFoundError
 from tjf.core.images import Image, ImageType
-from tjf.core.models import AnyJob, EmailOption
+from tjf.core.models import (
+    AnyJob,
+    ContinuousJob,
+    ContinuousJobStatus,
+    EmailOption,
+    JobType,
+)
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.runtime import K8sRuntime
 from tjf.settings import get_settings
+
+K8S_OBJ = json.loads(
+    (FIXTURES_PATH / "deployments" / "deployment-simple-buildpack.json").read_text()
+)
+
+
+def get_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
+    """Returns a job matching the only fixture used in this suite.
+
+    Pass a custom job_name to get a non-matching job instead.
+    """
+    overrides = (
+        dict(
+            job_name="migrate",
+            cmd="cmdname with-arguments 'other argument with spaces'",
+            # When creating a new job, the job that comes as input only has the canonical_name for the image
+            image=Image(
+                canonical_name="bullseye",
+                type=ImageType.BUILDPACK,
+            ),
+            job_type=JobType.CONTINUOUS,
+            tool_name="majavah-test",
+            memory=ContinuousJob.model_fields["memory"].default,
+        )
+        | overrides
+    )
+    if add_status:
+        overrides["status_short"] = "Not running"
+        overrides["status_long"] = "No pods were created for this job."
+        overrides["status"] = ContinuousJobStatus(short="unknown", duration="")
+    return get_dummy_job(
+        **overrides,
+    )
+
+
+def get_fixture_as_new_job(**overrides) -> AnyJob:
+    """
+    When checking if a job matches an existing one, the incoming job has no image and no statuses, this helper is to
+    fetch a job that matches the fixture without those fields as if it was being created anew.
+    """
+    new_job = get_fixture_as_job(add_status=False, **overrides)
+    new_job.image = Image(canonical_name=new_job.image.canonical_name)
+    return new_job
 
 
 def patch_tool_account_k8s_cli(
@@ -263,6 +315,11 @@ class TestGetJob:
             ),
         )
         my_runtime = K8sRuntime(settings=get_settings())
+        monkeypatch.setattr(
+            my_runtime,
+            "get_job_status",
+            lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
+        )
 
         gotten_job = my_runtime.get_job(
             job_name=expected_job.job_name, tool=expected_job.tool_name
@@ -281,16 +338,26 @@ class TestDiffWithRunningJob:
         new_job = get_continuous_job_fixture_as_new_job()
         my_runtime = K8sRuntime(settings=get_settings())
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: None)
-
+        monkeypatch.setattr(
+            my_runtime,
+            "get_job_status",
+            lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
+        )
         with pytest.raises(TjfJobNotFoundError):
             my_runtime.diff_with_running_job(job=new_job)
 
     def test_diff_with_running_job_returns_no_diff_for_same_jobs(
-        self, monkeypatch: pytest.MonkeyPatch
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ):
         new_job = get_continuous_job_fixture_as_new_job()
         existing_job = get_continuous_job_fixture_as_job()
         my_runtime = K8sRuntime(settings=get_settings())
+        monkeypatch.setattr(
+            my_runtime,
+            "get_job_status",
+            lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
+        )
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
 
         diff = my_runtime.diff_with_running_job(job=new_job)
@@ -314,10 +381,17 @@ class TestDiffWithRunningJob:
         ["Different port", get_continuous_job_fixture_as_job(port=8080)],
     )
     def test_diff_with_running_job_returns_diff_str_for_different_jobs(
-        self, existing_job: AnyJob, monkeypatch: pytest.MonkeyPatch
+        self,
+        existing_job: AnyJob,
+        monkeypatch: pytest.MonkeyPatch,
     ):
         new_job = get_continuous_job_fixture_as_new_job()
         my_runtime = K8sRuntime(settings=get_settings())
+        monkeypatch.setattr(
+            my_runtime,
+            "get_job_status",
+            lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
+        )
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
 
         diff = my_runtime.diff_with_running_job(job=new_job)
@@ -341,13 +415,19 @@ class TestDiffWithRunningJob:
             ),
         )
         my_runtime = K8sRuntime(settings=get_settings())
+        monkeypatch.setattr(
+            my_runtime,
+            "get_job_status",
+            lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
+        )
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
 
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert diff == ""
 
     def test_launcher_does_not_get_stripped_from_new_job_if_not_buildpack(
-        self, monkeypatch: pytest.MonkeyPatch
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ):
         new_job = get_continuous_job_fixture_as_new_job(
             cmd="launcher mycommand", image=Image(canonical_name="bullseye")
@@ -356,6 +436,11 @@ class TestDiffWithRunningJob:
             cmd="mycommand", image=Image(canonical_name="bullseye", type=ImageType.STANDARD)
         )
         my_runtime = K8sRuntime(settings=get_settings())
+        monkeypatch.setattr(
+            my_runtime,
+            "get_job_status",
+            lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
+        )
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
 
         diff = my_runtime.diff_with_running_job(job=new_job)

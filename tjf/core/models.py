@@ -110,6 +110,38 @@ class Command:
     filelog_stderr: Path | None
 
 
+class StatusShort(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    UNKNOWN = "unknown"
+
+
+class CommonJobStatus(BaseModel):
+    short: StatusShort
+    messages: list[str] = []
+    # TODO: use better typing for duration. might require changing the format
+    duration: str | None = None
+    up_to_date: bool = True
+
+
+class OneOffJobStatus(CommonJobStatus):
+    pass
+
+
+class ContinuousJobStatus(CommonJobStatus):
+    pass
+
+
+class ScheduledJobStatus(CommonJobStatus):
+    previous_schedule: str | None = None
+    next_schedule: str | None = None
+
+
+AnyJobStatus = OneOffJobStatus | ContinuousJobStatus | ScheduledJobStatus
+
+
 class CommonJob(PydanticBaseModel):
     cmd: str
     filelog: bool = False
@@ -164,6 +196,7 @@ class CommonJob(PydanticBaseModel):
 class OneOffJob(CommonJob, BaseModel):
     job_type: Literal[JobType.ONE_OFF] = JobType.ONE_OFF
     retry: Annotated[int, Field(ge=0, le=5)] = 0
+    status: OneOffJobStatus = OneOffJobStatus(short=StatusShort.UNKNOWN)
 
 
 class ScheduledJob(CommonJob, BaseModel):
@@ -171,6 +204,7 @@ class ScheduledJob(CommonJob, BaseModel):
     schedule: CronExpression
     retry: Annotated[int, Field(ge=0, le=5)] = 0
     timeout: Annotated[int, Field(ge=0)] = 0
+    status: ScheduledJobStatus = ScheduledJobStatus(short=StatusShort.UNKNOWN)
 
 
 class ContinuousJob(CommonJob, BaseModel):
@@ -182,6 +216,7 @@ class ContinuousJob(CommonJob, BaseModel):
         default=None,
         discriminator="health_check_type",
     )
+    status: ContinuousJobStatus = ContinuousJobStatus(short=StatusShort.UNKNOWN)
 
     @model_validator(mode="after")
     def validate_continuous_job(self) -> Self:

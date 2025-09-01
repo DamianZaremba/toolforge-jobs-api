@@ -1,0 +1,31 @@
+{
+    "apiVersion": "v1",
+    "count": 1,
+    "eventTime": null,
+    "firstTimestamp": "2025-10-16T01:01:37Z",
+    "involvedObject": {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "name": "test-scheduling-29342615",
+        "namespace": "default",
+        "resourceVersion": "593883",
+        "uid": "4fc17a79-fbe6-48b0-b65d-0ea2d3f64aec"
+    },
+    "kind": "Event",
+    "lastTimestamp": "2025-10-16T01:01:37Z",
+    "message": "Error creating: pods \"test-scheduling-29342615-p2wqh\" is forbidden: exceeded quota: cpu-quota-example, requested: limits.cpu=999,requests.cpu=999, used: limits.cpu=0,requests.cpu=0, limited: limits.cpu=2,requests.cpu=1",
+    "metadata": {
+        "creationTimestamp": "2025-10-16T01:01:37Z",
+        "name": "test-scheduling-29342615.186ed2ff0e0aa855",
+        "namespace": "default",
+        "resourceVersion": "594047",
+        "uid": "01adc081-5bfe-45d3-974f-470c9f1d1851"
+    },
+    "reason": "FailedCreate",
+    "reportingComponent": "job-controller",
+    "reportingInstance": "",
+    "source": {
+        "component": "job-controller"
+    },
+    "type": "Warning"
+}

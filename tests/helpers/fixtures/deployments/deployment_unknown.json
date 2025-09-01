@@ -1,0 +1,54 @@
+{
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "creationTimestamp": "2025-09-01T11:20:11Z",
+        "name": "test-unknown",
+        "namespace": "default",
+        "uid": "5bd20544-b738-43a7-b12b-cb18ae873971"
+    },
+    "spec": {
+        "progressDeadlineSeconds": 30,
+        "replicas": 1,
+        "revisionHistoryLimit": 10,
+        "selector": {
+            "matchLabels": {
+                "name": "test-unknown"
+            }
+        },
+        "strategy": {
+            "rollingUpdate": {
+                "maxSurge": "25%",
+                "maxUnavailable": "25%"
+            },
+            "type": "RollingUpdate"
+        },
+        "template": {
+            "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                    "name": "test-unknown"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "command": ["echo", "hello"],
+                        "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:nonexistent-tag",
+                        "imagePullPolicy": "IfNotPresent",
+                        "name": "test-unknown",
+                        "resources": {},
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File"
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {},
+                "terminationGracePeriodSeconds": 30
+            }
+        }
+    },
+    "status": {}
+}

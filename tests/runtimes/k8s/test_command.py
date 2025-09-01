@@ -163,7 +163,7 @@ class TestGetCommandFromK8s:
         filelog_stderr: Path | None,
     ) -> None:
         if isinstance(object, str):
-            object = json.loads((fixtures_path / "jobs" / object).read_text())
+            object = json.loads((fixtures_path / "deployments" / object).read_text())
 
         k8s_metadata = utils.dict_get_object(object, "metadata")
         if not k8s_metadata:
