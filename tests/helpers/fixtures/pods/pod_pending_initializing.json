@@ -1,0 +1,126 @@
+{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "creationTimestamp": "2025-10-15T19:40:00Z",
+        "labels": {
+            "batch.kubernetes.io/job-name": "test-initializing-29342620",
+            "job-name": "test-initializing-29342620",
+            "name": "test-initializing"
+        },
+        "name": "test-initializing-29342620-k7l5d",
+        "namespace": "default",
+        "uid": "6302f8ec-7a2b-4c30-8683-d2c07a226ea2"
+    },
+    "spec": {
+        "containers": [
+            {
+                "command": [
+                    "echo",
+                    "hello"
+                ],
+                "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:nonexistent-tag",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "test-initializing",
+                "resources": {},
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File"
+            }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "nodeName": "toolforge-control-plane",
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "OnFailure",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/not-ready",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            },
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/unreachable",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            }
+        ]
+    },
+    "status": {
+        "conditions": [
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2025-10-15T19:40:02Z",
+                "status": "True",
+                "type": "PodReadyToStartContainers"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2025-10-15T19:40:00Z",
+                "status": "True",
+                "type": "Initialized"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2025-10-15T19:40:00Z",
+                "message": "containers with unready status: [test-initializing]",
+                "reason": "ContainersNotReady",
+                "status": "False",
+                "type": "Ready"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2025-10-15T19:40:00Z",
+                "message": "containers with unready status: [test-initializing]",
+                "reason": "ContainersNotReady",
+                "status": "False",
+                "type": "ContainersReady"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2025-10-15T19:40:00Z",
+                "status": "True",
+                "type": "PodScheduled"
+            }
+        ],
+        "containerStatuses": [
+            {
+                "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:nonexistent-tag",
+                "imageID": "",
+                "lastState": {},
+                "name": "test-initializing",
+                "ready": false,
+                "restartCount": 0,
+                "started": false,
+                "state": {
+                    "waiting": {
+                        "message": "Back-off pulling image \"docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:nonexistent-tag\"",
+                        "reason": "ImagePullBackOff"
+                    }
+                }
+            }
+        ],
+        "hostIP": "172.18.0.2",
+        "hostIPs": [
+            {
+                "ip": "172.18.0.2"
+            }
+        ],
+        "phase": "Pending",
+        "podIP": "192.168.211.207",
+        "podIPs": [
+            {
+                "ip": "192.168.211.207"
+            }
+        ],
+        "qosClass": "BestEffort",
+        "startTime": "2025-10-15T19:40:00Z"
+    }
+}
