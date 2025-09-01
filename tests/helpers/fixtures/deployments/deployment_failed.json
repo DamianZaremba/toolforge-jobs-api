@@ -1,0 +1,73 @@
+{
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "creationTimestamp": "2025-09-01T11:20:11Z",
+        "name": "test-failed",
+        "namespace": "default",
+        "uid": "5bd20544-b738-43a7-b12b-cb18ae873971"
+    },
+    "spec": {
+        "progressDeadlineSeconds": 30,
+        "replicas": 1,
+        "revisionHistoryLimit": 10,
+        "selector": {
+            "matchLabels": {
+                "name": "test-failed"
+            }
+        },
+        "strategy": {
+            "rollingUpdate": {
+                "maxSurge": "25%",
+                "maxUnavailable": "25%"
+            },
+            "type": "RollingUpdate"
+        },
+        "template": {
+            "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                    "name": "test-failed"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "command": [
+                            "/bin/sh",
+                            "-c",
+                            "exit 1"
+                        ],
+                        "image": "docker-registry.tools.wmflabs.org/toolforge-bookworm-sssd:latest",
+                        "imagePullPolicy": "IfNotPresent",
+                        "name": "test-failed",
+                        "resources": {},
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File"
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {},
+                "terminationGracePeriodSeconds": 30
+            }
+        }
+    },
+    "status": {
+        "conditions": [
+            {
+                "lastTransitionTime": "2025-09-01T11:20:11Z",
+                "lastUpdateTime": "2025-09-01T11:20:11Z",
+                "message": "Deployment does not have minimum availability.",
+                "reason": "MinimumReplicasUnavailable",
+                "status": "False",
+                "type": "Available"
+            }
+        ],
+        "observedGeneration": 1,
+        "replicas": 1,
+        "unavailableReplicas": 1,
+        "updatedReplicas": 1
+    }
+}
