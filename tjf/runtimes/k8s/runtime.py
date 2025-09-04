@@ -203,12 +203,12 @@ class K8sRuntime(BaseRuntime):
         current_job.image = Image(canonical_name=current_job.image.canonical_name)
 
         clean_current_job = current_job.model_dump_json(
-            exclude={"k8s_object", "status_short", "status_long"},
-            exclude_unset=True,
-            indent=4,
+            exclude={"k8s_object", "status_short", "status_long"}, indent=4
         )
 
-        clean_new_job = job.model_dump_json(exclude={"k8s_object"}, exclude_unset=True, indent=4)
+        clean_new_job = job.model_dump_json(
+            exclude={"k8s_object", "status_short", "status_long"}, indent=4
+        )
         LOGGER.debug(f"Got new job:\n{clean_new_job}")
         LOGGER.debug(f"Got current job:\n{clean_current_job}")
         jobs_same = clean_new_job == clean_current_job
