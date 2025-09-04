@@ -1,10 +1,13 @@
 include:
   - project: "repos/cloud/cicd/gitlab-ci"
     file: "py3.11-bookworm-tox/gitlab-ci.yaml"
+    ref: skip_helm_image_harbor_publish_if_not_repo_owner
   - project: "repos/cloud/cicd/gitlab-ci"
     file: "toolforge-cd/only_image_publish.yaml"
+    ref: skip_helm_image_harbor_publish_if_not_repo_owner
   - project: "repos/cloud/cicd/gitlab-ci"
     file: "toolforge-cd/only_helm_publish.yaml"
+    ref: skip_helm_image_harbor_publish_if_not_repo_owner
 
 variables:
   PROJECT_NAME: jobs-api
