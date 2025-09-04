@@ -26,7 +26,7 @@ from ...core.models import (
     JobType,
     ScriptHealthCheck,
 )
-from ...core.utils import dict_get_object
+from ...core.utils import dict_get_object, format_quantity, parse_and_format_mem
 from .command import get_command_for_k8s, get_command_from_k8s
 from .healthchecks import get_healthcheck_for_k8s
 from .images import image_by_container_url
@@ -490,8 +490,8 @@ def get_job_from_k8s(
     replicas = spec.get("replicas", Job.model_fields["replicas"].default)
     resources = podspec["template"]["spec"]["containers"][0].get("resources", {})
     resources_limits = resources.get("limits", {})
-    memory = resources_limits.get("memory", JOB_DEFAULT_MEMORY)
-    cpu = resources_limits.get("cpu", JOB_DEFAULT_CPU)
+    memory = resources_limits.get("memory", Job.model_fields["memory"].default)
+    cpu = resources_limits.get("cpu", Job.model_fields["cpu"].default)
 
     k8s_command = podspec["template"]["spec"]["containers"][0]["command"]
     k8s_arguments = podspec["template"]["spec"]["containers"][0].get("args", [])
@@ -532,8 +532,8 @@ def get_job_from_k8s(
         (port, "port"),
         (replicas, "replicas"),
         (retry, "retry"),
-        (memory, "memory"),
-        (cpu, "cpu"),
+        (parse_and_format_mem(memory), "memory"),
+        (format_quantity(parse_quantity(cpu)), "cpu"),
         (emails, "emails"),
         (mount, "mount"),
         (health_check, "health_check"),

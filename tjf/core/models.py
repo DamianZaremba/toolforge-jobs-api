@@ -125,7 +125,7 @@ class Job(BaseModel):
     # TODO: remove this from here, probably to the runtime
     k8s_object: dict[str, Any] = {}
     retry: int = 0
-    memory: str = format_quantity(parse_quantity(JOB_DEFAULT_MEMORY))
+    memory: str = parse_and_format_mem(JOB_DEFAULT_MEMORY)
     cpu: str = format_quantity(parse_quantity(JOB_DEFAULT_CPU))
     emails: EmailOption = EmailOption.none
     mount: MountOption = MountOption.ALL

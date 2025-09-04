@@ -7,6 +7,7 @@ from pytest import MonkeyPatch
 from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
 from tjf.core.models import EmailOption, Job, JobType, MountOption
+from tjf.core.utils import format_quantity, parse_quantity
 from tjf.runtimes.k8s import jobs
 
 
@@ -49,8 +50,8 @@ class TestJobFromK8s:
             replicas=None,
             k8s_object=k8s_object,
             retry=0,
-            memory="0.5Gi",
-            cpu="0.5",
+            memory=format_quantity(parse_quantity("0.5Gi")),
+            cpu=format_quantity(parse_quantity("0.5")),
             emails=EmailOption.none,
             mount=MountOption.ALL,
             health_check=None,

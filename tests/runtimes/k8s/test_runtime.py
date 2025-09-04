@@ -34,7 +34,7 @@ def get_fixture_as_job(add_status: bool = True, **overrides) -> Job:
             ),
             job_type=JobType.CONTINUOUS,
             tool_name="majavah-test",
-            memory="0.5Gi",
+            memory=Job.model_fields["memory"].default,
         )
         | overrides
     )

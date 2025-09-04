@@ -4,8 +4,10 @@ from pathlib import Path
 from typing import Any, Type
 
 from pydantic import Field, field_validator
-from toolforge_weld.kubernetes import MountOption
+from toolforge_weld.kubernetes import MountOption, parse_quantity
 from typing_extensions import Annotated
+
+from tjf.core.utils import format_quantity, parse_and_format_mem
 
 from ..core.cron import CronExpression, CronParsingError
 from ..core.error import TjfValidationError
@@ -56,6 +58,16 @@ class CommonJob(BaseModel):
         # Moving to internal jobs model will make customization impossible.
         # Making this field nullable will lead to confusion in the openapi spec.
         return cls.validate_job_name(value)
+
+    @field_validator("memory")
+    @classmethod
+    def memory_validator(cls, value: str) -> str:
+        return value and parse_and_format_mem(mem=value)
+
+    @field_validator("cpu")
+    @classmethod
+    def cpu_validator(cls, value: str) -> str:
+        return value and format_quantity(quantity_value=parse_quantity(value))
 
     @staticmethod
     def validate_job_name(job_name: str) -> str:
