@@ -136,8 +136,9 @@ def _get_k8s_cronjob_object(job: Job) -> K8S_OBJECT_TYPE:
         },
         "spec": {
             "schedule": str(job.schedule),
-            "successfulJobsHistoryLimit": 0,
-            "failedJobsHistoryLimit": 0,
+            # the history limit is needed so we have time to collect the logs
+            "successfulJobsHistoryLimit": 1,
+            "failedJobsHistoryLimit": 1,
             "concurrencyPolicy": "Forbid",
             "startingDeadlineSeconds": 30,
             "jobTemplate": {
