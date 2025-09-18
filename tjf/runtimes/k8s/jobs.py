@@ -299,11 +299,14 @@ def _generate_container_resources(job: Job) -> dict[str, Any]:
     container_resources["limits"]["memory"] = job.memory
 
     dec_cpu = parse_quantity(job.cpu)
-    if dec_cpu <= parse_quantity(JOB_DEFAULT_CPU):
-        container_resources["requests"]["cpu"] = job.cpu
+    if dec_cpu == parse_quantity(JOB_DEFAULT_CPU):
+        # if using the default, make the limit a bit higher to give the user some leeway
+        # half of the current worker size
+        container_resources["limits"]["cpu"] = "4000m"
     else:
-        container_resources["requests"]["cpu"] = str(dec_cpu / 2)
-    container_resources["limits"]["cpu"] = job.cpu
+        # if it was manually specified, then trust the user
+        container_resources["limits"]["cpu"] = str(dec_cpu)
+    container_resources["requests"]["cpu"] = str(dec_cpu)
 
     return container_resources
 

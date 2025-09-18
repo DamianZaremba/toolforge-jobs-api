@@ -47,7 +47,8 @@ JOBNAME_PATTERN = re.compile("^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-
 JOBNAME_MAX_LENGTH = 52
 
 JOB_DEFAULT_MEMORY = "512Mi"
-JOB_DEFAULT_CPU = "500m"
+# This is set to more or less the mean usage in the cluster
+JOB_DEFAULT_CPU = "100m"
 JOB_DEFAULT_REPLICAS = 1
 
 
