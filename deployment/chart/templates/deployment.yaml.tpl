@@ -55,6 +55,8 @@ spec:
             value: "{{ .Values.webservice.skip_images }}"
           - name: "IMAGES_CONFIG_REFRESH_INTERVAL"
             value: "{{ .Values.webservice.images_config_refresh_interval }}"
+          - name: "DEFAULT_CPU_LIMIT"
+            value: "{{ .Values.webservice.default_cpu_limit }}"
           {{- with .Values.loki.url }}
           - name: "LOKI_URL"
             value: "{{ . }}"

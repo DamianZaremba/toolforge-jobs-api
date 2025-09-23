@@ -95,14 +95,14 @@ class K8sJobKind(Enum):
             raise Exception(f"invalid job type {job_type}")
 
 
-def get_job_for_k8s(job: Job) -> K8S_OBJECT_TYPE:
+def get_job_for_k8s(job: Job, default_cpu_limit: str) -> K8S_OBJECT_TYPE:
     k8s_kind = K8sJobKind.from_job_type(job.job_type)
     if k8s_kind == K8sJobKind.CRON_JOB:
-        return _get_k8s_cronjob_object(job=job)
+        return _get_k8s_cronjob_object(job=job, default_cpu_limit=default_cpu_limit)
     elif k8s_kind == K8sJobKind.DEPLOYMENT:
-        return _get_k8s_deployment_object(job=job)
+        return _get_k8s_deployment_object(job=job, default_cpu_limit=default_cpu_limit)
     elif k8s_kind == K8sJobKind.JOB:
-        return _get_k8s_job_object(job=job)
+        return _get_k8s_job_object(job=job, default_cpu_limit=default_cpu_limit)
     else:
         raise TjfError(f"Invalid k8s job type {job.job_type} {k8s_kind}")
 
@@ -111,7 +111,7 @@ def _get_namespace(job: Job) -> str:
     return f"tool-{job.tool_name}"
 
 
-def _get_k8s_cronjob_object(job: Job) -> K8S_OBJECT_TYPE:
+def _get_k8s_cronjob_object(job: Job, default_cpu_limit: str) -> K8S_OBJECT_TYPE:
     if not job.schedule:
         raise TjfError("CronJob requires a schedule")
 
@@ -143,7 +143,9 @@ def _get_k8s_cronjob_object(job: Job) -> K8S_OBJECT_TYPE:
             "startingDeadlineSeconds": 30,
             "jobTemplate": {
                 "spec": {
-                    "template": _get_k8s_podtemplate(job=job, restart_policy="Never"),
+                    "template": _get_k8s_podtemplate(
+                        job=job, restart_policy="Never", default_cpu_limit=default_cpu_limit
+                    ),
                     "ttlSecondsAfterFinished": JOB_TTLAFTERFINISHED,
                     "backoffLimit": job.retry,
                 }
@@ -157,7 +159,7 @@ def _get_k8s_cronjob_object(job: Job) -> K8S_OBJECT_TYPE:
 
 
 def _get_k8s_podtemplate(
-    *, job: Job, restart_policy: str, probes: dict[str, Any] = {}
+    *, job: Job, restart_policy: str, default_cpu_limit: str, probes: dict[str, Any] = {}
 ) -> dict[str, Any]:
     labels = generate_labels(
         jobname=job.job_name,
@@ -232,7 +234,9 @@ def _get_k8s_podtemplate(
                     "env": env,
                     "command": generated_command.command,
                     "args": generated_command.args,
-                    "resources": _generate_container_resources(job=job),
+                    "resources": _generate_container_resources(
+                        job=job, default_cpu_limit=default_cpu_limit
+                    ),
                     "securityContext": _generate_container_security_context(job=job),
                     **probes,
                     **ports,
@@ -288,7 +292,7 @@ def _generate_container_security_context(job: Job) -> dict[str, Any]:
     }
 
 
-def _generate_container_resources(job: Job) -> dict[str, Any]:
+def _generate_container_resources(job: Job, default_cpu_limit: str) -> dict[str, Any]:
     container_resources: dict[str, Any] = {"requests": {}, "limits": {}}
 
     dec_mem = parse_quantity(job.memory)
@@ -302,7 +306,7 @@ def _generate_container_resources(job: Job) -> dict[str, Any]:
     if dec_cpu == parse_quantity(JOB_DEFAULT_CPU):
         # if using the default, make the limit a bit higher to give the user some leeway
         # half of the current worker size
-        container_resources["limits"]["cpu"] = "4000m"
+        container_resources["limits"]["cpu"] = default_cpu_limit
     else:
         # if it was manually specified, then trust the user
         container_resources["limits"]["cpu"] = str(dec_cpu)
@@ -311,7 +315,7 @@ def _generate_container_resources(job: Job) -> dict[str, Any]:
     return container_resources
 
 
-def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
+def _get_k8s_deployment_object(job: Job, default_cpu_limit: str) -> K8S_OBJECT_TYPE:
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
@@ -340,7 +344,12 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
             "strategy": {
                 "type": strategy,
             },
-            "template": _get_k8s_podtemplate(job=job, restart_policy="Always", probes=probes),
+            "template": _get_k8s_podtemplate(
+                job=job,
+                restart_policy="Always",
+                probes=probes,
+                default_cpu_limit=default_cpu_limit,
+            ),
             "replicas": replicas,
             "selector": {
                 "matchLabels": labels,
@@ -351,7 +360,7 @@ def _get_k8s_deployment_object(job: Job) -> K8S_OBJECT_TYPE:
     return obj
 
 
-def _get_k8s_job_object(job: Job) -> K8S_OBJECT_TYPE:
+def _get_k8s_job_object(job: Job, default_cpu_limit: str) -> K8S_OBJECT_TYPE:
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
@@ -369,7 +378,9 @@ def _get_k8s_job_object(job: Job) -> K8S_OBJECT_TYPE:
             "labels": labels,
         },
         "spec": {
-            "template": _get_k8s_podtemplate(job=job, restart_policy="Never"),
+            "template": _get_k8s_podtemplate(
+                job=job, restart_policy="Never", default_cpu_limit=default_cpu_limit
+            ),
             "ttlSecondsAfterFinished": JOB_TTLAFTERFINISHED,
             "backoffLimit": job.retry,
         },
@@ -422,6 +433,7 @@ def format_logs(entry: LogEntry) -> str:
 def get_job_from_k8s(
     object: dict[str, Any],
     kind: str,
+    default_cpu_limit: str,
     image_refresh_interval: datetime.timedelta = datetime.timedelta(hours=1),
 ) -> "Job":
     # TODO: why not just index the dict directly instead of dict_get_object?
@@ -495,7 +507,15 @@ def get_job_from_k8s(
     resources = podspec["template"]["spec"]["containers"][0].get("resources", {})
     resources_limits = resources.get("limits", {})
     memory = resources_limits.get("memory", Job.model_fields["memory"].default)
-    cpu = resources_limits.get("cpu", Job.model_fields["cpu"].default)
+    resources_requests = resources.get("requests", {})
+    cpu_limit = resources_limits.get("cpu", default_cpu_limit)
+    cpu_request = resources_requests.get("cpu", Job.model_fields["cpu"].default)
+    if parse_quantity(cpu_limit) == parse_quantity(default_cpu_limit) and (
+        parse_quantity(cpu_request) == parse_quantity(Job.model_fields["cpu"].default)
+    ):
+        cpu = Job.model_fields["cpu"].default
+    else:
+        cpu = cpu_limit
 
     k8s_command = podspec["template"]["spec"]["containers"][0]["command"]
     k8s_arguments = podspec["template"]["spec"]["containers"][0].get("args", [])

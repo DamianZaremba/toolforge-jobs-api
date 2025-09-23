@@ -60,6 +60,8 @@ class TestJobFromK8s:
             status_long="Unknown",
         )
 
-        gotten_job = jobs.get_job_from_k8s(object=k8s_object, kind="cronjobs")
+        gotten_job = jobs.get_job_from_k8s(
+            object=k8s_object, kind="cronjobs", default_cpu_limit="4000m"
+        )
 
         assert gotten_job == expected_job

@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     skip_metrics: bool = False
     skip_images: bool = False
     loki_url: AnyHttpUrl = AnyHttpUrl("http://loki-tools.loki.svc:3100/loki")
+    # default cpu limit is mainly needed to be configurable for lima-kilo
+    default_cpu_limit: str = "4000m"
 
 
 def get_settings() -> Settings:

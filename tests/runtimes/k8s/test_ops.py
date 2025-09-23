@@ -38,7 +38,7 @@ from tjf.runtimes.k8s.ops import create_error_from_k8s_response, validate_job_li
 
 @pytest.fixture
 def fake_job(fake_tool_account_uid: None, fake_images: dict[str, Any]) -> Job:
-    return get_job_from_k8s(CRONJOB_NOT_RUN_YET, "cronjobs")
+    return get_job_from_k8s(CRONJOB_NOT_RUN_YET, "cronjobs", default_cpu_limit="4000m")
 
 
 @pytest.fixture()
@@ -70,7 +70,7 @@ class TestCreateErrorFromK8sResponse:
         error = create_error_from_k8s_response(
             error=HTTPError("Foobar"),
             job=fake_job,
-            spec=get_job_for_k8s(fake_job),
+            spec=get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
             tool_account=fake_tool_account,
         )
         assert type(error) is TjfError
@@ -78,7 +78,7 @@ class TestCreateErrorFromK8sResponse:
             "Failed to create a job, likely an internal bug in the jobs framework.",
         )
         assert error.data == {
-            "k8s_object": get_job_for_k8s(fake_job),
+            "k8s_object": get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
             "k8s_error": "Foobar",
         }
 
@@ -94,7 +94,7 @@ class TestCreateErrorFromK8sResponse:
                 requests_mock, 500, {"message": "Something went wrong!"}
             ),
             job=fake_job,
-            spec=get_job_for_k8s(fake_job),
+            spec=get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
             tool_account=fake_tool_account,
         )
 
@@ -103,7 +103,7 @@ class TestCreateErrorFromK8sResponse:
             "Failed to create a job, likely an internal bug in the jobs framework.",
         )
         assert error.data == {
-            "k8s_object": get_job_for_k8s(fake_job),
+            "k8s_object": get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
             "k8s_error": {
                 "status_code": 500,
                 "body": json.dumps({"message": "Something went wrong!"}),
@@ -122,14 +122,14 @@ class TestCreateErrorFromK8sResponse:
         error = create_error_from_k8s_response(
             error=_create_fake_http_error(requests_mock, 409, response_data),
             job=fake_job,
-            spec=get_job_for_k8s(fake_job),
+            spec=get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
             tool_account=fake_tool_account,
         )
 
         assert type(error) is TjfValidationError
         assert error.args == ("An object with the same name exists already",)
         assert error.data == {
-            "k8s_object": get_job_for_k8s(fake_job),
+            "k8s_object": get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
             "k8s_error": {
                 "status_code": 409,
                 "body": json.dumps(response_data),

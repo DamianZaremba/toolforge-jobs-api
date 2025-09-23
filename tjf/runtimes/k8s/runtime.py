@@ -33,6 +33,7 @@ class K8sRuntime(BaseRuntime):
     def __init__(self, *, settings: Settings):
         self.image_refresh_interval = settings.images_config_refresh_interval
         self.loki_url = settings.loki_url
+        self.default_cpu_limit = settings.default_cpu_limit
 
     def get_jobs(self, *, tool: str) -> list[Job]:
         job_list = []
@@ -47,6 +48,7 @@ class K8sRuntime(BaseRuntime):
                     object=k8s_obj,
                     kind=kind,
                     image_refresh_interval=self.image_refresh_interval,
+                    default_cpu_limit=self.default_cpu_limit,
                 )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
@@ -68,6 +70,7 @@ class K8sRuntime(BaseRuntime):
                     object=k8s_obj,
                     kind=kind,
                     image_refresh_interval=self.image_refresh_interval,
+                    default_cpu_limit=self.default_cpu_limit,
                 )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
@@ -138,7 +141,7 @@ class K8sRuntime(BaseRuntime):
             raise TjfValidationError("File logging is only available with --mount=all")
         job.image = image
 
-        spec = get_job_for_k8s(job=job)
+        spec = get_job_for_k8s(job=job, default_cpu_limit=self.default_cpu_limit)
         LOGGER.debug(f"Got k8s spec: {spec}")
 
         self.create_service(job=job)
