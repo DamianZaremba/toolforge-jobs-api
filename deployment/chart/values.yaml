@@ -8,7 +8,7 @@ webservice:
   skip_metrics: "false"
   skip_images: "false"
   images_config_refresh_interval: "01:00:00"
-  default_cpu_limit: "4000m"
+  default_cpu_limit: "1000m"
   image:
     # name and tag are used by the ci to set the image repo and tag accordingly
     name: "tools-harbor.wmcloud.org/toolforge/jobs-api"
