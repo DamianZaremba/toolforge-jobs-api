@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from difflib import unified_diff
 from logging import getLogger
 from typing import Any, AsyncIterator, cast
@@ -103,8 +104,15 @@ class K8sRuntime(BaseRuntime):
             trigger_scheduled_job(user, job)
 
         elif isinstance(job, ContinuousJob):
-            # Simply delete the pods and let Kubernetes re-create them
-            user.k8s_cli.delete_objects("pods", label_selector=label_selector)
+            # Update the Deployment spec and let Kubernetes cycle the pods, this ensures a graceful restart
+            k8s_obj = user.k8s_cli.get_object("deployments", job.job_name)
+            if "annotations" not in k8s_obj["spec"]["template"]["metadata"]:
+                k8s_obj["spec"]["template"]["metadata"]["annotations"] = {}
+            k8s_obj["spec"]["template"]["metadata"]["annotations"] |= {
+                "app.kubernetes.io/restartedAt": datetime.now(timezone.utc).isoformat()
+            }
+            user.k8s_cli.replace_object("deployments", k8s_obj)
+
         elif isinstance(job, OneOffJob):
             raise TjfValidationError("Unable to restart a single job")
         else:
