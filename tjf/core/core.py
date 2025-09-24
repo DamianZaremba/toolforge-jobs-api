@@ -50,10 +50,7 @@ class Core:
             LOGGER.debug(f"Diff for job {job.job_name}: {diff}")
             if diff:
                 LOGGER.debug(f"Updating job {job.job_name}")
-                self.delete_job(job=job)
-                self.create_job(
-                    job=job,
-                )
+                self.runtime.update_job(tool=job.tool_name, job=job)
                 changed = True
                 message = f"Job {job.job_name} updated"
 

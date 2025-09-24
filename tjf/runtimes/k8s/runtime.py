@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from difflib import unified_diff
 from logging import getLogger
-from typing import Any, AsyncIterator, cast
+from typing import Any, AsyncIterator
 
 import requests
 from toolforge_weld.kubernetes import MountOption, parse_quantity
@@ -118,30 +118,65 @@ class K8sRuntime(BaseRuntime):
         else:
             raise TjfError(f"Unable to restart unknown job type: {job}")
 
-    def create_service(self, job: ContinuousJob) -> dict[str, Any] | None:
-        tool_account = ToolAccount(name=job.tool_name)
-        if job.port:
-            kind = "services"
-            spec = get_k8s_service_object(job)
+    def update_job(self, *, job: AnyJob, tool: str) -> None:
+        if isinstance(job, (ContinuousJob, ScheduledJob)):
+            # Update the Deployment/CronJob object spec, if this differs from the current spec,
+            # then Kubernetes will detect that and cycle all related pods, ensuring the pods are
+            # converged to the (new) specification.
+            #
+            # Note: This will only cycle/restart the pods if something in the template spec (hash)
+            # has changed, to explicitly restart the `restart_job` function should be used.
+            tool_account = ToolAccount(name=tool)
+            validate_job_limits(tool_account, job)
+
+            # Note: no guard by .port as in create_job, as this function will delete if there is no port specified
+            if isinstance(job, ContinuousJob):
+                self._create_or_delete_service(job=job)
+
+            spec = self._create_k8s_spec_for_job(job)
+            obj_kind = "deployments" if isinstance(job, ContinuousJob) else "cronjobs"
             try:
-                tool_account.k8s_cli.delete_object(kind=kind, name=spec["metadata"]["name"])
-            except requests.exceptions.HTTPError:
-                pass
-            try:
-                # TODO: fix the return type in toolforge-weld
-                return cast(
-                    dict[str, Any], tool_account.k8s_cli.create_object(kind=kind, spec=spec)
-                )
+                tool_account.k8s_cli.replace_object(obj_kind, spec)
             except requests.exceptions.HTTPError as error:
                 raise create_error_from_k8s_response(
                     error=error, job=job, spec=spec, tool_account=tool_account
                 )
+
+        else:
+            # Delete and re-create the objects
+            self.delete_job(tool=tool, job=job)
+            self.create_job(tool=tool, job=job)
+
+    def _create_or_delete_service(self, job: ContinuousJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
+        if job.port:
+            self._create_service(job)
+        else:
+            LOGGER.debug(
+                "Deleting services related to %s for tool %s", job.job_name, tool_account.name
+            )
+            obj_kind = "services"
+            tool_account.k8s_cli.delete_objects(
+                kind=obj_kind,
+                label_selector=labels_selector(
+                    job_name=job.job_name, user_name=tool_account.name, type=obj_kind
+                ),
+            )
         return None
 
-    def create_job(self, *, job: AnyJob, tool: str) -> None:
-        tool_account = ToolAccount(name=tool)
-        validate_job_limits(tool_account, job)
+    def _create_service(self, job: ContinuousJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
+        spec = get_k8s_service_object(job)
 
+        try:
+            tool_account.k8s_cli.replace_object("services", spec)
+        except requests.exceptions.HTTPError as error:
+            raise create_error_from_k8s_response(
+                error=error, job=job, spec=spec, tool_account=tool_account
+            )
+        return None
+
+    def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
         set_fields = job.model_dump(exclude_unset=True)
 
         image = image_by_name(
@@ -168,10 +203,16 @@ class K8sRuntime(BaseRuntime):
         # creates all the needed objects for that job
         spec = get_job_for_k8s(job=job, default_cpu_limit=self.default_cpu_limit)
         LOGGER.debug(f"Got k8s spec: {spec}")
+        return spec
 
-        if isinstance(job, ContinuousJob):
-            self.create_service(job=job)
+    def create_job(self, *, job: AnyJob, tool: str) -> None:
+        tool_account = ToolAccount(name=tool)
+        validate_job_limits(tool_account, job)
 
+        if isinstance(job, ContinuousJob) and job.port:
+            self._create_service(job=job)
+
+        spec = self._create_k8s_spec_for_job(job)
         try:
             k8s_result = tool_account.k8s_cli.create_object(
                 kind=K8sJobKind.from_job_type(job.job_type).api_path_name,
