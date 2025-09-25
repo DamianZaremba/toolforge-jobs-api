@@ -88,6 +88,8 @@ class CommonJob(BaseModel):
         return job_name
 
     def to_core_job(self, tool_name: str) -> CoreCommonJob:
+        if "continuous" in self.model_fields_set:
+            self.model_fields_set.remove("continuous")
         set_job_params = self.model_dump(exclude_unset=True)
 
         params = {
@@ -146,6 +148,7 @@ class CommonJob(BaseModel):
 class NewOneOffJob(CommonJob, BaseModel):
     job_type: Literal[JobType.ONE_OFF] = CoreOneOffJob.model_fields["job_type"].default
     retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields["retry"].default
+    continuous: Literal[False] = False
 
     def to_core_job(self, tool_name: str) -> CoreOneOffJob:
         common_core_fields = (
@@ -161,8 +164,11 @@ class NewScheduledJob(CommonJob, BaseModel):
     job_type: Literal[JobType.SCHEDULED] = CoreScheduledJob.model_fields["job_type"].default
     retry: Annotated[int, Field(ge=0, le=5)] = CoreScheduledJob.model_fields["retry"].default
     timeout: Annotated[int, Field(ge=0)] | None = CoreScheduledJob.model_fields["timeout"].default
+    continuous: Literal[False] = False
 
     def to_core_job(self, tool_name: str) -> CoreScheduledJob:
+        if "continuous" in self.model_fields_set:
+            self.model_fields_set.remove("continuous")
         common_core_fields = (
             super().to_core_job(tool_name=tool_name).model_dump(exclude_unset=True)
         )
@@ -204,6 +210,8 @@ class NewContinuousJob(CommonJob, BaseModel):
     )
 
     def to_core_job(self, tool_name: str) -> CoreContinuousJob:
+        if "continuous" in self.model_fields_set:
+            self.model_fields_set.remove("continuous")
         common_core_fields = (
             super().to_core_job(tool_name=tool_name).model_dump(exclude_unset=True)
         )
