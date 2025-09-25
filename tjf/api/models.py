@@ -410,6 +410,7 @@ class DefinedContinuousJob(DefinedCommonJob, BaseModel):
             if field in my_job.model_fields_set:
                 my_job.model_fields_set.remove(field)
         LOGGER.debug(f"Got {core_job}, \ngenerated {my_job}")
+        LOGGER.debug(f"Without unset: {my_job.model_dump(exclude_unset=True)}")
         return my_job
 
 

@@ -212,6 +212,7 @@ class K8sRuntime(BaseRuntime):
 
         current_job = self.get_job(job_name=job.job_name, tool=job.tool_name)
         if current_job is None:
+            LOGGER.debug(f"No current job found for job {job.job_name} for tool {job.tool_name}")
             raise TjfJobNotFoundError(
                 f"Unable to find job {job.job_name} for tool {job.tool_name}"
             )

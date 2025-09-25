@@ -61,10 +61,15 @@ def api_get_jobs(
         messages=ResponseMessages(),
     )
     if include_unset:
+        LOGGER.debug(f"Returning {response}")
         return response
     else:
         # FastAPI will not re-wrap the response if it's actually a fastapi.Response subclass
-        return JSONResponse(content=response.model_dump(exclude_unset=True, mode="json"))  # type: ignore
+        wrapped_response = JSONResponse(
+            content=response.model_dump(exclude_unset=True, mode="json")
+        )
+        LOGGER.debug(f"Returning {wrapped_response}")
+        return wrapped_response  # type: ignore
 
 
 @jobs.post("", status_code=http.HTTPStatus.CREATED)
@@ -99,7 +104,9 @@ def api_create_job(request: Request, toolname: str, new_job: AnyNewJob) -> JobRe
 def api_update_job(request: Request, toolname: str, new_job: AnyNewJob) -> UpdateResponse:
     ensure_authenticated(request=request)
     core = current_app(request).core
+    logging.debug(f"Generated NewJob: {new_job}")
     job = new_job.to_core_job(tool_name=toolname)
+    logging.debug(f"Generated CoreJob: {job}")
 
     message = core.update_job(job=job)
     messages = ResponseMessages(info=[message])
