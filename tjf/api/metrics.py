@@ -12,6 +12,12 @@ DEPRECATED_USAGE_COUNTER = Counter(
     labelnames=["path", "method", "deprecation_id", "user_agent"],
 )
 
+SYNCED_TO_STORAGE_COUNTER = Counter(
+    name="toolforge_synced_to_storage",
+    documentation="Counts the times we found something in the runtime that was not in storage",
+    labelnames=["tool_name"],
+)
+
 
 def inc_deprecated_usage(request: Request, deprecation_id: str) -> None:
     """
