@@ -17,6 +17,7 @@
 import functools
 import json
 import logging
+import re
 import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -54,6 +55,13 @@ class ImageType(str, Enum):
 
     def use_standard_nfs(self) -> bool:
         return self != ImageType.BUILDPACK
+
+    @staticmethod
+    def from_imagename(imagename: str) -> "ImageType":
+        if re.match(pattern=r"[^/]+/[^:]+:.+", string=imagename):
+            return ImageType.BUILDPACK
+
+        return ImageType.STANDARD
 
 
 class Image(BaseModel):

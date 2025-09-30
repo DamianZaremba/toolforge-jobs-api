@@ -2,7 +2,9 @@ import json
 import sys
 from pathlib import Path
 from typing import Any, Generator
+from unittest.mock import MagicMock
 
+import kubernetes  # type: ignore
 import pytest
 import requests_mock
 import yaml
@@ -17,6 +19,7 @@ from tjf.core.images import HarborConfig, _get_images_data
 from tjf.runtimes.k8s import jobs
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.settings import Settings
+from tjf.storages.k8s import storage
 
 TESTS_PATH = Path(__file__).parent.resolve()
 sys.path.append(str(TESTS_PATH))
@@ -161,7 +164,16 @@ def fake_images(monkeymodule, fake_harbor_content, patch_kube_config_loading) ->
 
 
 @pytest.fixture
-def app(monkeypatch: pytest.MonkeyPatch) -> Generator[JobsApi, None, None]:
+def storage_k8s_cli(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    k8s_mock = MagicMock(spec=kubernetes)
+    # needed to be able to catch and throw them
+    k8s_mock.client.ApiException = kubernetes.client.ApiException
+    monkeypatch.setattr(storage, "kubernetes", k8s_mock)
+    return k8s_mock.client.CustomObjectsApi()
+
+
+@pytest.fixture
+def app(storage_k8s_cli: MagicMock) -> Generator[JobsApi, None, None]:
     settings = Settings(debug=True, skip_metrics=False)
     app = create_app(settings=settings)
     yield app
