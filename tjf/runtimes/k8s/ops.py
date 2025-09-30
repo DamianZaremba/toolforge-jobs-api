@@ -98,7 +98,7 @@ def wait_for_pods_exit(
     )
 
     for _ in range(timeout * 2):
-        pods = tool.k8s_cli.get_objects("pods", label_selector=label_selector)
+        pods = tool.k8s_cli.get_objects(kind="pods", label_selector=label_selector)
         if len(pods) == 0:
             return True
         time.sleep(0.5)
