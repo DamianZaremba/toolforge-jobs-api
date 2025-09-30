@@ -1,6 +1,7 @@
 from typing import Any
 from unittest.mock import MagicMock
 
+from tjf.core.cron import CronExpression
 from tjf.core.images import HarborConfig, Image, ImageType
 from tjf.core.models import (
     AnyJob,
@@ -51,6 +52,12 @@ def get_dummy_job(**overrides) -> AnyJob:
         case JobType.ONE_OFF:
             return OneOffJob.model_validate(params)
         case JobType.SCHEDULED:
+            params["schedule"] = params.get(
+                "schedule",
+                CronExpression.parse(
+                    value="* * * * *", job_name=params["job_name"], tool_name=params["tool_name"]
+                ),
+            )
             return ScheduledJob.model_validate(params)
         case JobType.CONTINUOUS:
             return ContinuousJob.model_validate(params)

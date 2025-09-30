@@ -12,6 +12,7 @@ from tjf.core.utils import format_quantity, parse_and_format_mem
 from ..core.cron import CronExpression, CronParsingError
 from ..core.error import TjfValidationError
 from ..core.images import Image as ImageData
+from ..core.images import ImageType
 from ..core.models import (
     JOBNAME_MAX_LENGTH,
     JOBNAME_PATTERN,
@@ -88,8 +89,6 @@ class CommonJob(BaseModel):
         return job_name
 
     def to_core_job(self, tool_name: str) -> CoreCommonJob:
-        if "continuous" in self.model_fields_set:
-            self.model_fields_set.remove("continuous")
         set_job_params = self.model_dump(exclude_unset=True)
 
         params = {
@@ -115,6 +114,21 @@ class CommonJob(BaseModel):
                 params[param] = value
 
         my_job = CoreCommonJob.model_validate(params)
+
+        image_type = ImageType.from_imagename(self.imagename)
+        is_standard_image_and_mount_all = (
+            self.mount == MountOption.ALL and image_type == ImageType.STANDARD
+        )
+        is_buildpack_image_and_mount_none = (
+            self.mount == MountOption.ALL and image_type == ImageType.STANDARD
+        )
+        if (
+            is_standard_image_and_mount_all or is_buildpack_image_and_mount_none
+        ) and "mount" in self.model_fields_set:
+            # default for mount with buildpack is none, and for standard in all, we can remove this whole block when
+            # we move to the same defaults
+            self.model_fields_set.remove("mount")
+
         LOGGER.debug(f"Got {self}, \ngenerated {my_job}")
         return my_job
 
@@ -153,6 +167,8 @@ class NewOneOffJob(CommonJob, BaseModel):
     continuous: Literal[False] = False
 
     def to_core_job(self, tool_name: str) -> CoreOneOffJob:
+        if "continuous" in self.model_fields_set:
+            self.model_fields_set.remove("continuous")
         common_core_fields = (
             super().to_core_job(tool_name=tool_name).model_dump(exclude_unset=True)
         )
