@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.6.1"
+  version: "4.6.2"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -69,6 +69,13 @@ paths:
           required: true
           schema:
             type: string
+        - name: include_unset
+          in: query
+          description: "If unset or `true`, include all the fields including those that were not passed on job creation."
+          required: false
+          schema:
+            default: true
+            type: boolean
       responses:
         "200":
           description: "The list of jobs is returned."
