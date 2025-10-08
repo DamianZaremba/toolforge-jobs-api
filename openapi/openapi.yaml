@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.6.2"
+  version: "4.6.3"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -662,6 +662,14 @@ components:
               minimum: 1
               maximum: 65535
               example: 8080
+            port_protocol:
+              type: string
+              enum:
+                - "tcp"
+                - "udp"
+              description: "Protocol for the port exposed by the job"
+              example: "tcp"
+              default: "tcp"
             health_check:
               type:
                 - object
