@@ -189,43 +189,56 @@ class ContinuousJob(CommonJob, BaseModel):
 AnyJob = OneOffJob | ContinuousJob | ScheduledJob
 
 
-class QuotaCategoryType(Enum):
+class QuotaType(str, Enum):
     RUNNING_JOBS = "Running jobs"
     PER_JOB_LIMITS = "Per-job limits"
     JOB_DEFINITIONS = "Job definitions"
 
 
-class QuotaData(BaseModel):
-    category: QuotaCategoryType
-    name: str
-    limit: str
-    used: str | None = None
-
-
 class QuotaEntry(BaseModel):
-    name: str
+    label: str
     limit: str
     used: str | None = None
-
-
-class QuotaCategory(BaseModel):
-    name: str
-    items: list[QuotaEntry]
 
 
 class Quota(BaseModel):
-    categories: list[QuotaCategory]
+    quota_type: QuotaType
+    entries: list[QuotaEntry]
+
+
+class DeprecatedQuotaData(BaseModel):
+    category: QuotaType
+    name: str
+    limit: str
+    used: str | None = None
+
+
+class DeprecatedQuotaEntry(BaseModel):
+    name: str
+    limit: str
+    used: str | None = None
+
+
+class DeprecatedQuotaCategory(BaseModel):
+    name: str
+    items: list[DeprecatedQuotaEntry]
+
+
+class DeprecatedQuota(BaseModel):
+    categories: list[DeprecatedQuotaCategory]
 
     @classmethod
-    def from_quota_data(cls: Type["Quota"], quota_data: list[QuotaData]) -> "Quota":
+    def from_quota_data(
+        cls: Type["DeprecatedQuota"], quota_data: list[DeprecatedQuotaData]
+    ) -> "DeprecatedQuota":
         quota = cls(categories=[])
-        # size of both QuotaCategoryType and quota_data are limited so nested for-loop is fine
-        for type in QuotaCategoryType:
-            category = QuotaCategory(name=type.value, items=[])
+        # size of both QuotaType and quota_data are limited so nested for-loop is fine
+        for type in QuotaType:
+            category = DeprecatedQuotaCategory(name=type.value, items=[])
             for data in quota_data:
                 if data.category == type:
                     category.items.append(
-                        QuotaEntry(
+                        DeprecatedQuotaEntry(
                             name=data.name,
                             limit=data.limit,
                             used=data.used,

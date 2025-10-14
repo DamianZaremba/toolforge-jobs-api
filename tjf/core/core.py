@@ -24,7 +24,7 @@ from ..runtimes.k8s.runtime import K8sRuntime
 from ..settings import Settings
 from .error import TjfError, TjfJobNotFoundError, TjfValidationError
 from .images import Image
-from .models import AnyJob, QuotaData
+from .models import AnyJob, DeprecatedQuotaData, Quota
 
 LOGGER = logging.getLogger(__name__)
 
@@ -99,8 +99,11 @@ class Core:
     def get_images(self, toolname: str) -> list[Image]:
         return self.runtime.get_images(toolname=toolname)
 
-    def get_quotas(self, toolname: str) -> list[QuotaData]:
+    def get_quotas(self, toolname: str) -> list[Quota]:
         return self.runtime.get_quotas(tool=toolname)
+
+    def deprecated_get_quotas(self, toolname: str) -> list[DeprecatedQuotaData]:
+        return self.runtime.deprecated_get_quotas(tool=toolname)
 
     def get_jobs(self, toolname: str) -> list[AnyJob]:
         return self.runtime.get_jobs(tool=toolname)
