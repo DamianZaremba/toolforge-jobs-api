@@ -16,7 +16,7 @@
 #
 import logging
 from collections.abc import Mapping
-from typing import AsyncIterator
+from typing import AsyncIterator, Tuple
 
 from toolforge_weld.utils import apeek
 
@@ -42,8 +42,8 @@ class Core:
             raise TjfError("Unable to start job") from e
         return job
 
-    def update_job(self, job: AnyJob) -> str:
-        message = f"Job {job.job_name} is already up to date"
+    def update_job(self, job: AnyJob) -> Tuple[bool, str]:
+        changed, message = False, f"Job {job.job_name} is already up to date"
 
         try:
             diff = self.runtime.diff_with_running_job(job=job)
@@ -54,6 +54,7 @@ class Core:
                 self.create_job(
                     job=job,
                 )
+                changed = True
                 message = f"Job {job.job_name} updated"
 
         except TjfJobNotFoundError:
@@ -61,10 +62,11 @@ class Core:
             self.create_job(
                 job=job,
             )
+            changed = True
             message = f"Job {job.job_name} created"
 
         LOGGER.info(message)
-        return message
+        return changed, message
 
     async def get_logs(
         self, toolname: str, job_name: str, request_args: Mapping[str, str]

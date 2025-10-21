@@ -108,9 +108,9 @@ def api_update_job(request: Request, toolname: str, new_job: AnyNewJob) -> Updat
     job = new_job.to_core_job(tool_name=toolname)
     logging.debug(f"Generated CoreJob: {job}")
 
-    message = core.update_job(job=job)
+    job_changed, message = core.update_job(job=job)
     messages = ResponseMessages(info=[message])
-    return UpdateResponse(messages=messages)
+    return UpdateResponse(job_changed=job_changed, messages=messages)
 
 
 @jobs.delete("")

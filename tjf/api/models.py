@@ -480,6 +480,7 @@ class DeleteResponse(BaseModel):
 
 class UpdateResponse(BaseModel):
     messages: ResponseMessages
+    job_changed: bool
 
 
 class FlushResponse(BaseModel):
