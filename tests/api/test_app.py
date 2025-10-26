@@ -13,7 +13,9 @@ from tjf.api.app import error_handler
 from tjf.api.models import (
     JobListResponse,
     JobResponse,
+    NewContinuousJob,
     ResponseMessages,
+    UpdateResponse,
     get_job_for_api,
 )
 from tjf.api.utils import JobsApi
@@ -433,3 +435,113 @@ class TestApiGetJob:
 
         assert response_json is not None, "Response JSON is None"
         assert expected_response.model_dump(exclude_unset=False, mode="json") == response_json
+
+
+class TestApiUpdateJob:
+    def test_job_with_no_changes(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_job(
+            **{
+                # The model is validating `None` as a path and getting "None",
+                # then the diff errors because `"None"` and `null` are different...
+                "filelog_stderr": "/dev/null",
+                "filelog_stdout": "/dev/null",
+            }
+        )
+        monkeypatch.setattr(app.core.runtime, "get_job", value=lambda *args, **kwargs: dummy_job)
+
+        new_job = NewContinuousJob.model_validate(
+            {
+                "name": dummy_job.job_name,
+                "cmd": dummy_job.cmd,
+                "imagename": dummy_job.image.canonical_name,
+                "filelog_stderr": "/dev/null",
+                "filelog_stdout": "/dev/null",
+            }
+        )
+
+        expected_response = UpdateResponse(
+            job_changed=False,
+            messages=ResponseMessages(info=["Job silly-job-name is already up to date"]),
+        )
+        actual_response = client.patch(
+            "/v1/tool/silly-user/jobs/",
+            json=new_job.model_dump(mode="json"),
+            headers=fake_auth_headers,
+        )
+
+        assert UpdateResponse.model_validate(actual_response.json()) == expected_response
+
+    def test_job_with_changes(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_job(
+            **{
+                "filelog_stderr": "/dev/null",
+                "filelog_stdout": "/dev/random",
+            }
+        )
+        monkeypatch.setattr(app.core.runtime, "get_job", value=lambda *args, **kwargs: dummy_job)
+        monkeypatch.setattr(app.core.runtime, "delete_job", value=lambda *args, **kwargs: None)
+        monkeypatch.setattr(app.core.runtime, "create_job", value=lambda *args, **kwargs: None)
+
+        new_job = NewContinuousJob.model_validate(
+            {
+                "name": dummy_job.job_name,
+                "cmd": dummy_job.cmd,
+                "imagename": dummy_job.image.canonical_name,
+                "filelog_stderr": "/dev/null",
+                "filelog_stdout": "/dev/null",
+            }
+        )
+
+        expected_response = UpdateResponse(
+            job_changed=True, messages=ResponseMessages(info=["Job silly-job-name updated"])
+        )
+        actual_response = client.patch(
+            "/v1/tool/silly-user/jobs/",
+            json=new_job.model_dump(mode="json"),
+            headers=fake_auth_headers,
+        )
+
+        assert UpdateResponse.model_validate(actual_response.json()) == expected_response
+
+    def test_missing_job(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        monkeypatch.setattr(app.core.runtime, "get_job", value=lambda *args, **kwargs: None)
+        monkeypatch.setattr(app.core.runtime, "create_job", value=lambda *args, **kwargs: None)
+
+        new_job = NewContinuousJob.model_validate(
+            {
+                "name": "silly-job-name",
+                "cmd": "silly command",
+                "imagename": "silly-image",
+                "filelog_stderr": "/dev/null",
+                "filelog_stdout": "/dev/null",
+            }
+        )
+
+        expected_response = UpdateResponse(
+            job_changed=True, messages=ResponseMessages(info=["Job silly-job-name created"])
+        )
+        actual_response = client.patch(
+            "/v1/tool/silly-user/jobs/",
+            json=new_job.model_dump(mode="json"),
+            headers=fake_auth_headers,
+        )
+
+        assert UpdateResponse.model_validate(actual_response.json()) == expected_response
