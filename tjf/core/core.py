@@ -65,7 +65,7 @@ class Core:
             changed = True
             message = f"Job {job.job_name} created"
 
-        LOGGER.info(message)
+        LOGGER.info(f"{message} (changed: {changed})")
         return changed, message
 
     async def get_logs(
