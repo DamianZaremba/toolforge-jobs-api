@@ -16,8 +16,9 @@
 
 import logging
 from enum import Enum
+from typing import Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 LOGGER = logging.getLogger(__name__)
 
@@ -36,3 +37,16 @@ class Image(BaseModel):
     aliases: list[str] = []
     container: str | None = None
     state: str = "unknown"
+
+    @model_validator(mode="after")
+    def set_image_type(self) -> Self:
+        # a bit flaky, improve onece we move the image info to bulids-api
+        # needed here so we have that info when validating the jobs at the core layer, without getting into the runtime
+        if self.type is None:
+            if "/" in self.canonical_name:
+                self.type = ImageType.BUILDPACK
+
+            else:
+                self.type = ImageType.STANDARD
+
+        return self

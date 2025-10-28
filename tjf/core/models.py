@@ -15,6 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -27,13 +28,15 @@ from toolforge_weld.kubernetes import MountOption, parse_quantity
 from typing_extensions import Self
 
 from .cron import CronExpression
-from .images import Image
+from .images import Image, ImageType
 from .utils import (
     format_quantity,
     get_tool_home,
     parse_and_format_mem,
     resolve_filelog_path,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 # This is a restriction by Kubernetes:
 # a lowercase RFC 1123 subdomain must consist of lower case alphanumeric
@@ -119,7 +122,7 @@ class CommonJob(PydanticBaseModel):
     memory: str = parse_and_format_mem(JOB_DEFAULT_MEMORY)
     cpu: str = format_quantity(parse_quantity(JOB_DEFAULT_CPU))
     emails: EmailOption = EmailOption.none
-    mount: MountOption = MountOption.ALL
+    mount: MountOption = MountOption.NONE
     status_short: str | None = "Unknown"
     status_long: str | None = "Unknown"
 
@@ -135,6 +138,14 @@ class CommonJob(PydanticBaseModel):
 
     @model_validator(mode="after")
     def validate_common_job(self) -> Self:
+        LOGGER.debug(f"Validating common job: {self} (set fields {self.model_fields_set})")
+        # we rely on the image having set the type even if we have not yet verified it's a valid one
+        # (see the model validation)
+        if "mount" not in self.model_fields_set and self.image.type == ImageType.STANDARD:
+            LOGGER.debug("Found stardand image with default mount, setting to all")
+            self.mount = MountOption.ALL
+            self.model_fields_set.remove("mount")
+
         if self.filelog and self.mount != MountOption.ALL:
             raise ValueError("File logging is only available with --mount=all")
 

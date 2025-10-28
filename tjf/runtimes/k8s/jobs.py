@@ -522,7 +522,7 @@ def get_common_job_from_k8s(
     myjob = CommonJob.model_validate(params)
 
     # handle dynamic mount default
-    if image.type == ImageType.BUILDPACK and mount == MountOption.NONE:
+    if image.type == ImageType.STANDARD and mount == MountOption.ALL:
         if "mount" in myjob.model_fields_set:
             myjob.model_fields_set.remove("mount")
 
@@ -544,7 +544,7 @@ def get_oneoff_job_from_k8s(k8s_object: dict[str, Any], common_job: CommonJob) -
     params = {"job_type": JobType.ONE_OFF, **set_common_params, **optional_params}
     my_job = OneOffJob.model_validate(params)
     # Handle the dynamic mount option
-    if common_job.mount == MountOption.NONE and common_job.image.type == ImageType.BUILDPACK:
+    if common_job.image.type == ImageType.STANDARD and common_job.mount == MountOption.ALL:
         if "mount" in my_job.model_fields_set:
             my_job.model_fields_set.remove("mount")
         my_job.mount = common_job.mount

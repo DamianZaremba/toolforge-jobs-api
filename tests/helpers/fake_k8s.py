@@ -1004,8 +1004,9 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
         overrides["status_long"] = "No pods were created for this job."
 
     job = get_dummy_job(**(params | overrides))
-    # this is needed as the mount field has a dynamic default
-    job.model_fields_set.remove("mount")
+    if "mount" not in overrides:
+        # this is needed as the mount field has a dynamic default
+        job.model_fields_set.remove("mount")
     return job
 
 
