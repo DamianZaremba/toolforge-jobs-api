@@ -221,6 +221,11 @@ def image_by_name(name: str, refresh_interval: timedelta) -> Image:
             return image
 
     if "/" in name and ":" in name:
+        # Remove the harbor registry host prefix if it is present
+        harbor_host = get_harbor_config().host
+        if name.startswith(f"{harbor_host}/"):
+            name = name.removeprefix(f"{harbor_host}/")
+
         # harbor image?
         project, image_name = name.split("/", 1)
         image_name = image_name.split(":", 1)[0]

@@ -126,11 +126,26 @@ IMAGE_NAME_TESTS = [
         ),
     ],
 ]
+IMAGE_URL_TESTS = [
+    [
+        f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
+        Image(
+            canonical_name="tool-some-tool/some-container:latest",
+            type=ImageType.BUILDPACK,
+            container=f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest",
+            aliases=[
+                "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
+            ],
+            digest="sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
+            state="stable",
+        ),
+    ],
+]
 
 
 @pytest.mark.parametrize(
     ["name", "expected_image"],
-    IMAGE_NAME_TESTS,
+    IMAGE_NAME_TESTS + IMAGE_URL_TESTS,
 )
 def test_image_by_name(fake_images, name, expected_image):
     """Basic test for the image_by_name() func."""
