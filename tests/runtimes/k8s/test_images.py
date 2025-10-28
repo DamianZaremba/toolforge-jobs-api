@@ -18,13 +18,20 @@ IMAGE_NAME_TESTS = [
     ["php7.3", "docker-registry.tools.wmflabs.org/toolforge-php73-sssd-base:latest"],
     [
         "tool-some-tool/some-container:latest",
-        f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest",
+        f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
     ],
     [
         "tool-some-tool/some-container:stable",
-        f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:stable",
+        f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
     ],
-    ["tool-other/tagged:example", f"{FAKE_HARBOR_HOST}/tool-other/tagged:example"],
+    [
+        "tool-other/tagged:example",
+        f"{FAKE_HARBOR_HOST}/tool-other/tagged:example@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
+    ],
+    [
+        "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
+        f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
+    ],
 ]
 
 
