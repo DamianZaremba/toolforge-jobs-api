@@ -140,14 +140,12 @@ class CommonJob(PydanticBaseModel):
 
         if self.filelog:
             tool_home = get_tool_home(name=self.tool_name)
-            if not self.filelog_stdout:
-                self.filelog_stdout = resolve_filelog_path(
-                    path=self.filelog_stdout, home=tool_home, default=Path(f"{self.job_name}.out")
-                )
-            if not self.filelog_stderr:
-                self.filelog_stderr = resolve_filelog_path(
-                    path=self.filelog_stderr, home=tool_home, default=Path(f"{self.job_name}.err")
-                )
+            self.filelog_stdout = resolve_filelog_path(
+                path=self.filelog_stdout, home=tool_home, default=Path(f"{self.job_name}.out")
+            )
+            self.filelog_stderr = resolve_filelog_path(
+                path=self.filelog_stderr, home=tool_home, default=Path(f"{self.job_name}.err")
+            )
 
         return self
 
