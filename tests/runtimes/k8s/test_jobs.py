@@ -397,6 +397,30 @@ class TestGetJobForK8s:
                     ),
                 ],
             ],
+            [
+                "Test topologySpreadConstraints is set",
+                [
+                    {"job_name": "my-dummy-job"},
+                    lambda k8s_obj: (
+                        k8s_obj["spec"]["template"]["spec"]["topologySpreadConstraints"]
+                        == [
+                            {
+                                "maxSkew": 1,
+                                "topologyKey": "kubernetes.io/hostname",
+                                "whenUnsatisfiable": "ScheduleAnyway",
+                                "labelSelector": {
+                                    "matchLabels": {
+                                        "toolforge": "tool",
+                                        "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+                                        "app.kubernetes.io/created-by": "majavah-test",
+                                        "app.kubernetes.io/name": "my-dummy-job",
+                                    }
+                                },
+                            }
+                        ]
+                    ),
+                ],
+            ],
         )
         def test_generates_expected_k8s_object(
             self,
