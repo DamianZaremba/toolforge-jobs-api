@@ -236,6 +236,21 @@ def _get_common_k8s_podtemplate(*, job: AnyJob, default_cpu_limit: str) -> dict[
                     ),
                 }
             ],
+            "topologySpreadConstraints": [
+                {
+                    "maxSkew": 1,
+                    "topologyKey": "kubernetes.io/hostname",
+                    "whenUnsatisfiable": "ScheduleAnyway",
+                    "labelSelector": {
+                        "matchLabels": generate_labels(
+                            jobname=job.job_name,
+                            tool_name=job.tool_name,
+                            version=False,
+                            type=None,
+                        ),
+                    },
+                }
+            ],
         },
     }
 
