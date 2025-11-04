@@ -161,12 +161,13 @@ def get_harbor_images_for_name(project: str, name: str) -> list[Image]:
 
         for tag in artifact["tags"]:
             tag_name = tag["name"]
+            digest = artifact["digest"]
             images.append(
                 Image(
                     type=ImageType.BUILDPACK,
                     canonical_name=f"{project}/{name}:{tag_name}",
-                    aliases=[],
-                    container=f"{config.host}/{project}/{name}:{tag_name}",
+                    aliases=[f"{project}/{name}:{tag_name}@{digest}"],
+                    container=f"{config.host}/{project}/{name}:{tag_name}@{digest}",
                     state=HARBOR_IMAGE_STATE,
                 )
             )
@@ -223,7 +224,7 @@ def image_by_name(name: str, refresh_interval: timedelta) -> Image:
         project, image_name = name.split("/", 1)
         image_name, _ = image_name.split(":", 1)
         for image in get_harbor_images_for_name(project, image_name):
-            if image.canonical_name == name:
+            if image.canonical_name == name or name in image.aliases:
                 return image
 
     raise TjfValidationError(f"No such image '{name}'")
@@ -239,10 +240,17 @@ def image_by_container_url(url: str, refresh_interval: timedelta) -> Image:
         # we assume images loaded from URLs exist
 
         image_name_with_tag = url[len(harbor_config.host) + 1 :]
+
+        aliases = []
+        # If we have a digest, then strip it out for `canonical_name`, but keep it as an alias
+        if "@" in image_name_with_tag:
+            aliases.append(image_name_with_tag)
+            image_name_with_tag, _ = image_name_with_tag.split("@", 1)
+
         return Image(
             type=ImageType.BUILDPACK,
             canonical_name=image_name_with_tag,
-            aliases=[],
+            aliases=aliases,
             container=url,
             state=HARBOR_IMAGE_STATE,
         )
