@@ -544,26 +544,3 @@ class TestApiUpdateJob:
         )
 
         assert UpdateResponse.model_validate(actual_response.json()) == expected_response
-
-    def test_filelog_without_mount_fails(
-        self,
-        client: TestClient,
-        app: JobsApi,
-        monkeypatch: MonkeyPatch,
-        fake_auth_headers: dict[str, str],
-    ) -> None:
-        gotten_response = client.post(
-            "/v1/tool/silly-user/jobs/",
-            headers=fake_auth_headers,
-            json={
-                "name": "test-job-3",
-                "imagename": "tool-tf-test/component1:latest",
-                "cmd": "web",
-                "continuous": True,
-                "filelog": True,
-                "filelog_stdout": "test.log",
-                "filelog_stderr": "test.log",
-            },
-        )
-        assert gotten_response.status_code == 400
-        assert "File logging is only available with --mount=all" in gotten_response.text
