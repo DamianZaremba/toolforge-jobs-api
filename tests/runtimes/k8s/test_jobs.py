@@ -437,6 +437,23 @@ class TestGetJobForK8s:
                     ),
                 ],
             ],
+            [
+                "Test selector labels are set",
+                [
+                    {"job_name": "my-dummy-job"},
+                    lambda k8s_obj: (
+                        k8s_obj["spec"]["selector"]
+                        == {
+                            "matchLabels": {
+                                "toolforge": "tool",
+                                "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+                                "app.kubernetes.io/created-by": "majavah-test",
+                                "app.kubernetes.io/name": "my-dummy-job",
+                            }
+                        }
+                    ),
+                ],
+            ],
         )
         def test_generates_expected_k8s_object(
             self,
