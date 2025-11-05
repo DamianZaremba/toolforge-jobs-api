@@ -167,8 +167,9 @@ def get_harbor_images_for_name(project: str, name: str) -> list[Image]:
                     type=ImageType.BUILDPACK,
                     canonical_name=f"{project}/{name}:{tag_name}",
                     aliases=[f"{project}/{name}:{tag_name}@{digest}"],
-                    container=f"{config.host}/{project}/{name}:{tag_name}@{digest}",
+                    container=f"{config.host}/{project}/{name}:{tag_name}",
                     state=HARBOR_IMAGE_STATE,
+                    digest=digest,
                 )
             )
 
@@ -222,9 +223,15 @@ def image_by_name(name: str, refresh_interval: timedelta) -> Image:
     if "/" in name and ":" in name:
         # harbor image?
         project, image_name = name.split("/", 1)
-        image_name, _ = image_name.split(":", 1)
+        image_name = image_name.split(":", 1)[0]
+
         for image in get_harbor_images_for_name(project, image_name):
-            if image.canonical_name == name or name in image.aliases:
+            if image.canonical_name == name:
+                # canonical name does not have digest
+                image.digest = ""
+                return image
+            if name in image.aliases:
+                # aliases coming from harbor all have digest
                 return image
 
     raise TjfValidationError(f"No such image '{name}'")

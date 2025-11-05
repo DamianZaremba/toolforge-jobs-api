@@ -159,7 +159,9 @@ class TestGetJob:
             [
                 {"spec": {"template": {"spec": {"containers": [{"image": "ubuntu"}]}}}},
                 get_continuous_job_fixture_as_job(
-                    image=Image(canonical_name="ubuntu", type=ImageType.BUILDPACK)
+                    image=Image(
+                        canonical_name="ubuntu", container="ubuntu", type=ImageType.BUILDPACK
+                    )
                 ),
             ],
         ],
@@ -231,7 +233,9 @@ class TestGetJob:
             k8s_jobs_module,
             "image_by_container_url",
             lambda *args, url, **kwargs: Image(
-                type=ImageType.BUILDPACK, canonical_name="bullseye" if "bullseye" in url else url
+                type=ImageType.BUILDPACK,
+                canonical_name="bullseye" if "bullseye" in url else url,
+                container=url,
             ),
         )
         my_runtime = K8sRuntime(settings=get_settings())
