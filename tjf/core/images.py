@@ -37,6 +37,7 @@ class Image(BaseModel):
     aliases: list[str] = []
     container: str | None = None
     state: str = "unknown"
+    digest: str = ""
 
     @model_validator(mode="after")
     def set_image_type(self) -> Self:
@@ -50,3 +51,12 @@ class Image(BaseModel):
                 self.type = ImageType.STANDARD
 
         return self
+
+    def to_full_url(self) -> str:
+        if self.container is None:
+            raise ValueError("Can't generate full url as container is still null")
+
+        if self.digest:
+            return f"{self.container}@{self.digest}"
+
+        return self.container

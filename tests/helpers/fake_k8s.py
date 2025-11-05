@@ -992,6 +992,7 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
         # When creating a new job, the job that comes as input only has the canonical_name for the image
         image=Image(
             canonical_name="bullseye",
+            container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
             type=ImageType.BUILDPACK,
         ),
         job_type=JobType.CONTINUOUS,

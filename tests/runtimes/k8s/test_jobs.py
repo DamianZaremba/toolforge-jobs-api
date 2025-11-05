@@ -132,6 +132,7 @@ class TestJobFromK8s:
                 value=MagicMock(
                     return_value=Image(
                         type=ImageType.BUILDPACK,
+                        container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                         canonical_name="bullseye",
                     )
                 ),
@@ -152,6 +153,7 @@ class TestJobFromK8s:
                     return_value=Image(
                         type=ImageType.BUILDPACK,
                         canonical_name="bullseye",
+                        container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                     )
                 ),
             )
@@ -185,7 +187,13 @@ class TestGetJobForK8s:
             [
                 "Test mount none for buildpack image",
                 [
-                    {"image": Image(canonical_name="my-buildpack", type=ImageType.BUILDPACK)},
+                    {
+                        "image": Image(
+                            canonical_name="my-buildpack",
+                            container="tools-harbor.wmcloud.org/tool-mytool/tool-mytool:latest",
+                            type=ImageType.BUILDPACK,
+                        )
+                    },
                     lambda k8s_obj: k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
                     == "none",
                 ],
@@ -195,7 +203,11 @@ class TestGetJobForK8s:
                 [
                     {
                         "mount": MountOption.ALL,
-                        "image": Image(canonical_name="my-buildpack", type=ImageType.BUILDPACK),
+                        "image": Image(
+                            canonical_name="my-buildpack",
+                            container="tools-harbor.wmcloud.org/tool-mytool/tool-mytool:latest",
+                            type=ImageType.BUILDPACK,
+                        ),
                     },
                     lambda k8s_obj: k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
                     == "all",
@@ -206,7 +218,11 @@ class TestGetJobForK8s:
                 [
                     {
                         "mount": MountOption.ALL,
-                        "image": Image(canonical_name="my-non-buildpack", type=ImageType.STANDARD),
+                        "image": Image(
+                            canonical_name="my-non-buildpack",
+                            container="docker-registry.tools.wmflabs.org/toolforge-some-image:latest",
+                            type=ImageType.STANDARD,
+                        ),
                     },
                     lambda k8s_obj: k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
                     == "all",
