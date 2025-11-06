@@ -36,6 +36,8 @@ from ..core.models import ScheduledJob as CoreScheduledJob
 from ..core.models import (
     ScriptHealthCheck,
 )
+from ..runtimes.k8s.images import image_by_name
+from ..settings import get_settings
 
 LOGGER = getLogger(__name__)
 
@@ -96,7 +98,7 @@ class CommonJob(BaseModel):
             "cmd": self.cmd,
             "tool_name": tool_name,
             "job_name": self.name,
-            "image": ImageData(canonical_name=self.imagename),
+            "image": image_by_name(self.imagename, get_settings().images_config_refresh_interval),
         }
 
         for field in ["filelog", "filelog_stdout", "filelog_stderr"]:
