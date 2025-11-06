@@ -146,12 +146,12 @@ IMAGE_NAME_TESTS.extend(
 
 
 @pytest.mark.parametrize(
-    ["name", "canonical_name", "expected_image"],
+    ["provided_name", "expected_name", "expected_image"],
     IMAGE_NAME_TESTS,
 )
-def test_image_by_name(fake_images, name, canonical_name, expected_image):
+def test_image_by_name(fake_images, provided_name, expected_name, expected_image):
     """Basic test for the image_by_name() func."""
-    gotten_image = image_by_name(name, refresh_interval=datetime.timedelta(hours=0))
+    gotten_image = image_by_name(provided_name, refresh_interval=datetime.timedelta(hours=0))
     assert gotten_image == expected_image
 
 
@@ -161,16 +161,16 @@ def test_image_by_name_raises_value_error(fake_images):
 
 
 @pytest.mark.parametrize(
-    ["name", "canonical_name", "expected_image"],
+    ["provided_name", "expected_name", "expected_image"],
     IMAGE_NAME_TESTS,
 )
-def test_image_by_container_url(fake_images, name, canonical_name, expected_image: Image):
+def test_image_by_container_url(fake_images, provided_name, expected_name, expected_image: Image):
     """Basic test for the image_by_container_url() func."""
     image = image_by_container_url(
         expected_image.to_full_url(),
         refresh_interval=datetime.timedelta(hours=0),
     )
-    assert image.canonical_name == canonical_name or canonical_name in image.aliases
+    assert image.canonical_name == expected_name or expected_name in image.aliases
 
 
 def test_image_by_container_url_raises_value_error(fake_images):
