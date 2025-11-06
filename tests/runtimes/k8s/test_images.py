@@ -13,7 +13,7 @@ def test_available_images_len(fake_images):
     assert len(get_images(refresh_interval=datetime.timedelta(hours=0))) > 1
 
 
-IMAGE_VARIANTS_TESTS = [
+IMAGE_NAME_TESTS = [
     [
         "node12",
         Image(
@@ -128,9 +128,9 @@ IMAGE_VARIANTS_TESTS = [
 ]
 
 # Build a set of tests with and without the harbor registry prefix, based on IMAGE_VARIANTS_TESTS
-IMAGE_NAME_TESTS = [
+IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX = [
     [provided_name, expected_name, expected_image]
-    for expected_name, expected_image in IMAGE_VARIANTS_TESTS
+    for expected_name, expected_image in IMAGE_NAME_TESTS
     for provided_name in (
         [expected_name, f"{FAKE_HARBOR_HOST}/{expected_name}"]
         if expected_image.type == ImageType.BUILDPACK
@@ -141,7 +141,7 @@ IMAGE_NAME_TESTS = [
 
 @pytest.mark.parametrize(
     ["provided_name", "expected_name", "expected_image"],
-    IMAGE_NAME_TESTS,
+    IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX,
 )
 def test_image_by_name(fake_images, provided_name, expected_name, expected_image):
     """Basic test for the image_by_name() func."""
@@ -156,7 +156,7 @@ def test_image_by_name_raises_value_error(fake_images):
 
 @pytest.mark.parametrize(
     ["provided_name", "expected_name", "expected_image"],
-    IMAGE_NAME_TESTS,
+    IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX,
 )
 def test_image_by_container_url(fake_images, provided_name, expected_name, expected_image: Image):
     """Basic test for the image_by_container_url() func."""
