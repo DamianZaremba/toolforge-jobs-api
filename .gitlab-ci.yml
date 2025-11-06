@@ -1,6 +1,6 @@
 include:
   - project: "repos/cloud/cicd/gitlab-ci"
-    file: "py3.11-bookworm-tox/gitlab-ci.yaml"
+    file: "py3.13-trixie-tox/gitlab-ci.yaml"
   - project: "repos/cloud/cicd/gitlab-ci"
     file: "toolforge-cd/only_image_publish.yaml"
   - project: "repos/cloud/cicd/gitlab-ci"
