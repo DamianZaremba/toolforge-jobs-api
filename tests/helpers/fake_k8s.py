@@ -16,6 +16,11 @@ bullseye:
   variants:
     jobs-framework:
       image: docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd
+dummy-image:
+  state: stable
+  variants:
+    jobs-framework:
+      image: docker-registry.tools.wmflabs.org/toolforge-dummy-image
 node12:
   aliases:
   - tf-node12
