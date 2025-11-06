@@ -374,7 +374,12 @@ def _get_k8s_deployment_object(job: ContinuousJob, default_cpu_limit: str) -> K8
                 job=job, default_cpu_limit=default_cpu_limit
             ),
             "selector": {
-                "matchLabels": labels,
+                "matchLabels": generate_labels(
+                    jobname=job.job_name,
+                    tool_name=job.tool_name,
+                    version=False,
+                    type=None,
+                ),
             },
         },
     }
