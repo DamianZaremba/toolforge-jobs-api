@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from difflib import unified_diff
+from http import HTTPStatus
 from logging import getLogger
 from typing import Any, AsyncIterator
 
@@ -138,14 +139,24 @@ class K8sRuntime(BaseRuntime):
             try:
                 tool_account.k8s_cli.replace_object(obj_kind, spec)
             except requests.exceptions.HTTPError as error:
-                raise create_error_from_k8s_response(
-                    error=error, job=job, spec=spec, tool_account=tool_account
-                )
+                if (
+                    error.response is None
+                    or error.response.status_code != HTTPStatus.UNPROCESSABLE_ENTITY
+                ):
+                    raise create_error_from_k8s_response(
+                        error=error, job=job, spec=spec, tool_account=tool_account
+                    )
 
-        else:
-            # Delete and re-create the objects
-            self.delete_job(tool=tool, job=job)
-            self.create_job(tool=tool, job=job)
+                LOGGER.warning(
+                    f"Failed to patch k8s object, falling back to delete/create for {job.job_name} in {tool}: {error}"
+                )
+            else:
+                # Patch was successful
+                return
+
+        # Delete and re-create the objects
+        self.delete_job(tool=tool, job=job)
+        self.create_job(tool=tool, job=job)
 
     def _create_or_delete_service(self, job: ContinuousJob) -> None:
         tool_account = ToolAccount(name=job.tool_name)
