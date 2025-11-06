@@ -96,7 +96,7 @@ class CommonJob(BaseModel):
             "cmd": self.cmd,
             "tool_name": tool_name,
             "job_name": self.name,
-            "image": ImageData(canonical_name=self.imagename),
+            "image": ImageData.from_url(self.imagename),
         }
 
         for field in ["filelog", "filelog_stdout", "filelog_stderr"]:
