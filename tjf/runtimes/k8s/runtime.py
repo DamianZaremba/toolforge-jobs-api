@@ -23,7 +23,7 @@ from ...loki_logs import LokiSource
 from ...settings import Settings
 from ..base import BaseRuntime
 from .account import ToolAccount
-from .images import get_harbor_images, get_images, image_by_name
+from .images import get_harbor_images, get_images
 from .jobs import (
     K8sJobKind,
     format_logs,
@@ -190,25 +190,21 @@ class K8sRuntime(BaseRuntime):
     def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
         set_fields = job.model_dump(exclude_unset=True)
 
-        image = image_by_name(
-            name=job.image.canonical_name, refresh_interval=self.image_refresh_interval
-        )
         if not job.mount:
-            if image.type == ImageType.BUILDPACK:
+            if job.image.type == ImageType.BUILDPACK:
                 job.mount = MountOption.NONE
             else:
                 job.mount = MountOption.ALL
-        if image.type != ImageType.BUILDPACK and not job.mount.supports_non_buildservice:
+        if job.image.type != ImageType.BUILDPACK and not job.mount.supports_non_buildservice:
             raise TjfValidationError(
                 f"Mount type {job.mount.value} is only supported for build service images"
             )
 
-        if "filelog" not in set_fields and image.type != ImageType.BUILDPACK:
+        if "filelog" not in set_fields and job.image.type != ImageType.BUILDPACK:
             job.filelog = True
 
         if job.filelog and job.mount != MountOption.ALL:
             raise TjfValidationError("File logging is only available with --mount=all")
-        job.image = image
 
         # TODO,REFACTOR: instead of mixing creating multiple k8s objects, have a function for each type of job that
         # creates all the needed objects for that job
