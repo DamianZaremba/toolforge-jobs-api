@@ -1017,7 +1017,9 @@ def get_continuous_job_fixture_as_new_job(**overrides) -> AnyJob:
     fetch a job that matches the fixture without those fields as if it was being created anew.
     """
     new_job = get_continuous_job_fixture_as_job(add_status=False, **overrides)
-    new_job.image = Image(canonical_name=new_job.image.canonical_name)
+    new_job.image = Image(
+        canonical_name=new_job.image.canonical_name, container=new_job.image.container
+    )
     return new_job
 
 

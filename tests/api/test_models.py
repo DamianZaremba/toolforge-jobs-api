@@ -35,7 +35,7 @@ from tjf.core.models import (
 def get_dummy_core_common_job(**overrides) -> CoreCommonJob:
     params = dict(
         cmd="dummy-command",
-        image=Image(canonical_name="dummy-image"),
+        image=Image(canonical_name="dummy-image", container="dummy-image", aliases=[], digest=""),
         job_name="dummy-job-name",
         tool_name="dummy-tool",
     )
@@ -65,7 +65,9 @@ def get_dummy_defined_common_job(**overrides) -> DefinedCommonJob:
 def get_dummy_core_oneoff_job(**overrides) -> CoreOneOffJob:
     params = {
         "cmd": "dummy-command",
-        "image": Image(canonical_name="dummy-image"),
+        "image": Image(
+            canonical_name="dummy-image", container="dummy-image", aliases=[], digest=""
+        ),
         "job_name": "dummy-job-name",
         "tool_name": "dummy-tool",
     }
@@ -96,7 +98,7 @@ def get_dummy_defined_oneoff_job(**overrides) -> DefinedOneOffJob:
 def get_dummy_core_scheduled_job(**overrides) -> CoreScheduledJob:
     params = dict(
         cmd="dummy-command",
-        image=Image(canonical_name="dummy-image"),
+        image=Image(canonical_name="dummy-image", container="dummy-image", aliases=[], digest=""),
         job_name="dummy-job-name",
         tool_name="dummy-tool",
         schedule=CronExpression.parse(
@@ -136,7 +138,7 @@ def get_dummy_defined_scheduled_job(**overrides) -> DefinedScheduledJob:
 def get_dummy_core_continuous_job(**overrides) -> CoreContinuousJob:
     params = dict(
         cmd="dummy-command",
-        image=Image(canonical_name="dummy-image"),
+        image=Image(canonical_name="dummy-image", container="dummy-image", aliases=[], digest=""),
         job_name="dummy-job-name",
         tool_name="dummy-tool",
     )
@@ -167,7 +169,7 @@ def get_dummy_defined_continuous_job(**overrides) -> DefinedContinuousJob:
 
 
 class TestCommonJob:
-    def test_to_job_returns_expected_value_when_excluding_unset(self):
+    def test_to_job_returns_expected_value_when_excluding_unset(self, fake_harbor_config):
         my_job = get_dummy_common_job()
         expected_core_job = get_dummy_core_common_job()
 
@@ -177,7 +179,7 @@ class TestCommonJob:
             exclude_unset=True
         )
 
-    def test_to_job_returns_expected_value_when_including_unset(self):
+    def test_to_job_returns_expected_value_when_including_unset(self, fake_harbor_config):
         my_job = get_dummy_common_job()
         expected_core_job = get_dummy_core_common_job()
 
@@ -187,7 +189,7 @@ class TestCommonJob:
             exclude_unset=False
         )
 
-    def test_to_job_returns_expected_value_when_setting_all_fields(self):
+    def test_to_job_returns_expected_value_when_setting_all_fields(self, fake_harbor_config):
         # similar as before, but leaving for consistency and in case we add fields to it
         my_job = get_dummy_common_job(
             cpu="1000m",
@@ -213,7 +215,7 @@ class TestCommonJob:
 
 
 class TestNewOneOffJob:
-    def test_to_job_returns_expected_value_when_excluding_unset(self):
+    def test_to_job_returns_expected_value_when_excluding_unset(self, fake_harbor_config):
         my_job = get_dummy_new_oneoff_job()
         expected_core_job = get_dummy_core_oneoff_job()
 
@@ -223,7 +225,7 @@ class TestNewOneOffJob:
             exclude_unset=True
         )
 
-    def test_to_job_returns_expected_value_when_including_unset(self):
+    def test_to_job_returns_expected_value_when_including_unset(self, fake_harbor_config):
         my_job = get_dummy_new_oneoff_job()
         expected_core_job = get_dummy_core_oneoff_job()
 
@@ -233,7 +235,7 @@ class TestNewOneOffJob:
             exclude_unset=False
         )
 
-    def test_to_job_returns_expected_value_when_setting_all_fields(self):
+    def test_to_job_returns_expected_value_when_setting_all_fields(self, fake_harbor_config):
         # similar as before, but leaving for consistency and in case we add fields to it
         my_job = get_dummy_new_oneoff_job()
         expected_core_job = get_dummy_core_oneoff_job()
@@ -244,7 +246,7 @@ class TestNewOneOffJob:
 
 
 class TestNewScheduledJob:
-    def test_to_job_returns_expected_value_when_excluding_unset(self):
+    def test_to_job_returns_expected_value_when_excluding_unset(self, fake_harbor_config):
         my_job = get_dummy_new_scheduled_job()
         expected_core_job = get_dummy_core_scheduled_job()
 
@@ -254,7 +256,7 @@ class TestNewScheduledJob:
             exclude_unset=True
         )
 
-    def test_to_job_returns_expected_value_when_including_unset(self):
+    def test_to_job_returns_expected_value_when_including_unset(self, fake_harbor_config):
         my_job = get_dummy_new_scheduled_job()
         expected_core_job = get_dummy_core_scheduled_job()
 
@@ -264,7 +266,7 @@ class TestNewScheduledJob:
             exclude_unset=False
         )
 
-    def test_to_job_returns_expected_value_when_setting_all_fields(self):
+    def test_to_job_returns_expected_value_when_setting_all_fields(self, fake_harbor_config):
         my_job = get_dummy_new_scheduled_job(timeout=120)
         expected_core_job = get_dummy_core_scheduled_job(timeout=120)
 
@@ -274,7 +276,7 @@ class TestNewScheduledJob:
 
 
 class TestNewContinuousJob:
-    def test_to_job_returns_expected_value_when_excluding_unset(self):
+    def test_to_job_returns_expected_value_when_excluding_unset(self, fake_harbor_config):
         my_job = get_dummy_new_continuous_job()
         expected_core_job = get_dummy_core_continuous_job()
 
@@ -284,7 +286,7 @@ class TestNewContinuousJob:
             exclude_unset=True
         )
 
-    def test_to_job_returns_expected_value_when_including_unset(self):
+    def test_to_job_returns_expected_value_when_including_unset(self, fake_harbor_config):
         my_job = get_dummy_new_continuous_job()
         expected_core_job = get_dummy_core_continuous_job()
 
@@ -294,7 +296,7 @@ class TestNewContinuousJob:
             exclude_unset=False
         )
 
-    def test_to_job_returns_expected_value_when_all_fields_set(self):
+    def test_to_job_returns_expected_value_when_all_fields_set(self, fake_harbor_config):
         my_job = get_dummy_new_continuous_job(
             replicas=1,
             port=8080,
