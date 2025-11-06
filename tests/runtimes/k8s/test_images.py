@@ -16,6 +16,7 @@ def test_available_images_len(fake_images):
 IMAGE_NAME_TESTS = [
     [
         "node12",
+        "node12",
         Image(
             canonical_name="node12",
             type=ImageType.STANDARD,
@@ -26,6 +27,7 @@ IMAGE_NAME_TESTS = [
         ),
     ],
     [
+        "tf-node12",
         "tf-node12",
         Image(
             canonical_name="node12",
@@ -38,6 +40,7 @@ IMAGE_NAME_TESTS = [
     ],
     [
         "php7.3",
+        "php7.3",
         Image(
             canonical_name="php7.3",
             type=ImageType.STANDARD,
@@ -48,6 +51,7 @@ IMAGE_NAME_TESTS = [
         ),
     ],
     [
+        "tool-some-tool/some-container:latest",
         "tool-some-tool/some-container:latest",
         Image(
             canonical_name="tool-some-tool/some-container:latest",
@@ -62,6 +66,7 @@ IMAGE_NAME_TESTS = [
     ],
     [
         "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
+        "tool-some-tool/some-container:latest",
         Image(
             canonical_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
@@ -74,6 +79,7 @@ IMAGE_NAME_TESTS = [
         ),
     ],
     [
+        "tool-some-tool/some-container:stable",
         "tool-some-tool/some-container:stable",
         Image(
             canonical_name="tool-some-tool/some-container:stable",
@@ -88,6 +94,7 @@ IMAGE_NAME_TESTS = [
     ],
     [
         "tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
+        "tool-some-tool/some-container:stable",
         Image(
             canonical_name="tool-some-tool/some-container:stable",
             type=ImageType.BUILDPACK,
@@ -100,6 +107,7 @@ IMAGE_NAME_TESTS = [
         ),
     ],
     [
+        "tool-other/tagged:example",
         "tool-other/tagged:example",
         Image(
             canonical_name="tool-other/tagged:example",
@@ -114,6 +122,7 @@ IMAGE_NAME_TESTS = [
     ],
     [
         "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
+        "tool-some-tool/some-container:latest",
         Image(
             canonical_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
@@ -126,28 +135,21 @@ IMAGE_NAME_TESTS = [
         ),
     ],
 ]
-IMAGE_URL_TESTS = [
+IMAGE_NAME_TESTS.extend(
     [
-        f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
-        Image(
-            canonical_name="tool-some-tool/some-container:latest",
-            type=ImageType.BUILDPACK,
-            container=f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest",
-            aliases=[
-                "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
-            ],
-            digest="sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
-            state="stable",
-        ),
-    ],
-]
+        # For every build pack image, duplicate the test with the registry pre-pended
+        [f"{FAKE_HARBOR_HOST}/{name}", canonical_name, expected_image]
+        for name, canonical_name, expected_image in IMAGE_NAME_TESTS
+        if expected_image.type == ImageType.BUILDPACK
+    ]
+)
 
 
 @pytest.mark.parametrize(
-    ["name", "expected_image"],
-    IMAGE_NAME_TESTS + IMAGE_URL_TESTS,
+    ["name", "canonical_name", "expected_image"],
+    IMAGE_NAME_TESTS,
 )
-def test_image_by_name(fake_images, name, expected_image):
+def test_image_by_name(fake_images, name, canonical_name, expected_image):
     """Basic test for the image_by_name() func."""
     gotten_image = image_by_name(name, refresh_interval=datetime.timedelta(hours=0))
     assert gotten_image == expected_image
@@ -159,16 +161,16 @@ def test_image_by_name_raises_value_error(fake_images):
 
 
 @pytest.mark.parametrize(
-    ["name", "expected_image"],
+    ["name", "canonical_name", "expected_image"],
     IMAGE_NAME_TESTS,
 )
-def test_image_by_container_url(fake_images, name, expected_image: Image):
+def test_image_by_container_url(fake_images, name, canonical_name, expected_image: Image):
     """Basic test for the image_by_container_url() func."""
     image = image_by_container_url(
         expected_image.to_full_url(),
         refresh_interval=datetime.timedelta(hours=0),
     )
-    assert image.canonical_name == name or name in image.aliases
+    assert image.canonical_name == canonical_name or canonical_name in image.aliases
 
 
 def test_image_by_container_url_raises_value_error(fake_images):
