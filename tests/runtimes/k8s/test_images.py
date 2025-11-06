@@ -13,9 +13,8 @@ def test_available_images_len(fake_images):
     assert len(get_images(refresh_interval=datetime.timedelta(hours=0))) > 1
 
 
-IMAGE_NAME_TESTS = [
+IMAGE_VARIANTS_TESTS = [
     [
-        "node12",
         "node12",
         Image(
             canonical_name="node12",
@@ -28,7 +27,6 @@ IMAGE_NAME_TESTS = [
     ],
     [
         "tf-node12",
-        "tf-node12",
         Image(
             canonical_name="node12",
             type=ImageType.STANDARD,
@@ -39,7 +37,6 @@ IMAGE_NAME_TESTS = [
         ),
     ],
     [
-        "php7.3",
         "php7.3",
         Image(
             canonical_name="php7.3",
@@ -51,7 +48,6 @@ IMAGE_NAME_TESTS = [
         ),
     ],
     [
-        "tool-some-tool/some-container:latest",
         "tool-some-tool/some-container:latest",
         Image(
             canonical_name="tool-some-tool/some-container:latest",
@@ -66,7 +62,6 @@ IMAGE_NAME_TESTS = [
     ],
     [
         "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
-        "tool-some-tool/some-container:latest",
         Image(
             canonical_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
@@ -80,7 +75,6 @@ IMAGE_NAME_TESTS = [
     ],
     [
         "tool-some-tool/some-container:stable",
-        "tool-some-tool/some-container:stable",
         Image(
             canonical_name="tool-some-tool/some-container:stable",
             type=ImageType.BUILDPACK,
@@ -93,7 +87,6 @@ IMAGE_NAME_TESTS = [
         ),
     ],
     [
-        "tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
         "tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
         Image(
             canonical_name="tool-some-tool/some-container:stable",
@@ -108,7 +101,6 @@ IMAGE_NAME_TESTS = [
     ],
     [
         "tool-other/tagged:example",
-        "tool-other/tagged:example",
         Image(
             canonical_name="tool-other/tagged:example",
             type=ImageType.BUILDPACK,
@@ -122,7 +114,6 @@ IMAGE_NAME_TESTS = [
     ],
     [
         "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
-        "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
         Image(
             canonical_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
@@ -135,14 +126,17 @@ IMAGE_NAME_TESTS = [
         ),
     ],
 ]
-IMAGE_NAME_TESTS.extend(
-    [
-        # For every build pack image, duplicate the test with the registry pre-pended
-        [f"{FAKE_HARBOR_HOST}/{name}", canonical_name, expected_image]
-        for name, canonical_name, expected_image in IMAGE_NAME_TESTS
+
+# Build a set of tests with and without the harbor registry prefix, based on IMAGE_VARIANTS_TESTS
+IMAGE_NAME_TESTS = [
+    [provided_name, expected_name, expected_image]
+    for expected_name, expected_image in IMAGE_VARIANTS_TESTS
+    for provided_name in (
+        [expected_name, f"{FAKE_HARBOR_HOST}/{expected_name}"]
         if expected_image.type == ImageType.BUILDPACK
-    ]
-)
+        else [expected_name]
+    )
+]
 
 
 @pytest.mark.parametrize(
