@@ -94,7 +94,7 @@ IMAGE_NAME_TESTS = [
     ],
     [
         "tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
-        "tool-some-tool/some-container:stable",
+        "tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
         Image(
             canonical_name="tool-some-tool/some-container:stable",
             type=ImageType.BUILDPACK,
@@ -122,7 +122,7 @@ IMAGE_NAME_TESTS = [
     ],
     [
         "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
-        "tool-some-tool/some-container:latest",
+        "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
         Image(
             canonical_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
