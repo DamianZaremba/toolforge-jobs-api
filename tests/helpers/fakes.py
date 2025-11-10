@@ -1,7 +1,7 @@
 from typing import Any
 from unittest.mock import MagicMock
 
-from tjf.core.images import Image, ImageType
+from tjf.core.images import HarborConfig, Image, ImageType
 from tjf.core.models import (
     AnyJob,
     ContinuousJob,
@@ -10,7 +10,6 @@ from tjf.core.models import (
     ScheduledJob,
 )
 from tjf.runtimes.k8s.account import ToolAccount
-from tjf.runtimes.k8s.images import HarborConfig
 
 FAKE_HARBOR_HOST = "harbor.example.org"
 
