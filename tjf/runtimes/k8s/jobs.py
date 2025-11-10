@@ -14,7 +14,7 @@ from toolforge_weld.logs import LogEntry
 
 from ...core.cron import CronExpression
 from ...core.error import TjfError, TjfValidationError
-from ...core.images import ImageType
+from ...core.images import ImageType, get_image_by_container_url
 from ...core.models import (
     JOB_DEFAULT_CPU,
     JOB_DEFAULT_MEMORY,
@@ -33,7 +33,6 @@ from ...core.models import (
 from ...core.utils import dict_get_object, format_quantity, parse_and_format_mem
 from .command import get_command_for_k8s, get_command_from_k8s
 from .healthchecks import get_healthcheck_for_k8s
-from .images import image_by_container_url
 from .labels import generate_labels
 
 K8S_OBJECT_TYPE = dict[str, Any]
@@ -484,7 +483,7 @@ def get_common_job_from_k8s(
     )
     mount = MountOption(metadata["labels"].get("toolforge.org/mount-storage", MountOption.NONE))
     imageurl = podspec["template"]["spec"]["containers"][0]["image"]
-    image = image_by_container_url(url=imageurl, refresh_interval=image_refresh_interval)
+    image = get_image_by_container_url(url=imageurl, refresh_interval=image_refresh_interval)
     resources = podspec["template"]["spec"]["containers"][0].get("resources", {})
     resources_limits = resources.get("limits", {})
     memory = resources_limits.get("memory", CommonJob.model_fields["memory"].default)

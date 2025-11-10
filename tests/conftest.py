@@ -10,12 +10,12 @@ from fastapi.testclient import TestClient
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig, fake_kube_config
 
-import tjf.runtimes.k8s.images
+import tjf.core.images
 from tjf.api.app import JobsApi, create_app
 from tjf.api.auth import TOOL_HEADER
+from tjf.core.images import HarborConfig, _get_images_data
 from tjf.runtimes.k8s import jobs
 from tjf.runtimes.k8s.account import ToolAccount
-from tjf.runtimes.k8s.images import HarborConfig, get_images_data
 from tjf.settings import Settings
 
 TESTS_PATH = Path(__file__).parent.resolve()
@@ -82,7 +82,7 @@ def fake_tool_account(patch_kube_config_loading) -> ToolAccount:
 
 @pytest.fixture
 def fake_harbor_config(monkeymodule: pytest.MonkeyPatch) -> HarborConfig:
-    monkeymodule.setattr(tjf.runtimes.k8s.images, "get_harbor_config", get_fake_harbor_config)
+    monkeymodule.setattr(tjf.core.images, "_get_harbor_config", get_fake_harbor_config)
 
     return get_fake_harbor_config()
 
@@ -136,7 +136,7 @@ def fake_harbor_content(
 
 @pytest.fixture
 def fake_images(monkeymodule, fake_harbor_content, patch_kube_config_loading) -> dict[str, Any]:
-    get_images_data.cache_clear()
+    _get_images_data.cache_clear()
 
     def fake_init(*args, **kwargs):
         pass

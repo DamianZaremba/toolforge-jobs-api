@@ -4,13 +4,18 @@ import pytest
 
 from tests.helpers.fakes import FAKE_HARBOR_HOST
 from tjf.core.error import TjfError, TjfValidationError
-from tjf.core.images import Image, ImageType
-from tjf.runtimes.k8s.images import get_images, image_by_container_url, image_by_name
+from tjf.core.images import (
+    Image,
+    ImageType,
+    get_image_by_container_url,
+    get_image_by_name,
+    get_images,
+)
 
 
 def test_available_images_len(fake_images):
     """Basic test to check if the get_images returns available_images."""
-    assert len(get_images(refresh_interval=datetime.timedelta(hours=0))) > 1
+    assert len(get_images(refresh_interval=datetime.timedelta(hours=0), tool="some-tool")) > 1
 
 
 IMAGE_NAME_TESTS = [
@@ -143,30 +148,32 @@ IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX = [
     ["provided_name", "expected_name", "expected_image"],
     IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX,
 )
-def test_image_by_name(fake_images, provided_name, expected_name, expected_image):
-    """Basic test for the image_by_name() func."""
-    gotten_image = image_by_name(provided_name, refresh_interval=datetime.timedelta(hours=0))
+def test_get_image_by_name(fake_images, provided_name, expected_name, expected_image):
+    """Basic test for the get_image_by_name() func."""
+    gotten_image = get_image_by_name(provided_name, refresh_interval=datetime.timedelta(hours=0))
     assert gotten_image == expected_image
 
 
-def test_image_by_name_raises_value_error(fake_images):
+def test_get_image_by_name_raises_value_error(fake_images):
     with pytest.raises(TjfValidationError):
-        image_by_name("invalid", refresh_interval=datetime.timedelta(hours=0))
+        get_image_by_name("invalid", refresh_interval=datetime.timedelta(hours=0))
 
 
 @pytest.mark.parametrize(
     ["provided_name", "expected_name", "expected_image"],
     IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX,
 )
-def test_image_by_container_url(fake_images, provided_name, expected_name, expected_image: Image):
-    """Basic test for the image_by_container_url() func."""
-    image = image_by_container_url(
+def test_get_image_by_container_url(
+    fake_images, provided_name, expected_name, expected_image: Image
+):
+    """Basic test for the get_image_by_container_url() func."""
+    image = get_image_by_container_url(
         expected_image.to_full_url(),
         refresh_interval=datetime.timedelta(hours=0),
     )
     assert image.canonical_name == expected_name or expected_name in image.aliases
 
 
-def test_image_by_container_url_raises_value_error(fake_images):
+def test_get_image_by_container_url_raises_value_error(fake_images):
     with pytest.raises(TjfError):
-        image_by_container_url("invalid", refresh_interval=datetime.timedelta(hours=0))
+        get_image_by_container_url("invalid", refresh_interval=datetime.timedelta(hours=0))

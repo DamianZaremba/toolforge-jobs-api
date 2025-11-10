@@ -32,7 +32,7 @@ class TestJobFromK8s:
         def test_preserves_special_schedules(self, monkeypatch: MonkeyPatch):
             monkeypatch.setattr(
                 target=jobs,
-                name="image_by_container_url",
+                name="get_image_by_container_url",
                 value=MagicMock(
                     return_value=Image(
                         type=ImageType.STANDARD,
@@ -82,7 +82,7 @@ class TestJobFromK8s:
         def test_minimal_fields(self, monkeypatch: MonkeyPatch):
             monkeypatch.setattr(
                 target=jobs,
-                name="image_by_container_url",
+                name="get_image_by_container_url",
                 value=MagicMock(
                     return_value=Image(
                         type=ImageType.STANDARD,
@@ -104,7 +104,7 @@ class TestJobFromK8s:
         def test_all_fields(self, monkeypatch: MonkeyPatch):
             monkeypatch.setattr(
                 target=jobs,
-                name="image_by_container_url",
+                name="get_image_by_container_url",
                 value=MagicMock(
                     return_value=Image(
                         type=ImageType.STANDARD,
@@ -128,7 +128,7 @@ class TestJobFromK8s:
         def test_minimal_fields(self, monkeypatch: MonkeyPatch):
             monkeypatch.setattr(
                 target=jobs,
-                name="image_by_container_url",
+                name="get_image_by_container_url",
                 value=MagicMock(
                     return_value=Image(
                         type=ImageType.BUILDPACK,
@@ -148,7 +148,7 @@ class TestJobFromK8s:
         def test_all_fields(self, monkeypatch: MonkeyPatch):
             monkeypatch.setattr(
                 target=jobs,
-                name="image_by_container_url",
+                name="get_image_by_container_url",
                 value=MagicMock(
                     return_value=Image(
                         type=ImageType.BUILDPACK,
