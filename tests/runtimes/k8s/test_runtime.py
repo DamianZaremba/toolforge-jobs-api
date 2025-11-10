@@ -261,7 +261,7 @@ class TestDiffWithRunningJob:
             my_runtime.diff_with_running_job(job=new_job)
 
     def test_diff_with_running_job_returns_no_diff_for_same_jobs(
-        self, monkeypatch: pytest.MonkeyPatch
+        self, fake_harbor_config, monkeypatch: pytest.MonkeyPatch
     ):
         new_job = get_continuous_job_fixture_as_new_job()
         existing_job = get_continuous_job_fixture_as_job()
@@ -280,7 +280,10 @@ class TestDiffWithRunningJob:
         [
             "Different container image",
             get_continuous_job_fixture_as_job(
-                image=Image(canonical_name="different image than fixture")
+                image=Image(
+                    canonical_name="different image than fixture",
+                    container="docker-registry.tools.wmflabs.org/my-special-image:latest",
+                )
             ),
         ],
         ["Different cpu limit", get_continuous_job_fixture_as_job(cpu="200m")],
@@ -289,7 +292,7 @@ class TestDiffWithRunningJob:
         ["Different port", get_continuous_job_fixture_as_job(port=8080)],
     )
     def test_diff_with_running_job_returns_diff_str_for_different_jobs(
-        self, existing_job: AnyJob, monkeypatch: pytest.MonkeyPatch
+        self, existing_job: AnyJob, fake_harbor_config, monkeypatch: pytest.MonkeyPatch
     ):
         new_job = get_continuous_job_fixture_as_new_job()
         my_runtime = K8sRuntime(settings=get_settings())
@@ -298,7 +301,9 @@ class TestDiffWithRunningJob:
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert "+++" in diff
 
-    def test_launcher_gets_stripped_from_new_job(self, monkeypatch: pytest.MonkeyPatch):
+    def test_launcher_gets_stripped_from_new_job(
+        self, fake_harbor_config, monkeypatch: pytest.MonkeyPatch
+    ):
         new_job = get_continuous_job_fixture_as_new_job(cmd="launcher mycommand")
         existing_job = get_continuous_job_fixture_as_job(cmd="mycommand")
         my_runtime = K8sRuntime(settings=get_settings())
@@ -308,13 +313,22 @@ class TestDiffWithRunningJob:
         assert diff == ""
 
     def test_launcher_does_not_get_stripped_from_new_job_if_not_buildpack(
-        self, monkeypatch: pytest.MonkeyPatch
+        self, fake_harbor_config, monkeypatch: pytest.MonkeyPatch
     ):
         new_job = get_continuous_job_fixture_as_new_job(
-            cmd="launcher mycommand", image=Image(canonical_name="bullseye")
+            cmd="launcher mycommand",
+            image=Image(
+                canonical_name="bullseye",
+                container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd",
+            ),
         )
         existing_job = get_continuous_job_fixture_as_job(
-            cmd="mycommand", image=Image(canonical_name="bullseye", type=ImageType.STANDARD)
+            cmd="mycommand",
+            image=Image(
+                canonical_name="bullseye",
+                type=ImageType.STANDARD,
+                container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd",
+            ),
         )
         my_runtime = K8sRuntime(settings=get_settings())
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)

@@ -86,6 +86,28 @@ class Image(BaseModel):
 
         return self.container
 
+    @classmethod
+    def from_url(cls, url: str) -> "Image":
+        harbor_host = _get_harbor_config().host
+        if url.startswith(f"{harbor_host}/"):
+            image_name_with_tag = url.removeprefix(f"{harbor_host}/")
+        else:
+            image_name_with_tag = url
+
+        aliases, digest = [], ""
+        # If we have a digest, then strip it out for `canonical_name`, but keep it as an alias
+        if "@" in image_name_with_tag:
+            aliases.append(image_name_with_tag)
+            image_name_with_tag, digest = url.split("@", 1)
+
+        return cls(
+            type=ImageType.BUILDPACK if "/" in url else ImageType.STANDARD,
+            canonical_name=image_name_with_tag,
+            aliases=aliases,
+            container=url,
+            digest=digest,
+        )
+
 
 def _get_harbor_project(tool: str) -> str:
     return f"tool-{tool}"
@@ -290,22 +312,6 @@ def get_image_by_container_url(url: str, refresh_interval: timedelta) -> Image:
 
     harbor_config = _get_harbor_config()
     if url.startswith(harbor_config.host):
-        # we assume images loaded from URLs exist
-
-        image_name_with_tag = url[len(harbor_config.host) + 1 :]
-
-        aliases = []
-        # If we have a digest, then strip it out for `canonical_name`, but keep it as an alias
-        if "@" in image_name_with_tag:
-            aliases.append(image_name_with_tag)
-            image_name_with_tag, _ = image_name_with_tag.split("@", 1)
-
-        return Image(
-            type=ImageType.BUILDPACK,
-            canonical_name=image_name_with_tag,
-            aliases=aliases,
-            container=url,
-            state=HARBOR_IMAGE_STATE,
-        )
+        return Image.from_url(url)
 
     raise TjfError("Unable to find image in the supported list or harbor", data={"image": url})

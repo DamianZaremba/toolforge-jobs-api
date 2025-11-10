@@ -38,7 +38,7 @@ def get_dummy_job(**overrides) -> AnyJob:
             type=ImageType.BUILDPACK,
             canonical_name="silly-image",
             aliases=[],
-            container="silly-container",
+            container="silly-image",
             state="silly state",
         ),
         "job_name": "silly-job-name",

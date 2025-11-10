@@ -442,6 +442,7 @@ class TestApiUpdateJob:
         self,
         client: TestClient,
         app: JobsApi,
+        fake_harbor_config,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:
@@ -453,6 +454,7 @@ class TestApiUpdateJob:
                 "filelog_stdout": "/dev/null",
             }
         )
+
         monkeypatch.setattr(app.core.runtime, "get_job", value=lambda *args, **kwargs: dummy_job)
 
         new_job = NewContinuousJob.model_validate(
@@ -481,6 +483,7 @@ class TestApiUpdateJob:
         self,
         client: TestClient,
         app: JobsApi,
+        fake_harbor_config,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:
@@ -518,6 +521,7 @@ class TestApiUpdateJob:
         self,
         client: TestClient,
         app: JobsApi,
+        fake_harbor_config,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:

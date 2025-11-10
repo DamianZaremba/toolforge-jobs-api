@@ -285,9 +285,11 @@ class K8sRuntime(BaseRuntime):
         # Note: the incoming job does not have an image type, so we get it from the existing job
         if job.cmd.startswith("launcher ") and current_job.image.type == ImageType.BUILDPACK:
             job.cmd = job.cmd.split(" ", 1)[-1]
+
         # imagestate and other fields are not available for the incoming job,
         # so normalize by remove those from here too, done after checking the type
-        current_job.image = Image(canonical_name=current_job.image.canonical_name)
+        job.image = Image.from_url(job.image.to_full_url())
+        current_job.image = Image.from_url(current_job.image.to_full_url())
 
         clean_current_job = current_job.model_dump_json(
             exclude={"k8s_object", "status_short", "status_long"}, indent=4
