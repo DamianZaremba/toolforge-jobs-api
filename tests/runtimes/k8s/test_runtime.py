@@ -12,10 +12,10 @@ from tests.helpers.fake_k8s import (
 )
 from tests.test_utils import cases, patch_spec
 from tjf.core.error import TjfJobNotFoundError
+from tjf.core.images import Image, ImageType
 from tjf.core.models import AnyJob, EmailOption
 from tjf.runtimes.k8s import jobs as k8s_jobs_module
 from tjf.runtimes.k8s.account import ToolAccount
-from tjf.runtimes.k8s.images import Image, ImageType
 from tjf.runtimes.k8s.runtime import K8sRuntime
 from tjf.settings import get_settings
 
@@ -231,7 +231,7 @@ class TestGetJob:
         )
         monkeypatch.setattr(
             k8s_jobs_module,
-            "image_by_container_url",
+            "get_image_by_container_url",
             lambda *args, url, **kwargs: Image(
                 type=ImageType.BUILDPACK,
                 canonical_name="bullseye" if "bullseye" in url else url,

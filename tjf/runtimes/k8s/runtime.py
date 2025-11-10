@@ -8,7 +8,12 @@ import requests
 from toolforge_weld.kubernetes import MountOption, parse_quantity
 
 from ...core.error import TjfError, TjfJobNotFoundError, TjfValidationError
-from ...core.images import Image, ImageType
+from ...core.images import (
+    Image,
+    ImageType,
+    get_image_by_name,
+    get_images,
+)
 from ...core.models import (
     AnyJob,
     ContinuousJob,
@@ -23,7 +28,6 @@ from ...loki_logs import LokiSource
 from ...settings import Settings
 from ..base import BaseRuntime
 from .account import ToolAccount
-from .images import get_harbor_images, get_images, image_by_name
 from .jobs import (
     K8sJobKind,
     format_logs,
@@ -190,7 +194,7 @@ class K8sRuntime(BaseRuntime):
     def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
         set_fields = job.model_dump(exclude_unset=True)
 
-        image = image_by_name(
+        image = get_image_by_name(
             name=job.image.canonical_name, refresh_interval=self.image_refresh_interval
         )
         if not job.mount:
@@ -389,9 +393,7 @@ class K8sRuntime(BaseRuntime):
             yield format_logs(log)
 
     def get_images(self, toolname: str) -> list[Image]:
-        images = get_images(refresh_interval=self.image_refresh_interval) + get_harbor_images(
-            tool=toolname
-        )
+        images = get_images(tool=toolname, refresh_interval=self.image_refresh_interval)
         images = [
             image
             for image in sorted(images, key=lambda image: image.canonical_name)
