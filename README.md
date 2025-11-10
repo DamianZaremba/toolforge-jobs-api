@@ -60,14 +60,3 @@ Make code changes, and follow from step 1 onwards. Probably something like this:
 ```shell
 lima-kilo::~/jobs-api$ git fetch --all && git reset --hard FETCH_HEAD && docker buildx build --target image -f .pipeline/blubber.yaml -t toolsbeta-harbor.wmcloud.org/toolforge/jobs-api:dev . && kind load docker-image toolsbeta-harbor.wmcloud.org/toolforge/jobs-api:dev -n toolforge && kubectl -n jobs-api rollout restart deployment/jobs-api
 ```
-
-## Contributing
-
-Pull requests are welcome. For major changes, please open an issue first to
-discuss what you would like to change.
-
-Please make sure to update tests as appropriate.
-
-## License
-
-[AGPLv3](https://choosealicense.com/licenses/agpl-3.0/)
