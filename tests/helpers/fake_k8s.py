@@ -15,7 +15,7 @@ bullseye:
   state: stable
   variants:
     jobs-framework:
-      image: docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd
+      image: tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd
 node12:
   aliases:
   - tf-node12
@@ -23,18 +23,18 @@ node12:
   state: deprecated
   variants:
     jobs-framework:
-      image: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base
+      image: tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-node12-sssd-base
     webservice:
-      image: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-web
+      image: tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-node12-sssd-web
 node16:
   aliases:
   - tf-node16
   state: stable
   variants:
     jobs-framework:
-      image: docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base
+      image: tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-node16-sssd-base
     webservice:
-      image: docker-registry.tools.wmflabs.org/toolforge-node16-sssd-web
+      image: tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-node16-sssd-web
 php7.3:
   aliases:
   - tf-php73
@@ -42,18 +42,18 @@ php7.3:
   state: deprecated
   variants:
     jobs-framework:
-      image: docker-registry.tools.wmflabs.org/toolforge-php73-sssd-base
+      image: tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-php73-sssd-base
     webservice:
-      image: docker-registry.tools.wmflabs.org/toolforge-php73-sssd-web
+      image: tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-php73-sssd-web
 php7.4:
   aliases:
   - tf-php74
   state: stable
   variants:
     jobs-framework:
-      image: docker-registry.tools.wmflabs.org/toolforge-php74-sssd-base
+      image: tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-php74-sssd-base
     webservice:
-      image: docker-registry.tools.wmflabs.org/toolforge-php74-sssd-web
+      image: tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-php74-sssd-web
 """
 
 FAKE_K8S_HOST = "k8s.example.org"
@@ -112,7 +112,7 @@ CRONJOB_NOT_RUN_YET = {
                                     "--",
                                     "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                                 ],
-                                "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",  # noqa:E501
+                                "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",  # noqa:E501
                                 "imagePullPolicy": "Always",
                                 "name": "job",
                                 "resources": {},
@@ -193,7 +193,7 @@ CRONJOB_PREVIOUS_RUN_BUT_NO_RUNNING_JOB = {
                                     "--",
                                     "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                                 ],
-                                "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",  # noqa:E501
+                                "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",  # noqa:E501
                                 "imagePullPolicy": "Always",
                                 "name": "job",
                                 "resources": {},
@@ -274,7 +274,7 @@ CRONJOB_WITH_RUNNING_JOB = {
                                     "--",
                                     "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                                 ],
-                                "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",  # noqa:E501
+                                "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",  # noqa:E501
                                 "imagePullPolicy": "Always",
                                 "name": "job",
                                 "resources": {},
@@ -380,7 +380,7 @@ JOB_FROM_A_CRONJOB = {
                             "--",
                             "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                         ],
-                        "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+                        "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
                         "name": "job",
                         "resources": {},
@@ -465,7 +465,7 @@ JOB_FROM_A_CRONJOB_RESTART = {
                             "--",
                             "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                         ],
-                        "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+                        "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
                         "name": "job",
                         "resources": {
@@ -540,7 +540,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_OLD_ARRAY = {
                             "--",
                             "./command-by-the-user.sh --with-args 1>>/dev/null 2>>/dev/null",
                         ],
-                        "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+                        "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
                         "name": "myjob",
                         "workingDir": "/data/project/test",
@@ -604,7 +604,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_OLD_ARRAY = {
                             "--",
                             "./command-by-the-user.sh --with-args 1>>myjob.out 2>>myjob.err",
                         ],
-                        "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+                        "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
                         "name": "myjob",
                         "workingDir": "/data/project/test",
@@ -668,7 +668,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_NEW_ARRAY = {
                             "--",
                             "exec 1>>/dev/null;exec 2>>/dev/null;./command-by-the-user.sh --with-args ; ./other-command.sh",  # noqa:E501
                         ],
-                        "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+                        "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
                         "name": "myjob",
                         "workingDir": "/data/project/test",
@@ -729,7 +729,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_V2_ARRAY = {
                             "--",
                             "./command-by-the-user.sh --with-args ; ./other-command.sh",  # noqa:E501
                         ],
-                        "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+                        "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
                         "name": "myjob",
                         "workingDir": "/data/project/test",
@@ -796,7 +796,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_NEW_ARRAY = {
                             "--",
                             "exec 1>>/data/project/test/myjob.out;exec 2>>/data/project/test/myjob.err;./command-by-the-user.sh --with-args ; ./other-command.sh",  # noqa:E501
                         ],
-                        "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+                        "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
                         "name": "myjob",
                         "workingDir": "/data/project/test",
@@ -862,7 +862,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT = {
                             "--",
                             "exec 1>>/data/project/test/logs/myjob.log;exec 2>>myjob.err;./command-by-the-user.sh --with-args",  # noqa:E501
                         ],
-                        "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+                        "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
                         "name": "myjob",
                         "workingDir": "/data/project/test",
@@ -928,7 +928,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT_STDERR = {
                             "--",
                             "exec 1>>/dev/null;exec 2>>logs/customlog.err;./command-by-the-user.sh --with-args",  # noqa:E501
                         ],
-                        "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+                        "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
                         "name": "myjob",
                         "workingDir": "/data/project/test",
@@ -992,7 +992,7 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
         # When creating a new job, the job that comes as input only has the canonical_name for the image
         image=Image(
             canonical_name="bullseye",
-            container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+            container="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",
             type=ImageType.BUILDPACK,
         ),
         job_type=JobType.CONTINUOUS,
@@ -1031,10 +1031,10 @@ def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJo
         cmd="date",
         # When creating a new job, the job that comes as input only has the canonical_name for the image
         image=Image(
-            canonical_name="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+            canonical_name="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-python311-sssd-base:latest",
             type=ImageType.STANDARD,
             state="stable",
-            container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+            container="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-python311-sssd-base:latest",
         ),
         job_type=JobType.ONE_OFF,
         tool_name="tf-test",
