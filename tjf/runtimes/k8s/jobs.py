@@ -1,4 +1,3 @@
-import datetime
 import json
 import pwd
 import time
@@ -458,7 +457,6 @@ def get_common_job_from_k8s(
     k8s_object: dict[str, Any],
     kind: str,
     default_cpu_limit: str,
-    image_refresh_interval: datetime.timedelta = datetime.timedelta(hours=1),
 ) -> CommonJob:
     # TODO: why not just index the dict directly instead of dict_get_object?
     spec = dict_get_object(k8s_object, "spec")
@@ -483,7 +481,7 @@ def get_common_job_from_k8s(
     )
     mount = MountOption(metadata["labels"].get("toolforge.org/mount-storage", MountOption.NONE))
     imageurl = podspec["template"]["spec"]["containers"][0]["image"]
-    image = get_image_by_container_url(url=imageurl, refresh_interval=image_refresh_interval)
+    image = get_image_by_container_url(url=imageurl)
     resources = podspec["template"]["spec"]["containers"][0].get("resources", {})
     resources_limits = resources.get("limits", {})
     memory = resources_limits.get("memory", CommonJob.model_fields["memory"].default)
@@ -689,12 +687,10 @@ def get_job_from_k8s(
     k8s_object: dict[str, Any],
     kind: str,
     default_cpu_limit: str,
-    image_refresh_interval: datetime.timedelta = datetime.timedelta(hours=1),
 ) -> AnyJob:
     common_job = get_common_job_from_k8s(
         k8s_object=k8s_object,
         kind=kind,
-        image_refresh_interval=image_refresh_interval,
         default_cpu_limit=default_cpu_limit,
     )
     match kind:

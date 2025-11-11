@@ -19,7 +19,7 @@ import json
 import logging
 import urllib.parse
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from typing import Any, Self
 
@@ -145,7 +145,9 @@ def _get_images_data() -> dict[str, Any]:
     }
 
 
-def _get_prebuilt_images(refresh_interval: timedelta) -> list[Image]:
+def _get_prebuilt_images() -> list[Image]:
+    settings = get_settings()
+    refresh_interval = settings.images_config_refresh_interval
     LOGGER.debug("Fetching cached images data")
     result = _get_images_data()
     refresh_if_older = datetime.now() - refresh_interval
@@ -274,13 +276,13 @@ def _get_harbor_images(tool: str) -> list[Image]:
     return images
 
 
-def get_images(tool: str, refresh_interval: timedelta) -> list[Image]:
+def get_images(tool: str) -> list[Image]:
     # TODO: eventually replace with a call to builds-api, so we don't need to interact with harbor or image-config
-    return _get_prebuilt_images(refresh_interval=refresh_interval) + _get_harbor_images(tool=tool)
+    return _get_prebuilt_images() + _get_harbor_images(tool=tool)
 
 
-def get_image_by_name(name: str, refresh_interval: timedelta) -> Image:
-    for image in _get_prebuilt_images(refresh_interval=refresh_interval):
+def get_image_by_name(name: str) -> Image:
+    for image in _get_prebuilt_images():
         if image.canonical_name == name or name in image.aliases:
             return image
 
@@ -306,8 +308,8 @@ def get_image_by_name(name: str, refresh_interval: timedelta) -> Image:
     raise TjfValidationError(f"No such image '{name}'")
 
 
-def get_image_by_container_url(url: str, refresh_interval: timedelta) -> Image:
-    for image in _get_prebuilt_images(refresh_interval=refresh_interval):
+def get_image_by_container_url(url: str) -> Image:
+    for image in _get_prebuilt_images():
         if image.container == url:
             return image
 
