@@ -106,6 +106,7 @@ class Image(BaseModel):
         * image path with digest: "tool-<mytool>/<myimage>:latest@sha256:123454..."
         * image path with host: "harbor.example.org/tool-<mytool>/<myimage>:latest"
         * image path with host and digest: "harbor.example.org/tool-<mytool>/<myimage>:latest@sha256:123454..."
+        * image path with host for pre-built image: "harbor.example.org/toolforge-pre-built/<myimage>"
         """
         image_name_with_tag_and_digest = _get_hostless_url(url=url_or_name)
         image_type = ImageType.STANDARD
@@ -126,12 +127,11 @@ class Image(BaseModel):
         # we don't really use tags yet :/, expecting it to be 'latest'
         image_name = image_name_with_tag_and_project.split(":", 1)[0]
 
-        if project:
+        if project and project != "toolforge-pre-built":
             # we allow tools to use other tools images
             tool_name = project.split("tool-", 1)[-1]
 
         all_images = get_images(tool=tool_name, use_harbor_cache=use_harbor_cache)
-
         for image in all_images:
             if image.canonical_name in (image_name, image_name_with_tag_and_project):
                 if not digest or digest == image.digest:
@@ -317,11 +317,14 @@ def _get_harbor_images_for_name(project: str, name: str) -> list[Image]:
 
 
 def _get_harbor_images(tool: str, use_harbor_cache: bool) -> list[Image]:
+    LOGGER.debug("Fetching images from harbor")
     if use_harbor_cache and tool in HARBOR_IMAGES_CACHE:
         cache_entry = HARBOR_IMAGES_CACHE[tool]
         if cache_entry.creation_time - datetime.now(tz=UTC) < timedelta(seconds=5):
+            LOGGER.debug(f"Returning cached harbor images: {cache_entry}")
             return copy.deepcopy(cache_entry.images)
 
+    LOGGER.debug("Re-fetching harbor images")
     config = _get_harbor_config()
 
     harbor_project = _get_harbor_project(tool=tool)
@@ -358,6 +361,9 @@ def _get_harbor_images(tool: str, use_harbor_cache: bool) -> list[Image]:
         images.extend(_get_harbor_images_for_name(project=harbor_project, name=name))
 
     HARBOR_IMAGES_CACHE[tool] = CacheEntry(images=images, creation_time=datetime.now(tz=UTC))
+    LOGGER.debug(
+        f"Re-fetched harbor images for tool {tool} from project {harbor_project}: {images}"
+    )
     return copy.deepcopy(images)
 
 
