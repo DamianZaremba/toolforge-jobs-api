@@ -1,0 +1,96 @@
+{
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "creationTimestamp": "2025-09-01T12:15:27Z",
+        "name": "test-scheduling",
+        "namespace": "default",
+        "uid": "4f225056-4bdc-4625-a6d6-6ba84fe00a98"
+    },
+    "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 2,
+        "revisionHistoryLimit": 10,
+        "selector": {
+            "matchLabels": {
+                "name": "test-scheduling"
+            }
+        },
+        "strategy": {
+            "rollingUpdate": {
+                "maxSurge": "25%",
+                "maxUnavailable": "25%"
+            },
+            "type": "RollingUpdate"
+        },
+        "template": {
+            "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                    "name": "test-scheduling"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "command": [
+                            "/bin/sh",
+                            "-c",
+                            "sleep infinity"
+                        ],
+                        "image": "docker-registry.tools.wmflabs.org/toolforge-bookworm-sssd:latest",
+                        "imagePullPolicy": "Always",
+                        "name": "test-scheduling",
+                        "resources": {
+                            "requests": {
+                                "cpu": "999"
+                            },
+                            "limits": {
+                                "cpu": "999"
+                            }
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File"
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {},
+                "terminationGracePeriodSeconds": 30
+            }
+        }
+    },
+    "status": {
+        "conditions": [
+            {
+                "lastTransitionTime": "2025-09-01T12:15:27Z",
+                "lastUpdateTime": "2025-09-01T12:15:27Z",
+                "message": "Deployment does not have minimum availability.",
+                "reason": "MinimumReplicasUnavailable",
+                "status": "False",
+                "type": "Available"
+            },
+            {
+                "lastTransitionTime": "2025-09-01T12:15:27Z",
+                "lastUpdateTime": "2025-09-01T12:15:27Z",
+                "message": "ReplicaSet \"test-scheduling-764464f948\" is progressing.",
+                "reason": "ReplicaSetUpdated",
+                "status": "True",
+                "type": "Progressing"
+            },
+            {
+                "lastTransitionTime": "2025-10-16T04:21:17Z",
+                "lastUpdateTime": "2025-10-16T04:21:17Z",
+                "message": "pods \"test-scheduling-576cf8485f-5nm29\" is forbidden: exceeded quota: cpu-quota-example, requested: limits.cpu=999,requests.cpu=999, used: limits.cpu=0,requests.cpu=0, limited: limits.cpu=2,requests.cpu=1",
+                "reason": "FailedCreate",
+                "status": "True",
+                "type": "ReplicaFailure"
+            }
+        ],
+        "observedGeneration": 1,
+        "replicas": 2,
+        "unavailableReplicas": 2,
+        "updatedReplicas": 2
+    }
+}
