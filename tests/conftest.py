@@ -1,5 +1,6 @@
 import json
 import sys
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Generator
 
@@ -162,7 +163,9 @@ def fake_images(monkeymodule, fake_harbor_content, patch_kube_config_loading) ->
 
 @pytest.fixture
 def app(monkeypatch: pytest.MonkeyPatch) -> Generator[JobsApi, None, None]:
-    settings = Settings(debug=True, skip_metrics=False)
+    settings = Settings(
+        debug=True, skip_metrics=False, images_config_refresh_interval=timedelta(hours=0)
+    )
     app = create_app(settings=settings)
     yield app
 

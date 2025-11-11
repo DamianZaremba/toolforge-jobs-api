@@ -45,7 +45,6 @@ LOGGER = getLogger(__name__)
 
 class K8sRuntime(BaseRuntime):
     def __init__(self, *, settings: Settings):
-        self.image_refresh_interval = settings.images_config_refresh_interval
         self.loki_url = settings.loki_url
         self.default_cpu_limit = settings.default_cpu_limit
 
@@ -61,7 +60,6 @@ class K8sRuntime(BaseRuntime):
                 job = get_job_from_k8s(
                     k8s_object=k8s_obj,
                     kind=kind,
-                    image_refresh_interval=self.image_refresh_interval,
                     default_cpu_limit=self.default_cpu_limit,
                 )
                 refresh_job_short_status(tool_account, job)
@@ -83,7 +81,6 @@ class K8sRuntime(BaseRuntime):
                 job = get_job_from_k8s(
                     k8s_object=k8s_obj,
                     kind=kind,
-                    image_refresh_interval=self.image_refresh_interval,
                     default_cpu_limit=self.default_cpu_limit,
                 )
                 refresh_job_short_status(tool_account, job)
@@ -194,9 +191,7 @@ class K8sRuntime(BaseRuntime):
     def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
         set_fields = job.model_dump(exclude_unset=True)
 
-        image = get_image_by_name(
-            name=job.image.canonical_name, refresh_interval=self.image_refresh_interval
-        )
+        image = get_image_by_name(name=job.image.canonical_name)
         if not job.mount:
             if image.type == ImageType.BUILDPACK:
                 job.mount = MountOption.NONE
@@ -393,7 +388,7 @@ class K8sRuntime(BaseRuntime):
             yield format_logs(log)
 
     def get_images(self, toolname: str) -> list[Image]:
-        images = get_images(tool=toolname, refresh_interval=self.image_refresh_interval)
+        images = get_images(tool=toolname)
         images = [
             image
             for image in sorted(images, key=lambda image: image.canonical_name)
