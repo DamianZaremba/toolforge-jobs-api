@@ -69,7 +69,7 @@ def test_refresh_job_short_status_cronjob(
             raise Exception("not supposed to happen")
 
     account = get_fake_account(fake_k8s_cli=FakeK8sCli())
-    gotten_job = get_job_from_k8s(cronjob, "cronjobs", default_cpu_limit="4000m")
+    gotten_job = get_job_from_k8s(cronjob, "cronjobs", default_cpu_limit="4000m", tool="some-tool")
     refresh_job_short_status(account, gotten_job)
     assert gotten_job.status_short
     assert status_short in gotten_job.status_short

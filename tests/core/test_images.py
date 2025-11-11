@@ -1,12 +1,10 @@
 import pytest
 
 from tests.helpers.fakes import FAKE_HARBOR_HOST
-from tjf.core.error import TjfError, TjfValidationError
+from tjf.core.error import TjfValidationError
 from tjf.core.images import (
     Image,
     ImageType,
-    get_image_by_container_url,
-    get_image_by_name,
     get_images,
 )
 
@@ -146,31 +144,34 @@ IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX = [
     ["provided_name", "expected_name", "expected_image"],
     IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX,
 )
-def test_get_image_by_name(fake_images, provided_name, expected_name, expected_image):
-    """Basic test for the get_image_by_name() func."""
-    gotten_image = get_image_by_name(provided_name)
+def test_get_image_by_url_or_name(fake_images, provided_name, expected_name, expected_image):
+    """Basic test for the Image.from_url_or_name() func."""
+    gotten_image = Image.from_url_or_name(
+        url_or_name=provided_name, tool_name="some-tool", raise_for_nonexisting=True
+    )
     assert gotten_image == expected_image
 
 
-def test_get_image_by_name_raises_value_error(fake_images):
+def test_get_image_from_url_or_name_raises_value_error_when_not_found_if_passing_rase_for_nonexisting(
+    fake_images,
+):
     with pytest.raises(TjfValidationError):
-        get_image_by_name("invalid")
+        Image.from_url_or_name(
+            url_or_name="invalid", tool_name="some-tool", raise_for_nonexisting=True
+        )
 
 
 @pytest.mark.parametrize(
     ["provided_name", "expected_name", "expected_image"],
     IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX,
 )
-def test_get_image_by_container_url(
+def test_get_image_from_url_or_name_as_expected(
     fake_images, provided_name, expected_name, expected_image: Image
 ):
-    """Basic test for the get_image_by_container_url() func."""
-    image = get_image_by_container_url(expected_image.to_full_url())
+    """Basic test for the Image.from_url_or_name() func."""
+    image = Image.from_url_or_name(
+        url_or_name=expected_image.to_full_url(),
+        raise_for_nonexisting=False,
+        tool_name="some-tool",
+    )
     assert image.canonical_name == expected_name or expected_name in image.aliases
-    assert image.type == expected_image.type
-    assert image.state == expected_image.state
-
-
-def test_get_image_by_container_url_raises_value_error(fake_images):
-    with pytest.raises(TjfError):
-        get_image_by_container_url("invalid")

@@ -129,7 +129,7 @@ class TestJobsEndpoint:
         monkeypatch.setattr(app.core, "get_jobs", value=lambda *args, **kwargs: [])
 
         gotten_response = client.get(
-            f"/v1/tool/silly-user/jobs{trailing_slash}", headers=fake_auth_headers
+            f"/v1/tool/some-tool/jobs{trailing_slash}", headers=fake_auth_headers
         )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
@@ -140,18 +140,16 @@ class TestJobsEndpoint:
         [
             [
                 JobType.CONTINUOUS,
-                get_dummy_job(
-                    job_name="job1", tool_name="silly-user", job_type=JobType.CONTINUOUS
-                ),
+                get_dummy_job(job_name="job1", tool_name="some-tool", job_type=JobType.CONTINUOUS),
             ],
             [
                 JobType.SCHEDULED,
                 get_dummy_job(
                     job_name="job1",
-                    tool_name="silly-user",
+                    tool_name="some-tool",
                     job_type=JobType.SCHEDULED,
                     schedule=CronExpression.parse(
-                        value="* * * * *", job_name="job1", tool_name="silly-user"
+                        value="* * * * *", job_name="job1", tool_name="some-tool"
                     ),
                 ),
             ],
@@ -159,7 +157,7 @@ class TestJobsEndpoint:
                 JobType.ONE_OFF,
                 get_dummy_job(
                     job_name="job1",
-                    tool_name="silly-user",
+                    tool_name="some-tool",
                     job_type=JobType.ONE_OFF,
                 ),
             ],
@@ -181,7 +179,7 @@ class TestJobsEndpoint:
         )
 
         gotten_response = client.get(
-            "/v1/tool/silly-user/jobs/", headers=fake_auth_headers, params={"include_unset": False}
+            "/v1/tool/some-tool/jobs/", headers=fake_auth_headers, params={"include_unset": False}
         )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
@@ -205,7 +203,7 @@ class TestJobsEndpoint:
     ) -> None:
         expected_names = ["job1", "job2"]
         dummy_jobs = [
-            get_dummy_job(job_name=name, tool_name="silly-user") for name in expected_names
+            get_dummy_job(job_name=name, tool_name="some-tool") for name in expected_names
         ]
         monkeypatch.setattr(
             app.core,
@@ -213,7 +211,7 @@ class TestJobsEndpoint:
             value=lambda *args, **kwargs: dummy_jobs,
         )
 
-        gotten_response = client.get("/v1/tool/silly-user/jobs/", headers=fake_auth_headers)
+        gotten_response = client.get("/v1/tool/some-tool/jobs/", headers=fake_auth_headers)
 
         assert gotten_response.status_code == http.HTTPStatus.OK
 
@@ -239,7 +237,7 @@ class TestJobsEndpoint:
             "get_jobs",
             value=lambda *args, **kwargs: [dummy_job],
         )
-        gotten_response = client.get("/v1/tool/silly-user/jobs/", headers=fake_auth_headers)
+        gotten_response = client.get("/v1/tool/some-tool/jobs/", headers=fake_auth_headers)
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         response_json = gotten_response.json()
@@ -254,14 +252,14 @@ class TestJobsEndpoint:
         fake_auth_headers: dict[str, str],
     ) -> None:
         expected_port = 8080
-        dummy_job = get_dummy_job(port=expected_port, tool_name="silly-user")
+        dummy_job = get_dummy_job(port=expected_port, tool_name="some-tool")
         monkeypatch.setattr(
             app.core,
             "get_jobs",
             value=lambda *args, **kwargs: [dummy_job],
         )
 
-        gotten_response = client.get("/v1/tool/silly-user/jobs/", headers=fake_auth_headers)
+        gotten_response = client.get("/v1/tool/some-tool/jobs/", headers=fake_auth_headers)
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         response_json = gotten_response.json()
@@ -283,7 +281,7 @@ class TestJobsEndpoint:
             "get_jobs",
             value=lambda *args, **kwargs: [dummy_job],
         )
-        gotten_response = client.get("/v1/tool/silly-user/jobs/", headers=fake_auth_headers)
+        gotten_response = client.get("/v1/tool/some-tool/jobs/", headers=fake_auth_headers)
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         response_json = gotten_response.json()
@@ -309,7 +307,7 @@ class TestJobsEndpoint:
             jobs=[get_job_for_api(dummy_job)], messages=ResponseMessages()
         )
         gotten_response = client.get(
-            "/v1/tool/silly-user/jobs/", headers=fake_auth_headers, params={"include_unset": False}
+            "/v1/tool/some-tool/jobs/", headers=fake_auth_headers, params={"include_unset": False}
         )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
@@ -335,7 +333,7 @@ class TestJobsEndpoint:
             jobs=[get_job_for_api(dummy_job)], messages=ResponseMessages()
         )
         gotten_response = client.get(
-            "/v1/tool/silly-user/jobs/", headers=fake_auth_headers, params={"include_unset": False}
+            "/v1/tool/some-tool/jobs/", headers=fake_auth_headers, params={"include_unset": False}
         )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
@@ -364,7 +362,7 @@ class TestApiGetJob:
             job=get_job_for_api(dummy_job), messages=ResponseMessages()
         )
         gotten_response = client.get(
-            f"/v1/tool/silly-user/jobs/{dummy_job.job_name}",
+            f"/v1/tool/some-tool/jobs/{dummy_job.job_name}",
             headers=fake_auth_headers,
             params={"include_unset": False},
         )
@@ -384,10 +382,10 @@ class TestApiGetJob:
     ) -> None:
         dummy_job = get_dummy_job(
             job_name="dummy-name",
-            tool_name="dummy-tool",
+            tool_name="some-tool",
             job_type=JobType.SCHEDULED,
             schedule=CronExpression.parse(
-                value="@daily", job_name="dummy-name", tool_name="dummy-tool"
+                value="@daily", job_name="dummy-name", tool_name="some-tool"
             ),
         )
         monkeypatch.setattr(
@@ -399,7 +397,7 @@ class TestApiGetJob:
             job=get_job_for_api(dummy_job), messages=ResponseMessages()
         )
         gotten_response = client.get(
-            f"/v1/tool/silly-user/jobs/{dummy_job.job_name}",
+            f"/v1/tool/some-tool/jobs/{dummy_job.job_name}",
             headers=fake_auth_headers,
             params={"include_unset": False},
         )
@@ -427,7 +425,7 @@ class TestApiGetJob:
             job=get_job_for_api(dummy_job), messages=ResponseMessages()
         )
         gotten_response = client.get(
-            f"/v1/tool/silly-user/jobs/{dummy_job.job_name}", headers=fake_auth_headers
+            f"/v1/tool/some-tool/jobs/{dummy_job.job_name}", headers=fake_auth_headers
         )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
@@ -444,6 +442,7 @@ class TestApiUpdateJob:
         app: JobsApi,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
+        fake_images: dict[str, Any],
     ) -> None:
         dummy_job = get_dummy_job(
             **{
@@ -470,7 +469,7 @@ class TestApiUpdateJob:
             messages=ResponseMessages(info=["Job silly-job-name is already up to date"]),
         )
         actual_response = client.patch(
-            "/v1/tool/silly-user/jobs/",
+            "/v1/tool/some-tool/jobs/",
             json=new_job.model_dump(mode="json"),
             headers=fake_auth_headers,
         )
@@ -483,6 +482,7 @@ class TestApiUpdateJob:
         app: JobsApi,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
+        fake_images: dict[str, Any],
     ) -> None:
         dummy_job = get_dummy_job(
             **{
@@ -507,7 +507,7 @@ class TestApiUpdateJob:
             job_changed=True, messages=ResponseMessages(info=["Job silly-job-name updated"])
         )
         actual_response = client.patch(
-            "/v1/tool/silly-user/jobs/",
+            "/v1/tool/some-tool/jobs/",
             json=new_job.model_dump(mode="json"),
             headers=fake_auth_headers,
         )
@@ -520,6 +520,7 @@ class TestApiUpdateJob:
         app: JobsApi,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
+        fake_images: dict[str, Any],
     ) -> None:
         monkeypatch.setattr(app.core.runtime, "get_job", value=lambda *args, **kwargs: None)
         monkeypatch.setattr(app.core.runtime, "create_job", value=lambda *args, **kwargs: None)
@@ -538,7 +539,7 @@ class TestApiUpdateJob:
             job_changed=True, messages=ResponseMessages(info=["Job silly-job-name created"])
         )
         actual_response = client.patch(
-            "/v1/tool/silly-user/jobs/",
+            "/v1/tool/some-tool/jobs/",
             json=new_job.model_dump(mode="json"),
             headers=fake_auth_headers,
         )

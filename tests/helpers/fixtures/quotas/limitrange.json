@@ -3,8 +3,8 @@
     "kind": "LimitRange",
     "metadata": {
         "creationTimestamp": "2023-03-09T10:28:50Z",
-        "name": "tool-majavah-test",
-        "namespace": "tool-majavah-test",
+        "name": "tool-some-tool",
+        "namespace": "tool-some-tool",
         "resourceVersion": "1085327097",
         "uid": "427bba80-14a6-4e7d-97ab-e4f31752df28"
     },

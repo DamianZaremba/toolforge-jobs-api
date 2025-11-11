@@ -11,7 +11,6 @@ from ...core.error import TjfError, TjfJobNotFoundError, TjfValidationError
 from ...core.images import (
     Image,
     ImageType,
-    get_image_by_name,
     get_images,
 )
 from ...core.models import (
@@ -61,6 +60,7 @@ class K8sRuntime(BaseRuntime):
                     k8s_object=k8s_obj,
                     kind=kind,
                     default_cpu_limit=self.default_cpu_limit,
+                    tool=tool,
                 )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
@@ -82,6 +82,7 @@ class K8sRuntime(BaseRuntime):
                     k8s_object=k8s_obj,
                     kind=kind,
                     default_cpu_limit=self.default_cpu_limit,
+                    tool=tool,
                 )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
@@ -191,7 +192,11 @@ class K8sRuntime(BaseRuntime):
     def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
         set_fields = job.model_dump(exclude_unset=True)
 
-        image = get_image_by_name(name=job.image.canonical_name)
+        image = Image.from_url_or_name(
+            url_or_name=job.image.canonical_name,
+            tool_name=job.tool_name,
+            raise_for_nonexisting=True,
+        )
         if not job.mount:
             if image.type == ImageType.BUILDPACK:
                 job.mount = MountOption.NONE
@@ -280,9 +285,6 @@ class K8sRuntime(BaseRuntime):
         # Note: the incoming job does not have an image type, so we get it from the existing job
         if job.cmd.startswith("launcher ") and current_job.image.type == ImageType.BUILDPACK:
             job.cmd = job.cmd.split(" ", 1)[-1]
-        # imagestate and other fields are not available for the incoming job,
-        # so normalize by remove those from here too, done after checking the type
-        current_job.image = Image(canonical_name=current_job.image.canonical_name)
 
         clean_current_job = current_job.model_dump_json(
             exclude={"k8s_object", "status_short", "status_long"}, indent=4

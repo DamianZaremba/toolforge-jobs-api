@@ -54,6 +54,16 @@ php7.4:
       image: docker-registry.tools.wmflabs.org/toolforge-php74-sssd-base
     webservice:
       image: docker-registry.tools.wmflabs.org/toolforge-php74-sssd-web
+
+python3.11:
+  state: stable
+  variants:
+    jobs-framework:
+      image: docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base
+    webservice:
+      image: docker-registry.tools.wmflabs.org/toolforge-python311-sssd-web
+      extra:
+        wstype: python
 """
 
 FAKE_K8S_HOST = "k8s.example.org"
@@ -989,25 +999,30 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
     params = dict(
         job_name="migrate",
         cmd="cmdname with-arguments 'other argument with spaces'",
-        # When creating a new job, the job that comes as input only has the canonical_name for the image
         image=Image(
             canonical_name="bullseye",
             container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
-            type=ImageType.BUILDPACK,
+            type=ImageType.STANDARD,
+            state="stable",
+            aliases=[],
+            digest="",
         ),
         job_type=JobType.CONTINUOUS,
-        tool_name="majavah-test",
+        tool_name="some-tool",
         k8s_object=K8S_CONTINUOUS_JOB_OBJ,
-        mount=MountOption.NONE,
+        mount=MountOption.ALL,
     )
     if add_status:
         overrides["status_short"] = "Not running"
         overrides["status_long"] = "No pods were created for this job."
 
     job = get_dummy_job(**(params | overrides))
-    if "mount" not in overrides:
-        # this is needed as the mount field has a dynamic default
+    # this is needed as the mount field has a dynamic default
+    if (job.mount == MountOption.ALL and job.image.type == ImageType.STANDARD) or (
+        job.mount == MountOption.NONE and job.image.type == ImageType.BUILDPACK
+    ):
         job.model_fields_set.remove("mount")
+
     return job
 
 
@@ -1017,7 +1032,6 @@ def get_continuous_job_fixture_as_new_job(**overrides) -> AnyJob:
     fetch a job that matches the fixture without those fields as if it was being created anew.
     """
     new_job = get_continuous_job_fixture_as_job(add_status=False, **overrides)
-    new_job.image = Image(canonical_name=new_job.image.canonical_name)
     return new_job
 
 
@@ -1031,7 +1045,7 @@ def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJo
         cmd="date",
         # When creating a new job, the job that comes as input only has the canonical_name for the image
         image=Image(
-            canonical_name="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+            canonical_name="python3.11",
             type=ImageType.STANDARD,
             state="stable",
             container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
