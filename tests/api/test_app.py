@@ -1,5 +1,5 @@
 import http
-from typing import Any
+from typing import Any, Generator
 
 import pytest
 from fastapi import FastAPI
@@ -65,6 +65,11 @@ def error_generating_app():
         raise error
 
     yield TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture(autouse=True)
+def use_fake_images(fake_images: dict[str, Any]) -> Generator[None, None, None]:
+    yield
 
 
 class TestApiErrorHandler:
