@@ -42,7 +42,9 @@ from tjf.runtimes.k8s.ops import create_error_from_k8s_response, validate_job_li
 
 @pytest.fixture
 def fake_job(fake_tool_account_uid: None, fake_images: dict[str, Any]) -> AnyJob:
-    return get_job_from_k8s(CRONJOB_NOT_RUN_YET, "cronjobs", default_cpu_limit="4000m")
+    return get_job_from_k8s(
+        CRONJOB_NOT_RUN_YET, "cronjobs", default_cpu_limit="4000m", tool="some-tool"
+    )
 
 
 @pytest.fixture()
