@@ -88,26 +88,89 @@ class Image(BaseModel):
         return self.container
 
     @classmethod
-    def from_url(cls, url: str) -> "Image":
-        harbor_host = _get_harbor_config().host
-        if url.startswith(f"{harbor_host}/"):
-            image_name_with_tag = url.removeprefix(f"{harbor_host}/")
-        else:
-            image_name_with_tag = url
+    def from_url_or_name(
+        cls, tool_name: str, url_or_name: str, raise_for_nonexisting: bool = False
+    ) -> "Image":
+        """
+        Given a url or name, gives back a matching existing image or a new image with the resolved information.
 
-        aliases, digest = [], ""
-        # If we have a digest, then strip it out for `canonical_name`, but keep it as an alias
-        if "@" in image_name_with_tag:
-            aliases.append(image_name_with_tag)
-            image_name_with_tag, digest = url.split("@", 1)
+        Supported url/name formats:
+        * canonical name only: "node12"
+        * alias: "tf-node12"
+        * image path: "tool-<mytool>/<myimage>:latest"
+        * image path with digest: "tool-<mytool>/<myimage>:latest@sha256:123454..."
+        * image path with host: "harbor.example.org/tool-<mytool>/<myimage>:latest"
+        * image path with host and digest: "harbor.example.org/tool-<mytool>/<myimage>:latest@sha256:123454..."
+        """
+        image_name_with_tag_and_digest = _get_hostless_url(url=url_or_name)
+
+        if "@" in image_name_with_tag_and_digest:
+            image_name_with_tag_and_project, digest = image_name_with_tag_and_digest.split("@", 1)
+        else:
+            image_name_with_tag_and_project, digest = image_name_with_tag_and_digest, ""
+
+        if "/" in image_name_with_tag_and_project:
+            project = image_name_with_tag_and_project.split("/", 1)[0]
+        else:
+            project = ""
+
+        # we don't really use tags yet :/, expecting it to be 'latest'
+        image_name = image_name_with_tag_and_project.split(":", 1)[0]
+
+        if project:
+            # we allow tools to use other tools images
+            tool_name = project.split("tool-", 1)[-1]
+
+        all_images = get_images(tool=tool_name)
+
+        for image in all_images:
+            if image.canonical_name in (image_name, image_name_with_tag_and_project):
+                if not digest or digest == image.digest:
+                    image.digest = digest
+                    return image
+                else:
+                    LOGGER.debug(f"Skipping image due to digest, looking for {digest} got {image}")
+            elif image_name_with_tag_and_digest in image.aliases or url_or_name == image.container:
+                # the digest would have been matched already in the aliases or the container
+                image.digest = digest
+                return image
+
+        LOGGER.debug(
+            f"Unable to find matching image for {url_or_name}, available images for tool {tool_name}: {all_images}"
+        )
+        if raise_for_nonexisting:
+            raise TjfValidationError(f"No such image '{url_or_name}'")
+
+        aliases = []
+        # If we have a digest, keep it as an alias too
+        if digest:
+            aliases.append(image_name_with_tag_and_digest)
 
         return cls(
-            type=ImageType.BUILDPACK if "/" in url else ImageType.STANDARD,
-            canonical_name=image_name_with_tag,
+            type=(
+                ImageType.BUILDPACK
+                if "/" in image_name_with_tag_and_project
+                else ImageType.STANDARD
+            ),
+            canonical_name=image_name_with_tag_and_project,
             aliases=aliases,
-            container=url,
+            container=url_or_name,
             digest=digest,
         )
+
+
+def _get_hostless_url(url: str) -> str:
+    harbor_host = _get_harbor_config().host
+    if url.startswith(f"{harbor_host}/"):
+        image_name_with_tag = url.removeprefix(f"{harbor_host}/")
+    # the next two cases will go away soon-ish
+    elif url.startswith("docker-registry.tools.wmflabs.org/"):
+        image_name_with_tag = url.removeprefix("docker-registry.tools.wmflabs.org/")
+    elif url.startswith("docker-registry.svc.toolforge.org/"):
+        image_name_with_tag = url.removeprefix("docker-registry.svc.toolforge.org/")
+    else:
+        image_name_with_tag = url
+    return image_name_with_tag
 
 
 @dataclass
@@ -295,42 +358,3 @@ def _get_harbor_images(tool: str) -> list[Image]:
 def get_images(tool: str) -> list[Image]:
     # TODO: eventually replace with a call to builds-api, so we don't need to interact with harbor or image-config
     return _get_prebuilt_images() + _get_harbor_images(tool=tool)
-
-
-def get_image_by_name(name: str) -> Image:
-    for image in _get_prebuilt_images():
-        if image.canonical_name == name or name in image.aliases:
-            return image
-
-    if "/" in name and ":" in name:
-        # Remove the harbor registry host prefix if it is present
-        harbor_host = _get_harbor_config().host
-        if name.startswith(f"{harbor_host}/"):
-            name = name.removeprefix(f"{harbor_host}/")
-
-        # harbor image?
-        project, image_name = name.split("/", 1)
-        image_name = image_name.split(":", 1)[0]
-
-        for image in _get_harbor_images_for_name(project, image_name):
-            if image.canonical_name == name:
-                # canonical name does not have digest
-                image.digest = ""
-                return image
-            if name in image.aliases:
-                # aliases coming from harbor all have digest
-                return image
-
-    raise TjfValidationError(f"No such image '{name}'")
-
-
-def get_image_by_container_url(url: str) -> Image:
-    for image in _get_prebuilt_images():
-        if image.container == url:
-            return image
-
-    harbor_config = _get_harbor_config()
-    if url.startswith(harbor_config.host):
-        return Image.from_url(url)
-
-    raise TjfError("Unable to find image in the supported list or harbor", data={"image": url})

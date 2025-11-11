@@ -9,7 +9,7 @@
     "generation": 1,
     "labels": {
       "app.kubernetes.io/component": "deployments",
-      "app.kubernetes.io/created-by": "majavah-test",
+      "app.kubernetes.io/created-by": "some-tool",
       "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
       "app.kubernetes.io/name": "migrate",
       "app.kubernetes.io/version": "2",
@@ -17,7 +17,7 @@
       "toolforge": "tool"
     },
     "name": "migrate",
-    "namespace": "tool-majavah-test",
+    "namespace": "tool-some-tool",
     "resourceVersion": "1274949315",
     "uid": "bfe8129b-ae3a-4a35-a2e8-009d4f121d1d"
   },
@@ -28,7 +28,7 @@
     "selector": {
       "matchLabels": {
         "app.kubernetes.io/component": "deployments",
-        "app.kubernetes.io/created-by": "majavah-test",
+        "app.kubernetes.io/created-by": "some-tool",
         "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
         "app.kubernetes.io/name": "migrate",
         "app.kubernetes.io/version": "2",
@@ -48,7 +48,7 @@
         "creationTimestamp": null,
         "labels": {
           "app.kubernetes.io/component": "deployments",
-          "app.kubernetes.io/created-by": "majavah-test",
+          "app.kubernetes.io/created-by": "some-tool",
           "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
           "app.kubernetes.io/name": "migrate",
           "app.kubernetes.io/version": "2",

@@ -1,6 +1,5 @@
 from pathlib import Path, PosixPath
 from typing import Any, Callable
-from unittest.mock import MagicMock
 
 from pytest import MonkeyPatch
 
@@ -29,20 +28,7 @@ from tjf.runtimes.k8s import jobs
 
 class TestJobFromK8s:
     class TestScheduledJob:
-        def test_preserves_special_schedules(self, monkeypatch: MonkeyPatch):
-            monkeypatch.setattr(
-                target=jobs,
-                name="get_image_by_container_url",
-                value=MagicMock(
-                    return_value=Image(
-                        type=ImageType.STANDARD,
-                        canonical_name="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
-                        aliases=[],
-                        container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
-                        state="stable",
-                    )
-                ),
-            )
+        def test_preserves_special_schedules(self, fake_images: dict[str, Any]):
             expected_job = ScheduledJob(
                 job_type=JobType.SCHEDULED,
                 cmd="date",
@@ -51,7 +37,7 @@ class TestJobFromK8s:
                 filelog_stdout=PosixPath("/data/project/tf-test/cronjobtest.out"),
                 image=Image(
                     type=ImageType.STANDARD,
-                    canonical_name="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+                    canonical_name="python3.11",
                     aliases=[],
                     container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
                     state="stable",
@@ -73,94 +59,58 @@ class TestJobFromK8s:
             )
 
             gotten_job = jobs.get_job_from_k8s(
-                k8s_object=K8S_SCHEDULED_JOB_OBJ, kind="cronjobs", default_cpu_limit="1000m"
-            )
-
-            assert gotten_job == expected_job
-
-    class TestOneoffJob:
-        def test_minimal_fields(self, monkeypatch: MonkeyPatch):
-            monkeypatch.setattr(
-                target=jobs,
-                name="get_image_by_container_url",
-                value=MagicMock(
-                    return_value=Image(
-                        type=ImageType.STANDARD,
-                        canonical_name="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
-                        aliases=[],
-                        container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
-                        state="stable",
-                    )
-                ),
-            )
-            expected_job = get_oneoff_job_fixture_as_job()
-
-            gotten_job = jobs.get_job_from_k8s(
-                k8s_object=K8S_ONEOFF_JOB_OBJ, kind="jobs", default_cpu_limit="1000m"
+                k8s_object=K8S_SCHEDULED_JOB_OBJ,
+                kind="cronjobs",
+                default_cpu_limit="1000m",
+                tool="some-tool",
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
 
-        def test_all_fields(self, monkeypatch: MonkeyPatch):
-            monkeypatch.setattr(
-                target=jobs,
-                name="get_image_by_container_url",
-                value=MagicMock(
-                    return_value=Image(
-                        type=ImageType.STANDARD,
-                        canonical_name="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
-                        aliases=[],
-                        container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
-                        state="stable",
-                    )
-                ),
+    class TestOneoffJob:
+        def test_minimal_fields(self, fake_images: dict[str, Any]):
+            expected_job = get_oneoff_job_fixture_as_job()
+
+            gotten_job = jobs.get_job_from_k8s(
+                k8s_object=K8S_ONEOFF_JOB_OBJ,
+                kind="jobs",
+                default_cpu_limit="1000m",
+                tool="some-tool",
             )
+
+            assert gotten_job.model_dump() == expected_job.model_dump()
+
+        def test_all_fields(self, fake_images: dict[str, Any]):
             k8s_object = patch_spec(spec=K8S_ONEOFF_JOB_OBJ, patch={"spec": {"backoffLimit": 5}})
             expected_job = get_oneoff_job_fixture_as_job(retry=5, k8s_object=k8s_object)
 
             gotten_job = jobs.get_job_from_k8s(
-                k8s_object=k8s_object, kind="jobs", default_cpu_limit="1000m"
+                k8s_object=k8s_object, kind="jobs", default_cpu_limit="1000m", tool="some-tool"
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
 
     class TestContinuousJob:
-        def test_minimal_fields(self, monkeypatch: MonkeyPatch):
-            monkeypatch.setattr(
-                target=jobs,
-                name="get_image_by_container_url",
-                value=MagicMock(
-                    return_value=Image(
-                        type=ImageType.BUILDPACK,
-                        container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
-                        canonical_name="bullseye",
-                    )
-                ),
-            )
+        def test_minimal_fields(self, fake_images: dict[str, Any]):
             expected_job = get_continuous_job_fixture_as_job(add_status=False)
 
             gotten_job = jobs.get_job_from_k8s(
-                k8s_object=K8S_CONTINUOUS_JOB_OBJ, kind="deployments", default_cpu_limit="1000m"
+                k8s_object=K8S_CONTINUOUS_JOB_OBJ,
+                kind="deployments",
+                default_cpu_limit="1000m",
+                tool="some-tool",
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
 
-        def test_all_fields(self, monkeypatch: MonkeyPatch):
-            monkeypatch.setattr(
-                target=jobs,
-                name="get_image_by_container_url",
-                value=MagicMock(
-                    return_value=Image(
-                        type=ImageType.BUILDPACK,
-                        canonical_name="bullseye",
-                        container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
-                    )
-                ),
-            )
+        def test_all_fields(self, fake_images: dict[str, Any]):
             expected_job = get_continuous_job_fixture_as_job(add_status=False)
 
             gotten_job = jobs.get_job_from_k8s(
-                k8s_object=K8S_CONTINUOUS_JOB_OBJ, kind="deployments", default_cpu_limit="1000m"
+                k8s_object=K8S_CONTINUOUS_JOB_OBJ,
+                kind="deployments",
+                default_cpu_limit="1000m",
+                tool="some-tool",
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
@@ -188,11 +138,12 @@ class TestGetJobForK8s:
                 "Test mount none for buildpack image",
                 [
                     {
+                        "mount": MountOption.NONE,
                         "image": Image(
-                            canonical_name="my-buildpack",
-                            container="tools-harbor.wmcloud.org/tool-mytool/tool-mytool:latest",
+                            canonical_name="tool-some-tool/some-container:latest",
+                            container="harbor.example.org/tool-some-tool/some_container:latest",
                             type=ImageType.BUILDPACK,
-                        )
+                        ),
                     },
                     lambda k8s_obj: k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
                     == "none",
@@ -204,8 +155,8 @@ class TestGetJobForK8s:
                     {
                         "mount": MountOption.ALL,
                         "image": Image(
-                            canonical_name="my-buildpack",
-                            container="tools-harbor.wmcloud.org/tool-mytool/tool-mytool:latest",
+                            canonical_name="tool-some-tool/some-container:latest",
+                            container="harbor.example.org/tool-some-tool/some-container:latest",
                             type=ImageType.BUILDPACK,
                         ),
                     },
@@ -219,9 +170,10 @@ class TestGetJobForK8s:
                     {
                         "mount": MountOption.ALL,
                         "image": Image(
-                            canonical_name="my-non-buildpack",
-                            container="docker-registry.tools.wmflabs.org/toolforge-some-image:latest",
+                            canonical_name="bullseye",
+                            container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                             type=ImageType.STANDARD,
+                            state="stable",
                         ),
                     },
                     lambda k8s_obj: k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
@@ -235,7 +187,7 @@ class TestGetJobForK8s:
                     # TODO: maybe make this check less flaky
                     lambda k8s_obj: (
                         k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"] == "all"
-                        and "exec 1>>/data/project/majavah-test/migrate.out;exec 2>>/data/project/majavah-test/migrate.err;"
+                        and "exec 1>>/data/project/some-tool/migrate.out;exec 2>>/data/project/some-tool/migrate.err;"
                         in k8s_obj["spec"]["template"]["spec"]["containers"][0]["command"][3]
                     ),
                 ],
@@ -428,7 +380,7 @@ class TestGetJobForK8s:
                                     "matchLabels": {
                                         "toolforge": "tool",
                                         "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
-                                        "app.kubernetes.io/created-by": "majavah-test",
+                                        "app.kubernetes.io/created-by": "some-tool",
                                         "app.kubernetes.io/name": "my-dummy-job",
                                     }
                                 },
@@ -447,7 +399,7 @@ class TestGetJobForK8s:
                             "matchLabels": {
                                 "toolforge": "tool",
                                 "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
-                                "app.kubernetes.io/created-by": "majavah-test",
+                                "app.kubernetes.io/created-by": "some-tool",
                                 "app.kubernetes.io/name": "my-dummy-job",
                             }
                         }
@@ -458,6 +410,7 @@ class TestGetJobForK8s:
         def test_generates_expected_k8s_object(
             self,
             monkeypatch: MonkeyPatch,
+            fake_images: dict[str, Any],
             input_params: dict[str, Any],
             match: Callable[[dict[str, Any]], bool],
         ):

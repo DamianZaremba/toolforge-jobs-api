@@ -3,8 +3,8 @@
     "kind": "ResourceQuota",
     "metadata": {
         "creationTimestamp": "2023-03-09T10:28:50Z",
-        "name": "tool-majavah-test",
-        "namespace": "tool-majavah-test",
+        "name": "tool-some-tool",
+        "namespace": "tool-some-tool",
         "resourceVersion": "1173260113",
         "uid": "c23f12d5-421c-4ea0-bbcc-045326d4c244"
     },
