@@ -14,7 +14,6 @@ from tests.test_utils import cases, patch_spec
 from tjf.core.error import TjfJobNotFoundError
 from tjf.core.images import Image, ImageType
 from tjf.core.models import AnyJob, EmailOption
-from tjf.runtimes.k8s import jobs as k8s_jobs_module
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.runtime import K8sRuntime
 from tjf.settings import get_settings
@@ -90,7 +89,7 @@ class TestGetJob:
             [{"metadata": {"annotations": {}}}, get_continuous_job_fixture_as_job()],
         ],
         [
-            "Ignores prefix launcher in the command",
+            "Ignores prefix launcher in the command when buildpack image",
             [
                 {
                     "spec": {
@@ -105,13 +104,26 @@ class TestGetJob:
                                         + K8S_CONTINUOUS_JOB_OBJ["spec"]["template"]["spec"][
                                             "containers"
                                         ][0]["command"],
+                                        "image": "harbor.example.org/tool-some-tool/some-container:latest",
                                     }
                                 ]
                             }
                         }
                     }
                 },
-                get_continuous_job_fixture_as_job(),
+                get_continuous_job_fixture_as_job(
+                    image=Image(
+                        canonical_name="tool-some-tool/some-container:latest",
+                        container="harbor.example.org/tool-some-tool/some-container:latest",
+                        aliases=[
+                            "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
+                        ],
+                        type=ImageType.BUILDPACK,
+                        digest="",
+                        state="stable",
+                    ),
+                    mount=MountOption.NONE,
+                ),
             ],
         ],
         [
@@ -134,7 +146,7 @@ class TestGetJob:
                                             "/bin/sh",
                                             "-c",
                                             "--",
-                                            "exec 1>>/data/project/majavah-test/migrate.out;exec 2>>/data/project/majavah-test/migrate.err;cmdname with-arguments 'other argument with spaces'",
+                                            "exec 1>>/data/project/some-tool/migrate.out;exec 2>>/data/project/some-tool/migrate.err;cmdname with-arguments 'other argument with spaces'",
                                         ]
                                     }
                                 ],
@@ -157,11 +169,31 @@ class TestGetJob:
         [
             "Picks up a different image",
             [
-                {"spec": {"template": {"spec": {"containers": [{"image": "ubuntu"}]}}}},
+                {
+                    "spec": {
+                        "template": {
+                            "spec": {
+                                "containers": [
+                                    {
+                                        "image": "harbor.example.org/tool-some-tool/some-container:latest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
                 get_continuous_job_fixture_as_job(
                     image=Image(
-                        canonical_name="ubuntu", container="ubuntu", type=ImageType.BUILDPACK
-                    )
+                        canonical_name="tool-some-tool/some-container:latest",
+                        container="harbor.example.org/tool-some-tool/some-container:latest",
+                        type=ImageType.BUILDPACK,
+                        digest="",
+                        aliases=[
+                            "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
+                        ],
+                        state="stable",
+                    ),
+                    mount=MountOption.NONE,
                 ),
             ],
         ],
@@ -216,6 +248,7 @@ class TestGetJob:
         self,
         patch: dict[str, Any] | None,
         expected_job: AnyJob,
+        fake_images: dict[str, Any],
         monkeymodule: pytest.MonkeyPatch,
         monkeypatch: pytest.MonkeyPatch,
     ):
@@ -229,20 +262,12 @@ class TestGetJob:
                 [deepcopy(applied_spec)] if kind == "deployments" else []
             ),
         )
-        monkeypatch.setattr(
-            k8s_jobs_module,
-            "get_image_by_container_url",
-            lambda *args, url, **kwargs: Image(
-                type=ImageType.BUILDPACK,
-                canonical_name="bullseye" if "bullseye" in url else url,
-                container=url,
-            ),
-        )
         my_runtime = K8sRuntime(settings=get_settings())
 
         gotten_job = my_runtime.get_job(
             job_name=expected_job.job_name, tool=expected_job.tool_name
         )
+        assert gotten_job
         assert gotten_job.model_dump(exclude_unset=True) == expected_job.model_dump(
             exclude_unset=True
         )
@@ -298,9 +323,23 @@ class TestDiffWithRunningJob:
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert "+++" in diff
 
-    def test_launcher_gets_stripped_from_new_job(self, monkeypatch: pytest.MonkeyPatch):
-        new_job = get_continuous_job_fixture_as_new_job(cmd="launcher mycommand")
-        existing_job = get_continuous_job_fixture_as_job(cmd="mycommand")
+    def test_launcher_gets_stripped_from_new_job(
+        self, monkeypatch: pytest.MonkeyPatch, fake_images: dict[str, Any]
+    ):
+        new_job = get_continuous_job_fixture_as_new_job(
+            cmd="launcher mycommand",
+            image=Image.from_url_or_name(
+                url_or_name="harbor.example.org/tool-some-tool/some-container:latest",
+                tool_name="some-tool",
+            ),
+        )
+        existing_job = get_continuous_job_fixture_as_job(
+            cmd="mycommand",
+            image=Image.from_url_or_name(
+                url_or_name="harbor.example.org/tool-some-tool/some-container:latest",
+                tool_name="some-tool",
+            ),
+        )
         my_runtime = K8sRuntime(settings=get_settings())
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
 
