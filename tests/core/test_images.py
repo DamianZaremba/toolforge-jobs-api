@@ -49,6 +49,17 @@ IMAGE_NAME_TESTS = [
         ),
     ],
     [
+        "python3.13",
+        Image(
+            canonical_name="python3.13",
+            type=ImageType.STANDARD,
+            container="harbor.example.org/toolforge-pre-built/toolforge-python313-sssd-base:latest",
+            aliases=[],
+            digest="",
+            state="stable",
+        ),
+    ],
+    [
         "tool-some-tool/some-container:latest",
         Image(
             canonical_name="tool-some-tool/some-container:latest",
@@ -149,7 +160,7 @@ def test_get_image_by_url_or_name(fake_images, provided_name, expected_name, exp
     gotten_image = Image.from_url_or_name(
         url_or_name=provided_name, tool_name="some-tool", raise_for_nonexisting=True
     )
-    assert gotten_image == expected_image
+    assert gotten_image.model_dump() == expected_image.model_dump()
 
 
 def test_get_image_from_url_or_name_raises_value_error_when_not_found_if_passing_rase_for_nonexisting(
