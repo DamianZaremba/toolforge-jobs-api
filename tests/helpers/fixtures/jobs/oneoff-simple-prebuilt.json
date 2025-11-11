@@ -61,7 +61,7 @@
               "--",
               "exec 1>>/data/project/tf-test/testoneoff.out;exec 2>>/data/project/tf-test/testoneoff.err;date"
             ],
-            "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+            "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-python311-sssd-base:latest",
             "imagePullPolicy": "Always",
             "name": "job",
             "resources": {
