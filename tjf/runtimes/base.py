@@ -16,7 +16,7 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_job(self, *, job_name: str, tool: str) -> AnyJob | None:
+    def get_job(self, *, job_name: str, tool: str) -> AnyJob:
         raise NotImplementedError
 
     # TODO: Job already has the tool name within it, maybe we don't need it as extra parameter, or inside each Job
