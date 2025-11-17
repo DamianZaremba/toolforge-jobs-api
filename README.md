@@ -8,55 +8,36 @@ The jobs-api creates an abstraction layer over kubernetes Jobs, CronJobs and
 Deployments to allow operating a Kubernetes installation as if it were a Grid
 (like GridEngine).
 
-## Local installation
+## Development tricks
 
-Run `./deploy.sh`.
+### Manually building into lima-kilo
 
-## Development
+If you don't want to rely on gitlab CI building the image for you or want to
+tweak closely any step of the build process, you can manually build this
+component from within lima-kilo from the source code.
 
-You need a local kubernetes cluster with a fake Toolforge installed to it. There
-are several ways of doing that. The author of this README recommends the
-lima-kilo project.
-
-1. Get the lima-kilo setup on your laptop:
-
-Follow docs at <https://gitlab.wikimedia.org/repos/cloud/toolforge/lima-kilo>
-
-1. Build the jobs-framework-api docker image within lima-kilo
+- Make sure you mounted your toolforge repos when creating your
+  [lima-kilo](https://gitlab.wikimedia.org/repos/cloud/toolforge/lima-kilo/) vm
+  (see
+  [TOOLFORGE_REPOS_DIR](https://gitlab.wikimedia.org/repos/cloud/toolforge/lima-kilo#mounting-the-toolforge-repos-within-the-lima-vm))
+- Use the builtin script to build and deploy (check the script for details)
 
 ```shell
-lima-kilo:~$ git clone https://gitlab.wikimedia.org/repos/cloud/toolforge/jobs-api
-lima-kilo::~/jobs-api$ cd jobs-api
-lima-kilo::~/jobs-api$ docker buildx build --target image -f .pipeline/blubber.yaml -t toolsbeta-harbor.wmcloud.org/toolforge/jobs-api:dev .
+lima-kilo:~$ toolforge_deploy.py jobs-api local
 ```
 
-1. Load the docker image into kind (or minikube)
+## Deploying an MR into lima-kilo
 
-This way the docker image can be used in k8s deployments and such. Like having
-the image on a docker registry.
+Useful if you want to test someone's MR or if you don't care if your code is
+built by gitlab, recommended for most use cases.
 
-```shell
-lima-kilo::~/jobs-api$ kind load docker-image toolsbeta-harbor.wmcloud.org/toolforge/jobs-api:dev -n toolforge
-```
+1. Start a local Toolforge cluster using
+   [lima-kilo](https://gitlab.wikimedia.org/repos/cloud/toolforge/lima-kilo/).
+1. Commit your changes and create a branch + MR in gitlab for them
+1. Run `toolforge_deploy.py ingress-admission` to deploy the changes in
+   lima-kilo
 
-1. Deploy the component into your local kubernetes:
+## Deploying to Toolforge
 
-```shell
-lima-kilo::~/jobs-api$ ./deploy.sh local
-```
-
-1. At this point, hopefully, it should work:
-
-```shell
-lima-kilo::~/jobs-api$ curl -k "https://localhost:30003/jobs/v1/images/" \
-  --cert ~/.toolforge-lima-kilo/chroot/data/project/tf-test/.toolskube/client.crt \
-  --key ~/.toolforge-lima-kilo/chroot/data/project/tf-test/.toolskube/client.key
-```
-
-1. Development iteration:
-
-Make code changes, and follow from step 1 onwards. Probably something like this:
-
-```shell
-lima-kilo::~/jobs-api$ git fetch --all && git reset --hard FETCH_HEAD && docker buildx build --target image -f .pipeline/blubber.yaml -t toolsbeta-harbor.wmcloud.org/toolforge/jobs-api:dev . && kind load docker-image toolsbeta-harbor.wmcloud.org/toolforge/jobs-api:dev -n toolforge && kubectl -n jobs-api rollout restart deployment/jobs-api
-```
+This project uses the
+[standard workflow](https://wikitech.wikimedia.org/wiki/Portal:Toolforge/Admin#Deploying_a_component)
