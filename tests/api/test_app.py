@@ -27,6 +27,7 @@ from tjf.core.models import (
     JobType,
     ScriptHealthCheck,
 )
+from tjf.runtimes.exceptions import NotFoundInRuntime
 
 
 class Silly(BaseModel):
@@ -521,8 +522,11 @@ class TestApiUpdateJob:
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:
-        monkeypatch.setattr(app.core.runtime, "get_job", value=lambda *args, **kwargs: None)
+        def raise_not_found(*args, **kwargs):
+            raise NotFoundInRuntime(f"{args}, {kwargs}")
+
         monkeypatch.setattr(app.core.runtime, "create_job", value=lambda *args, **kwargs: None)
+        monkeypatch.setattr(app.core.runtime, "get_job", value=raise_not_found)
 
         new_job = NewContinuousJob.model_validate(
             {
