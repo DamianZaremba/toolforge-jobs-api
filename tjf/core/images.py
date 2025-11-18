@@ -14,12 +14,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+import copy
 import functools
 import json
 import logging
 import urllib.parse
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any, Self
 
@@ -109,6 +110,15 @@ class Image(BaseModel):
         )
 
 
+@dataclass
+class CacheEntry:
+    creation_time: datetime
+    images: list[Image]
+
+
+HARBOR_IMAGES_CACHE: dict[str, CacheEntry] = {}
+
+
 def _get_harbor_project(tool: str) -> str:
     return f"tool-{tool}"
 
@@ -149,7 +159,7 @@ def _get_prebuilt_images() -> list[Image]:
     settings = get_settings()
     refresh_interval = settings.images_config_refresh_interval
     LOGGER.debug("Fetching cached images data")
-    result = _get_images_data()
+    result = copy.deepcopy(_get_images_data())
     refresh_if_older = datetime.now() - refresh_interval
 
     if datetime.fromisoformat(result["datetime"]) < refresh_if_older:
@@ -238,6 +248,11 @@ def _get_harbor_images_for_name(project: str, name: str) -> list[Image]:
 
 
 def _get_harbor_images(tool: str) -> list[Image]:
+    if tool in HARBOR_IMAGES_CACHE:
+        cache_entry = HARBOR_IMAGES_CACHE[tool]
+        if cache_entry.creation_time - datetime.now(tz=UTC) < timedelta(seconds=5):
+            return copy.deepcopy(cache_entry.images)
+
     config = _get_harbor_config()
 
     harbor_project = _get_harbor_project(tool=tool)
@@ -273,7 +288,8 @@ def _get_harbor_images(tool: str) -> list[Image]:
         name = repository["name"][len(harbor_project) + 1 :]
         images.extend(_get_harbor_images_for_name(project=harbor_project, name=name))
 
-    return images
+    HARBOR_IMAGES_CACHE[tool] = CacheEntry(images=images, creation_time=datetime.now(tz=UTC))
+    return copy.deepcopy(images)
 
 
 def get_images(tool: str) -> list[Image]:
