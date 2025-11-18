@@ -165,7 +165,7 @@
             "containers": [
               {
                 "name": "job",
-                "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+                "image": "tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-python311-sssd-base:latest",
                 "command": [
                   "/bin/sh",
                   "-c",
