@@ -16,6 +16,7 @@ from ...core.images import (
 )
 from ...core.models import (
     AnyJob,
+    AnyJobStatus,
     ContinuousJob,
     JobType,
     OneOffJob,
@@ -37,7 +38,12 @@ from .jobs import (
 from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
 from .ops import trigger_scheduled_job, validate_job_limits, wait_for_pods_exit
-from .ops_status import refresh_job_long_status, refresh_job_short_status
+from .ops_status import (
+    get_k8s_cronjob_status,
+    get_k8s_deployment_status,
+    get_k8s_job_status,
+)
+from .ops_status_deprecated import refresh_job_long_status, refresh_job_short_status
 from .services import get_k8s_service_object
 
 LOGGER = getLogger(__name__)
@@ -64,6 +70,7 @@ class K8sRuntime(BaseRuntime):
                 )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
+                job.status = self.get_job_status(job=job, tool=tool)
                 job_list.append(job)
 
         return job_list
@@ -85,6 +92,7 @@ class K8sRuntime(BaseRuntime):
                 )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
+                job.status = self.get_job_status(job=job, tool=tool)
                 return job
 
         return None
@@ -233,6 +241,7 @@ class K8sRuntime(BaseRuntime):
 
             refresh_job_short_status(tool_account, job)
             refresh_job_long_status(tool_account, job)
+            job.status = self.get_job_status(job=job, tool=tool)
         except requests.exceptions.HTTPError as error:
             raise create_error_from_k8s_response(
                 error=error, job=job, spec=spec, tool_account=tool_account
@@ -285,11 +294,11 @@ class K8sRuntime(BaseRuntime):
         current_job.image = Image(canonical_name=current_job.image.canonical_name)
 
         clean_current_job = current_job.model_dump_json(
-            exclude={"k8s_object", "status_short", "status_long"}, indent=4
+            exclude={"k8s_object", "status_short", "status_long", "status"}, indent=4
         )
 
         clean_new_job = job.model_dump_json(
-            exclude={"k8s_object", "status_short", "status_long"}, indent=4
+            exclude={"k8s_object", "status_short", "status_long", "status"}, indent=4
         )
         LOGGER.debug(f"Got new job:\n{clean_new_job}")
         LOGGER.debug(f"Got current job:\n{clean_current_job}")
@@ -302,6 +311,47 @@ class K8sRuntime(BaseRuntime):
             lineterm="",
         )
         return "".join([line for line in list(diff) if line is not None])
+
+    def get_job_status(self, *, job: AnyJob, tool: str) -> AnyJobStatus:
+        LOGGER.debug(f"Getting status for the job {job.job_name}, for tool {tool}")
+        user = ToolAccount(name=tool)
+        k8s_type = K8sJobKind.from_job_type(job.job_type)
+        selector = labels_selector(
+            job_name=job.job_name,
+            user_name=user.name,
+            type=k8s_type.api_path_name,
+        )
+        pods = user.k8s_cli.get_objects(kind="pods", label_selector=selector)
+
+        if k8s_type == K8sJobKind.JOB:
+            LOGGER.debug(f"job '{job.job_name}' k8s job object: {job.k8s_object}")
+            LOGGER.debug(f"job '{job.job_name}' k8s pod objects: {pods}")
+            one_off_job_status = get_k8s_job_status(user=user, job=job.k8s_object, pods=pods)
+            LOGGER.debug(f"job status: {one_off_job_status}")
+            return one_off_job_status
+
+        elif k8s_type == K8sJobKind.CRON_JOB:
+            jobs = user.k8s_cli.get_objects(kind="jobs", label_selector=selector)
+            LOGGER.debug(f"job '{job.job_name}' k8s cronjob object: {job.k8s_object}")
+            LOGGER.debug(f"job '{job.job_name}' k8s job objects: {jobs}")
+            LOGGER.debug(f"job '{job.job_name}' k8s pod objects: {pods}")
+            scheduled_job_status = get_k8s_cronjob_status(
+                user=user, cronjob=job.k8s_object, jobs=jobs, pods=pods
+            )
+            LOGGER.debug(f"job status: {scheduled_job_status}")
+            return scheduled_job_status
+
+        elif k8s_type == K8sJobKind.DEPLOYMENT:
+            LOGGER.debug(f"job '{job.job_name}' k8s deployment object: {job.k8s_object}")
+            LOGGER.debug(f"job '{job.job_name}' k8s pod objects: {pods}")
+            continuous_job_status = get_k8s_deployment_status(deployment=job.k8s_object, pods=pods)
+            LOGGER.debug(f"job status: {continuous_job_status}")
+            return continuous_job_status
+
+        else:
+            raise TjfError(
+                f"Unable to get status for job {job.job_name} with unknown type: {job.job_type}"
+            )
 
     def get_quotas(self, *, tool: str) -> list[QuotaData]:
         tool_account = ToolAccount(name=tool)
