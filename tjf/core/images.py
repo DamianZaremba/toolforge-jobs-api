@@ -20,7 +20,7 @@ import json
 import logging
 import urllib.parse
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from typing import Any, Self
 
@@ -313,11 +313,11 @@ def _get_harbor_images_for_name(project: str, name: str) -> list[Image]:
 
 def _get_harbor_images(tool: str) -> list[Image]:
     LOGGER.debug("Fetching images from harbor")
-    if tool in HARBOR_IMAGES_CACHE:
-        cache_entry = HARBOR_IMAGES_CACHE[tool]
-        if cache_entry.creation_time - datetime.now(tz=UTC) < timedelta(seconds=5):
-            LOGGER.debug(f"Returning cached harbor images: {cache_entry}")
-            return copy.deepcopy(cache_entry.images)
+    # if tool in HARBOR_IMAGES_CACHE:
+    #     cache_entry = HARBOR_IMAGES_CACHE[tool]
+    #     if cache_entry.creation_time - datetime.now(tz=UTC) < timedelta(seconds=5):
+    #         LOGGER.debug(f"Returning cached harbor images: {cache_entry}")
+    #         return copy.deepcopy(cache_entry.images)
 
     LOGGER.debug("Re-fetching harbor images")
     config = _get_harbor_config()
@@ -355,7 +355,7 @@ def _get_harbor_images(tool: str) -> list[Image]:
         name = repository["name"][len(harbor_project) + 1 :]
         images.extend(_get_harbor_images_for_name(project=harbor_project, name=name))
 
-    HARBOR_IMAGES_CACHE[tool] = CacheEntry(images=images, creation_time=datetime.now(tz=UTC))
+    # HARBOR_IMAGES_CACHE[tool] = CacheEntry(images=images, creation_time=datetime.now(tz=UTC))
     LOGGER.debug(
         f"Re-fetched harbor images for tool {tool} from project {harbor_project}: {images}"
     )
