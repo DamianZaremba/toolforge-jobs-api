@@ -1,6 +1,7 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Generator
 
+import pytest
 from toolforge_weld.kubernetes import MountOption
 
 from tjf.api.models import (
@@ -35,9 +36,9 @@ from tjf.core.models import (
 def get_dummy_core_common_job(**overrides) -> CoreCommonJob:
     params = dict(
         cmd="dummy-command",
-        image=Image(canonical_name="dummy-image"),
+        image=Image.from_url_or_name(url_or_name="python3.11", tool_name="some-tool"),
         job_name="dummy-job-name",
-        tool_name="dummy-tool",
+        tool_name="some-tool",
     )
     return CoreCommonJob.model_validate(params | overrides)
 
@@ -46,7 +47,7 @@ def get_dummy_common_job(**overrides) -> CommonJob:
     params = {
         "name": "dummy-job-name",
         "cmd": "dummy-command",
-        "imagename": "dummy-image",
+        "imagename": "python3.11",
     }
     return CommonJob.model_validate(params | overrides)
 
@@ -56,18 +57,22 @@ def get_dummy_defined_common_job(**overrides) -> DefinedCommonJob:
         "name": "dummy-job-name",
         "cmd": "dummy-command",
         # these two are the same, imagename to be removed eventually
-        "image": "dummy-image",
-        "imagename": "dummy-image",
+        "image": "python3.11",
+        "imagename": "python3.11",
+        "image_state": "stable",
     }
-    return DefinedCommonJob.model_validate(params | overrides)
+    defined_job = DefinedCommonJob.model_validate(params | overrides)
+    # Flag this param as unset, in order to verify that from_core_job is correctly doing the same.
+    defined_job.model_fields_set.remove("image_state")
+    return defined_job
 
 
 def get_dummy_core_oneoff_job(**overrides) -> CoreOneOffJob:
     params = {
         "cmd": "dummy-command",
-        "image": Image(canonical_name="dummy-image"),
+        "image": Image.from_url_or_name(url_or_name="python3.11", tool_name="some-tool"),
         "job_name": "dummy-job-name",
-        "tool_name": "dummy-tool",
+        "tool_name": "some-tool",
     }
     return CoreOneOffJob.model_validate(params | overrides)
 
@@ -76,7 +81,7 @@ def get_dummy_new_oneoff_job(**overrides) -> NewOneOffJob:
     params = {
         "name": "dummy-job-name",
         "cmd": "dummy-command",
-        "imagename": "dummy-image",
+        "imagename": "python3.11",
     }
     return NewOneOffJob.model_validate(params | overrides)
 
@@ -86,21 +91,25 @@ def get_dummy_defined_oneoff_job(**overrides) -> DefinedOneOffJob:
         "name": "dummy-job-name",
         "cmd": "dummy-command",
         # these two are the same, imagename to be removed eventually
-        "image": "dummy-image",
-        "imagename": "dummy-image",
+        "image": "python3.11",
+        "imagename": "python3.11",
         "job_type": JobType.ONE_OFF,
+        "image_state": "stable",
     }
-    return DefinedOneOffJob.model_validate(params | overrides)
+    defined_job = DefinedOneOffJob.model_validate(params | overrides)
+    # Flag this param as unset, in order to verify that from_core_job is correctly doing the same.
+    defined_job.model_fields_set.remove("image_state")
+    return defined_job
 
 
 def get_dummy_core_scheduled_job(**overrides) -> CoreScheduledJob:
     params = dict(
         cmd="dummy-command",
-        image=Image(canonical_name="dummy-image"),
+        image=Image.from_url_or_name(url_or_name="python3.11", tool_name="some-tool"),
         job_name="dummy-job-name",
-        tool_name="dummy-tool",
+        tool_name="some-tool",
         schedule=CronExpression.parse(
-            value="@daily", job_name="dummy-job-name", tool_name="dummy-tool"
+            value="@daily", job_name="dummy-job-name", tool_name="some-tool"
         ),
     )
     return CoreScheduledJob.model_validate(params | overrides)
@@ -110,7 +119,7 @@ def get_dummy_new_scheduled_job(**overrides) -> NewScheduledJob:
     params: dict[str, Any] = {
         "name": "dummy-job-name",
         "cmd": "dummy-command",
-        "imagename": "dummy-image",
+        "imagename": "python3.11",
         "schedule": "@daily",
     }
     return NewScheduledJob.model_validate(params | overrides)
@@ -121,24 +130,27 @@ def get_dummy_defined_scheduled_job(**overrides) -> DefinedScheduledJob:
         "name": "dummy-job-name",
         "cmd": "dummy-command",
         # these two are the same, imagename to be removed eventually
-        "image": "dummy-image",
-        "imagename": "dummy-image",
+        "image": "python3.11",
+        "imagename": "python3.11",
+        "image_state": "stable",
         "schedule": "@daily",
-        "schedule_actual": "9 7 * * *",
+        "schedule_actual": "58 4 * * *",
         "job_type": JobType.SCHEDULED,
     }
     my_job = DefinedScheduledJob.model_validate(params | overrides)
     # schedule_actual is never in the set list
     my_job.model_fields_set.remove("schedule_actual")
+    # Flag this param as unset, in order to verify that from_core_job is correctly doing the same.
+    my_job.model_fields_set.remove("image_state")
     return my_job
 
 
 def get_dummy_core_continuous_job(**overrides) -> CoreContinuousJob:
     params = dict(
         cmd="dummy-command",
-        image=Image(canonical_name="dummy-image"),
+        image=Image.from_url_or_name(url_or_name="python3.11", tool_name="some-tool"),
         job_name="dummy-job-name",
-        tool_name="dummy-tool",
+        tool_name="some-tool",
     )
     return CoreContinuousJob.model_validate(params | overrides)
 
@@ -147,7 +159,7 @@ def get_dummy_new_continuous_job(**overrides) -> NewContinuousJob:
     params: dict[str, Any] = {
         "name": "dummy-job-name",
         "cmd": "dummy-command",
-        "imagename": "dummy-image",
+        "imagename": "python3.11",
     }
     return NewContinuousJob.model_validate(params | overrides)
 
@@ -157,13 +169,22 @@ def get_dummy_defined_continuous_job(**overrides) -> DefinedContinuousJob:
         "name": "dummy-job-name",
         "cmd": "dummy-command",
         # these two are the same, imagename to be removed eventually
-        "image": "dummy-image",
-        "imagename": "dummy-image",
+        "image": "python3.11",
+        "imagename": "python3.11",
+        "image_state": "stable",
         # For now these two are always set and returned
         "job_type": JobType.CONTINUOUS,
         "continuous": True,
     }
-    return DefinedContinuousJob.model_validate(params | overrides)
+    defined_job = DefinedContinuousJob.model_validate(params | overrides)
+    # Flag this param as unset, in order to verify that from_core_job is correctly doing the same.
+    defined_job.model_fields_set.remove("image_state")
+    return defined_job
+
+
+@pytest.fixture(autouse=True)
+def use_fake_images(fake_images: dict[str, Any]) -> Generator[None, None, None]:
+    yield
 
 
 class TestCommonJob:
@@ -171,7 +192,7 @@ class TestCommonJob:
         my_job = get_dummy_common_job()
         expected_core_job = get_dummy_core_common_job()
 
-        gotten_core_job = my_job.to_core_job(tool_name="dummy-tool")
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump(exclude_unset=True) == expected_core_job.model_dump(
             exclude_unset=True
@@ -181,7 +202,7 @@ class TestCommonJob:
         my_job = get_dummy_common_job()
         expected_core_job = get_dummy_core_common_job()
 
-        gotten_core_job = my_job.to_core_job(tool_name="dummy-tool")
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump(exclude_unset=False) == expected_core_job.model_dump(
             exclude_unset=False
@@ -207,7 +228,7 @@ class TestCommonJob:
             filelog_stderr=Path("/path/to.log.err"),
             filelog_stdout=Path("/path/to.log.out"),
         )
-        gotten_core_job = my_job.to_core_job(tool_name="dummy-tool")
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump() == expected_core_job.model_dump()
 
@@ -217,7 +238,7 @@ class TestNewOneOffJob:
         my_job = get_dummy_new_oneoff_job()
         expected_core_job = get_dummy_core_oneoff_job()
 
-        gotten_core_job = my_job.to_core_job(tool_name="dummy-tool")
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump(exclude_unset=True) == expected_core_job.model_dump(
             exclude_unset=True
@@ -227,7 +248,7 @@ class TestNewOneOffJob:
         my_job = get_dummy_new_oneoff_job()
         expected_core_job = get_dummy_core_oneoff_job()
 
-        gotten_core_job = my_job.to_core_job(tool_name="dummy-tool")
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump(exclude_unset=False) == expected_core_job.model_dump(
             exclude_unset=False
@@ -238,7 +259,7 @@ class TestNewOneOffJob:
         my_job = get_dummy_new_oneoff_job()
         expected_core_job = get_dummy_core_oneoff_job()
 
-        gotten_core_job = my_job.to_core_job(tool_name="dummy-tool")
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump() == expected_core_job.model_dump()
 
@@ -248,7 +269,7 @@ class TestNewScheduledJob:
         my_job = get_dummy_new_scheduled_job()
         expected_core_job = get_dummy_core_scheduled_job()
 
-        gotten_core_job = my_job.to_core_job(tool_name="dummy-tool")
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump(exclude_unset=True) == expected_core_job.model_dump(
             exclude_unset=True
@@ -258,7 +279,7 @@ class TestNewScheduledJob:
         my_job = get_dummy_new_scheduled_job()
         expected_core_job = get_dummy_core_scheduled_job()
 
-        gotten_core_job = my_job.to_core_job(tool_name="dummy-tool")
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump(exclude_unset=False) == expected_core_job.model_dump(
             exclude_unset=False
@@ -268,7 +289,7 @@ class TestNewScheduledJob:
         my_job = get_dummy_new_scheduled_job(timeout=120)
         expected_core_job = get_dummy_core_scheduled_job(timeout=120)
 
-        gotten_core_job = my_job.to_core_job(tool_name="dummy-tool")
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump() == expected_core_job.model_dump()
 
@@ -278,7 +299,7 @@ class TestNewContinuousJob:
         my_job = get_dummy_new_continuous_job()
         expected_core_job = get_dummy_core_continuous_job()
 
-        gotten_core_job = my_job.to_core_job(tool_name="dummy-tool")
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump(exclude_unset=True) == expected_core_job.model_dump(
             exclude_unset=True
@@ -288,7 +309,7 @@ class TestNewContinuousJob:
         my_job = get_dummy_new_continuous_job()
         expected_core_job = get_dummy_core_continuous_job()
 
-        gotten_core_job = my_job.to_core_job(tool_name="dummy-tool")
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump(exclude_unset=False) == expected_core_job.model_dump(
             exclude_unset=False
@@ -306,7 +327,7 @@ class TestNewContinuousJob:
             port_protocol=PortProtocol.TCP,
         )
 
-        gotten_core_job = my_job.to_core_job(tool_name="dummy-tool")
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump(exclude_unset=False) == expected_core_job.model_dump(
             exclude_unset=False
@@ -336,14 +357,14 @@ class TestDefinedCommonJob:
 
     def test_to_job_returns_expected_value_when_all_fields_set(self):
         expected_defined_job = get_dummy_defined_common_job(
-            image="dummy image",
-            imagename="dummy image",
-            image_state="dummy image state",
+            image="python3.11",
+            imagename="python3.11",
+            image_state="stable",
             status_short="dummy status short",
             status_long="dummy status long",
         )
         core_job = get_dummy_core_common_job(
-            image=Image(state="dummy image state", canonical_name="dummy image"),
+            image=Image.from_url_or_name(url_or_name="python3.11", tool_name="some-tool"),
             status_short="dummy status short",
             status_long="dummy status long",
         )
