@@ -39,6 +39,8 @@ CONFIG_VARIANT_KEY = "jobs-framework"
 # TODO: make configurable
 CONFIG_CONTAINER_TAG = "latest"
 
+DEFAULT_IMAGE_STATE = "unknown"
+
 HARBOR_CONFIG_PATH = "/etc/jobs-api/harbor.json"
 HARBOR_IMAGE_STATE = "stable"
 
@@ -62,7 +64,7 @@ class Image(BaseModel):
     type: ImageType | None = None
     aliases: list[str] = []
     container: str | None = None
-    state: str = "unknown"
+    state: str = DEFAULT_IMAGE_STATE
     digest: str = ""
 
     @model_validator(mode="after")
@@ -95,6 +97,12 @@ class Image(BaseModel):
         else:
             image_name_with_tag = url
 
+        image_type = ImageType.STANDARD
+        state = DEFAULT_IMAGE_STATE
+        if "/" in url:
+            image_type = ImageType.BUILDPACK
+            state = HARBOR_IMAGE_STATE
+
         aliases, digest = [], ""
         # If we have a digest, then strip it out for `canonical_name`, but keep it as an alias
         if "@" in image_name_with_tag:
@@ -102,10 +110,11 @@ class Image(BaseModel):
             image_name_with_tag, digest = url.split("@", 1)
 
         return cls(
-            type=ImageType.BUILDPACK if "/" in url else ImageType.STANDARD,
+            type=image_type,
             canonical_name=image_name_with_tag,
             aliases=aliases,
             container=url,
+            state=state,
             digest=digest,
         )
 
