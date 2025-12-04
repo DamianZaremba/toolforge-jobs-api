@@ -167,6 +167,8 @@ def test_get_image_by_container_url(
     """Basic test for the get_image_by_container_url() func."""
     image = get_image_by_container_url(expected_image.to_full_url())
     assert image.canonical_name == expected_name or expected_name in image.aliases
+    assert image.type == expected_image.type
+    assert image.state == expected_image.state
 
 
 def test_get_image_by_container_url_raises_value_error(fake_images):
