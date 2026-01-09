@@ -81,9 +81,7 @@ def trigger_scheduled_job(tool_account: ToolAccount, scheduled_job: ScheduledJob
     try:
         tool_account.k8s_cli.create_object(kind="jobs", spec=k8s_job)
     except requests.exceptions.HTTPError as error:
-        raise create_error_from_k8s_response(
-            error=error, job=scheduled_job, spec=k8s_job, tool_account=tool_account
-        )
+        raise create_error_from_k8s_response(error=error, job=scheduled_job, spec=k8s_job)
 
 
 def wait_for_pods_exit(

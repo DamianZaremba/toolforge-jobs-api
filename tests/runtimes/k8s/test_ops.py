@@ -30,7 +30,6 @@ from tests.helpers.fake_k8s import (
 from tests.helpers.fakes import get_dummy_job, get_fake_account
 from tjf.core.error import TjfError, TjfValidationError
 from tjf.core.models import AnyJob, JobType
-from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.jobs import (
     JOB_DEFAULT_CPU,
     JOB_DEFAULT_MEMORY,
@@ -73,13 +72,11 @@ class TestCreateErrorFromK8sResponse:
     def test_no_data(
         self,
         fake_job: AnyJob,
-        fake_tool_account: ToolAccount,
     ):
         error = create_error_from_k8s_response(
             error=HTTPError("Foobar"),
             job=fake_job,
             spec=get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
-            tool_account=fake_tool_account,
         )
         assert type(error) is TjfError
         assert error.args == (
@@ -94,7 +91,6 @@ class TestCreateErrorFromK8sResponse:
         self,
         patch_kube_config_loading,
         fake_job: AnyJob,
-        fake_tool_account: ToolAccount,
         requests_mock: RequestsMockMocker,
     ):
         error = create_error_from_k8s_response(
@@ -103,7 +99,6 @@ class TestCreateErrorFromK8sResponse:
             ),
             job=fake_job,
             spec=get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
-            tool_account=fake_tool_account,
         )
 
         assert type(error) is TjfError
@@ -118,11 +113,36 @@ class TestCreateErrorFromK8sResponse:
             },
         }
 
+    def test_out_of_quota(
+        self,
+        patch_kube_config_loading,
+        fake_job: AnyJob,
+        requests_mock: RequestsMockMocker,
+        fixtures_path: Path,
+    ):
+        response_data = json.loads((fixtures_path / "errors" / "quota.json").read_text())
+        error = create_error_from_k8s_response(
+            error=_create_fake_http_error(requests_mock, 403, response_data),
+            job=fake_job,
+            spec=get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
+        )
+
+        assert type(error) is TjfValidationError
+        assert error.args == (
+            "Out of quota for this kind of job. Please see https://w.wiki/6YLP for details.",
+        )
+        assert error.data == {
+            "k8s_object": get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
+            "k8s_error": {
+                "status_code": 403,
+                "body": json.dumps(response_data),
+            },
+        }
+
     def test_already_exists(
         self,
         patch_kube_config_loading,
         fake_job: AnyJob,
-        fake_tool_account: ToolAccount,
         requests_mock: RequestsMockMocker,
         fixtures_path: Path,
     ):
@@ -131,7 +151,6 @@ class TestCreateErrorFromK8sResponse:
             error=_create_fake_http_error(requests_mock, 409, response_data),
             job=fake_job,
             spec=get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
-            tool_account=fake_tool_account,
         )
 
         assert type(error) is TjfValidationError

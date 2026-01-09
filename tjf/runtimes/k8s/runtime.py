@@ -145,9 +145,7 @@ class K8sRuntime(BaseRuntime):
                     error.response is None
                     or error.response.status_code != HTTPStatus.UNPROCESSABLE_ENTITY
                 ):
-                    raise create_error_from_k8s_response(
-                        error=error, job=job, spec=spec, tool_account=tool_account
-                    )
+                    raise create_error_from_k8s_response(error=error, job=job, spec=spec)
 
                 LOGGER.warning(
                     f"Failed to patch k8s object, falling back to delete/create for {job.job_name} in {tool}: {error}"
@@ -184,9 +182,7 @@ class K8sRuntime(BaseRuntime):
         try:
             tool_account.k8s_cli.replace_object("services", spec)
         except requests.exceptions.HTTPError as error:
-            raise create_error_from_k8s_response(
-                error=error, job=job, spec=spec, tool_account=tool_account
-            )
+            raise create_error_from_k8s_response(error=error, job=job, spec=spec)
         return None
 
     def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
@@ -239,9 +235,7 @@ class K8sRuntime(BaseRuntime):
             refresh_job_short_status(tool_account, job)
             refresh_job_long_status(tool_account, job)
         except requests.exceptions.HTTPError as error:
-            raise create_error_from_k8s_response(
-                error=error, job=job, spec=spec, tool_account=tool_account
-            )
+            raise create_error_from_k8s_response(error=error, job=job, spec=spec)
 
     def delete_all_jobs(self, *, tool: str) -> None:
         """Deletes all jobs for a user."""

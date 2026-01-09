@@ -20,57 +20,24 @@ from typing import Any
 import requests
 
 from ...core.error import TjfError, TjfJobNotFoundError, TjfValidationError
-from ...core.models import AnyJob, ContinuousJob, OneOffJob, ScheduledJob
-from .account import ToolAccount
+from ...core.models import AnyJob
 
 
 def _is_out_of_quota(
     e: requests.exceptions.HTTPError,
-    job: AnyJob,
-    tool_account: ToolAccount,
 ) -> bool:
     """Returns True if the user is out of quota for a given job type."""
-    if e.response is None:
+    if e.response is None or e.response.text is None:
         return False
     if e.response.status_code != 403:
         return False
-    if not str(e).startswith("403 Client Error: Forbidden for url"):
-        return False
-
-    resource_quota = tool_account.k8s_cli.get_objects("resourcequotas")[0]
-    quota = None
-    used = None
-    service_quota = None
-    service_used = None
-
-    if isinstance(job, OneOffJob):
-        quota = resource_quota["status"]["hard"]["count/jobs.batch"]
-        used = resource_quota["status"]["used"]["count/jobs.batch"]
-    elif isinstance(job, ScheduledJob):
-        quota = resource_quota["status"]["hard"]["count/cronjobs.batch"]
-        used = resource_quota["status"]["used"]["count/cronjobs.batch"]
-    elif isinstance(job, ContinuousJob):
-        quota = resource_quota["status"]["hard"]["count/cronjobs.batch"]
-        used = resource_quota["status"]["used"]["count/cronjobs.batch"]
-        service_quota = resource_quota["status"]["hard"]["services"]
-        service_used = resource_quota["status"]["used"]["services"]
-    else:
-        return False
-
-    if used >= quota:
-        return True
-
-    if service_used is not None and service_used >= service_quota:
-        return True
-
-    return False
+    return "is forbidden: exceeded quota:" in e.response.text
 
 
 def create_error_from_k8s_response(
     error: requests.exceptions.HTTPError,
     job: AnyJob,
     spec: dict[str, Any],
-    tool_account: ToolAccount,
 ) -> TjfError:
     """Function to handle some known kubernetes API exceptions."""
     error_data = {
@@ -89,7 +56,7 @@ def create_error_from_k8s_response(
         "body": error.response.text,
     }
 
-    if _is_out_of_quota(error, job, tool_account):
+    if _is_out_of_quota(error):
         return TjfValidationError(
             "Out of quota for this kind of job. Please see https://w.wiki/6YLP for details.",
             data=error_data,
