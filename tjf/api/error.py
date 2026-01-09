@@ -1,4 +1,5 @@
 import http
+import json
 import logging
 import traceback
 
@@ -49,7 +50,7 @@ def error_handler(request: Request, error: Exception) -> JSONResponse:
         print(f"----------------- cause: {cause}")
         message += f" ({str(cause)})"
 
-    LOGGER.error(f"{message}. context: {data}")
+    LOGGER.error(f"{message}. context: {json.dumps(data)}")
     return JSONResponse(
         ResponseMessages(error=[message]).model_dump(mode="json", exclude_unset=True),
         status_code=http_status_code,
