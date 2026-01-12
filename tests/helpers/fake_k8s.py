@@ -973,12 +973,10 @@ LIMIT_RANGE_OBJECT = {
 }
 
 K8S_CONTINUOUS_JOB_OBJ = json.loads(
-    (FIXTURES_PATH / "jobs" / "deployment-simple-buildpack.json").read_text()
+    (FIXTURES_PATH / "deployments" / "deployment-simple-buildpack.json").read_text()
 )
-K8S_SCHEDULED_JOB_OBJ = json.loads((FIXTURES_PATH / "jobs" / "daily_cronjob.json").read_text())
-K8S_ONEOFF_JOB_OBJ = json.loads(
-    (FIXTURES_PATH / "jobs" / "oneoff-simple-prebuilt.json").read_text()
-)
+K8S_SCHEDULED_JOB_OBJ = json.loads((FIXTURES_PATH / "cronjobs" / "daily_cronjob.json").read_text())
+K8S_ONEOFF_JOB_OBJ = json.loads((FIXTURES_PATH / "jobs" / "job-simple-prebuilt.json").read_text())
 
 
 def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
@@ -1003,6 +1001,7 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
     if add_status:
         overrides["status_short"] = "Not running"
         overrides["status_long"] = "No pods were created for this job."
+        overrides["status"] = {"short": "unknown", "duration": ""}
 
     job = get_dummy_job(**(params | overrides))
     if "mount" not in overrides:
