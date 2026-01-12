@@ -36,9 +36,9 @@ class TestJobFromK8s:
                 value=MagicMock(
                     return_value=Image(
                         type=ImageType.STANDARD,
-                        canonical_name="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+                        canonical_name="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-python311-sssd-base:latest",
                         aliases=[],
-                        container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+                        container="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-python311-sssd-base:latest",
                         state="stable",
                     )
                 ),
@@ -51,9 +51,9 @@ class TestJobFromK8s:
                 filelog_stdout=PosixPath("/data/project/tf-test/cronjobtest.out"),
                 image=Image(
                     type=ImageType.STANDARD,
-                    canonical_name="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+                    canonical_name="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-python311-sssd-base:latest",
                     aliases=[],
-                    container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+                    container="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-python311-sssd-base:latest",
                     state="stable",
                 ),
                 job_name="cronjobtest",
@@ -86,9 +86,9 @@ class TestJobFromK8s:
                 value=MagicMock(
                     return_value=Image(
                         type=ImageType.STANDARD,
-                        canonical_name="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+                        canonical_name="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-python311-sssd-base:latest",
                         aliases=[],
-                        container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+                        container="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-python311-sssd-base:latest",
                         state="stable",
                     )
                 ),
@@ -108,9 +108,9 @@ class TestJobFromK8s:
                 value=MagicMock(
                     return_value=Image(
                         type=ImageType.STANDARD,
-                        canonical_name="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+                        canonical_name="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-python311-sssd-base:latest",
                         aliases=[],
-                        container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+                        container="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-python311-sssd-base:latest",
                         state="stable",
                     )
                 ),
@@ -132,7 +132,7 @@ class TestJobFromK8s:
                 value=MagicMock(
                     return_value=Image(
                         type=ImageType.BUILDPACK,
-                        container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+                        container="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",
                         canonical_name="bullseye",
                     )
                 ),
@@ -153,7 +153,7 @@ class TestJobFromK8s:
                     return_value=Image(
                         type=ImageType.BUILDPACK,
                         canonical_name="bullseye",
-                        container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+                        container="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-bullseye-sssd:latest",
                     )
                 ),
             )
@@ -220,7 +220,7 @@ class TestGetJobForK8s:
                         "mount": MountOption.ALL,
                         "image": Image(
                             canonical_name="my-non-buildpack",
-                            container="docker-registry.tools.wmflabs.org/toolforge-some-image:latest",
+                            container="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-some-image:latest",
                             type=ImageType.STANDARD,
                         ),
                     },

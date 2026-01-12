@@ -22,7 +22,7 @@ IMAGE_NAME_TESTS = [
         Image(
             canonical_name="node12",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base:latest",
+            container="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-node12-sssd-base:latest",
             aliases=["tf-node12", "tf-node12-DEPRECATED"],
             digest="",
             state="deprecated",
@@ -33,7 +33,7 @@ IMAGE_NAME_TESTS = [
         Image(
             canonical_name="node12",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base:latest",
+            container="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-node12-sssd-base:latest",
             aliases=["tf-node12", "tf-node12-DEPRECATED"],
             state="deprecated",
             digest="",
@@ -44,7 +44,7 @@ IMAGE_NAME_TESTS = [
         Image(
             canonical_name="php7.3",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-php73-sssd-base:latest",
+            container="tools-harbor.wmcloud.org/toolforge-pre-built/toolforge-php73-sssd-base:latest",
             aliases=["tf-php73", "tf-php73-DEPRECATED"],
             digest="",
             state="deprecated",
