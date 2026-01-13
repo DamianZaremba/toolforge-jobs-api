@@ -91,13 +91,14 @@ class CommonJob(BaseModel):
     def to_core_job(self, tool_name: str) -> CoreCommonJob:
         set_job_params = self.model_dump(exclude_unset=True)
 
+        image = ImageData.from_url_or_name(
+            url_or_name=self.imagename, tool_name=tool_name, use_harbor_cache=False
+        )
         params = {
             "cmd": self.cmd,
             "tool_name": tool_name,
             "job_name": self.name,
-            "image": ImageData.from_url_or_name(
-                url_or_name=self.imagename, tool_name=tool_name, use_harbor_cache=False
-            ),
+            "image": image,
         }
 
         for field in ["filelog", "filelog_stdout", "filelog_stderr"]:
@@ -115,12 +116,11 @@ class CommonJob(BaseModel):
 
         my_job = CoreCommonJob.model_validate(params)
 
-        image_type = ImageType.from_imagename(self.imagename)
         is_standard_image_and_mount_all = (
-            self.mount == MountOption.ALL and image_type == ImageType.STANDARD
+            self.mount == MountOption.ALL and image.type == ImageType.STANDARD
         )
         is_buildpack_image_and_mount_none = (
-            self.mount == MountOption.ALL and image_type == ImageType.STANDARD
+            self.mount == MountOption.NONE and image.type == ImageType.BUILDPACK
         )
         if (
             is_standard_image_and_mount_all or is_buildpack_image_and_mount_none
