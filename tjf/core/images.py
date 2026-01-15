@@ -35,7 +35,7 @@ from .error import TjfError, TjfValidationError
 from .utils import USER_AGENT
 
 LOGGER = logging.getLogger(__name__)
-CONFIG_VARIANT_KEY = "jobs-framework"
+CONFIG_VARIANT_KEYS = ["jobs-framework", "webservice"]
 # TODO: make configurable
 CONFIG_CONTAINER_TAG = "latest"
 
@@ -100,8 +100,11 @@ class Image(BaseModel):
         """
         Given a url or name, gives back a matching existing image or a new image with the resolved information.
         Supported url/name formats:
-        * canonical name only: "node12"
-        * alias: "tf-node12"
+        * prebuilt image canonical name only: "node12"
+        * prebuilt image alias: "tf-node12"
+        * prebuilt image with path and host: docker.example.org/prebuilt-image:latest
+        * prebuilt image name with or without tag or variants: prebuilt-image, prebuilt-image-job-variant, prebuilt-image-job-variant:latest,
+                                                               prebuilt-image-web-variant, prebuilt-image-web-variant:latest
         * image path: "tool-<mytool>/<myimage>:latest"
         * image path with digest: "tool-<mytool>/<myimage>:latest@sha256:123454..."
         * image path with host: "harbor.example.org/tool-<mytool>/<myimage>:latest"
@@ -143,6 +146,21 @@ class Image(BaseModel):
                 # the digest would have been matched already in the aliases or the container
                 image.digest = digest
                 return image
+            else:
+                # this is only supposed to be triggered if every other attempt fails.
+                # Here we check if there are any of the available images have the same image name (e.g. toolforge-bookworm), regardless of what the variant or tag is.
+                # This helps in matching a webservice variant image (e.g. docker-registry.tools.wmflabs.org/toolforge-golang111-sssd-web),
+                # to a job-framework variant image (e.g. docker-registry.tools.wmflabs.org/toolforge-golang111-sssd-base),
+                # and verse versa.
+                # will also helps in matching with the image name directly, which we don't currently do (e.g. toolforge-bookworm-sssd, toolforge-bookworm-sssd:latest)
+
+                url_or_name_prefix = url_or_name.split("-sssd", 1)[0].split("-web-sssd", 1)[0]
+                image_container_prefix = (
+                    image.container
+                    and image.container.split("-sssd", 1)[0].split("-web-sssd", 1)[0]
+                )
+                if image_container_prefix and image_container_prefix.endswith(url_or_name_prefix):
+                    return image
 
         LOGGER.debug(
             f"Unable to find matching image for {url_or_name}, available images for tool {tool_name}: {all_images}"
@@ -224,7 +242,7 @@ def _get_images_data() -> dict[str, Any]:
     }
 
 
-def _get_prebuilt_images() -> list[Image]:
+def _get_prebuilt_images(ignore_web_variant: bool) -> list[Image]:
     settings = get_settings()
     refresh_interval = settings.images_config_refresh_interval
     LOGGER.debug("Fetching cached images data")
@@ -248,19 +266,29 @@ def _get_prebuilt_images() -> list[Image]:
     available_images = []
 
     for name, image_data in data.items():
-        if CONFIG_VARIANT_KEY not in image_data["variants"]:
-            continue
+        # jobs-framework image variant
+        if CONFIG_VARIANT_KEYS[0] in image_data["variants"]:
+            container = image_data["variants"][CONFIG_VARIANT_KEYS[0]]["image"]
+            image = Image(
+                type=ImageType.STANDARD,
+                canonical_name=name,
+                aliases=image_data.get("aliases", []),
+                container=f"{container}:{CONFIG_CONTAINER_TAG}",
+                state=image_data["state"],
+            )
+            available_images.append(image)
 
-        container = image_data["variants"][CONFIG_VARIANT_KEY]["image"]
-        image = Image(
-            type=ImageType.STANDARD,
-            canonical_name=name,
-            aliases=image_data.get("aliases", []),
-            container=f"{container}:{CONFIG_CONTAINER_TAG}",
-            state=image_data["state"],
-        )
-
-        available_images.append(image)
+        # webservice image variant
+        if not ignore_web_variant and CONFIG_VARIANT_KEYS[1] in image_data["variants"]:
+            container = image_data["variants"][CONFIG_VARIANT_KEYS[1]]["image"]
+            image = Image(
+                type=ImageType.STANDARD,
+                canonical_name=name,
+                aliases=image_data.get("aliases", []),
+                container=f"{container}:{CONFIG_CONTAINER_TAG}",
+                state=image_data["state"],
+            )
+            available_images.append(image)
 
     if len(available_images) < 1:
         raise TjfError("Empty list of available images")
@@ -361,8 +389,11 @@ def _get_harbor_images(tool: str, use_harbor_cache: bool) -> list[Image]:
     return copy.deepcopy(images)
 
 
-def get_images(tool: str, use_harbor_cache: bool = True) -> list[Image]:
+# TODO: drop ignore_web_variant when we switch to using only web images. see T409191 for context
+def get_images(
+    tool: str, ignore_web_variant: bool = False, use_harbor_cache: bool = True
+) -> list[Image]:
     # TODO: eventually replace with a call to builds-api, so we don't need to interact with harbor or image-config
-    return _get_prebuilt_images() + _get_harbor_images(
+    return _get_prebuilt_images(ignore_web_variant=ignore_web_variant) + _get_harbor_images(
         tool=tool, use_harbor_cache=use_harbor_cache
     )
