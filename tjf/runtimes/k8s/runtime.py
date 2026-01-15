@@ -384,7 +384,10 @@ class K8sRuntime(BaseRuntime):
             yield format_logs(log)
 
     def get_images(self, toolname: str) -> list[Image]:
-        images = get_images(tool=toolname)
+        # get_images now returns webservice image variants too, because from_url_or_name supports translating
+        # jobs-framework and webservice image variants to each other, but here we want to return only jobs-framework image variants.
+        # TODO: drop ignore_web_variant when we switch to using only web images. see T409191 for context
+        images = get_images(tool=toolname, ignore_web_variant=True)
         images = [
             image
             for image in sorted(images, key=lambda image: image.canonical_name)

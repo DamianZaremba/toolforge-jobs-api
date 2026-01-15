@@ -64,6 +64,14 @@ python3.11:
       image: docker-registry.tools.wmflabs.org/toolforge-python311-sssd-web
       extra:
         wstype: python
+
+python3.13:
+  state: stable
+  variants:
+    webservice:
+      image: docker-registry.tools.wmflabs.org/toolforge-python313-sssd-web
+      extra:
+        wstype: python
 """
 
 FAKE_K8S_HOST = "k8s.example.org"
