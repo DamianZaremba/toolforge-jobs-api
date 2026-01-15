@@ -1,0 +1,14 @@
+{
+  "kind": "Status",
+  "apiVersion": "v1",
+  "metadata": {},
+  "status": "Failure",
+  "message": "jobs.batch \"blah\" is forbidden: exceeded quota: tool-blah, requested: count/jobs.batch=1, used: count/jobs.batch=15, limited: count/jobs.batch=15",
+  "reason": "Forbidden",
+  "details": {
+    "name": "blah",
+    "group": "batch",
+    "kind": "jobs"
+  },
+  "code": 403
+}

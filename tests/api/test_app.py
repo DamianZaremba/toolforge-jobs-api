@@ -1,4 +1,5 @@
 import http
+import json
 from typing import Any
 
 import pytest
@@ -75,7 +76,7 @@ class TestApiErrorHandler:
 
         assert response.status_code == 400
         assert response.json() == {"error": [exp_err_msg]}
-        assert f"{exp_err_msg}. context: {exp_err_ctx}" in caplog.text
+        assert f"{exp_err_msg}. context: {json.dumps(exp_err_ctx)}" in caplog.text
 
     def test_tjf_error(self, error_generating_app, caplog):
         exp_err_msg = "Failed to create job (Failed to contact foo)"
@@ -84,7 +85,7 @@ class TestApiErrorHandler:
 
         assert response.status_code == 500
         assert response.json() == {"error": [exp_err_msg]}
-        assert f"{exp_err_msg}. context: {exp_err_ctx}" in caplog.text
+        assert f"{exp_err_msg}. context: {json.dumps(exp_err_ctx)}" in caplog.text
 
     def test_toolforge_user_error(self, error_generating_app, caplog):
         exp_err_msg = "Welding failed (Test Cause)"
@@ -93,7 +94,7 @@ class TestApiErrorHandler:
 
         assert response.status_code == 400
         assert response.json() == {"error": [exp_err_msg]}
-        assert f"{exp_err_msg}. context: {exp_err_ctx}" in caplog.text
+        assert f"{exp_err_msg}. context: {json.dumps(exp_err_ctx)}" in caplog.text
 
     def test_validation_error(self, error_generating_app, caplog):
         exp_err_msg = '1 validation error for Silly\nsomeint\n  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value="I\'m not an int", input_type=str]'
@@ -102,7 +103,7 @@ class TestApiErrorHandler:
 
         assert response.status_code == 400
         assert response.json() == {"error": [exp_err_msg]}
-        assert f"{exp_err_msg}. context: {exp_err_ctx}" in caplog.text
+        assert f"{exp_err_msg}. context: {json.dumps(exp_err_ctx)}" in caplog.text
 
     def test_unknown_error(self, error_generating_app, caplog):
         exp_err_msg = "Unknown error (Some error)"
