@@ -143,6 +143,18 @@ class Image(BaseModel):
                 # the digest would have been matched already in the aliases or the container
                 image.digest = digest
                 return image
+            else:
+                # this is only supposed to be triggered if every other attempt fails.
+                # Here we try matching a webservice variant image (e.g. docker-registry.tools.wmflabs.org/toolforge-golang111-sssd-web),
+                # to a job-framework variant image (e.g. docker-registry.tools.wmflabs.org/toolforge-golang111-sssd-base),
+                # and verse versa
+                image_name_prefix = image_name.split("-sssd", 1)[0].split("-web-sssd", 1)[0]
+                image_container_prefix = (
+                    image.container
+                    and image.container.split("-sssd", 1)[0].split("-web-sssd", 1)[0]
+                )
+                if image_container_prefix and image_container_prefix.endswith(image_name_prefix):
+                    return image
 
         LOGGER.debug(
             f"Unable to find matching image for {url_or_name}, available images for tool {tool_name}: {all_images}"
