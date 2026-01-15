@@ -43,7 +43,7 @@ def error_handler(request: Request, error: Exception) -> JSONResponse:
         cause = error
         error = TjfError("Unknown error")
         http_status_code = http.HTTPStatus.INTERNAL_SERVER_ERROR
-        data = {"traceback": traceback.format_exc()}
+        data = {"traceback": "".join(traceback.format_exception(cause))}
 
     message = message or str(error)
     if cause:

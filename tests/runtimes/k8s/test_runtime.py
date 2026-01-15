@@ -14,6 +14,7 @@ from tests.test_utils import cases, patch_spec
 from tjf.core.error import TjfJobNotFoundError
 from tjf.core.images import Image, ImageType
 from tjf.core.models import AnyJob, EmailOption
+from tjf.runtimes.exceptions import NotFoundInRuntime
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.runtime import K8sRuntime
 from tjf.settings import get_settings
@@ -42,9 +43,8 @@ class TestGetJob:
         )
         my_runtime = K8sRuntime(settings=get_settings())
 
-        gotten_job = my_runtime.get_job(job_name="idontexist", tool="idontexisteither")
-
-        assert gotten_job is None
+        with pytest.raises(NotFoundInRuntime):
+            my_runtime.get_job(job_name="idontexist", tool="idontexisteither")
 
     @cases(
         "patch, expected_job",
@@ -280,7 +280,11 @@ class TestDiffWithRunningJob:
     ):
         new_job = get_continuous_job_fixture_as_new_job()
         my_runtime = K8sRuntime(settings=get_settings())
-        monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: None)
+
+        def raise_not_found(*args, **kwargs):
+            raise NotFoundInRuntime("Not found!")
+
+        monkeypatch.setattr(my_runtime, "get_job", raise_not_found)
 
         with pytest.raises(TjfJobNotFoundError):
             my_runtime.diff_with_running_job(job=new_job)

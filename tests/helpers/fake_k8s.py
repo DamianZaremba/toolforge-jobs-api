@@ -983,11 +983,13 @@ LIMIT_RANGE_OBJECT = {
 }
 
 K8S_CONTINUOUS_JOB_OBJ = json.loads(
-    (FIXTURES_PATH / "jobs" / "deployment-simple-buildpack.json").read_text()
+    (FIXTURES_PATH / "runtime_k8s_objects" / "deployment-simple-buildpack.json").read_text()
 )
-K8S_SCHEDULED_JOB_OBJ = json.loads((FIXTURES_PATH / "jobs" / "daily_cronjob.json").read_text())
+K8S_SCHEDULED_JOB_OBJ = json.loads(
+    (FIXTURES_PATH / "runtime_k8s_objects" / "daily_cronjob.json").read_text()
+)
 K8S_ONEOFF_JOB_OBJ = json.loads(
-    (FIXTURES_PATH / "jobs" / "oneoff-simple-prebuilt.json").read_text()
+    (FIXTURES_PATH / "runtime_k8s_objects" / "oneoff-simple-prebuilt.json").read_text()
 )
 
 
