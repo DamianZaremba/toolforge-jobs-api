@@ -20,6 +20,8 @@ from typing import AsyncIterator, Tuple
 
 from toolforge_weld.utils import apeek
 
+from tjf.api.metrics import SYNCED_TO_STORAGE_COUNTER
+
 from ..runtimes.exceptions import NotFoundInRuntime
 from ..runtimes.k8s.runtime import K8sRuntime
 from ..settings import Settings
@@ -255,6 +257,7 @@ class Core:
                     f"Creating storage job {job_name} for tool {tool_name} from runtime, this should once all "
                     "jobs are in storage"
                 )
+                SYNCED_TO_STORAGE_COUNTER.labels(tool_name=runtime_job.tool_name).inc()
                 storage_job = self._create_storage_job(job=runtime_job)
 
         if not runtime_job or not storage_job:
