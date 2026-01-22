@@ -3,7 +3,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import Any, Literal, Self, Type
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, StringConstraints, field_validator, model_validator
 from toolforge_weld.kubernetes import MountOption, parse_quantity
 from typing_extensions import Annotated
 
@@ -227,6 +227,9 @@ class NewContinuousJob(CommonJob, BaseModel):
         "port"
     ].default
     port_protocol: PortProtocol = PortProtocol.TCP
+    publish: Annotated[str, StringConstraints(pattern=r"^/$")] = (
+        CoreContinuousJob.model_fields["publish"].default
+    )
     health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
         default=CoreContinuousJob.model_fields["health_check"].default,
         discriminator="health_check_type",
@@ -415,6 +418,9 @@ class DefinedContinuousJob(DefinedCommonJob, BaseModel):
     port_protocol: PortProtocol = CoreContinuousJob.model_fields[
         "port_protocol"
     ].default
+    publish: Annotated[str, StringConstraints(pattern=r"^/$")] = (
+        CoreContinuousJob.model_fields["publish"].default
+    )
     health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
         default=CoreContinuousJob.model_fields["health_check"].default,
         discriminator="health_check_type",

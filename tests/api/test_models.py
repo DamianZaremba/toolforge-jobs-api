@@ -656,3 +656,31 @@ class TestGetResolvedCoreJob:
         assert k8s_job.model_dump(exclude=["k8s_object"]) != unresolved.model_dump(
             exclude=["k8s_object"]
         )
+
+
+class TestContinuousJobPublishValidation:
+    def test_publish_requires_port(self):
+        with pytest.raises(ValueError, match="publish requires port to be set"):
+            get_dummy_core_continuous_job(
+                publish="/",
+            )
+
+    def test_publish_requires_tcp(self):
+        with pytest.raises(
+            ValueError, match="publish requires port_protocol set to tcp"
+        ):
+            get_dummy_core_continuous_job(
+                publish="/",
+                port=8000,
+                port_protocol=PortProtocol.UDP,
+            )
+
+    def test_publish_with_port_and_tcp_succeeds(self):
+        job = get_dummy_core_continuous_job(
+            publish="/",
+            port=8000,
+            port_protocol=PortProtocol.TCP,
+        )
+        assert job.publish == "/"
+        assert job.port == 8000
+        assert job.port_protocol == PortProtocol.TCP
