@@ -59,6 +59,8 @@ spec:
             value: "{{ .Values.webservice.default_cpu_limit }}"
           - name: "ENABLE_STORAGE"
             value: "{{ .Values.webservice.enable_storage }}"
+          - name: "DEFAULT_PUBLIC_DOMAIN"
+            value: "{{ .Values.webservice.default_public_domain }}"
           {{- with .Values.loki.url }}
           - name: "LOKI_URL"
             value: "{{ . }}"

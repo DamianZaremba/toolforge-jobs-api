@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 
 from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     # default cpu limit is mainly needed to be configurable for lima-kilo
     default_cpu_limit: str = "4000m"
     enable_storage: bool = False
+    default_public_domain: str = os.getenv("DEFAULT_PUBLIC_DOMAIN", "local")
 
 
 def get_settings() -> Settings:

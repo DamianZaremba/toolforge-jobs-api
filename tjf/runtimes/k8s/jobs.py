@@ -32,9 +32,10 @@ from ...core.models import (
     ScriptHealthCheck,
 )
 from ...core.utils import dict_get_object, format_quantity, parse_and_format_mem
+from .account import ToolAccount
 from .command import get_command_for_k8s, get_command_from_k8s
 from .healthchecks import get_healthcheck_for_k8s
-from .labels import generate_labels
+from .labels import generate_labels, labels_selector
 
 K8S_OBJECT_TYPE = dict[str, Any]
 # tell kubernetes to delete jobs this many seconds after they finish
@@ -607,8 +608,16 @@ def get_scheduled_job_from_k8s(k8s_object: dict[str, Any], common_job: CommonJob
 
 
 def get_continuous_job_from_k8s(
-    k8s_object: dict[str, Any], common_job: CommonJob
+    user: ToolAccount,
+    k8s_object: dict[str, Any],
+    common_job: CommonJob,
 ) -> ContinuousJob:
+
+    httproute_selector = labels_selector(
+        job_name=common_job.job_name,
+        user_name=user.name,
+        type=K8sJobKind.from_job_type(JobType.CONTINUOUS).api_path_name,
+    )
 
     podspec = dict_get_object(k8s_object, "spec")
     if not podspec:
@@ -622,6 +631,14 @@ def get_continuous_job_from_k8s(
     )
     if port_protocol:
         port_protocol = port_protocol.lower()
+
+    publish = False
+    if user.k8s_cli.get_objects(kind="httproutes", label_selector=httproute_selector):
+        gotten = user.k8s_cli.get_objects(kind="httproutes", label_selector=httproute_selector)
+        LOGGER.debug(
+            f"========================================================== Gotten httproutes: {gotten} =========================================================="
+        )
+        publish = True
 
     replicas = podspec.get("replicas", ContinuousJob.model_fields["replicas"].default)
 
@@ -641,6 +658,7 @@ def get_continuous_job_from_k8s(
         "job_type": JobType.CONTINUOUS,
         "port": port,
         "port_protocol": port_protocol,
+        "publish": publish,
         "health_check": health_check,
         "replicas": replicas,
         **set_common_params,
@@ -654,13 +672,13 @@ def get_job_from_k8s(
     k8s_object: dict[str, Any],
     kind: str,
     default_cpu_limit: str,
-    tool: str,
+    user: ToolAccount,
 ) -> AnyJob:
     common_job = get_common_job_from_k8s(
         k8s_object=k8s_object,
         kind=kind,
         default_cpu_limit=default_cpu_limit,
-        tool=tool,
+        tool=user.name,
     )
     match kind:
         case "jobs":
@@ -668,6 +686,10 @@ def get_job_from_k8s(
         case "cronjobs":
             return get_scheduled_job_from_k8s(k8s_object=k8s_object, common_job=common_job)
         case "deployments":
-            return get_continuous_job_from_k8s(k8s_object=k8s_object, common_job=common_job)
+            return get_continuous_job_from_k8s(
+                user=user,
+                k8s_object=k8s_object,
+                common_job=common_job,
+            )
         case _:
             raise TjfError("Unable to parse Kubernetes object", data={"object": k8s_object})
