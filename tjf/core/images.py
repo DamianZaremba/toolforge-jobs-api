@@ -35,7 +35,6 @@ from .error import TjfError
 from .utils import USER_AGENT
 
 LOGGER = logging.getLogger(__name__)
-CONFIG_VARIANT_KEY = "jobs-framework"
 # TODO: make configurable
 CONFIG_CONTAINER_TAG = "latest"
 
@@ -283,10 +282,14 @@ def _get_prebuilt_images() -> list[Image]:
     available_images = []
 
     for name, image_data in data.items():
-        if CONFIG_VARIANT_KEY not in image_data["variants"]:
+        if (
+            not image_data
+            or not image_data.get("image", None)
+            or not isinstance(image_data["image"], str)
+        ):
             continue
 
-        container = image_data["variants"][CONFIG_VARIANT_KEY]["image"]
+        container = image_data["image"]
         host, path = container.split("/", 1)
         path, tag = path.split(":", 1) if ":" in path else (path, "latest")
         tag, digest = tag.split("@", 1) if "@" in path else (tag, "")
