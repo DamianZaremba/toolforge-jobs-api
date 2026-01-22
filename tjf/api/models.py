@@ -206,6 +206,7 @@ class NewContinuousJob(CommonJob, BaseModel):
         "port"
     ].default
     port_protocol: PortProtocol = PortProtocol.TCP
+    publish: bool = CoreContinuousJob.model_fields["publish"].default
     health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
         default=CoreContinuousJob.model_fields["health_check"].default,
         discriminator="health_check_type",
@@ -220,7 +221,7 @@ class NewContinuousJob(CommonJob, BaseModel):
         set_fields = self.model_dump(exclude_unset=True)
         new_optional_fields = {}
 
-        for field in ["replicas", "port", "health_check", "port_protocol"]:
+        for field in ["replicas", "port", "health_check", "port_protocol", "publish"]:
             if field in set_fields:
                 new_optional_fields[field] = set_fields[field]
 
@@ -373,6 +374,7 @@ class DefinedContinuousJob(DefinedCommonJob, BaseModel):
         "port"
     ].default
     port_protocol: PortProtocol = CoreContinuousJob.model_fields["port_protocol"].default
+    publish: bool = CoreContinuousJob.model_fields["publish"].default
     health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
         default=CoreContinuousJob.model_fields["health_check"].default,
         discriminator="health_check_type",
@@ -401,6 +403,7 @@ class DefinedContinuousJob(DefinedCommonJob, BaseModel):
             ("replicas", core_job.replicas),
             ("port", core_job.port),
             ("port_protocol", core_job.port_protocol),
+            ("publish", core_job.publish),
             (
                 "health_check",
                 core_job.health_check.model_dump(by_alias=True) if core_job.health_check else None,

@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 
 from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings
@@ -15,6 +16,7 @@ class Settings(BaseSettings):
     loki_url: AnyHttpUrl = AnyHttpUrl("http://loki-tools.loki.svc:3100/loki")
     # default cpu limit is mainly needed to be configurable for lima-kilo
     default_cpu_limit: str = "4000m"
+    default_public_domain: str = os.getenv("DEFAULT_PUBLIC_DOMAIN", "local")
 
 
 def get_settings() -> Settings:

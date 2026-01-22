@@ -178,6 +178,7 @@ class ContinuousJob(CommonJob, BaseModel):
     port: Annotated[int, Field(ge=1, le=65535)] | None = None
     port_protocol: PortProtocol = PortProtocol.TCP
     replicas: int = Field(default=JOB_DEFAULT_REPLICAS, ge=0)
+    publish: bool = False
     health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
         default=None,
         discriminator="health_check_type",
@@ -185,6 +186,13 @@ class ContinuousJob(CommonJob, BaseModel):
 
     @model_validator(mode="after")
     def validate_continuous_job(self) -> Self:
+        # when publishing, default port to 8000 and require TCP
+        if self.publish:
+            if self.port is None:
+                self.port = 8000
+            if self.port_protocol != PortProtocol.TCP:
+                raise ValueError("publish=True requires port_protocol=TCP (HTTP only)")
+
         if (
             self.health_check
             and self.health_check.health_check_type == HealthCheckType.HTTP

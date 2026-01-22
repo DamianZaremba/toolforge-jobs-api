@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.7.0"
+  version: "4.8.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -681,6 +681,11 @@ components:
               description: "Protocol for the port exposed by the job"
               example: "tcp"
               default: "tcp"
+            publish:
+              type: boolean
+              description: "Expose this job to the internet via https://{toolname}.toolforge.org. If port is not specified, defaults to 8000. Only one job per tool can be published."
+              default: false
+              example: false
             health_check:
               type:
                 - object
@@ -790,6 +795,11 @@ components:
                 - "udp"
               description: "Protocol for the port exposed by the job"
               example: "tcp"
+            publish:
+              type: boolean
+              description: "Indicates if this job is exposed to the internet via https://{toolname}.toolforge.org."
+              default: false
+              example: false
             health_check:
               type:
                 - object

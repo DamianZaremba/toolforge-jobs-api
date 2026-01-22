@@ -27,6 +27,7 @@ from ...loki_logs import LokiSource
 from ...settings import Settings
 from ..base import BaseRuntime
 from .account import ToolAccount
+from .ingress import check_ingress_host_conflict, get_k8s_ingress_object
 from .jobs import (
     K8sJobKind,
     format_logs,
@@ -46,6 +47,7 @@ class K8sRuntime(BaseRuntime):
     def __init__(self, *, settings: Settings):
         self.loki_url = settings.loki_url
         self.default_cpu_limit = settings.default_cpu_limit
+        self.default_public_domain = settings.default_public_domain
 
     def get_jobs(self, *, tool: str) -> list[AnyJob]:
         job_list = []
@@ -132,9 +134,10 @@ class K8sRuntime(BaseRuntime):
             tool_account = ToolAccount(name=tool)
             validate_job_limits(tool_account, job)
 
-            # Note: no guard by .port as in create_job, as this function will delete if there is no port specified
+            # Handle service and ingress for continuous jobs
             if isinstance(job, ContinuousJob):
                 self._create_or_delete_service(job=job)
+                self._create_or_delete_ingress(job=job)
 
             spec = self._create_k8s_spec_for_job(job)
             obj_kind = "deployments" if isinstance(job, ContinuousJob) else "cronjobs"
@@ -185,6 +188,55 @@ class K8sRuntime(BaseRuntime):
             raise create_error_from_k8s_response(error=error, job=job, spec=spec)
         return None
 
+    def _create_or_delete_ingress(self, job: ContinuousJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
+        if job.publish:
+            self._check_publish_conflicts(job)
+            self._create_ingress(job)
+        else:
+            LOGGER.debug(
+                "Deleting ingresses related to %s for tool %s", job.job_name, tool_account.name
+            )
+            tool_account.k8s_cli.delete_objects(
+                kind="ingresses",
+                label_selector=labels_selector(
+                    job_name=job.job_name, user_name=tool_account.name, type="ingresses"
+                ),
+            )
+
+    def _create_ingress(self, job: ContinuousJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
+        spec = get_k8s_ingress_object(job=job, default_public_domain=self.default_public_domain)
+        LOGGER.debug(f"Creating ingress for {job.job_name}: {spec}")
+
+        try:
+            existing_ingresses = tool_account.k8s_cli.get_objects("ingresses")
+            # ingress and service api are a bit different.
+            # You can't use object_replace to create an ingress if it doesn't exist.
+            if any(
+                ingress["metadata"]["name"] == spec["metadata"]["name"]
+                and ingress["metadata"]["namespace"] == spec["metadata"]["namespace"]
+                for ingress in existing_ingresses
+            ):
+                tool_account.k8s_cli.replace_object("ingresses", spec)
+            else:
+                tool_account.k8s_cli.create_object("ingresses", spec)
+        except requests.exceptions.HTTPError as error:
+            raise TjfError(f"Failed to create ingress for {job.job_name}") from error
+
+    def _check_publish_conflicts(self, job: ContinuousJob) -> None:
+        conflict = check_ingress_host_conflict(
+            default_public_domain=self.default_public_domain,
+            tool_name=job.tool_name,
+            job_name=job.job_name,
+        )
+        if conflict:
+            message = (
+                "Attempt to create job failed. the job can not be published because "
+                f"the domain '{job.tool_name}.{self.default_public_domain}' and path '/' are already in use by another configuration."
+            )
+            raise TjfValidationError(message, http_status_code=409)
+
     def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
         set_fields = job.model_dump(exclude_unset=True)
 
@@ -220,8 +272,14 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool)
         validate_job_limits(tool_account, job)
 
-        if isinstance(job, ContinuousJob) and job.port:
-            self._create_service(job=job)
+        if isinstance(job, ContinuousJob):
+            # Handle service and ingress creation
+            if job.publish:
+                self._check_publish_conflicts(job)
+                self._create_service(job=job)
+                self._create_ingress(job=job)
+            elif job.port:
+                self._create_service(job=job)
 
         spec = self._create_k8s_spec_for_job(job)
         try:
@@ -243,7 +301,7 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool)
         label_selector = labels_selector(job_name=None, user_name=tool_account.name, type=None)
 
-        for object_type in ["cronjobs", "deployments", "jobs", "pods", "services"]:
+        for object_type in ["cronjobs", "deployments", "jobs", "pods", "services", "ingresses"]:
             tool_account.k8s_cli.delete_objects(object_type, label_selector=label_selector)
         wait_for_pods_exit(tool=tool_account)
 
@@ -253,7 +311,7 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool)
         kind = K8sJobKind.from_job_type(job.job_type).api_path_name
         tool_account.k8s_cli.delete_object(kind=kind, name=job.job_name)
-        for object_type in ["pods", "services"]:
+        for object_type in ["pods", "services", "ingresses"]:
             tool_account.k8s_cli.delete_objects(
                 kind=object_type,
                 label_selector=labels_selector(
