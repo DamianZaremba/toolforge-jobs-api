@@ -18,7 +18,7 @@ from tests.helpers.fake_k8s import (
 )
 from tests.utils import cases, patch_spec
 from tjf.core.cron import CronExpression
-from tjf.core.error import TjfValidationError
+from tjf.core.error import TjfError, TjfValidationError
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
     AnyJob,
@@ -32,6 +32,7 @@ from tjf.runtimes.exceptions import NotFoundInRuntime
 from tjf.runtimes.k8s import ops as k8s_ops
 from tjf.runtimes.k8s import runtime as k8s_runtime
 from tjf.runtimes.k8s.account import ToolAccount
+from tjf.runtimes.k8s.httproute import get_k8s_http_route_object
 from tjf.runtimes.k8s.jobs import (
     K8sKind,
     get_k8s_cronjob_object,
@@ -1119,7 +1120,12 @@ class TestDeleteJobs:
 
             TestDeleteJobs._assert_deletes_all_jobs_and_waits_for_pods_once(
                 jobs=jobs,
-                k8s_kinds=[K8sKind.DEPLOYMENTS, K8sKind.PODS, K8sKind.SERVICES],
+                k8s_kinds=[
+                    K8sKind.DEPLOYMENTS,
+                    K8sKind.PODS,
+                    K8sKind.SERVICES,
+                    K8sKind.HTTP_ROUTES,
+                ],
                 tool_name=tool_name,
                 monkeypatch=monkeypatch,
                 fake_tool_account=fake_tool_account,
@@ -1190,6 +1196,7 @@ class TestDeleteJob:
                     K8sKind.DEPLOYMENTS,
                     K8sKind.PODS,
                     K8sKind.SERVICES,
+                    K8sKind.HTTP_ROUTES,
                 ],
                 None,
             ],
@@ -1218,6 +1225,7 @@ class TestDeleteJob:
                     K8sKind.DEPLOYMENTS,
                     K8sKind.PODS,
                     K8sKind.SERVICES,
+                    K8sKind.HTTP_ROUTES,
                 ],
                 True,
             ],
@@ -1246,6 +1254,7 @@ class TestDeleteJob:
                     K8sKind.DEPLOYMENTS,
                     K8sKind.PODS,
                     K8sKind.SERVICES,
+                    K8sKind.HTTP_ROUTES,
                 ],
                 False,
             ],
@@ -1495,14 +1504,13 @@ class TestUpdateContinuousJob:
             expected_service_spec = get_k8s_service_object(job=job)
             # the service gets created before the deployment
             expected_replace_calls = [
-                call(kind=K8sKind.SERVICES, spec=expected_service_spec)
+                call(kind=K8sKind.SERVICES, spec=expected_service_spec),
             ] + expected_replace_calls
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
 
         my_runtime.update_continuous_job(job=job)
 
         assert runtime_k8s_cli.replace_object.call_args_list == expected_replace_calls
-        runtime_k8s_cli.delete_objects.assert_not_called()
         runtime_k8s_cli.create_object.assert_not_called()
 
     def test_falls_back_to_delete_and_create_on_unprocessable_entity_error(
@@ -1530,11 +1538,13 @@ class TestUpdateContinuousJob:
             job_type=job.job_type,
         )
         expected_delete_calls = [
-            # services gets deleted twice, first as usual, then when recreating the job
+            # services and httproutes gets deleted twice, first as usual, then when recreating the job
             call(kind=K8sKind.SERVICES, label_selector=labels),
+            call(kind=K8sKind.HTTP_ROUTES, label_selector=labels),
             call(kind=K8sKind.DEPLOYMENTS, label_selector=labels),
             call(kind=K8sKind.PODS, label_selector=labels),
             call(kind=K8sKind.SERVICES, label_selector=labels),
+            call(kind=K8sKind.HTTP_ROUTES, label_selector=labels),
         ]
 
         my_runtime.update_continuous_job(job=job)
@@ -1546,6 +1556,130 @@ class TestUpdateContinuousJob:
         runtime_k8s_cli.create_object.assert_called_with(
             kind=K8sKind.DEPLOYMENTS, spec=expected_deployment_spec
         )
+
+    def test_job_with_publish_creates_httproute_when_no_existing(
+        self,
+        fake_tool_account: ToolAccount,
+        fake_tool_account_uid: None,
+        runtime_k8s_cli: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        job = get_continuous_job_fixture_as_job(publish="/", port=8000)
+
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        runtime_k8s_cli.get_objects.return_value = []
+
+        my_runtime = K8sRuntime(
+            settings=get_settings(
+                default_cpu_limit="1000m", public_domain="toolforge.org"
+            )
+        )
+        my_runtime.update_continuous_job(job=job)
+
+        expected_httproute_spec = get_k8s_http_route_object(
+            job=job, public_domain="toolforge.org"
+        )
+        runtime_k8s_cli.create_object.assert_any_call(
+            K8sKind.HTTP_ROUTES, expected_httproute_spec
+        )
+
+    def test_job_with_publish_replaces_httproute_when_existing(
+        self,
+        fake_tool_account: ToolAccount,
+        fake_tool_account_uid: None,
+        runtime_k8s_cli: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        job = get_continuous_job_fixture_as_job(publish="/", port=8000)
+
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        runtime_k8s_cli.get_objects.return_value = [
+            {"metadata": {"name": "dummy", "resourceVersion": "12345"}}
+        ]
+
+        my_runtime = K8sRuntime(
+            settings=get_settings(
+                default_cpu_limit="1000m", public_domain="toolforge.org"
+            )
+        )
+        my_runtime.update_continuous_job(job=job)
+
+        expected_httproute_spec = get_k8s_http_route_object(
+            job=job, public_domain="toolforge.org"
+        )
+        expected_httproute_spec["metadata"]["resourceVersion"] = "12345"
+        runtime_k8s_cli.replace_object.assert_any_call(
+            K8sKind.HTTP_ROUTES, expected_httproute_spec
+        )
+
+    def test_job_with_publish_httproute_creation_error_raises(
+        self,
+        fake_tool_account: ToolAccount,
+        fake_tool_account_uid: None,
+        runtime_k8s_cli: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        job = get_continuous_job_fixture_as_job(publish="/", port=8000)
+
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        runtime_k8s_cli.get_objects.return_value = []
+
+        error = requests.HTTPError("500 Server Error")
+        error.response = MagicMock(status_code=500, text="Internal server error")
+        runtime_k8s_cli.create_object.side_effect = error
+
+        my_runtime = K8sRuntime(
+            settings=get_settings(
+                default_cpu_limit="1000m", public_domain="toolforge.org"
+            )
+        )
+
+        with pytest.raises(TjfError):
+            my_runtime.update_continuous_job(job=job)
+
+
+class TestCreateContinuousJobWithPublish:
+    def test_job_with_publish_calls_conflict_check_and_create_httproute(
+        self,
+        fake_tool_account: ToolAccount,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        job = get_continuous_job_fixture_as_job(publish="/", port=8000)
+
+        mock_conflict = MagicMock()
+        mock_create_httproute = MagicMock()
+
+        monkeypatch.setattr(k8s_runtime, "check_httproute_host_conflict", mock_conflict)
+        monkeypatch.setattr(
+            k8s_runtime, "get_k8s_deployment_object", MagicMock(return_value={})
+        )
+        monkeypatch.setattr(
+            k8s_runtime, "create_k8s_object_for_job", MagicMock(return_value={})
+        )
+        monkeypatch.setattr(
+            k8s_runtime.K8sRuntime, "_create_httproute", mock_create_httproute
+        )
+        monkeypatch.setattr(k8s_runtime.K8sRuntime, "_create_service", MagicMock())
+
+        my_runtime = K8sRuntime(
+            settings=get_settings(
+                default_cpu_limit="1000m", public_domain="toolforge.org"
+            )
+        )
+        my_runtime._create_continuous_job(job=job, tool_account=fake_tool_account)
+
+        mock_conflict.assert_called_once_with(
+            public_domain="toolforge.org",
+            tool_account=fake_tool_account,
+            job_name=job.job_name,
+        )
+        mock_create_httproute.assert_called_once_with(job=job)
 
 
 class TestUpdateScheduledJob:

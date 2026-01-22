@@ -227,6 +227,7 @@ class NewContinuousJob(CommonJob, BaseModel):
         "port"
     ].default
     port_protocol: PortProtocol = PortProtocol.TCP
+    publish: str = CoreContinuousJob.model_fields["publish"].default
     health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
         default=CoreContinuousJob.model_fields["health_check"].default,
         discriminator="health_check_type",
@@ -415,6 +416,7 @@ class DefinedContinuousJob(DefinedCommonJob, BaseModel):
     port_protocol: PortProtocol = CoreContinuousJob.model_fields[
         "port_protocol"
     ].default
+    publish: str = CoreContinuousJob.model_fields["publish"].default
     health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
         default=CoreContinuousJob.model_fields["health_check"].default,
         discriminator="health_check_type",
