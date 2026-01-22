@@ -21,10 +21,11 @@ IMAGE_NAME_TESTS = [
         Image(
             canonical_name="php7.3",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-php73-sssd-base:latest",
+            container="docker-registry.tools.wmflabs.org/toolforge-php73-sssd-web:latest",
             aliases=["tf-php73", "tf-php73-DEPRECATED"],
             digest="",
             state="deprecated",
+            extras={"wstype": "lighttpd"},
         ),
     ],
     [
@@ -33,10 +34,11 @@ IMAGE_NAME_TESTS = [
         Image(
             canonical_name="node16",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base:latest",
+            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-web:latest",
             aliases=["tf-node16"],
             digest="",
             state="stable",
+            extras={"wstype": "js"},
         ),
     ],
     [
@@ -45,10 +47,11 @@ IMAGE_NAME_TESTS = [
         Image(
             canonical_name="node16",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base:latest",
+            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-web:latest",
             aliases=["tf-node16"],
             digest="",
             state="stable",
+            extras={"wstype": "js"},
         ),
     ],
     [
@@ -57,10 +60,11 @@ IMAGE_NAME_TESTS = [
         Image(
             canonical_name="node16",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base:latest",
+            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-web:latest",
             aliases=["tf-node16"],
             digest="",
             state="stable",
+            extras={"wstype": "js"},
         ),
     ],
     [
@@ -69,22 +73,11 @@ IMAGE_NAME_TESTS = [
         Image(
             canonical_name="node16",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base:latest",
+            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-web:latest",
             aliases=["tf-node16"],
             digest="",
             state="stable",
-        ),
-    ],
-    [
-        "toolforge-node16-sssd-web",
-        "node16",
-        Image(
-            canonical_name="node16",
-            type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base:latest",
-            aliases=["tf-node16"],
-            digest="",
-            state="stable",
+            extras={"wstype": "js"},
         ),
     ],
     [
@@ -93,44 +86,24 @@ IMAGE_NAME_TESTS = [
         Image(
             canonical_name="node16",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base:latest",
+            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-web:latest",
             aliases=["tf-node16"],
             digest="",
             state="stable",
+            extras={"wstype": "js"},
         ),
     ],
     [
-        "toolforge-node16-sssd-web:latest",
+        "docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base:latest",
         "node16",
         Image(
             canonical_name="node16",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base:latest",
+            container="docker-registry.tools.wmflabs.org/toolforge-node16-sssd-web:latest",
             aliases=["tf-node16"],
             digest="",
             state="stable",
-        ),
-    ],
-    [
-        "toolforge-python313-sssd-base",
-        "python3.13",
-        Image(
-            canonical_name="python3.13",
-            type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-python313-sssd-web:latest",
-            digest="",
-            state="stable",
-        ),
-    ],
-    [
-        "toolforge-python313-sssd-base:latest",
-        "python3.13",
-        Image(
-            canonical_name="python3.13",
-            type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-python313-sssd-web:latest",
-            digest="",
-            state="stable",
+            extras={"wstype": "js"},
         ),
     ],
     [

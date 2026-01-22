@@ -13,6 +13,8 @@ FIXTURES_PATH = TESTS_PATH / "fixtures"
 FAKE_IMAGE_CONFIG = """
 bullseye:
   state: stable
+  aliases:
+    - tf-bullseye
   variants:
     jobs-framework:
       image: docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd
@@ -23,18 +25,26 @@ node12:
   state: deprecated
   variants:
     jobs-framework:
-      image: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base
+      image: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-web
+      extra:
+        wstype: js
     webservice:
       image: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-web
+      extra:
+        wstype: js
 node16:
   aliases:
   - tf-node16
   state: stable
   variants:
     jobs-framework:
-      image: docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base
+      image: docker-registry.tools.wmflabs.org/toolforge-node16-sssd-web
+      extra:
+        wstype: js
     webservice:
       image: docker-registry.tools.wmflabs.org/toolforge-node16-sssd-web
+      extra:
+        wstype: js
 php7.3:
   aliases:
   - tf-php73
@@ -42,34 +52,36 @@ php7.3:
   state: deprecated
   variants:
     jobs-framework:
-      image: docker-registry.tools.wmflabs.org/toolforge-php73-sssd-base
+      image: docker-registry.tools.wmflabs.org/toolforge-php73-sssd-web
+      extra:
+        wstype: lighttpd
     webservice:
       image: docker-registry.tools.wmflabs.org/toolforge-php73-sssd-web
+      extra:
+        wstype: lighttpd
 php7.4:
   aliases:
   - tf-php74
   state: stable
   variants:
     jobs-framework:
-      image: docker-registry.tools.wmflabs.org/toolforge-php74-sssd-base
+      image: docker-registry.tools.wmflabs.org/toolforge-php74-sssd-web
+      extra:
+        wstype: lighttpd
     webservice:
       image: docker-registry.tools.wmflabs.org/toolforge-php74-sssd-web
+      extra:
+        wstype: lighttpd
 
 python3.11:
   state: stable
   variants:
     jobs-framework:
-      image: docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base
-    webservice:
       image: docker-registry.tools.wmflabs.org/toolforge-python311-sssd-web
       extra:
         wstype: python
-
-python3.13:
-  state: stable
-  variants:
     webservice:
-      image: docker-registry.tools.wmflabs.org/toolforge-python313-sssd-web
+      image: docker-registry.tools.wmflabs.org/toolforge-python311-sssd-web
       extra:
         wstype: python
 """
@@ -1012,8 +1024,9 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
             container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
             type=ImageType.STANDARD,
             state="stable",
-            aliases=[],
+            aliases=["tf-bullseye"],
             digest="",
+            extras={},
         ),
         job_type=JobType.CONTINUOUS,
         tool_name="some-tool",
@@ -1056,7 +1069,8 @@ def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJo
             canonical_name="python3.11",
             type=ImageType.STANDARD,
             state="stable",
-            container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+            container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-web:latest",
+            extras={"wstype": "python"},
         ),
         job_type=JobType.ONE_OFF,
         tool_name="tf-test",

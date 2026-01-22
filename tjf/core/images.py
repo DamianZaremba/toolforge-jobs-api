@@ -35,7 +35,7 @@ from .error import TjfError, TjfValidationError
 from .utils import USER_AGENT
 
 LOGGER = logging.getLogger(__name__)
-CONFIG_VARIANT_KEYS = ["jobs-framework", "webservice"]
+CONFIG_VARIANT_KEY = "jobs-framework"
 # TODO: make configurable
 CONFIG_CONTAINER_TAG = "latest"
 
@@ -66,6 +66,7 @@ class Image(BaseModel):
     container: str | None = None
     state: str = DEFAULT_IMAGE_STATE
     digest: str = ""
+    extras: dict[str, Any] = {}
 
     @model_validator(mode="after")
     def set_image_type(self) -> Self:
@@ -150,7 +151,7 @@ class Image(BaseModel):
                 # this is only supposed to be triggered if every other attempt fails.
                 # Here we check if there are any of the available images have the same image name (e.g. toolforge-bookworm), regardless of what the variant or tag is.
                 # This helps in matching a webservice variant image (e.g. docker-registry.tools.wmflabs.org/toolforge-golang111-sssd-web),
-                # to a job-framework variant image (e.g. docker-registry.tools.wmflabs.org/toolforge-golang111-sssd-base),
+                # to a job-framework variant image (e.g. docker-registry.tools.wmflabs.org/toolforge-golang111-sssd-web),
                 # and verse versa.
                 # will also helps in matching with the image name directly, which we don't currently do (e.g. toolforge-bookworm-sssd, toolforge-bookworm-sssd:latest)
 
@@ -242,7 +243,7 @@ def _get_images_data() -> dict[str, Any]:
     }
 
 
-def _get_prebuilt_images(ignore_web_variant: bool) -> list[Image]:
+def _get_prebuilt_images() -> list[Image]:
     settings = get_settings()
     refresh_interval = settings.images_config_refresh_interval
     LOGGER.debug("Fetching cached images data")
@@ -266,29 +267,21 @@ def _get_prebuilt_images(ignore_web_variant: bool) -> list[Image]:
     available_images = []
 
     for name, image_data in data.items():
-        # jobs-framework image variant
-        if CONFIG_VARIANT_KEYS[0] in image_data["variants"]:
-            container = image_data["variants"][CONFIG_VARIANT_KEYS[0]]["image"]
-            image = Image(
-                type=ImageType.STANDARD,
-                canonical_name=name,
-                aliases=image_data.get("aliases", []),
-                container=f"{container}:{CONFIG_CONTAINER_TAG}",
-                state=image_data["state"],
-            )
-            available_images.append(image)
+        if CONFIG_VARIANT_KEY not in image_data["variants"]:
+            continue
 
-        # webservice image variant
-        if not ignore_web_variant and CONFIG_VARIANT_KEYS[1] in image_data["variants"]:
-            container = image_data["variants"][CONFIG_VARIANT_KEYS[1]]["image"]
-            image = Image(
-                type=ImageType.STANDARD,
-                canonical_name=name,
-                aliases=image_data.get("aliases", []),
-                container=f"{container}:{CONFIG_CONTAINER_TAG}",
-                state=image_data["state"],
-            )
-            available_images.append(image)
+        container = image_data["variants"][CONFIG_VARIANT_KEY]["image"]
+        extras = image_data["variants"][CONFIG_VARIANT_KEY].get("extra", {})
+        image = Image(
+            type=ImageType.STANDARD,
+            canonical_name=name,
+            aliases=image_data.get("aliases", []),
+            container=f"{container}:{CONFIG_CONTAINER_TAG}",
+            state=image_data["state"],
+            extras=extras,
+        )
+
+        available_images.append(image)
 
     if len(available_images) < 1:
         raise TjfError("Empty list of available images")
@@ -389,11 +382,8 @@ def _get_harbor_images(tool: str, use_harbor_cache: bool) -> list[Image]:
     return copy.deepcopy(images)
 
 
-# TODO: drop ignore_web_variant when we switch to using only web images. see T409191 for context
-def get_images(
-    tool: str, ignore_web_variant: bool = False, use_harbor_cache: bool = True
-) -> list[Image]:
+def get_images(tool: str, use_harbor_cache: bool = True) -> list[Image]:
     # TODO: eventually replace with a call to builds-api, so we don't need to interact with harbor or image-config
-    return _get_prebuilt_images(ignore_web_variant=ignore_web_variant) + _get_harbor_images(
+    return _get_prebuilt_images() + _get_harbor_images(
         tool=tool, use_harbor_cache=use_harbor_cache
     )

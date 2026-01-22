@@ -440,10 +440,19 @@ class Health(BaseModel):
 class Image(BaseModel):
     shortname: str
     image: str | None
+    state: str
+    aliases: list[str] = []
+    extras: dict[str, Any] = {}
 
     @classmethod
     def from_image_data(cls: Type["Image"], image_data: ImageData) -> "Image":
-        return cls(shortname=image_data.canonical_name, image=image_data.container)
+        return cls(
+            shortname=image_data.canonical_name,
+            image=image_data.container,
+            state=image_data.state,
+            aliases=image_data.aliases,
+            extras=image_data.extras,
+        )
 
 
 class ResponseMessages(BaseModel):
