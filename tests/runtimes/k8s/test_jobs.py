@@ -10,6 +10,7 @@ from tests.helpers.fake_k8s import (
     get_continuous_job_fixture_as_job,
     get_oneoff_job_fixture_as_job,
 )
+from tests.helpers.fakes import get_fake_account
 from tests.utils import cases, patch_spec
 from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
@@ -118,7 +119,7 @@ class TestJobFromK8s:
             gotten_job = jobs.get_continuous_job_from_k8s_object(
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
                 default_cpu_limit="1000m",
-                tool_name="some-tool",
+                tool_account=get_fake_account(name="some-tool"),
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
@@ -131,7 +132,7 @@ class TestJobFromK8s:
             gotten_job = jobs.get_continuous_job_from_k8s_object(
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
                 default_cpu_limit="1000m",
-                tool_name="some-tool",
+                tool_account=get_fake_account(name="some-tool"),
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()

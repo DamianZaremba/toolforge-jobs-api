@@ -57,6 +57,8 @@ spec:
             value: "{{ .Values.webservice.images_config_refresh_interval }}"
           - name: "DEFAULT_CPU_LIMIT"
             value: "{{ .Values.webservice.default_cpu_limit }}"
+          - name: "DEFAULT_PUBLIC_DOMAIN"
+            value: "{{ .Values.webservice.default_public_domain }}"
           {{- with .Values.loki.url }}
           - name: "LOKI_URL"
             value: "{{ . }}"

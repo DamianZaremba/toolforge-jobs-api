@@ -56,6 +56,7 @@ JOB_DEFAULT_MEMORY = "512Mi"
 JOB_DEFAULT_CPU = "100m"
 JOB_DEFAULT_REPLICAS = 1
 OUT_OF_SYNC_JOB_WARNING_MESSAGE = "The running version of job '{job_name}' is different from what was configured, please recreate or redeploy."
+JOB_DEFAULT_PORT = 8000
 
 
 class BaseModel(PydanticBaseModel):
@@ -287,6 +288,7 @@ class ContinuousJob(CommonJob, BaseModel):
     port: Annotated[int, Field(ge=1, le=65535)] | None = None
     port_protocol: PortProtocol = PortProtocol.TCP
     replicas: int = Field(default=JOB_DEFAULT_REPLICAS, ge=0)
+    publish: bool = False
     health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
         default=None,
         discriminator="health_check_type",
@@ -296,6 +298,13 @@ class ContinuousJob(CommonJob, BaseModel):
     @model_validator(mode="after")
     def validate_continuous_job(self) -> Self:
         self.model_fields_set.add("job_type")
+        # when publishing, default port to 8000 and require TCP
+        if self.publish:
+            if self.port is None:
+                self.port = JOB_DEFAULT_PORT
+            if self.port_protocol != PortProtocol.TCP:
+                raise ValueError("publish requires port_protocol set to tcp")
+
         if (
             self.health_check
             and self.health_check.health_check_type == HealthCheckType.HTTP

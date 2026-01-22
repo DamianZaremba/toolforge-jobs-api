@@ -65,6 +65,7 @@ class K8sKind(StrEnum):
     EVENTS = "events"
     LIMIT_RANGES = "limitranges"
     RESOURCE_QUOTAS = "resourcequotas"
+    HTTPROUTES = "httproutes"
 
 
 def get_job_for_k8s(job: AnyJob, default_cpu_limit: str) -> K8S_OBJECT_TYPE:
@@ -637,7 +638,7 @@ def get_scheduled_job_from_k8s_object(
 
 
 def get_continuous_job_from_k8s_object(
-    k8s_object: dict[str, Any], default_cpu_limit: str, tool_name: str
+    k8s_object: dict[str, Any], default_cpu_limit: str, tool_account: ToolAccount
 ) -> ContinuousJob:
 
     podspec = dict_get_object(k8s_object, "spec")
@@ -674,13 +675,26 @@ def get_continuous_job_from_k8s_object(
         k8s_object=k8s_object,
         job_type=JobType.CONTINUOUS,
         default_cpu_limit=default_cpu_limit,
-        tool_name=tool_name,
+        tool_name=tool_account.name,
     )
     set_common_params = common_job.model_dump(exclude_unset=True)
+
+    httproute_selector = labels_selector(
+        job_name=common_job.job_name,
+        tool_name=tool_account.name,
+        job_type=JobType.CONTINUOUS,
+    )
+    publish = bool(
+        tool_account.k8s_cli.get_objects(
+            kind=K8sKind.HTTPROUTES, label_selector=httproute_selector
+        )
+    )
+
     params = {
         "job_type": JobType.CONTINUOUS,
         "port": port,
         "port_protocol": port_protocol,
+        "publish": publish,
         "health_check": health_check,
         "replicas": replicas,
         **set_common_params,

@@ -34,6 +34,7 @@ from ...settings import Settings
 from ..base import BaseRuntime
 from ..exceptions import AlreadyExistsInRuntime, NotFoundInRuntime
 from .account import ToolAccount
+from .httproute import check_httproute_host_conflict, get_k8s_http_route_object
 from .jobs import (
     K8sKind,
     create_k8s_object_for_job,
@@ -65,6 +66,7 @@ class K8sRuntime(BaseRuntime):
     def __init__(self, *, settings: Settings):
         self.loki_url = settings.loki_url
         self.default_cpu_limit = settings.default_cpu_limit
+        self.default_public_domain = settings.default_public_domain
 
     def get_one_off_jobs(self, *, tool_name: str) -> list[OneOffJob]:
         job_list = []
@@ -178,7 +180,7 @@ class K8sRuntime(BaseRuntime):
             job = get_continuous_job_from_k8s_object(
                 k8s_object=k8s_obj,
                 default_cpu_limit=self.default_cpu_limit,
-                tool_name=tool_name,
+                tool_account=tool_account,
             )
             # TODO: we can probably push the try-except to the status gathering function once we deprecate the
             # short/long statuses
@@ -254,9 +256,11 @@ class K8sRuntime(BaseRuntime):
             tool_account = ToolAccount(name=job.tool_name)
             validate_job_limits(tool_account, job)
 
+            # Handle service and httproute for continuous jobs
             # Note: no guard by .port as in create_job, as this function will delete if there is no port specified
             if isinstance(job, ContinuousJob):
                 self._create_or_delete_service(job=job)
+                self._create_or_delete_httproute(job=job)
 
             spec = self._create_k8s_spec_for_job(job)
             obj_kind = (
@@ -314,6 +318,58 @@ class K8sRuntime(BaseRuntime):
             raise get_error_from_k8s_response(error=error, job=job, spec=spec)
         return None
 
+    def _create_or_delete_httproute(self, job: ContinuousJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
+        if job.publish:
+            self._create_httproute(job)
+        else:
+            LOGGER.debug(
+                "Deleting httproutes related to %s for tool %s",
+                job.job_name,
+                tool_account.name,
+            )
+            tool_account.k8s_cli.delete_objects(
+                kind=K8sKind.HTTPROUTES,
+                label_selector=labels_selector(
+                    job_name=job.job_name,
+                    tool_name=tool_account.name,
+                    job_type=job.job_type,
+                ),
+            )
+
+    def _create_httproute(self, job: ContinuousJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
+        spec = get_k8s_http_route_object(
+            job=job, default_public_domain=self.default_public_domain
+        )
+        LOGGER.debug(f"Creating httproute for {job.job_name}: {spec}")
+
+        try:
+            existing_httproutes = tool_account.k8s_cli.get_objects("httproutes")
+            if any(
+                httproute["metadata"]["name"] == spec["metadata"]["name"]
+                and httproute["metadata"]["namespace"] == spec["metadata"]["namespace"]
+                for httproute in existing_httproutes
+            ):
+                tool_account.k8s_cli.replace_object("httproutes", spec)
+            else:
+                tool_account.k8s_cli.create_object("httproutes", spec)
+        except requests.exceptions.HTTPError as error:
+            raise TjfError(f"Failed to create httproute for {job.job_name}") from error
+
+    def _check_publish_conflicts(self, job: ContinuousJob) -> None:
+        conflict = check_httproute_host_conflict(
+            default_public_domain=self.default_public_domain,
+            tool_name=job.tool_name,
+            job_name=job.job_name,
+        )
+        if conflict:
+            message = (
+                "Attempt to create job failed. The job cannot be published because "
+                f"the domain '{job.tool_name}.{self.default_public_domain}' and path '/' are already in use by another configuration."
+            )
+            raise TjfValidationError(message, http_status_code=409)
+
     def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
         if not job.image.exists:
             raise TjfImageNotFoundError(f"No such image '{job.image.to_full_url()}'")
@@ -351,7 +407,11 @@ class K8sRuntime(BaseRuntime):
             spec=spec,
         )
         LOGGER.debug(f"Result from k8s: {k8s_result}")
-        if job.port:
+        if job.publish:
+            self._check_publish_conflicts(job)
+            self._create_service(job=job)
+            self._create_httproute(job=job)
+        elif job.port:
             self._create_service(job=job)
 
     def _create_one_off_job(self, *, job: OneOffJob, tool_account: ToolAccount) -> None:
@@ -394,11 +454,12 @@ class K8sRuntime(BaseRuntime):
         label_selector = labels_selector(tool_name=tool_account.name)
 
         for object_type in [
-            K8sKind.DEPLOYMENTS,
             K8sKind.CRONJOBS,
+            K8sKind.DEPLOYMENTS,
             K8sKind.JOBS,
             K8sKind.PODS,
             K8sKind.SERVICES,
+            K8sKind.HTTPROUTES,
         ]:
             tool_account.k8s_cli.delete_objects(
                 kind=object_type, label_selector=label_selector
@@ -419,7 +480,7 @@ class K8sRuntime(BaseRuntime):
                 kind = K8sKind.JOBS
 
         tool_account.k8s_cli.delete_object(kind=kind, name=job.job_name)
-        for object_type in [K8sKind.PODS, K8sKind.SERVICES]:
+        for object_type in [K8sKind.PODS, K8sKind.SERVICES, K8sKind.HTTPROUTES]:
             tool_account.k8s_cli.delete_objects(
                 kind=object_type,
                 label_selector=labels_selector(
