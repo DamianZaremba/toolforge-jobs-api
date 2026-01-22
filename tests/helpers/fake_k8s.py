@@ -1,6 +1,7 @@
 # TODO: replace most of this file with json/yaml files in helpers/fixtures
 import json
 from pathlib import Path
+from typing import Any
 
 from toolforge_weld.kubernetes import MountOption
 
@@ -1201,3 +1202,29 @@ def get_scheduled_job_fixture_as_job(add_status: bool = True, **overrides) -> An
         overrides["status"] = overrides.get("status", {})
 
     return get_dummy_job(**(params | optional_params | overrides))
+
+
+def get_fake_http_route(
+    rules: list[dict] | None = None,
+    name: str = "webservice",
+    tool_name: str = "some-tool",
+    hostname: str = "some-tool.toolforge.org",
+    *,
+    labels: dict[str, str] | None = None,
+) -> dict:
+    if labels is None:
+        labels = {
+            "toolforge": "tool",
+            "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+            "app.kubernetes.io/created-by": tool_name,
+            "app.kubernetes.io/version": "2",
+            "app.kubernetes.io/component": "deployments",
+            "app.kubernetes.io/name": name,
+        }
+    http_route: dict[str, Any] = {
+        "metadata": {"name": name, "labels": labels, "resourceVersion": "12345"},
+        "spec": {"hostnames": [hostname]},
+    }
+    if rules is not None:
+        http_route["spec"]["rules"] = rules
+    return http_route
