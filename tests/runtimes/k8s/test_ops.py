@@ -42,11 +42,12 @@ from tjf.runtimes.k8s.ops import get_error_from_k8s_response, validate_job_limit
 
 @pytest.fixture
 def fake_job(fake_tool_account_uid: None, fake_images: dict[str, Any]) -> AnyJob:
+    user = get_fake_account(name="some-tool")
     return get_job_from_k8s(
         CRONJOB_NOT_RUN_YET,
         JobType.SCHEDULED,
         default_cpu_limit="4000m",
-        tool="some-tool",
+        user=user,
     )
 
 

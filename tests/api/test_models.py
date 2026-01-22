@@ -5,6 +5,7 @@ import pytest
 from toolforge_weld.kubernetes import MountOption
 
 from tests.helpers.fake_k8s import K8S_ONEOFF_JOB_OBJ
+from tests.helpers.fakes import get_fake_account
 from tjf.api.models import (
     CommonJob,
     DefinedCommonJob,
@@ -615,11 +616,12 @@ class TestGetResolvedCoreJob:
         assert resolved.filelog_stderr is None
 
     def test_resolved_job_matches_k8s_job_unresolved_does_not(self):
+        user = get_fake_account(name="some-tool")
         k8s_job = get_job_from_k8s(
             k8s_object=K8S_ONEOFF_JOB_OBJ,
             job_type=JobType.ONE_OFF,
             default_cpu_limit="1000m",
-            tool="some-tool",
+            user=user,
         )
         unresolved = CoreOneOffJob(
             cmd=k8s_job.cmd,
