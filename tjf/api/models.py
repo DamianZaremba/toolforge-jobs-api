@@ -12,6 +12,7 @@ from tjf.core.utils import format_quantity, parse_and_format_mem
 from ..core.cron import CronExpression, CronParsingError
 from ..core.error import TjfValidationError
 from ..core.images import Image as ImageData
+from ..core.images import ImageType
 from ..core.models import (
     JOBNAME_MAX_LENGTH,
     JOBNAME_PATTERN,
@@ -259,6 +260,84 @@ class NewContinuousJob(CommonJob, BaseModel):
             f"Got {self} (set fields {self.model_fields_set}), \ngenerated {my_job} (set fields {my_job.model_fields_set})"
         )
         return my_job
+
+
+class LegacyWebserviceJob(CommonJob, BaseModel):
+    cmd: str = ""
+    job_type: Literal["webservice"] = "webservice"
+    replicas: int = Field(
+        default=CoreContinuousJob.model_fields["replicas"].default, ge=0
+    )
+    port: Annotated[int, Field(ge=1, le=65535)] | None = CoreContinuousJob.model_fields[
+        "port"
+    ].default
+    port_protocol: PortProtocol = PortProtocol.TCP
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
+        default=CoreContinuousJob.model_fields["health_check"].default,
+        discriminator="health_check_type",
+    )
+
+    def _resolve_command(
+        self, image: ImageData, command: str | None, port: int | None
+    ) -> str | None:
+        if image.type == ImageType.BUILDSERVICE:
+            return command or "web"
+
+        if image.type == ImageType.STANDARD:
+            default_command = image.webservice_defaults.get("command")
+            default_command_str = (
+                " ".join(default_command).format(port=str(port))
+                if default_command
+                else None
+            )
+            if not command:
+                return default_command_str or ""
+
+            # we are doing both "startswith" and "in" because
+            # both "DB_PATH=xxxx /usr/bin/webservice-runner --type generic start-server"
+            # and "/usr/bin/webservice-runner --type generic start-server"
+            # are perfectly valid commands a user can specify
+            command_is_extra_arg = (
+                " /usr/bin/webservice-runner " not in command
+                and not command.startswith("/usr/bin/webservice-runner ")
+            )
+            if default_command_str and command_is_extra_arg:
+                return f"{default_command_str} {command}"
+
+        return command
+
+    def to_core_job(self, tool_name: str) -> CoreContinuousJob:
+        image = ImageData.from_short_name_or_url(
+            tool_name=tool_name, url_or_name=self.imagename, use_harbor_cache=False
+        )
+
+        port = (self.port if "port" in self.model_fields_set else None) or (
+            image.webservice_defaults.get("port")
+        )
+        memory = (self.memory if "memory" in self.model_fields_set else None) or (
+            image.webservice_defaults.get("memory")
+        )
+        command = self.cmd if "cmd" in self.model_fields_set else None
+
+        command = self._resolve_command(image=image, command=command, port=port)
+        if not command:
+            raise TjfValidationError(
+                "selected image requires that you specify a command"
+            )
+
+        # Params that are always set/overridden for webservices.
+        continuous_job_params: dict[str, Any] = {
+            "cmd": command,
+            "publish": True,
+            "job_type": JobType.CONTINUOUS,
+        }
+        if port:
+            continuous_job_params["port"] = port
+        if memory:
+            continuous_job_params["memory"] = memory
+
+        all_fields = {**self.model_dump(exclude_unset=True), **continuous_job_params}
+        return NewContinuousJob(**all_fields).to_core_job(tool_name=tool_name)
 
 
 AnyNewJob = NewOneOffJob | NewScheduledJob | NewContinuousJob
