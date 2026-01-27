@@ -84,6 +84,7 @@ class Image(BaseModel):
     path: str
     tag: str = "latest"
     exists: bool = True
+    webservice_defaults: dict[str, Any] = {}
 
     @staticmethod
     def _split_short_name_or_url_to_parts(url_or_name: str) -> ImageUrlParts:
@@ -314,6 +315,10 @@ def _get_prebuilt_images() -> list[Image]:
         # prebuilt images don't have digests for now, this may change in the future
         if digest:
             params["digest"] = digest
+
+        webservice_defaults = image_data.get("webservice-defaults", {})
+        if webservice_defaults:
+            params["webservice_defaults"] = webservice_defaults
 
         available_images.append(Image(**params))
 

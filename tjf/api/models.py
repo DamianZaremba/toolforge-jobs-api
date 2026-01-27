@@ -12,6 +12,7 @@ from tjf.core.utils import format_quantity, parse_and_format_mem
 from ..core.cron import CronExpression, CronParsingError
 from ..core.error import TjfValidationError
 from ..core.images import Image as ImageData
+from ..core.images import ImageType
 from ..core.models import (
     JOBNAME_MAX_LENGTH,
     JOBNAME_PATTERN,
@@ -239,6 +240,67 @@ class NewContinuousJob(CommonJob, BaseModel):
             f"Got {self} (set fields {self.model_fields_set}), \ngenerated {my_job} (set fields {my_job.model_fields_set})"
         )
         return my_job
+
+
+class LegacyWebserviceJob(CommonJob, BaseModel):
+    cmd: str = ""
+    job_type: Literal["webservice"] = "webservice"
+    replicas: int = Field(default=CoreContinuousJob.model_fields["replicas"].default, ge=0)
+    port: Annotated[int, Field(ge=1, le=65535)] | None = CoreContinuousJob.model_fields[
+        "port"
+    ].default
+    port_protocol: PortProtocol = PortProtocol.TCP
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
+        default=CoreContinuousJob.model_fields["health_check"].default,
+        discriminator="health_check_type",
+    )
+
+    def to_core_job(self, tool_name: str) -> CoreContinuousJob:
+        full_image = ImageData.from_short_name_or_url(
+            tool_name=tool_name, url_or_name=self.imagename, use_harbor_cache=False
+        )
+
+        port = self.port if "port" in self.model_fields_set else None
+        if not port:
+            port = full_image.webservice_defaults.get("port", None)
+
+        command = self.cmd if "cmd" in self.model_fields_set else None
+        if not command and full_image.type == ImageType.STANDARD:
+            default_command = full_image.webservice_defaults.get("command", None)
+            if default_command:
+                default_command = [*default_command, "--port", str(port)]
+                command = " ".join(default_command)
+        if not command and full_image.type == ImageType.BUILDSERVICE:
+            command = "web"
+
+        if not command:
+            raise TjfValidationError(
+                "selected image does not have a default command, please provide one"
+            )
+
+        memory = self.memory if "memory" in self.model_fields_set else None
+        if not memory:
+            memory = full_image.webservice_defaults.get("memory", None)
+
+        # Base params that are always set/overridden for webservices
+        continuous_job_params: dict[str, Any] = {
+            "cmd": command,
+            "publish": True,
+            "job_type": JobType.CONTINUOUS,
+        }
+        if port:
+            continuous_job_params["port"] = port
+        if memory:
+            continuous_job_params["memory"] = memory
+
+        set_fields = self.model_dump(exclude_unset=True)
+        for field in list(set_fields.keys()):
+            if field not in NewContinuousJob.model_fields:
+                set_fields.pop(field)
+        all_fields = {**set_fields, **continuous_job_params}
+
+        continuous_job = NewContinuousJob(**all_fields)
+        return continuous_job.to_core_job(tool_name=tool_name)
 
 
 AnyNewJob = NewOneOffJob | NewScheduledJob | NewContinuousJob

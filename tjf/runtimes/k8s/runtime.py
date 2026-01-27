@@ -197,6 +197,7 @@ class K8sRuntime(BaseRuntime):
     def _create_service(self, job: ContinuousJob) -> None:
         tool_account = ToolAccount(name=job.tool_name)
         spec = get_k8s_service_object(job)
+        LOGGER.debug(f"Creating service for {job.job_name}: {spec}")
 
         try:
             tool_account.k8s_cli.replace_object("services", spec)
