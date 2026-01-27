@@ -84,6 +84,22 @@ python3.11:
       image: docker-registry.tools.wmflabs.org/toolforge-python311-sssd-web
       extra:
         wstype: python
+
+jdk17:
+  state: stable
+  aliases:
+  - tf-jdk17
+  variants:
+    jobs-framework:
+      image: docker-registry.tools.wmflabs.org/toolforge-jdk17-sssd-web
+      extra:
+        wstype: generic
+        resources: jdk
+    webservice:
+      image: docker-registry.tools.wmflabs.org/toolforge-jdk17-sssd-web
+      extra:
+        wstype: generic
+        resources: jdk
 """
 
 FAKE_K8S_HOST = "k8s.example.org"

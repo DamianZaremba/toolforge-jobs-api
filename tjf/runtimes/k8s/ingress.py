@@ -56,6 +56,9 @@ def check_ingress_host_conflict(
     check if any Ingress in the namespace is already routing the target host
     specifically on the root path ("/").
     """
+    LOGGER.debug(
+        f"Checking ingress host conflict for job {job_name} in tool {tool_name} namespace"
+    )
     tool_account = ToolAccount(name=tool_name)
     target_host = f"{tool_name}.{default_public_domain}"
 
@@ -93,4 +96,5 @@ def check_ingress_host_conflict(
         LOGGER.error(f"Failed to check for ingress conflicts: {e}")
         raise TjfError("Failed to check for ingress conflicts") from e
 
+    LOGGER.debug(f"No ingress conflicts found for job {job_name} in tool {tool_name} namespace")
     return False
