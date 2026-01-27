@@ -649,3 +649,69 @@ class TestApiUpdateJob:
         assert (
             UpdateResponse.model_validate(actual_response.json()) == expected_response
         )
+
+
+class TestApiCreateDeprecatedWebserviceJob:
+    def test_create_webservice_job_deprecated(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+        fake_images: dict[str, Any],
+    ) -> None:
+        monkeypatch.setattr(app.core, "get_job", value=lambda *args, **kwargs: None)
+        monkeypatch.setattr(
+            app.core, "create_job", value=lambda *args, **kwargs: kwargs["job"]
+        )
+
+        response = client.post(
+            "/v1/tool/some-tool/deprecated_webservice_job",
+            json={
+                "name": "my-webservice-job",
+                "imagename": "python3.11",
+                "job_type": "webservice",
+            },
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.CREATED
+        data = response.json()
+        assert data["job"]["name"] == "my-webservice-job"
+        assert data["job"]["publish"] == "/"
+        assert data["job"]["port"] == 8000
+        assert any(
+            "This endpoint is deprecated" in w
+            for w in data.get("messages", {}).get("warning", [])
+        )
+
+    def test_create_webservice_job_conflict_when_job_exists(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+        fake_images: dict[str, Any],
+    ) -> None:
+        monkeypatch.setattr(
+            app.core,
+            "get_job",
+            value=lambda *args, **kwargs: get_dummy_job(
+                job_name="my-webservice-job",
+                tool_name="some-tool",
+                job_type=JobType.CONTINUOUS,
+            ),
+        )
+
+        response = client.post(
+            "/v1/tool/some-tool/deprecated_webservice_job",
+            json={
+                "name": "my-webservice-job",
+                "imagename": "python3.11",
+                "job_type": "webservice",
+            },
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.CONFLICT
+        assert "already exists" in response.json()["error"][0]

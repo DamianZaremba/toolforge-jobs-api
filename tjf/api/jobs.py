@@ -31,6 +31,7 @@ from .models import (
     FlushResponse,
     JobListResponse,
     JobResponse,
+    LegacyWebserviceJob,
     ResponseMessages,
     RestartResponse,
     UpdateResponse,
@@ -41,6 +42,9 @@ from .utils import current_app
 LOGGER = logging.getLogger(__name__)
 
 jobs = APIRouter(prefix="/v1/tool/{tool_name}/jobs", redirect_slashes=False)
+deprecated_webservice_job = APIRouter(
+    prefix="/v1/tool/{tool_name}/deprecated_webservice_job", redirect_slashes=False
+)
 
 
 def _get_warnings_for_jobs_not_up_to_date(
@@ -253,3 +257,37 @@ def api_restart_job(request: Request, tool_name: str, name: str) -> RestartRespo
     current_app(request).core.restart_job(job=job)
 
     return RestartResponse(messages=ResponseMessages())
+
+
+@deprecated_webservice_job.post("", status_code=http.HTTPStatus.CREATED)
+@deprecated_webservice_job.post(
+    "/", status_code=http.HTTPStatus.CREATED, include_in_schema=False
+)
+def api_create_deprecated_webservice_job(
+    request: Request, tool_name: str, new_job: LegacyWebserviceJob
+) -> JobResponse:
+    ensure_authenticated(request=request)
+    core = current_app(request).core
+    logging.debug(f"Generated LegacyWebserviceJob: {new_job}")
+    job = new_job.to_core_job(tool_name=tool_name)
+    logging.debug(f"Generated job: {job}")
+
+    existing_job = core.get_job(tool_name=job.tool_name, name=job.job_name)
+    if existing_job:
+        raise TjfValidationError(
+            f"A job with the name {job.job_name} already exists", http_status_code=409
+        )
+
+    created_job = core.create_job(job=job)
+    defined_job = get_job_for_api(job=created_job)
+    logging.debug(f"Generated DefinedJob: {defined_job}")
+
+    return JobResponse(
+        job=defined_job,
+        messages=ResponseMessages(
+            warning=[
+                "This endpoint is deprecated and will be removed in the future. "
+                "Please use /jobs endpoint with continuous=true and publish=true instead."
+            ]
+        ),
+    )

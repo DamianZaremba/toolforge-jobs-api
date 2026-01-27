@@ -53,6 +53,16 @@ class TestJobFromK8s:
                         "toolforge-python311-sssd-base",
                         "toolforge-python311-sssd-web",
                     ],
+                    webservice_defaults={
+                        "command": [
+                            "/usr/bin/webservice-runner",
+                            "--type",
+                            "uwsgi-python",
+                            "--port",
+                            "$PORT",
+                        ],
+                        "port": 8000,
+                    },
                 ),
                 job_name="cronjobtest",
                 tool_name="tf-test",
