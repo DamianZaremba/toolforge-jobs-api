@@ -275,6 +275,15 @@ class K8sRuntime(BaseRuntime):
                 f"Unable to find job {job.job_name} for tool {job.tool_name}"
             )
 
+        # TODO: remove this after job version migration is done. see T359649
+        job_version = (
+            current_job.k8s_object.get("metadata", {})
+            .get("labels", {})
+            .get("app.kubernetes.io/version", "2")
+        )
+        if job_version in [1, "1"]:
+            return "job version is depricated"  # value doesn't matter, we only need to return a non empty string
+
         # TODO: remove once we store the original command
         # Note: the incoming job does not have an image type, so we get it from the existing job
         if job.cmd.startswith("launcher ") and current_job.image.type == ImageType.BUILDPACK:
