@@ -12,6 +12,7 @@ from tjf.core.utils import format_quantity, parse_and_format_mem
 from ..core.cron import CronExpression, CronParsingError
 from ..core.error import TjfValidationError
 from ..core.images import Image as ImageData
+from ..core.images import ImageType
 from ..core.models import (
     JOBNAME_MAX_LENGTH,
     JOBNAME_PATTERN,
@@ -233,6 +234,78 @@ class NewContinuousJob(CommonJob, BaseModel):
         my_job = CoreContinuousJob.model_validate(all_fields)
         LOGGER.debug(f"Got {self}, \ngenerated {my_job}")
         return my_job
+
+
+class LegacyWebserviceJob(CommonJob, BaseModel):
+    cmd: str = ""
+    job_type: Literal["webservice"] = "webservice"
+    replicas: int = Field(default=CoreContinuousJob.model_fields["replicas"].default, ge=0)
+    mount: MountOption = MountOption.ALL
+    cpu: str = "500m"  # webservice default
+    port: Annotated[int, Field(ge=1, le=65535)] | None = CoreContinuousJob.model_fields[
+        "port"  # maybe we should use a fixed port here instead?
+    ].default
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
+        default=CoreContinuousJob.model_fields["health_check"].default,
+        discriminator="health_check_type",
+    )
+
+    def to_core_job(self, tool_name: str) -> CoreContinuousJob:
+        full_image = ImageData.from_url_or_name(
+            url_or_name=self.imagename, tool_name=tool_name, use_harbor_cache=False
+        )
+        if (
+            "memory" not in self.model_fields_set
+            and full_image.extras.get("resources", None) == "jdk"
+        ):
+            self.memory = "1Gi"
+        if "port" not in self.model_fields_set:
+            self.port = 8000
+
+        if not self.cmd and full_image.type == ImageType.BUILDPACK:
+            self.cmd = "web"
+
+        elif not self.cmd and full_image.extras.get("wstype", None) in [
+            "generic",
+            "js",
+            "python",
+            "lighttpd",
+            "lighttpd-plain",
+        ]:
+            self.cmd = f"/usr/bin/webservice-runner --type {full_image.extras['wstype']} --port {self.port}"
+
+        if not self.cmd:
+            raise TjfValidationError(
+                "selected image does not have a default command, please provide one"
+            )
+
+        # Base params that are always set/overridden for webservices
+        continuous_job_params: dict[str, Any] = {
+            "name": self.name,
+            "cmd": self.cmd,
+            "imagename": self.imagename,
+            "cpu": self.cpu,
+            "memory": self.memory,
+            "port": self.port,
+            "publish": True,
+            "job_type": JobType.CONTINUOUS,
+        }
+
+        set_fields = self.model_dump(exclude_unset=True)
+        for field in [
+            "replicas",
+            "mount",
+            "emails",
+            "filelog",
+            "filelog_stdout",
+            "filelog_stderr",
+            "health_check",
+        ]:
+            if field in set_fields:
+                continuous_job_params[field] = set_fields[field]
+
+        continuous_job = NewContinuousJob(**continuous_job_params)
+        return continuous_job.to_core_job(tool_name=tool_name)
 
 
 AnyNewJob = NewOneOffJob | NewScheduledJob | NewContinuousJob

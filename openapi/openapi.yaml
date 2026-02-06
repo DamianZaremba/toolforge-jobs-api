@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.8.0"
+  version: "4.9.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -313,6 +313,37 @@ paths:
           $ref: "#/components/responses/not_found_error"
       security:
         - key: []
+  /v1/tool/{toolname}/deprecated_webservice_job:
+    post:
+      deprecated: true
+      operationId: "create_deprecated_webservice_job"
+      description: "Create a new webservice job in this Toolforge tool account. This endpoint is DEPRECATED, please use /jobs instead."
+      parameters:
+        - name: toolname
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/LegacyWebserviceJob"
+      responses:
+        "200":
+          description: "A new job was created."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobResponse"
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+      security:
+        - key: []
   /openapi.json:
     get:
       operationId: "openapi"
@@ -535,11 +566,10 @@ components:
         - onfinish
         - onfailure
       example: "all"
-    CommonJob:
+    JobBase:
       type: object
       required:
         - name
-        - cmd
         - imagename
       properties:
         name:
@@ -606,6 +636,12 @@ components:
             - "null"
           description: "Job CPU resource limit."
           example: "1"
+    CommonJob:
+      allOf:
+        - $ref: "#/components/schemas/JobBase"
+        - type: object
+          required:
+            - cmd
     NewOneOffJob:
       allOf:
         - $ref: "#/components/schemas/CommonJob"
@@ -686,6 +722,47 @@ components:
               description: "Expose this job to the internet via https://{toolname}.toolforge.org. If port is not specified, defaults to 8000. Only one job per tool can be published."
               default: false
               example: false
+            health_check:
+              type:
+                - object
+                - "null"
+              description: "Health check configuration for the job"
+              oneOf:
+                - $ref: "#/components/schemas/ScriptHealthCheck"
+                - $ref: "#/components/schemas/HttpHealthCheck"
+              discriminator:
+                propertyName: type
+                mapping:
+                  script: "#/components/schemas/ScriptHealthCheck"
+                  http: "#/components/schemas/HttpHealthCheck"
+    LegacyWebserviceJob:
+      allOf:
+        - $ref: "#/components/schemas/JobBase"
+        - type: object
+          # TODO: uncomment required when all clients have been migrated to job_type
+          # required:
+          #   - job_type
+          properties:
+            cmd:
+              default: ""
+            job_type:
+              type: string
+              enum: ["webservice"]
+            replicas:
+              type:
+                - integer
+                - "null"
+              description: "Number of replicas to be used for the job"
+              minimum: 1
+              example: 1
+            port:
+              type:
+                - integer
+                - "null"
+              description: "Port to expose for the job"
+              minimum: 1
+              maximum: 65535
+              example: 8080
             health_check:
               type:
                 - object

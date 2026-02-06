@@ -10,11 +10,13 @@ from tjf.api.models import (
     DefinedContinuousJob,
     DefinedOneOffJob,
     DefinedScheduledJob,
+    LegacyWebserviceJob,
     NewContinuousJob,
     NewOneOffJob,
     NewScheduledJob,
 )
 from tjf.core.cron import CronExpression
+from tjf.core.error import TjfValidationError
 from tjf.core.images import Image
 from tjf.core.models import CommonJob as CoreCommonJob
 from tjf.core.models import ContinuousJob as CoreContinuousJob
@@ -162,6 +164,14 @@ def get_dummy_new_continuous_job(**overrides) -> NewContinuousJob:
         "imagename": "python3.11",
     }
     return NewContinuousJob.model_validate(params | overrides)
+
+
+def get_dummy_new_webservice_job(**overrides) -> LegacyWebserviceJob:
+    params: dict[str, Any] = {
+        "name": "dummy-job-name",
+        "imagename": "python3.11",
+    }
+    return LegacyWebserviceJob.model_validate(params | overrides)
 
 
 def get_dummy_defined_continuous_job(**overrides) -> DefinedContinuousJob:
@@ -480,3 +490,119 @@ class TestDefinedContinuousJob:
         gotten_defined_job = DefinedContinuousJob.from_core_job(core_job=core_job)
 
         assert gotten_defined_job.model_dump() == expected_defined_job.model_dump()
+
+
+class TestLegacyWebserviceJob:
+    def test_to_job_returns_expected_value_when_excluding_unset(self):
+        my_job = get_dummy_new_webservice_job()
+
+        expected_core_job = get_dummy_core_continuous_job(
+            cmd="/usr/bin/webservice-runner --type python --port 8000",
+            port=8000,
+            publish=True,
+            cpu="0.5",
+        )
+
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
+        assert gotten_core_job.model_dump(exclude_unset=True) == expected_core_job.model_dump(
+            exclude_unset=True
+        )
+
+    def test_to_job_returns_expected_value_when_including_unset(self):
+        my_job = get_dummy_new_webservice_job()
+
+        expected_core_job = get_dummy_core_continuous_job(
+            cmd="/usr/bin/webservice-runner --type python --port 8000",
+            port=8000,
+            publish=True,
+            memory="0.5Gi",
+            cpu="0.5",
+        )
+
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
+        assert gotten_core_job.model_dump(exclude_unset=False) == expected_core_job.model_dump(
+            exclude_unset=False
+        )
+
+    def test_to_job_returns_expected_value_when_setting_all_fields(self):
+        my_job = get_dummy_new_webservice_job(
+            replicas=3,
+            mount=MountOption.NONE,
+            emails=EmailOption.all,
+            cpu="1",
+            memory="2Gi",
+            port=9000,
+            health_check=ScriptHealthCheck(script="echo ok", type=HealthCheckType.SCRIPT),
+            cmd="custom-cmd",
+        )
+
+        expected_core_job = get_dummy_core_continuous_job(
+            replicas=3,
+            mount=MountOption.NONE,
+            emails=EmailOption.all,
+            cpu="1.0",
+            memory="2.0Gi",
+            port=9000,
+            publish=True,
+            health_check=ScriptHealthCheck(script="echo ok", type=HealthCheckType.SCRIPT),
+            cmd="custom-cmd",
+        )
+
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
+
+        assert gotten_core_job.model_dump() == expected_core_job.model_dump()
+
+    def test_webservice_job_jdk_defaults(self):
+        job = get_dummy_new_webservice_job(imagename="jdk17")
+        core_job = job.to_core_job("some-tool")
+
+        assert core_job.cmd == "/usr/bin/webservice-runner --type generic --port 8000"
+        assert core_job.memory == "1.0Gi"
+
+    def test_webservice_job_buildservice_defaults(self):
+        job = get_dummy_new_webservice_job(
+            name="buildservice",
+            imagename="tool-some-tool/image",
+        )
+        core_job = job.to_core_job("some-tool")
+
+        assert core_job.cmd == "web"
+        assert core_job.memory == "0.5Gi"
+
+    def test_webservice_job_missing_command_error(self):
+        job = get_dummy_new_webservice_job(
+            name="broken",
+            imagename="bullseye",
+        )
+        with pytest.raises(
+            TjfValidationError, match="selected image does not have a default command"
+        ):
+            job.to_core_job("some-tool")
+
+    def test_webservice_job_port_affects_command(self):
+        job = get_dummy_new_webservice_job(imagename="python3.11", port=9090)
+        core_job = job.to_core_job("some-tool")
+
+        assert core_job.port == 9090
+        assert "--port 9090" in core_job.cmd
+
+    def test_webservice_job_unknown_wstype_with_explicit_command(self):
+        job = get_dummy_new_webservice_job(
+            name="unknown-ok", imagename="bullseye", cmd="./run_app.sh"
+        )
+        core_job = job.to_core_job("some-tool")
+
+        assert core_job.cmd == "./run_app.sh"
+
+    @pytest.mark.parametrize(
+        "image_name, expected_type",
+        [("jdk17", "generic"), ("node16", "js"), ("python3.11", "python"), ("php7.4", "lighttpd")],
+    )
+    def test_webservice_job_supported_wstypes(self, image_name, expected_type):
+        job = get_dummy_new_webservice_job(
+            name=f"job-{expected_type}",
+            imagename=image_name,
+        )
+        core_job = job.to_core_job("some-tool")
+
+        assert f"--type {expected_type}" in core_job.cmd

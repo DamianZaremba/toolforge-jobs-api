@@ -181,6 +181,7 @@ class K8sRuntime(BaseRuntime):
     def _create_service(self, job: ContinuousJob) -> None:
         tool_account = ToolAccount(name=job.tool_name)
         spec = get_k8s_service_object(job)
+        LOGGER.debug(f"Creating service for {job.job_name}: {spec}")
 
         try:
             tool_account.k8s_cli.replace_object("services", spec)
@@ -255,6 +256,8 @@ class K8sRuntime(BaseRuntime):
                 f"Mount type {job.mount.value} is only supported for build service images"
             )
 
+        # TODO: there is a potential bug here waiting for anyone who uses the api directly without setting filelog to either True or False.
+        # Doing that makes it default to True, which is an unexpected behavior. We should fix that
         if "filelog" not in set_fields and image.type != ImageType.BUILDPACK:
             job.filelog = True
 

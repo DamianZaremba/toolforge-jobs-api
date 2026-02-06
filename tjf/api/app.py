@@ -20,7 +20,7 @@ from ..core.core import Core
 from ..settings import Settings, get_settings
 from .error import error_handler
 from .images import images
-from .jobs import jobs
+from .jobs import deprecated_webservice_job, jobs
 from .metrics import get_metrics_app
 from .models import Health, HealthResponse, HealthState, ResponseMessages
 from .openapi import openapi
@@ -70,6 +70,7 @@ def create_app(settings: Settings | None = None) -> JobsApi:
     app.include_router(jobs)
     app.include_router(images)
     app.include_router(quotas)
+    app.include_router(deprecated_webservice_job)
 
     if not settings.skip_metrics:
         get_metrics_app(app)
