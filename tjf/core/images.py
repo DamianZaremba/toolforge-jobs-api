@@ -66,6 +66,7 @@ class Image(BaseModel):
     container: str | None = None
     state: str = DEFAULT_IMAGE_STATE
     digest: str = ""
+    extras: dict[str, Any] = {}
 
     @model_validator(mode="after")
     def set_image_type(self) -> Self:
@@ -100,8 +101,11 @@ class Image(BaseModel):
         """
         Given a url or name, gives back a matching existing image or a new image with the resolved information.
         Supported url/name formats:
-        * canonical name only: "node12"
-        * alias: "tf-node12"
+        * prebuilt image canonical name only: "node12"
+        * prebuilt image alias: "tf-node12"
+        * prebuilt image with path and host: docker.example.org/prebuilt-image:latest
+        * prebuilt image name with or without tag or variants: prebuilt-image, prebuilt-image-job-variant, prebuilt-image-job-variant:latest,
+                                                               prebuilt-image-web-variant, prebuilt-image-web-variant:latest
         * image path: "tool-<mytool>/<myimage>:latest"
         * image path with digest: "tool-<mytool>/<myimage>:latest@sha256:123454..."
         * image path with host: "harbor.example.org/tool-<mytool>/<myimage>:latest"
@@ -143,6 +147,21 @@ class Image(BaseModel):
                 # the digest would have been matched already in the aliases or the container
                 image.digest = digest
                 return image
+            else:
+                # this is only supposed to be triggered if every other attempt fails.
+                # Here we check if there are any of the available images have the same image name (e.g. toolforge-bookworm), regardless of what the variant or tag is.
+                # This helps in matching a webservice variant image (e.g. docker-registry.tools.wmflabs.org/toolforge-golang111-sssd-web),
+                # to a job-framework variant image (e.g. docker-registry.tools.wmflabs.org/toolforge-golang111-sssd-web),
+                # and verse versa.
+                # will also helps in matching with the image name directly, which we don't currently do (e.g. toolforge-bookworm-sssd, toolforge-bookworm-sssd:latest)
+
+                url_or_name_prefix = url_or_name.split("-sssd", 1)[0].split("-web-sssd", 1)[0]
+                image_container_prefix = (
+                    image.container
+                    and image.container.split("-sssd", 1)[0].split("-web-sssd", 1)[0]
+                )
+                if image_container_prefix and image_container_prefix.endswith(url_or_name_prefix):
+                    return image
 
         LOGGER.debug(
             f"Unable to find matching image for {url_or_name}, available images for tool {tool_name}: {all_images}"
@@ -252,12 +271,14 @@ def _get_prebuilt_images() -> list[Image]:
             continue
 
         container = image_data["variants"][CONFIG_VARIANT_KEY]["image"]
+        extras = image_data["variants"][CONFIG_VARIANT_KEY].get("extra", {})
         image = Image(
             type=ImageType.STANDARD,
             canonical_name=name,
             aliases=image_data.get("aliases", []),
             container=f"{container}:{CONFIG_CONTAINER_TAG}",
             state=image_data["state"],
+            extras=extras,
         )
 
         available_images.append(image)

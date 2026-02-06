@@ -34,7 +34,9 @@ class TestGetImages:
         expected_active_images = [
             image_name
             for image_name, image_data in fake_images.items()
+            # fake_images needed to contain webservice images for test purpose, but we don't need it here so remove any image that doesn't have jobs-framework variant
             if image_data["state"] != "deprecated"
+            and image_data["variants"].get("jobs-framework", None)
         ]
 
         assert expected_active_images != []
