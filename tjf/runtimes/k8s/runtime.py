@@ -26,6 +26,7 @@ from ...core.utils import format_quantity, parse_and_format_mem
 from ...loki_logs import LokiSource
 from ...settings import Settings
 from ..base import BaseRuntime
+from ..exceptions import NotFoundInRuntime
 from .account import ToolAccount
 from .jobs import (
     K8sJobKind,
@@ -68,7 +69,7 @@ class K8sRuntime(BaseRuntime):
 
         return job_list
 
-    def get_job(self, *, job_name: str, tool: str) -> AnyJob | None:
+    def get_job(self, *, job_name: str, tool: str) -> AnyJob:
         tool_account = ToolAccount(name=tool)
         for job_type in JobType:
             kind = K8sJobKind.from_job_type(job_type).api_path_name
@@ -88,7 +89,7 @@ class K8sRuntime(BaseRuntime):
                 refresh_job_long_status(tool_account, job)
                 return job
 
-        return None
+        raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool}.")
 
     def restart_job(self, *, job: AnyJob, tool: str) -> None:
         user = ToolAccount(name=tool)
@@ -268,12 +269,13 @@ class K8sRuntime(BaseRuntime):
         """
         LOGGER.debug("Checking for diff in job %s for tool %s", job.job_name, job.tool_name)
 
-        current_job = self.get_job(job_name=job.job_name, tool=job.tool_name)
-        if current_job is None:
+        try:
+            current_job = self.get_job(job_name=job.job_name, tool=job.tool_name)
+        except NotFoundInRuntime as error:
             LOGGER.debug(f"No current job found for job {job.job_name} for tool {job.tool_name}")
             raise TjfJobNotFoundError(
                 f"Unable to find job {job.job_name} for tool {job.tool_name}"
-            )
+            ) from error
 
         # TODO: remove once we store the original command
         # Note: the incoming job does not have an image type, so we get it from the existing job
