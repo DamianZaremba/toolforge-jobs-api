@@ -28,6 +28,8 @@ LOGGER = getLogger(__name__)
 
 
 AnyJobClass: TypeAlias = Type[ContinuousJob] | Type[ScheduledJob] | Type[OneOffJob]
+API_GROUP = "jobs-api.toolforge.org"
+API_VERSION = "v1"
 
 
 def _get_k8s_tool_namespace(*, tool_name: str) -> str:
@@ -42,7 +44,7 @@ def _job_to_k8s_crd(*, job: AnyJob) -> dict[str, Any]:
     kind, k8s_plural = _get_kind_and_plural_from_job_class(job_class=job.__class__)
     k8s_dict = {
         "kind": kind,
-        "apiVersion": "jobs-api.toolforge.org/v1",
+        "apiVersion": f"{API_GROUP}/{API_VERSION}",
         "metadata": {"name": job.job_name},
         "spec": job.model_dump(
             mode="json", exclude_unset=True, exclude={"status_short", "status_long"}
@@ -81,8 +83,8 @@ class K8sStorage(BaseStorage):
         namespace = _get_k8s_tool_namespace(tool_name=tool_name)
         try:
             k8s_objects = self.k8s_cli.list_namespaced_custom_object(
-                group="jobs-api.toolforge.org",
-                version="v1",
+                group=API_GROUP,
+                version=API_VERSION,
                 plural=k8s_plural,
                 namespace=namespace,
             )
@@ -126,8 +128,8 @@ class K8sStorage(BaseStorage):
         body = _job_to_k8s_crd(job=job)
         try:
             self.k8s_cli.create_namespaced_custom_object(
-                group="jobs-api.toolforge.org",
-                version="v1",
+                group=API_GROUP,
+                version=API_VERSION,
                 plural=k8s_plural,
                 namespace=_get_k8s_tool_namespace(tool_name=job.tool_name),
                 body=body,
@@ -151,8 +153,8 @@ class K8sStorage(BaseStorage):
 
         try:
             self.k8s_cli.delete_namespaced_custom_object(
-                group="jobs-api.toolforge.org",
-                version="v1",
+                group=API_GROUP,
+                version=API_VERSION,
                 plural=k8s_plural,
                 namespace=_get_k8s_tool_namespace(tool_name=job.tool_name),
                 name=job.job_name,

@@ -1,4 +1,4 @@
-from enum import Enum
+ enum import Enum
 from logging import getLogger
 from pathlib import Path
 from typing import Any, Literal, Type
@@ -92,13 +92,14 @@ class CommonJob(BaseModel):
     def to_core_job(self, tool_name: str) -> CoreCommonJob:
         set_job_params = self.model_dump(exclude_unset=True)
 
+        image = ImageData.from_short_name_or_url(
+            url_or_name=self.imagename, tool_name=tool_name, use_harbor_cache=False
+        )
         params = {
             "cmd": self.cmd,
             "tool_name": tool_name,
             "job_name": self.name,
-            "image": ImageData.from_short_name_or_url(
-                url_or_name=self.imagename, tool_name=tool_name, use_harbor_cache=False
-            ),
+            "image": image,
         }
 
         for field in ["filelog", "filelog_stdout", "filelog_stderr"]:
@@ -116,17 +117,11 @@ class CommonJob(BaseModel):
 
         my_job = CoreCommonJob.model_validate(params)
 
-        image_type = ImageType.from_imagename(self.imagename)
         is_standard_image_and_mount_all = (
-            self.mount == MountOption.ALL and image_type == ImageType.STANDARD
+            self.mount == MountOption.ALL and image.type == ImageType.STANDARD
         )
-        is_buildpack_image_and_mount_none = (
-            self.mount == MountOption.ALL and image_type == ImageType.STANDARD
-        )
-        if (
-            is_standard_image_and_mount_all or is_buildpack_image_and_mount_none
-        ) and "mount" in self.model_fields_set:
-            # default for mount with buildpack is none, and for standard in all, we can remove this whole block when
+        if is_standard_image_and_mount_all and "mount" in self.model_fields_set:
+            # default for mount with buildpack is none, and for standard is all, we can remove this whole block when
             # we move to the same defaults
             self.model_fields_set.remove("mount")
 

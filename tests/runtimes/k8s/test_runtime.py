@@ -37,7 +37,7 @@ def patch_tool_account_k8s_cli(
 
 
 class TestGetJob:
-    def test_returns_none_when_no_job_found(self, monkeymodule: pytest.MonkeyPatch):
+    def test_raises_when_no_job_found(self, monkeymodule: pytest.MonkeyPatch):
         patch_tool_account_k8s_cli(
             monkeymodule=monkeymodule, get_objects_mock=lambda *args, **kwargs: []
         )
