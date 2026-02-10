@@ -144,7 +144,7 @@ class TestCore:
                 assert gotten_job.job_name == "job-from-storage"
                 assert (
                     gotten_job.status_long
-                    == "Runtime job is different than configured, please recreate or redeploy."
+                    == f"The running version of job '{gotten_job.job_name}' is different from what was configured, please recreate or redeploy."
                 )
                 assert gotten_job.model_dump(
                     exclude=["job_name", "status_long"]

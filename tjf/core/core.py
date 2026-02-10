@@ -40,9 +40,7 @@ def _update_storage_job_status_from_runtime(
         storage_job.status_long = runtime_job.status_long
 
     if not runtime_job or runtime_job.model_dump() != storage_job.model_dump():
-        storage_job.status_long = (
-            "Runtime job is different than configured, please recreate or redeploy."
-        )
+        storage_job.status_long = f"The running version of job '{storage_job.job_name}' is different from what was configured, please recreate or redeploy."
 
     return storage_job
 
@@ -234,15 +232,11 @@ class Core:
             LOGGER.warning(f"Found a job in storage but not in runtime: {storage_job}")
             if self.settings.enable_storage:
                 # We wight want to return the "up_to_date" property as False and ask the user to recreate instead
-                LOGGER.warning(
-                    f"Setting enable_storage=True, recreating in runtime: {storage_job}"
-                )
+                LOGGER.warning(f"enable_storage=True, recreating in runtime: {storage_job}")
                 self._create_runtime_job(job=storage_job)
                 runtime_job = self.runtime.get_job(job_name=job_name, tool=tool_name)
             else:
-                LOGGER.warning(
-                    f"Setting enable_storage=False, deleting from storage: {storage_job}"
-                )
+                LOGGER.warning(f"enable_storage=False, deleting from storage: {storage_job}")
                 self.storage.delete_job(job=storage_job)
                 return None
 
@@ -252,7 +246,7 @@ class Core:
                 storage_job = runtime_job
             else:
                 LOGGER.info(
-                    f"Creating storage job {job_name} for tool {tool_name} from runtime, this should once all "
+                    f"Creating storage job {job_name} for tool {tool_name} from runtime, this should never happen once all "
                     "jobs are in storage"
                 )
                 storage_job = self._create_storage_job(job=runtime_job)
@@ -263,7 +257,7 @@ class Core:
                 f"Failed to create storage or runtime job, aborting:\nstorage_job:{storage_job}\nruntime_job:{runtime_job}"
             )
             raise TjfError(
-                "This should never happened :/, unable to get job, unable to sync storage and runtime"
+                "This should never happen :/, unable to get job, unable to sync storage and runtime"
             )
 
         storage_job = _update_storage_job_status_from_runtime(
@@ -279,9 +273,11 @@ class Core:
     def delete_job(self, job: AnyJob) -> None:
         try:
             self.storage.delete_job(job=job)
-        except NotFoundInStorage:
+        except NotFoundInStorage as error:
+            if self.settings.enable_storage:
+                raise TjfError("Unable to delete job") from error
             LOGGER.debug(
-                f"Tried to delete non-existing job {job} from storage, skipping currently, will error out once all jobs have migrated."
+                f"Tried to delete non-existing job {job} from storage, skipping currently, should raise when enable_storage is set to True"
             )
             pass
 
