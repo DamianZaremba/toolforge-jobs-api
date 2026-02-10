@@ -155,7 +155,7 @@ class K8sRuntime(BaseRuntime):
                 return
 
         # Delete and re-create the objects
-        self.delete_job(tool=tool, job=job)
+        self.delete_job(tool=tool, job=job, exclude_services=True)
         self.create_job(tool=tool, job=job)
 
     def _create_or_delete_service(self, job: ContinuousJob) -> None:
@@ -180,7 +180,7 @@ class K8sRuntime(BaseRuntime):
         spec = get_k8s_service_object(job)
 
         try:
-            tool_account.k8s_cli.replace_object("services", spec)
+            tool_account.k8s_cli.replace_object(kind="services", spec=spec)
         except requests.exceptions.HTTPError as error:
             raise create_error_from_k8s_response(error=error, job=job, spec=spec)
         return None
@@ -247,13 +247,20 @@ class K8sRuntime(BaseRuntime):
             tool_account.k8s_cli.delete_objects(object_type, label_selector=label_selector)
         wait_for_pods_exit(tool=tool_account)
 
-    def delete_job(self, *, tool: str, job: AnyJob) -> None:
+    # TODO: exclude services param is added to aid in easy migration of jobs version.
+    # remove when migration is done
+    def delete_job(self, *, tool: str, job: AnyJob, exclude_services: bool = False) -> None:
         """Deletes a specified job."""
         LOGGER.debug("Deleting job %s for tool %s", job.job_name, tool)
         tool_account = ToolAccount(name=tool)
         kind = K8sJobKind.from_job_type(job.job_type).api_path_name
         tool_account.k8s_cli.delete_object(kind=kind, name=job.job_name)
-        for object_type in ["pods", "services"]:
+
+        object_types = ["pods"]
+        if not exclude_services:
+            object_types.append("services")
+
+        for object_type in object_types:
             tool_account.k8s_cli.delete_objects(
                 kind=object_type,
                 label_selector=labels_selector(
@@ -274,6 +281,15 @@ class K8sRuntime(BaseRuntime):
             raise TjfJobNotFoundError(
                 f"Unable to find job {job.job_name} for tool {job.tool_name}"
             )
+
+        # TODO: remove this after job version migration is done. see T359649
+        job_version = (
+            current_job.k8s_object.get("metadata", {})
+            .get("labels", {})
+            .get("app.kubernetes.io/version", "2")
+        )
+        if job_version in [1, "1"]:
+            return "job version is deprecated"  # value doesn't matter, we only need to return a non empty string
 
         # TODO: remove once we store the original command
         # Note: the incoming job does not have an image type, so we get it from the existing job
