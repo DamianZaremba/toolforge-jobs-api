@@ -1,0 +1,30 @@
+{
+  "apiVersion": "v1",
+  "items": [
+    {
+      "apiVersion": "jobs-api.toolforge.org/v1",
+      "kind": "ContinuousJob",
+      "metadata": {
+        "creationTimestamp": "2025-10-01T09:47:05Z",
+        "generation": 1,
+        "name": "testcont",
+        "namespace": "tool-tf-test",
+        "resourceVersion": "4944797",
+        "uid": "9575d034-1595-49f4-83a9-04a4dd4f5cbc"
+      },
+      "spec": {
+        "cmd": "while sleep 2; do date; done",
+        "filelog": false,
+        "image": {
+          "canonical_name": "python3.11"
+        },
+        "job_name": "testcont",
+        "tool_name": "tf-test"
+      }
+    }
+  ],
+  "kind": "List",
+  "metadata": {
+    "resourceVersion": ""
+  }
+}

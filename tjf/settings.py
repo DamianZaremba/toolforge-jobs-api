@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     loki_url: AnyHttpUrl = AnyHttpUrl("http://loki-tools.loki.svc:3100/loki")
     # default cpu limit is mainly needed to be configurable for lima-kilo
     default_cpu_limit: str = "4000m"
+    enable_storage: bool = False
 
 
 def get_settings() -> Settings:

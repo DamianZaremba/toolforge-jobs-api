@@ -12,6 +12,7 @@ from tjf.core.utils import format_quantity, parse_and_format_mem
 from ..core.cron import CronExpression, CronParsingError
 from ..core.error import TjfValidationError
 from ..core.images import Image as ImageData
+from ..core.images import ImageType
 from ..core.models import (
     JOBNAME_MAX_LENGTH,
     JOBNAME_PATTERN,
@@ -88,17 +89,16 @@ class CommonJob(BaseModel):
         return job_name
 
     def to_core_job(self, tool_name: str) -> CoreCommonJob:
-        if "continuous" in self.model_fields_set:
-            self.model_fields_set.remove("continuous")
         set_job_params = self.model_dump(exclude_unset=True)
 
+        image = ImageData.from_url_or_name(
+            url_or_name=self.imagename, tool_name=tool_name, use_harbor_cache=False
+        )
         params = {
             "cmd": self.cmd,
             "tool_name": tool_name,
             "job_name": self.name,
-            "image": ImageData.from_url_or_name(
-                url_or_name=self.imagename, tool_name=tool_name, use_harbor_cache=False
-            ),
+            "image": image,
         }
 
         for field in ["filelog", "filelog_stdout", "filelog_stderr"]:
@@ -115,6 +115,15 @@ class CommonJob(BaseModel):
                 params[param] = value
 
         my_job = CoreCommonJob.model_validate(params)
+
+        is_standard_image_and_mount_all = (
+            self.mount == MountOption.ALL and image.type == ImageType.STANDARD
+        )
+        if is_standard_image_and_mount_all and "mount" in self.model_fields_set:
+            # default for mount with buildpack is none, and for standard is all, we can remove this whole block when
+            # we move to the same defaults
+            self.model_fields_set.remove("mount")
+
         LOGGER.debug(f"Got {self}, \ngenerated {my_job}")
         return my_job
 
@@ -153,6 +162,8 @@ class NewOneOffJob(CommonJob, BaseModel):
     continuous: Literal[False] = False
 
     def to_core_job(self, tool_name: str) -> CoreOneOffJob:
+        if "continuous" in self.model_fields_set:
+            self.model_fields_set.remove("continuous")
         common_core_fields = (
             super().to_core_job(tool_name=tool_name).model_dump(exclude_unset=True)
         )
