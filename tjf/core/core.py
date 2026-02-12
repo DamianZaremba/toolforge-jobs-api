@@ -96,7 +96,7 @@ class Core:
     def _update_job_using_storage(self, job: AnyJob) -> Tuple[bool, str]:
         maybe_fresh_job = self.get_job(toolname=job.tool_name, name=job.job_name)
         if not maybe_fresh_job:
-            # job did not exist
+            # even if it's updating, it might be that the job does not exist yet
             LOGGER.debug(f"Creating job {job.job_name}")
             self.create_job(job=job)
             message = f"Job {job.job_name} created in storage and runtime"
@@ -113,23 +113,27 @@ class Core:
             f"\nNEW JOB: {job.model_dump(exclude_unset=True, exclude=to_exclude)}"
         )
 
+        changed_in_storage = False
+        storage_message = ""
         if needs_storage_update:
             LOGGER.debug(f"Updating job {job.job_name}")
-            self.delete_job(job=job)
-            self.create_job(job=job)
-            message = f"Job {job.job_name} updated on storage and runtime"
-            LOGGER.info(message)
-            return True, message
+            self.storage.delete_job(job=job)
+            self.storage.create_job(job=job)
+            storage_message = f"Job {job.job_name} updated on storage."
+            LOGGER.info(storage_message)
+            changed_in_storage = True
 
         LOGGER.debug(f"Updating job in runtime only {job.job_name}")
-        # TODO: instead of using diff_with_running_job, move to compare bare jobs
-        #       directly (should not be very hard now that we have split models)
-        return self._update_job_using_runtime(job=job)
+        changed_in_runtime, runtime_message = self._update_job_using_runtime(job=job)
+
+        return (changed_in_storage or changed_in_runtime, f"{storage_message} {runtime_message}")
 
     def _update_job_using_runtime(self, job: AnyJob) -> Tuple[bool, str]:
         changed, message = False, f"Job {job.job_name} is already up to date"
 
         try:
+            # TODO: instead of using diff_with_running_job, move to compare bare jobs
+            #       directly (should not be very hard now that we have split models)
             diff = self.runtime.diff_with_running_job(job=job)
             LOGGER.debug(f"Diff for job {job.job_name}: {diff}")
             if diff:
@@ -140,7 +144,7 @@ class Core:
 
         except TjfJobNotFoundError:
             LOGGER.debug(f"Creating job {job.job_name}")
-            self.create_job(job=job)
+            self.runtime.create_job(job=job, tool=job.tool_name)
             changed = True
             message = f"Job {job.job_name} created"
 
@@ -243,12 +247,7 @@ class Core:
 
         if not runtime_job and storage_job:
             LOGGER.warning(f"Found a job in storage but not in runtime: {storage_job}")
-            if self.settings.enable_storage:
-                # We wight want to return the "up_to_date" property as False and ask the user to recreate instead
-                LOGGER.warning(f"enable_storage=True, recreating in runtime: {storage_job}")
-                self._create_runtime_job(job=storage_job)
-                runtime_job = self.runtime.get_job(job_name=job_name, tool=tool_name)
-            else:
+            if not self.settings.enable_storage:
                 LOGGER.warning(f"enable_storage=False, deleting from storage: {storage_job}")
                 self.storage.delete_job(job=storage_job)
                 return None
@@ -266,13 +265,13 @@ class Core:
                 )
                 storage_job = self._create_storage_job(job=runtime_job)
 
-        if not runtime_job or not storage_job:
+        if not storage_job:
             # this should never happen, though mypy complains it might
             LOGGER.error(
-                f"Failed to create storage or runtime job, aborting:\nstorage_job:{storage_job}\nruntime_job:{runtime_job}"
+                f"Failed to create storage job, aborting:\nstorage_job:{storage_job}\nruntime_job:{runtime_job}"
             )
             raise TjfError(
-                "This should never happen :/, unable to get job, unable to sync storage and runtime"
+                "This should never happen :/, unable to create storage job, unable to sync storage and runtime"
             )
 
         storage_job = _update_storage_job_status_from_runtime(
