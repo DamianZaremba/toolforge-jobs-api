@@ -39,7 +39,14 @@ def _update_storage_job_status_from_runtime(
         storage_job.status_short = runtime_job.status_short
         storage_job.status_long = runtime_job.status_long
 
-    if not runtime_job or runtime_job.model_dump() != storage_job.model_dump():
+    to_exclude = set(["k8s_object"])
+
+    if not runtime_job or runtime_job.model_dump(exclude=to_exclude) != storage_job.model_dump(
+        exclude=to_exclude
+    ):
+        LOGGER.debug(
+            f"Found a different running version than in storage:\nSTORAGE: {storage_job.model_dump(exclude=to_exclude)}\nRUNTIME: {runtime_job and runtime_job.model_dump(exclude=to_exclude)}"
+        )
         storage_job.status_long = f"The running version of job '{storage_job.job_name}' is different from what was configured, please recreate or redeploy."
 
     return storage_job
@@ -96,8 +103,14 @@ class Core:
             LOGGER.info(message)
             return True, message
 
-        needs_storage_update = maybe_fresh_job.model_dump(exclude_unset=True) != job.model_dump(
-            exclude_unset=True
+        to_exclude = set(["status_short", "status_long"])
+        needs_storage_update = maybe_fresh_job.model_dump(
+            exclude_unset=True, exclude=to_exclude
+        ) != job.model_dump(exclude_unset=True, exclude=to_exclude)
+        LOGGER.debug(
+            "Got two different jobs:"
+            f"\nEXISTING JOB: {maybe_fresh_job.model_dump(exclude_unset=True, exclude=to_exclude)}"
+            f"\nNEW JOB: {job.model_dump(exclude_unset=True, exclude=to_exclude)}"
         )
 
         if needs_storage_update:
@@ -245,6 +258,8 @@ class Core:
                 # we skip creating oneoffs for now
                 storage_job = runtime_job
             else:
+                # TODO: We should delete the runtime job once we are sure all jobs are migrated
+                #       Double checking first that no users are creating jobs-api valid jobs by hand
                 LOGGER.info(
                     f"Creating storage job {job_name} for tool {tool_name} from runtime, this should never happen once all "
                     "jobs are in storage"
