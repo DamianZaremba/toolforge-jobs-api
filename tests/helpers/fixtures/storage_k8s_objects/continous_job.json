@@ -16,7 +16,7 @@
         "cmd": "while sleep 2; do date; done",
         "filelog": false,
         "image": {
-          "canonical_name": "python3.11"
+          "short_name": "python3.11"
         },
         "job_name": "testcont",
         "tool_name": "tf-test"

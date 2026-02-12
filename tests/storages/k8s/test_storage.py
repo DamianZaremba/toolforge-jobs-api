@@ -31,7 +31,11 @@ def get_continuous_job(name: str = "testcont") -> ContinuousJob:
     return ContinuousJob(
         cmd="while sleep 2; do date; done",
         filelog=False,
-        image=Image(canonical_name="python3.11"),
+        image=Image(
+            short_name="python3.11",
+            host="docker-registry.tools.wmflabs.org",
+            path="toolforge-python311-sssd-base",
+        ),
         job_name=name,
         tool_name="tf-test",
     )
@@ -53,8 +57,10 @@ def get_k8s_continuous_job(*, name: str = "testcont"):
             "cmd": "while sleep 2; do date; done",
             "filelog": False,
             "image": {
-                "canonical_name": "python3.11",
+                "short_name": "python3.11",
                 "type": "standard",
+                "host": "docker-registry.tools.wmflabs.org",
+                "path": "toolforge-python311-sssd-base",
             },
             "job_name": name,
             "tool_name": "tf-test",
@@ -77,7 +83,11 @@ def get_scheduled_job(name: str = "testsched") -> ScheduledJob:
             minute="55",
         ),
         filelog=False,
-        image=Image(canonical_name="python3.11"),
+        image=Image(
+            short_name="python3.11",
+            host="docker-registry.tools.wmflabs.org",
+            path="toolforge-python311-sssd-base",
+        ),
         job_name=name,
         tool_name="tf-test",
     )
@@ -99,8 +109,10 @@ def get_k8s_scheduled_job(*, name: str = "testsched"):
             "cmd": "date",
             "filelog": False,
             "image": {
-                "canonical_name": "python3.11",
+                "short_name": "python3.11",
                 "type": "standard",
+                "host": "docker-registry.tools.wmflabs.org",
+                "path": "toolforge-python311-sssd-base",
             },
             "job_name": name,
             "schedule": {
@@ -284,7 +296,12 @@ class TestStorage:
                     "spec": {
                         "cmd": "while sleep 2; do date; done",
                         "filelog": False,
-                        "image": {"canonical_name": "python3.11", "type": "standard"},
+                        "image": {
+                            "short_name": "python3.11",
+                            "type": "standard",
+                            "host": "docker-registry.tools.wmflabs.org",
+                            "path": "toolforge-python311-sssd-base",
+                        },
                         "job_name": "testcont2",
                         "tool_name": "tf-test",
                     },
@@ -310,8 +327,10 @@ class TestStorage:
                     "spec": {
                         "cmd": "date",
                         "image": {
-                            "canonical_name": "python3.11",
+                            "short_name": "python3.11",
                             "type": "standard",
+                            "host": "docker-registry.tools.wmflabs.org",
+                            "path": "toolforge-python311-sssd-base",
                         },
                         "filelog": False,
                         "job_name": "testsched2",
