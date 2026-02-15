@@ -1,0 +1,57 @@
+{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "creationTimestamp": "2025-10-15T19:00:00Z",
+        "labels": {
+            "batch.kubernetes.io/job-name": "test-unknown-29342580",
+            "job-name": "test-unknown-29342580",
+            "name": "test-unknown"
+        },
+        "name": "test-unknown-29342580-xb5vz",
+        "namespace": "default",
+        "uid": "e55f511e-378b-44c3-ba22-1b90f294c988"
+    },
+    "spec": {
+        "containers": [
+            {
+                "command": [
+                    "echo",
+                    "hello"
+                ],
+                "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:nonexistent-tag",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "test-unknown",
+                "resources": {},
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File"
+            }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "nodeName": "toolforge-control-plane",
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "OnFailure",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/not-ready",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            },
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/unreachable",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            }
+        ]
+    },
+    "status": {}
+}

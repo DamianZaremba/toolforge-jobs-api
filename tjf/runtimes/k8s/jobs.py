@@ -46,6 +46,7 @@ JOB_TTLAFTERFINISHED = 30
 # still giving some grace for jobs to quit after the initial SIGTERM.
 JOB_TERMINATION_GRACE_PERIOD = 15
 JOB_CONTAINER_NAME = "job"
+JOB_PROGRESS_DEADLINE_SECONDS = 600
 
 
 LOGGER = getLogger(__name__)
@@ -367,6 +368,7 @@ def _get_k8s_deployment_object(job: ContinuousJob, default_cpu_limit: str) -> K8
         },
         "spec": {
             "replicas": replicas,
+            "progressDeadlineSeconds": JOB_PROGRESS_DEADLINE_SECONDS,
             "strategy": {
                 "type": strategy,
             },
