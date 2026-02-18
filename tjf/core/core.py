@@ -15,7 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 import logging
-from collections.abc import Mapping
+from datetime import datetime
 from typing import AsyncIterator, Tuple
 
 from toolforge_weld.utils import apeek
@@ -66,21 +66,21 @@ class Core:
         return changed, message
 
     async def get_logs(
-        self, toolname: str, job_name: str, request_args: Mapping[str, str]
+        self,
+        toolname: str,
+        job_name: str,
+        lines: int | None = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        follow: bool = False,
     ) -> AsyncIterator[str]:
-        lines = None
-        if "lines" in request_args:
-            try:
-                # Ignore mypy, any type errors will be caught on the next line
-                lines = int(request_args.get("lines"))  # type: ignore[arg-type]
-            except (ValueError, TypeError) as e:
-                raise TjfValidationError("Unable to parse lines as integer") from e
-
         logs = self.runtime.get_logs(
             tool=toolname,
             job_name=job_name,
-            follow=request_args.get("follow", "") == "true",
+            follow=follow,
             lines=lines,
+            start=start,
+            end=end,
         )
 
         first, logs = await apeek(logs)

@@ -370,7 +370,14 @@ class K8sRuntime(BaseRuntime):
         ]
 
     async def get_logs(
-        self, *, tool: str, job_name: str, follow: bool, lines: int | None = None
+        self,
+        *,
+        tool: str,
+        job_name: str,
+        follow: bool,
+        lines: int | None = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
     ) -> AsyncIterator[str]:
         tool_account = ToolAccount(name=tool)
 
@@ -380,7 +387,9 @@ class K8sRuntime(BaseRuntime):
         source = LokiSource(base_url=self.loki_url, tenant=tool_account.namespace)
         selector = {"job": job_name}
 
-        async for log in source.query(selector=selector, follow=follow, lines=lines):
+        async for log in source.query(
+            selector=selector, follow=follow, lines=lines, start=start, end=end
+        ):
             yield format_logs(log)
 
     def get_images(self, toolname: str) -> list[Image]:

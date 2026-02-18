@@ -3,11 +3,11 @@ from typing import Any
 
 import pytest
 
-from tjf.core.utils import format_duration
+from tjf.core.utils import format_duration, parse_duration
 
 
 @pytest.mark.parametrize(
-    "seconds, expected",
+    "seconds, formatted",
     [
         (0, "0s"),
         (1, "1s"),
@@ -20,19 +20,44 @@ from tjf.core.utils import format_duration
         (3601, "1h1s"),
         (3660, "1h1m"),
         (3661, "1h1m1s"),
-        # for durations longer than a day, seconds are no longer relevant
         (86400, "1d"),
-        (86401, "1d"),
         (86460, "1d1m"),
         (90000, "1d1h"),
         (90060, "1d1h1m"),
-        (90061, "1d1h1m"),
         (90120, "1d1h2m"),
         (172800, "2d"),
     ],
 )
-def test_format_duration(seconds: int, expected: str):
-    assert format_duration(seconds) == expected
+def test_format_and_parse_duration(seconds: int, formatted: str):
+    assert format_duration(seconds) == formatted
+    assert parse_duration(formatted) == seconds
+
+
+@pytest.mark.parametrize(
+    "seconds, formatted",
+    [
+        # for durations longer than a day, seconds are no longer relevant
+        (86401, "1d"),
+        (90061, "1d1h1m"),
+    ],
+)
+def test_format_duration_lossy(seconds: int, formatted: str):
+    assert format_duration(seconds) == formatted
+
+
+@pytest.mark.parametrize(
+    "duration",
+    [
+        "invalid",
+        "1",
+        "2d3",
+        "1h2",
+        "a",
+    ],
+)
+def test_parse_duration_errors(duration):
+    with pytest.raises(ValueError):
+        parse_duration(duration)
 
 
 def patch_spec(spec: dict[str, Any], patch: dict[str, Any] | None) -> dict[str, Any]:
