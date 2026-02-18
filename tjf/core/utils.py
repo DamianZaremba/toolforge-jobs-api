@@ -14,6 +14,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+import re
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Set, TypeVar
@@ -106,6 +108,30 @@ def format_duration(seconds: int) -> str:
     if (s > 0 and d == 0) or value == "":
         value += f"{s}s"
     return value
+
+
+def parse_duration(duration: str) -> int:
+    """
+    Parse a duration string (e.g. "1d2h3m4s") into seconds.
+    This reverts format_duration
+    """
+    pattern = re.compile(
+        r"((?P<days>\d+)d)?((?P<hours>\d+)h)?((?P<minutes>\d+)m)?((?P<seconds>\d+)s)?"
+    )
+    match = pattern.fullmatch(duration)
+    if not match:
+        raise ValueError(f"Invalid duration format: {duration}")
+
+    parts = match.groupdict()
+    time_params = {}
+    for name, param in parts.items():
+        if param:
+            time_params[name] = int(param)
+
+    if not time_params:
+        raise ValueError(f"Invalid duration format: {duration}")
+
+    return int(timedelta(**time_params).total_seconds())
 
 
 def remove_prefixes(text: str, prefixes: Set[str]) -> str:

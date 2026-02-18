@@ -16,11 +16,13 @@
 #
 import http
 import logging
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from ..core.error import TjfValidationError
+from ..core.utils import parse_duration
 from .auth import ensure_authenticated
 from .models import (
     AnyNewJob,
@@ -167,9 +169,50 @@ def api_delete_job(request: Request, toolname: str, name: str) -> DeleteResponse
 
 @jobs.get("/{name}/logs")
 @jobs.get("/{name}/logs/", include_in_schema=False)
-async def api_get_logs(request: Request, toolname: str, name: str) -> Response:
+async def api_get_logs(
+    request: Request,
+    toolname: str,
+    name: str,
+    lines: str | None = Query(None, description="Number of lines to return"),
+    start: str | None = Query(None, description="Start time for logs (ISO 8601 or duration)"),
+    end: str | None = Query(None, description="End time for logs (ISO 8601 or duration)"),
+    follow: bool = Query(False, description="Follow the logs"),
+) -> Response:
+    # TODO: remove this endpoint if it's no longer in use. This might require some counter or something
     ensure_authenticated(request=request)
     core = current_app(request).core
+    start_obj = None
+    end_obj = None
+
+    if lines:
+        try:
+            lines_int = int(lines)
+        except (ValueError, TypeError) as e:
+            raise TjfValidationError("Unable to parse lines as integer") from e
+
+    if start:
+        try:
+            start_obj = datetime.fromisoformat(start).replace(tzinfo=timezone.utc)
+        except ValueError:
+            try:
+                start_obj = datetime.now(timezone.utc) - timedelta(seconds=parse_duration(start))
+            except ValueError as e:
+                raise TjfValidationError(f"Invalid start time: {e}") from e
+
+    if end:
+        try:
+            end_obj = datetime.fromisoformat(end).replace(tzinfo=timezone.utc)
+        except ValueError:
+            try:
+                end_obj = datetime.now(timezone.utc) - timedelta(seconds=parse_duration(end))
+            except ValueError as e:
+                raise TjfValidationError(f"Invalid end time: {e}") from e
+
+    if start_obj and end_obj and start_obj >= end_obj:
+        raise TjfValidationError("start time must be before end time")
+
+    if follow and end_obj:
+        raise TjfValidationError("follow is not compatible with end time")
 
     # Prevent injection attacks onto the Loki LogQL query.
     # (In theory LogQL is safe, but I don't want to learn that that's not the case
@@ -184,7 +227,12 @@ async def api_get_logs(request: Request, toolname: str, name: str) -> Response:
         )
 
     logs = await core.get_logs(
-        toolname=toolname, job_name=job_name, request_args=request.query_params
+        toolname=toolname,
+        job_name=job_name,
+        lines=lines_int,
+        start=start_obj,
+        end=end_obj,
+        follow=follow,
     )
     return StreamingResponse(
         logs,
