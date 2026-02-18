@@ -16,11 +16,13 @@
 #
 import http
 import logging
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from ..core.error import TjfValidationError
+from ..core.utils import parse_duration
 from .auth import ensure_authenticated
 from .models import (
     AnyNewJob,
@@ -167,9 +169,59 @@ def api_delete_job(request: Request, toolname: str, name: str) -> DeleteResponse
 
 @jobs.get("/{name}/logs")
 @jobs.get("/{name}/logs/", include_in_schema=False)
-async def api_get_logs(request: Request, toolname: str, name: str) -> Response:
+async def api_get_logs(
+    request: Request,
+    toolname: str,
+    name: str,
+    lines: str | None = Query(None, description="Number of lines to return"),
+    since: str | None = Query(
+        None,
+        description="Retrieve logs from this time",
+        examples=["2026-03-02T21:29:55+01:00", "2026-03-02", "1h32m22s"],
+    ),
+    until: str | None = Query(
+        None,
+        description="Retrieve logs up to this time",
+        examples=["2026-03-02T21:29:55+01:00", "2026-03-02", "1h32m22s"],
+    ),
+    follow: bool = Query(False, description="Follow the logs"),
+) -> Response:
+    # TODO: remove this endpoint if it's no longer in use. This might require some counter or something
     ensure_authenticated(request=request)
     core = current_app(request).core
+    since_obj = None
+    until_obj = None
+    lines_int = None
+
+    if lines:
+        try:
+            lines_int = int(lines)
+        except (ValueError, TypeError) as e:
+            raise TjfValidationError("Unable to parse lines as integer") from e
+
+    if since:
+        try:
+            since_obj = datetime.fromisoformat(since).replace(tzinfo=timezone.utc)
+        except ValueError:
+            try:
+                since_obj = datetime.now(timezone.utc) - timedelta(seconds=parse_duration(since))
+            except ValueError as e:
+                raise TjfValidationError(f'Invalid "since" time: {e}') from e
+
+    if until:
+        try:
+            until_obj = datetime.fromisoformat(until).replace(tzinfo=timezone.utc)
+        except ValueError:
+            try:
+                until_obj = datetime.now(timezone.utc) - timedelta(seconds=parse_duration(until))
+            except ValueError as e:
+                raise TjfValidationError(f'Invalid "until" time: {e}') from e
+
+    if since_obj and until_obj and since_obj >= until_obj:
+        raise TjfValidationError('"since" time must be before "until" time')
+
+    if follow and until_obj:
+        raise TjfValidationError("follow is not compatible with end time")
 
     # Prevent injection attacks onto the Loki LogQL query.
     # (In theory LogQL is safe, but I don't want to learn that that's not the case
@@ -184,7 +236,12 @@ async def api_get_logs(request: Request, toolname: str, name: str) -> Response:
         )
 
     logs = await core.get_logs(
-        toolname=toolname, job_name=job_name, request_args=request.query_params
+        toolname=toolname,
+        job_name=job_name,
+        lines=lines_int,
+        since=since_obj,
+        until=until_obj,
+        follow=follow,
     )
     return StreamingResponse(
         logs,
