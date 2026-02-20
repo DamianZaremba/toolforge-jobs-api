@@ -80,9 +80,12 @@ class Image(BaseModel):
 
         return self
 
-    def to_full_url(self) -> str:
+    def to_url_or_name(self) -> str:
         if self.container is None:
-            raise ValueError("Can't generate full url as container is still null")
+            raise ValueError("Can't generate image url or name as container is still null")
+
+        if self.type == ImageType.STANDARD:
+            return self.canonical_name
 
         if self.digest:
             return f"{self.container}@{self.digest}"

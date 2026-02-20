@@ -223,7 +223,7 @@ def _get_common_k8s_podtemplate(*, job: AnyJob, default_cpu_limit: str) -> dict[
             "containers": [
                 {
                     "name": JOB_CONTAINER_NAME,
-                    "image": job.image.to_full_url(),
+                    "image": job.image.to_url_or_name(),
                     "workingDir": working_dir,
                     "env": env,
                     "command": generated_command.command,

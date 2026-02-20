@@ -144,7 +144,9 @@ IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX = [
     ["provided_name", "expected_name", "expected_image"],
     IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX,
 )
-def test_get_image_by_url_or_name(fake_images, provided_name, expected_name, expected_image):
+def test_get_image_by_url_or_name(
+    fake_images, provided_name, expected_name, expected_image: Image
+):
     """Basic test for the Image.from_url_or_name() func."""
     gotten_image = Image.from_url_or_name(
         url_or_name=provided_name, tool_name="some-tool", raise_for_nonexisting=True
@@ -170,7 +172,7 @@ def test_get_image_from_url_or_name_as_expected(
 ):
     """Basic test for the Image.from_url_or_name() func."""
     image = Image.from_url_or_name(
-        url_or_name=expected_image.to_full_url(),
+        url_or_name=expected_image.to_url_or_name(),
         raise_for_nonexisting=False,
         tool_name="some-tool",
     )

@@ -138,7 +138,7 @@ class CommonJob(BaseModel):
         params: dict[str, Any] = {
             "name": core_job.job_name,
             "cmd": core_job.cmd,
-            "imagename": core_job.image.canonical_name,  # not being validated because image from k8s might not exist
+            "imagename": core_job.image.to_url_or_name(),
             **optional_params,
         }
 
@@ -260,10 +260,11 @@ class DefinedCommonJob(CommonJob):
         if "state" in set_core_params["image"]:
             optional_params["image_state"] = core_job.image.state
 
+        image = core_job.image.to_url_or_name()
         params: dict[str, Any] = {
             # not being validated because image from k8s might not exist
-            "image": core_job.image.canonical_name,
-            "imagename": core_job.image.canonical_name,
+            "image": image,
+            "imagename": image,
             **common_params,
             **optional_params,
         }
@@ -346,8 +347,6 @@ class DefinedScheduledJob(DefinedCommonJob, BaseModel):
             optional_params["schedule_actual"] = str(core_job.schedule)
 
         params: dict[str, Any] = {
-            "image": core_job.image.canonical_name,
-            "imagename": core_job.image.canonical_name,  # not being validated because image from k8s might not exist
             **common_params,
             **optional_params,
         }

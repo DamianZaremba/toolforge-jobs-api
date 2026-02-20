@@ -15,7 +15,7 @@ from tjf.api.models import (
     NewScheduledJob,
 )
 from tjf.core.cron import CronExpression
-from tjf.core.images import Image
+from tjf.core.images import Image, ImageType
 from tjf.core.models import CommonJob as CoreCommonJob
 from tjf.core.models import ContinuousJob as CoreContinuousJob
 from tjf.core.models import (
@@ -404,6 +404,22 @@ class TestDefinedOneOffJob:
 
         assert gotten_defined_job.model_dump() == expected_defined_job.model_dump()
 
+    def test_to_job_returns_sha_in_image_name(self):
+        container = "tools-harbor.wmcloud.org/sometool/someimage:latest"
+        expected_digest = "sillydigest"
+        expected_image = f"{container}@{expected_digest}"
+        expected_defined_job = get_dummy_defined_oneoff_job(
+            imagename=expected_image, image=expected_image
+        )
+        core_job = get_dummy_core_oneoff_job()
+        core_job.image.container = container
+        core_job.image.digest = expected_digest
+        core_job.image.type = ImageType.BUILDPACK
+
+        gotten_defined_job = DefinedOneOffJob.from_core_job(core_job=core_job)
+
+        assert gotten_defined_job.model_dump() == expected_defined_job.model_dump()
+
 
 class TestDefinedScheduledJob:
     def test_to_job_returns_expected_value_when_excluding_unset(self):
@@ -434,6 +450,22 @@ class TestDefinedScheduledJob:
         core_job = get_dummy_core_scheduled_job(
             timeout=120,
         )
+
+        gotten_defined_job = DefinedScheduledJob.from_core_job(core_job=core_job)
+
+        assert gotten_defined_job.model_dump() == expected_defined_job.model_dump()
+
+    def test_to_job_returns_sha_in_image_name(self):
+        container = "tools-harbor.wmcloud.org/sometool/someimage:latest"
+        expected_digest = "sillydigest"
+        expected_image = f"{container}@{expected_digest}"
+        expected_defined_job = get_dummy_defined_scheduled_job(
+            imagename=expected_image, image=expected_image
+        )
+        core_job = get_dummy_core_scheduled_job()
+        core_job.image.container = container
+        core_job.image.digest = expected_digest
+        core_job.image.type = ImageType.BUILDPACK
 
         gotten_defined_job = DefinedScheduledJob.from_core_job(core_job=core_job)
 
@@ -476,6 +508,22 @@ class TestDefinedContinuousJob:
             port_protocol=PortProtocol.UDP,
             health_check=ScriptHealthCheck(script="dummy-script", type=HealthCheckType.SCRIPT),
         )
+
+        gotten_defined_job = DefinedContinuousJob.from_core_job(core_job=core_job)
+
+        assert gotten_defined_job.model_dump() == expected_defined_job.model_dump()
+
+    def test_to_job_returns_sha_in_image_name(self):
+        container = "tools-harbor.wmcloud.org/sometool/someimage:latest"
+        expected_digest = "sillydigest"
+        expected_image = f"{container}@{expected_digest}"
+        expected_defined_job = get_dummy_defined_continuous_job(
+            imagename=expected_image, image=expected_image
+        )
+        core_job = get_dummy_core_continuous_job()
+        core_job.image.container = container
+        core_job.image.digest = expected_digest
+        core_job.image.type = ImageType.BUILDPACK
 
         gotten_defined_job = DefinedContinuousJob.from_core_job(core_job=core_job)
 
