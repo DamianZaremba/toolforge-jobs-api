@@ -92,7 +92,12 @@ class K8sStorage(BaseStorage):
             LOGGER.exception(
                 f"Attempted to to get jobs for tool:{tool_name} in namespace:{namespace}"
             )
-            raise get_storage_error(error=error, action="loading jobs", spec={})
+            custom_error = get_storage_error(error=error, action="loading jobs", spec={})
+            if isinstance(custom_error, NotFoundInStorage):
+                raise StorageError(
+                    f"Unable to find the CRDs type {job_class}, are they deployed?"
+                ) from custom_error
+            raise custom_error
 
         jobs: list[AnyJob] = []
         for k8s_object in k8s_objects["items"]:
@@ -117,7 +122,7 @@ class K8sStorage(BaseStorage):
         jobs: list[AnyJob] = []
         jobs.extend(self._get_jobs(tool_name=tool_name, job_class=ContinuousJob))
         jobs.extend(self._get_jobs(tool_name=tool_name, job_class=ScheduledJob))
-        jobs.extend(self._get_jobs(tool_name=tool_name, job_class=OneOffJob))
+        # TODO: get also one-off jobs when they are supported in storage
 
         LOGGER.debug(f"Got jobs {jobs} for tool {tool_name}")
         return jobs

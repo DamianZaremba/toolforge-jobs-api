@@ -132,7 +132,8 @@ def get_k8s_scheduled_job(*, name: str = "testsched"):
 
 
 def assert_jobs_get_k8s_calls(storage_k8s_cli: MagicMock):
-    for kind in ["continuous-jobs", "scheduled-jobs", "one-off-jobs"]:
+    # TODO: add one-off jobs once we support them as crds
+    for kind in ["continuous-jobs", "scheduled-jobs"]:
         storage_k8s_cli.list_namespaced_custom_object.assert_any_call(
             version="v1",
             group="jobs-api.toolforge.org",

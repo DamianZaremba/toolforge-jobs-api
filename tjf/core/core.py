@@ -288,7 +288,8 @@ class Core:
         try:
             self.storage.delete_job(job=job)
         except NotFoundInStorage as error:
-            if self.settings.enable_storage:
+            # TODO: also fail for one-offs when we have them in storage
+            if self.settings.enable_storage and not isinstance(job, OneOffJob):
                 raise TjfError("Unable to delete job") from error
             LOGGER.debug(
                 f"Tried to delete non-existing job {job} from storage, skipping currently, should raise when enable_storage is set to True"

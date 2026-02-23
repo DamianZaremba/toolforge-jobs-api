@@ -468,7 +468,9 @@ class TestApiUpdateJob:
 
         expected_response = UpdateResponse(
             job_changed=False,
-            messages=ResponseMessages(info=["Job silly-job-name is already up to date"]),
+            messages=ResponseMessages(
+                info=["Job silly-job-name is already up to date in runtime"]
+            ),
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
@@ -541,7 +543,8 @@ class TestApiUpdateJob:
         )
 
         expected_response = UpdateResponse(
-            job_changed=True, messages=ResponseMessages(info=["Job silly-job-name created"])
+            job_changed=True,
+            messages=ResponseMessages(info=["Job silly-job-name created in runtime"]),
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
