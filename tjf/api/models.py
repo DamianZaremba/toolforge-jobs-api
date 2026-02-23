@@ -43,6 +43,7 @@ LOGGER = getLogger(__name__)
 class CommonJob(BaseModel):
     name: str
     cmd: str
+    # TODO: replace imagename with image, note this will change the API
     imagename: str
     filelog: bool = CoreCommonJob.model_fields["filelog"].default
     filelog_stdout: Path | None = CoreCommonJob.model_fields["filelog_stdout"].default
@@ -238,8 +239,10 @@ AnyNewJob = NewOneOffJob | NewScheduledJob | NewContinuousJob
 
 
 class DefinedCommonJob(CommonJob):
+    # image is the same as imagename, imagename is only used when interacting with the user
+    # TODO: replace imagename with image
     image: str
-    imagename: str  # for backwards compatibility. Should be removed in the future when no longer in use by anyone
+    imagename: str
     image_state: str = ImageData.model_fields["state"].default
     status_short: str = CoreCommonJob.model_fields["status_short"].default
     status_long: str = CoreCommonJob.model_fields["status_long"].default
@@ -261,9 +264,7 @@ class DefinedCommonJob(CommonJob):
             optional_params["image_state"] = core_job.image.state
 
         params: dict[str, Any] = {
-            # not being validated because image from k8s might not exist
-            "image": core_job.image.short_name,
-            "imagename": core_job.image.short_name,
+            "image": common_params["imagename"],
             **common_params,
             **optional_params,
         }
@@ -346,8 +347,7 @@ class DefinedScheduledJob(DefinedCommonJob, BaseModel):
             optional_params["schedule_actual"] = str(core_job.schedule)
 
         params: dict[str, Any] = {
-            "image": core_job.image.short_name,
-            "imagename": core_job.image.short_name,  # not being validated because image from k8s might not exist
+            "image": common_params["imagename"],
             **common_params,
             **optional_params,
         }
