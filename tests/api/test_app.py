@@ -530,7 +530,7 @@ class TestApiUpdateJob:
             {
                 "name": "silly-job-name",
                 "cmd": "silly command",
-                "imagename": "silly-image",
+                "imagename": "python3.11",
                 "filelog_stderr": "/dev/null",
                 "filelog_stdout": "/dev/null",
             }

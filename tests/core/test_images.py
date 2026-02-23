@@ -20,7 +20,9 @@ IMAGE_NAME_TESTS = [
         Image(
             short_name="node12",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base:latest",
+            host="docker-registry.tools.wmflabs.org",
+            path="toolforge-node12-sssd-base",
+            tag="latest",
             aliases=["tf-node12", "tf-node12-DEPRECATED"],
             digest="",
             state="deprecated",
@@ -31,7 +33,9 @@ IMAGE_NAME_TESTS = [
         Image(
             short_name="node12",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base:latest",
+            host="docker-registry.tools.wmflabs.org",
+            path="toolforge-node12-sssd-base",
+            tag="latest",
             aliases=["tf-node12", "tf-node12-DEPRECATED"],
             state="deprecated",
             digest="",
@@ -42,7 +46,9 @@ IMAGE_NAME_TESTS = [
         Image(
             short_name="php7.3",
             type=ImageType.STANDARD,
-            container="docker-registry.tools.wmflabs.org/toolforge-php73-sssd-base:latest",
+            host="docker-registry.tools.wmflabs.org",
+            path="toolforge-php73-sssd-base",
+            tag="latest",
             aliases=["tf-php73", "tf-php73-DEPRECATED"],
             digest="",
             state="deprecated",
@@ -53,7 +59,9 @@ IMAGE_NAME_TESTS = [
         Image(
             short_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
-            container=f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest",
+            host=FAKE_HARBOR_HOST,
+            path="tool-some-tool/some-container",
+            tag="latest",
             aliases=[
                 "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
             ],
@@ -66,7 +74,9 @@ IMAGE_NAME_TESTS = [
         Image(
             short_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
-            container=f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest",
+            host=FAKE_HARBOR_HOST,
+            path="tool-some-tool/some-container",
+            tag="latest",
             aliases=[
                 "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
             ],
@@ -79,7 +89,9 @@ IMAGE_NAME_TESTS = [
         Image(
             short_name="tool-some-tool/some-container:stable",
             type=ImageType.BUILDPACK,
-            container=f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:stable",
+            host=FAKE_HARBOR_HOST,
+            path="tool-some-tool/some-container",
+            tag="stable",
             aliases=[
                 "tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81"
             ],
@@ -92,7 +104,9 @@ IMAGE_NAME_TESTS = [
         Image(
             short_name="tool-some-tool/some-container:stable",
             type=ImageType.BUILDPACK,
-            container=f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:stable",
+            host=FAKE_HARBOR_HOST,
+            path="tool-some-tool/some-container",
+            tag="stable",
             aliases=[
                 "tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81"
             ],
@@ -105,7 +119,9 @@ IMAGE_NAME_TESTS = [
         Image(
             short_name="tool-other/tagged:example",
             type=ImageType.BUILDPACK,
-            container=f"{FAKE_HARBOR_HOST}/tool-other/tagged:example",
+            host=FAKE_HARBOR_HOST,
+            path="tool-other/tagged",
+            tag="example",
             aliases=[
                 "tool-other/tagged:example@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
             ],
@@ -118,7 +134,9 @@ IMAGE_NAME_TESTS = [
         Image(
             short_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
-            container=f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest",
+            host=FAKE_HARBOR_HOST,
+            path="tool-some-tool/some-container",
+            tag="latest",
             aliases=[
                 "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
             ],

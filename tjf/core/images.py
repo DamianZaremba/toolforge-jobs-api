@@ -63,9 +63,11 @@ class Image(BaseModel):
     short_name: str
     type: ImageType | None = None
     aliases: list[str] = []
-    container: str | None = None
     state: str = DEFAULT_IMAGE_STATE
     digest: str = ""
+    host: str
+    path: str
+    tag: str = "latest"
 
     @model_validator(mode="after")
     def set_image_type(self) -> Self:
@@ -81,13 +83,12 @@ class Image(BaseModel):
         return self
 
     def to_full_url(self) -> str:
-        if self.container is None:
-            raise ValueError("Can't generate full url as container is still null")
-
+        """Full url is the url you can use to pull the container."""
+        full_url = f"{self.host}/{self.path}:{self.tag}"
         if self.digest:
-            return f"{self.container}@{self.digest}"
+            full_url += f"@{self.digest}"
 
-        return self.container
+        return full_url
 
     @classmethod
     def from_short_name_or_url(
@@ -139,7 +140,10 @@ class Image(BaseModel):
                     return image
                 else:
                     LOGGER.debug(f"Skipping image due to digest, looking for {digest} got {image}")
-            elif image_name_with_tag_and_digest in image.aliases or url_or_name == image.container:
+            elif (
+                image_name_with_tag_and_digest in image.aliases
+                or url_or_name == image.to_full_url()
+            ):
                 # the digest would have been matched already in the aliases or the container
                 image.digest = digest
                 return image
@@ -155,11 +159,16 @@ class Image(BaseModel):
         if digest:
             aliases.append(image_name_with_tag_and_digest)
 
+        # this is a buildpack image
+        host = _get_harbor_config().host
+        path, tag = image_name_with_tag_and_project.split(":", 1)
         return cls(
             type=image_type,
             short_name=image_name_with_tag_and_project,
             aliases=aliases,
-            container=url_or_name,
+            host=host,
+            path=path,
+            tag=tag,
             state=image_state,
             digest=digest,
         )
@@ -252,11 +261,17 @@ def _get_prebuilt_images() -> list[Image]:
             continue
 
         container = image_data["variants"][CONFIG_VARIANT_KEY]["image"]
+        host, path = container.split("/", 1)
+        path, tag = path.split(":", 1) if ":" in path else (path, "latest")
+        tag, digest = tag.split("@", 1) if "@" in path else (tag, "")
         image = Image(
             type=ImageType.STANDARD,
             short_name=name,
             aliases=image_data.get("aliases", []),
-            container=f"{container}:{CONFIG_CONTAINER_TAG}",
+            host=host,
+            path=path,
+            digest=digest,
+            tag=tag,
             state=image_data["state"],
         )
 
@@ -307,7 +322,9 @@ def _get_harbor_images_for_name(project: str, name: str) -> list[Image]:
                     type=ImageType.BUILDPACK,
                     short_name=f"{project}/{name}:{tag_name}",
                     aliases=[f"{project}/{name}:{tag_name}@{digest}"],
-                    container=f"{config.host}/{project}/{name}:{tag_name}",
+                    tag=tag_name,
+                    host=config.host,
+                    path=f"{project}/{name}",
                     state=HARBOR_IMAGE_STATE,
                     digest=digest,
                 )

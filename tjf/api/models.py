@@ -443,7 +443,7 @@ class Image(BaseModel):
 
     @classmethod
     def from_image_data(cls: Type["Image"], image_data: ImageData) -> "Image":
-        return cls(shortname=image_data.short_name, image=image_data.container)
+        return cls(shortname=image_data.short_name, image=image_data.to_full_url())
 
 
 class ResponseMessages(BaseModel):
