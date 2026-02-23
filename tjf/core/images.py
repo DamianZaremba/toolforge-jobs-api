@@ -22,11 +22,11 @@ import urllib.parse
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any, Self
+from typing import Any, NamedTuple
 
 import requests
 import yaml
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig
 
@@ -59,6 +59,15 @@ class ImageType(str, Enum):
         return self != ImageType.BUILDPACK
 
 
+class ImageUrlParts(NamedTuple):
+    host: str
+    path: str
+    project: str
+    name: str
+    digest: str
+    tag: str
+
+
 class Image(BaseModel):
     short_name: str
     type: ImageType | None = None
@@ -70,31 +79,42 @@ class Image(BaseModel):
     tag: str = "latest"
     exists: bool = True
 
-    @model_validator(mode="after")
-    def set_image_type(self) -> Self:
-        # a bit flaky, improve onece we move the image info to bulids-api
-        # needed here so we have that info when validating the jobs at the core layer, without getting into the runtime
-        if self.type is None:
-            if "/" in self.short_name:
-                self.type = ImageType.BUILDPACK
+    @staticmethod
+    def _split_short_name_or_url_to_parts(url_or_name: str) -> ImageUrlParts:
+        rest = url_or_name
+        host = project = name = digest = tag = ""
 
-            else:
-                self.type = ImageType.STANDARD
+        # extract digest if any
+        if "@" in rest:
+            rest, digest = rest.split("@", 1)
+            LOGGER.debug(f"digest: {digest}, rest: {rest}")
 
-        return self
+        # extract host if any
+        if "/" in rest:
+            potential_host = rest.split("/", 1)[0]
+            if "." in potential_host:
+                host, rest = rest.split("/", 1)
+                LOGGER.debug(f"host: {host}, rest: {rest}")
 
-    def to_full_url(self) -> str:
-        """Full url is the url you can use to pull the container."""
-        full_url = ""
-        if self.host:
-            full_url += self.host + "/"
-        full_url += self.path
-        if self.tag:
-            full_url += ":" + self.tag
-        if self.digest:
-            full_url += f"@{self.digest}"
+        # extract harbor project prefix if any (e.g., "tool-mytool")
+        if "/" in rest and rest.startswith("tool-"):
+            project, rest = rest.split("/", 1)
+            LOGGER.debug(f"project: {project}, rest: {rest}")
 
-        return full_url
+        # extract tag if any. remaining string is considered image name
+        if ":" in rest:
+            name, tag = rest.rsplit(":", 1)
+        else:
+            name = rest
+        LOGGER.debug(f"name: {name}, tag: {tag}")
+
+        path = name
+        if project:
+            path = f"{project}/{name}"
+
+        return ImageUrlParts(
+            host=host, path=path, project=project, name=name, digest=digest, tag=tag
+        )
 
     @classmethod
     def from_short_name_or_url(
@@ -106,136 +126,88 @@ class Image(BaseModel):
         """
         Given a url or name, gives back a matching existing image or a new image with the resolved information.
         Supported url/name formats:
-        * full url: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base:latest
-        * short name only: "node12"
-        * alias: "tf-node12"
-        * image path: "tool-<mytool>/<myimage>:latest"
-        * image path with digest: "tool-<mytool>/<myimage>:latest@sha256:123454..."
-        * image path with host: "harbor.example.org/tool-<mytool>/<myimage>:latest"
-        * image path with host and digest: "harbor.example.org/tool-<mytool>/<myimage>:latest@sha256:123454..."
+        * prebuilt image full url: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base:latest
+        * prebuilt image short name: node12
+        * prebuilt image alias: tf-node12
+        * buildservice image full url: harbor.example.org/tool-<mytool>/<myimage>:latest@sha256:abcd...
+        * buildservice image full url (without digest): harbor.example.org/tool-<mytool>/<myimage>:latest
+        * buildservice image without host: tool-<mytool>/<myimage>:latest@sha256:abcd...
+        * buildservice image without digest: tool-<mytool>/<myimage>:latest
+        * buildservice image of another tool: tool-<another>/<theirimage>:latest
         """
-        host, image_name_with_tag_and_digest = _split_host_from_url(url=url_or_name)
-        image_type = ImageType.STANDARD
-        image_state = DEFAULT_IMAGE_STATE
+        image_url_parts = cls._split_short_name_or_url_to_parts(url_or_name=url_or_name)
+        host = image_url_parts.host
+        path = image_url_parts.path
+        project = image_url_parts.project
+        name = image_url_parts.name
+        tag = image_url_parts.tag
+        digest = image_url_parts.digest
+        tool_name = image_url_parts.project.replace(
+            "tool-", ""
+        )  # we allow tools to use other tools images
 
-        if "@" in image_name_with_tag_and_digest:
-            image_name_with_tag_and_project, digest = image_name_with_tag_and_digest.split("@", 1)
-        else:
-            image_name_with_tag_and_project, digest = image_name_with_tag_and_digest, ""
-
-        if "/" in image_name_with_tag_and_project:
-            project = image_name_with_tag_and_project.split("/", 1)[0]
-            image_type = ImageType.BUILDPACK
-            image_state = HARBOR_IMAGE_STATE
-        else:
-            project = ""
-
-        # we don't really use tags yet :/, expecting it to be 'latest'
-        image_name = image_name_with_tag_and_project.split(":", 1)[0]
-
-        if project and "tool-" in project:
-            # we allow tools to use other tools images
-            tool_name = project.split("tool-", 1)[-1]
-
-        all_images = get_images(tool=tool_name, use_harbor_cache=use_harbor_cache)
-
-        found_image = None
-        for image in all_images:
-            if image.short_name in (image_name, image_name_with_tag_and_project):
-                if not digest or digest == image.digest:
-                    found_image = image
-                    break
-                else:
-                    LOGGER.debug(f"Skipping image due to digest, looking for {digest} got {image}")
-            elif (
-                image_name_with_tag_and_digest in image.aliases
-                or url_or_name == image.to_full_url()
-            ):
-                found_image = image
-                break
-
-        if found_image:
-            LOGGER.debug(f"Found matching image {found_image} for {image_name}")
-            new_image = found_image.model_copy()
-            if digest:
-                # if a digest was passed to us explicitly, then set it and add it to the short name too
-                new_image.digest = digest
-                if digest in image_name_with_tag_and_digest:
-                    new_image.short_name = image_name_with_tag_and_digest
-            else:
-                # If no digest was passed by the user, then don't set it even if the
-                # found image has it
-                new_image.digest = ""
-                new_image.model_fields_set.remove("digest")
-            return new_image
-
-        LOGGER.debug(
-            f"Unable to find matching image for {url_or_name}, available images for tool {tool_name}: {all_images}"
+        matched_buildservice_image = _match_harbor_image(
+            tool_name=tool_name,
+            use_harbor_cache=use_harbor_cache,
+            host=host,
+            project=project,
+            name=name,
+            tag=tag,
+            digest=digest,
         )
+        if matched_buildservice_image:
+            LOGGER.debug(f"Returning matching buildservice image: {matched_buildservice_image}")
+            return matched_buildservice_image
 
-        # this is an image that does not match any known one
-        # this might be because it's been deprecated (and not on the list anymore)
-        aliases = []
-        # If we have a digest, keep it as an alias too
-        if digest:
-            aliases.append(image_name_with_tag_and_digest)
+        matched_prebuilt_image = _match_prebuilt_image(
+            host=host,
+            project=project,
+            name=name,
+            tag=tag,
+            digest=digest,
+            path=path,
+        )
+        if matched_prebuilt_image:
+            LOGGER.debug(f"Returning matching prebuilt image: {matched_prebuilt_image}")
+            return matched_prebuilt_image
 
-        if image_type == ImageType.BUILDPACK:
-            host = host or _get_harbor_config().host
-            if ":" in image_name_with_tag_and_project:
-                path, tag = image_name_with_tag_and_project.split(":", 1)
-                tag = tag.split("@", 1)[0]
-            else:
-                path = image_name_with_tag_and_project
-                tag = "latest"
-        else:
-            path = url_or_name
-            tag = ""
-            if "/" in path and path.startswith("docker-registry."):
-                path = path.split("/", 1)[-1]
-            if ":" in path:
-                path, tag = path.split(":", 1)
-                tag = tag.split("@", 1)[0]
-
+        # TODO: set validate_assigments=True and use the model directly (see https://gitlab.wikimedia.org/repos/cloud/toolforge/jobs-api/-/merge_requests/273#note_199637)
         params = dict(
-            type=image_type,
-            short_name=image_name_with_tag_and_digest,
+            type=ImageType.STANDARD,
+            short_name=path,
             host=host,
             path=path,
             tag=tag,
-            state=image_state,
+            state=DEFAULT_IMAGE_STATE,
             exists=False,
         )
+        if tag:
+            params["tag"] = tag
+            params["short_name"] = f"{params['short_name']}:{tag}"
         if digest:
             params["digest"] = digest
-
-        if aliases:
-            params["aliases"] = aliases
+            params["short_name"] = f"{params['short_name']}@{digest}"
+        if project:
+            params["type"] = ImageType.BUILDPACK
+            params["state"] = HARBOR_IMAGE_STATE
 
         new_image = cls.model_validate(params)
         LOGGER.debug(f"Got unknown image {new_image}")
         return new_image
 
+    def to_full_url(self) -> str:
+        """Full url is the url you can use to pull the container."""
+        full_url = ""
+        if self.host:
+            full_url += f"{self.host}/"
+        if self.path:
+            full_url += self.path
+        if self.tag:
+            full_url += f":{self.tag}"
+        if self.digest:
+            full_url += f"@{self.digest}"
 
-def _split_host_from_url(url: str) -> tuple[str, str]:
-    host = ""
-    harbor_host = _get_harbor_config().host
-    if url.startswith(f"{harbor_host}/"):
-        image_name_with_tag = url.removeprefix(f"{harbor_host}/")
-        host = harbor_host
-    # the next two cases will go away soon-ish
-    elif url.startswith("docker-registry.tools.wmflabs.org/"):
-        image_name_with_tag = url.removeprefix("docker-registry.tools.wmflabs.org/")
-        host = "docker-registry.tools.wmflabs.org"
-    elif url.startswith("docker-registry.svc.toolforge.org/"):
-        image_name_with_tag = url.removeprefix("docker-registry.svc.toolforge.org/")
-        host = "docker-registry.svc.toolforge.org"
-    elif "/" in url and "." in url.split("/", 1)[0]:
-        # trying to match unknown host, for old non-supported images coming from k8s
-        host, image_name_with_tag = url.split("/", 1)
-    else:
-        image_name_with_tag = url
-    return host, image_name_with_tag
+        return full_url
 
 
 @dataclass
@@ -320,10 +292,12 @@ def _get_prebuilt_images() -> list[Image]:
             short_name=name,
             host=host,
             path=path,
-            digest=digest,
             tag=tag,
             state=image_data["state"],
         )
+        # prebuilt images don't have digests for now, this may change in the future
+        if digest:
+            params["digest"] = digest
         if aliases:
             params["aliases"] = aliases
 
@@ -333,6 +307,68 @@ def _get_prebuilt_images() -> list[Image]:
         raise TjfError("Empty list of available images")
 
     return available_images
+
+
+def _match_harbor_image(
+    tool_name: str,
+    use_harbor_cache: bool,
+    host: str,
+    project: str,
+    name: str,
+    tag: str,
+    digest: str,
+) -> Image | None:
+    # if project is not set, this is probably a prebuilt image. avoid harbor query
+    if not project:
+        return None
+
+    harbor_images = _get_harbor_images(tool=tool_name, use_harbor_cache=use_harbor_cache)
+    for image in harbor_images:
+        if host and host != image.host:
+            continue
+        if project and not image.path.startswith(f"{project}/"):
+            continue
+        if name and not image.path.endswith(f"/{name}"):
+            continue
+        if tag and image.tag != tag:
+            continue
+        if digest and image.digest != digest:
+            continue
+
+        matched_image = image.model_copy()
+        if digest:
+            matched_image.short_name = f"{matched_image.short_name}@{digest}"  # maybe this should be done just before returning to api?
+        else:
+            matched_image.digest = digest
+            matched_image.model_fields_set.remove("digest")
+        return matched_image
+    return None
+
+
+def _match_prebuilt_image(
+    host: str,
+    project: str,
+    name: str,
+    tag: str,
+    digest: str,
+    path: str,
+) -> Image | None:
+
+    if project or digest:  # Prebuilt images don't use Harbor project prefixes or digests for now
+        return None
+
+    prebuilt_images = _get_prebuilt_images()
+    for image in prebuilt_images:
+        if host and host != image.host:
+            continue
+        if tag and image.tag != tag:
+            continue
+
+        # Match against known aliases, short names, or the isolated name/path
+        if image.path == path or image.short_name == name or name in image.aliases:
+            LOGGER.debug(f"Returning matching prebuilt image: {image}")
+            return image
+    return None
 
 
 def _get_harbor_images_for_name(project: str, name: str) -> list[Image]:
