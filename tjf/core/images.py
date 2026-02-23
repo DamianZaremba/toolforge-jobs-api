@@ -31,7 +31,7 @@ from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig
 
 from ..settings import get_settings
-from .error import TjfError, TjfValidationError
+from .error import TjfError
 from .utils import USER_AGENT
 
 LOGGER = logging.getLogger(__name__)
@@ -68,6 +68,7 @@ class Image(BaseModel):
     host: str
     path: str
     tag: str = "latest"
+    exists: bool = True
 
     @model_validator(mode="after")
     def set_image_type(self) -> Self:
@@ -84,7 +85,12 @@ class Image(BaseModel):
 
     def to_full_url(self) -> str:
         """Full url is the url you can use to pull the container."""
-        full_url = f"{self.host}/{self.path}:{self.tag}"
+        full_url = ""
+        if self.host:
+            full_url += self.host + "/"
+        full_url += self.path
+        if self.tag:
+            full_url += ":" + self.tag
         if self.digest:
             full_url += f"@{self.digest}"
 
@@ -95,7 +101,6 @@ class Image(BaseModel):
         cls,
         tool_name: str,
         url_or_name: str,
-        raise_for_nonexisting: bool = False,
         use_harbor_cache: bool = True,
     ) -> "Image":
         """
@@ -108,7 +113,7 @@ class Image(BaseModel):
         * image path with host: "harbor.example.org/tool-<mytool>/<myimage>:latest"
         * image path with host and digest: "harbor.example.org/tool-<mytool>/<myimage>:latest@sha256:123454..."
         """
-        image_name_with_tag_and_digest = _get_hostless_url(url=url_or_name)
+        host, image_name_with_tag_and_digest = _split_host_from_url(url=url_or_name)
         image_type = ImageType.STANDARD
         image_state = DEFAULT_IMAGE_STATE
 
@@ -127,65 +132,99 @@ class Image(BaseModel):
         # we don't really use tags yet :/, expecting it to be 'latest'
         image_name = image_name_with_tag_and_project.split(":", 1)[0]
 
-        if project:
+        if project and "tool-" in project:
             # we allow tools to use other tools images
             tool_name = project.split("tool-", 1)[-1]
 
         all_images = get_images(tool=tool_name, use_harbor_cache=use_harbor_cache)
 
+        found_image = None
         for image in all_images:
             if image.short_name in (image_name, image_name_with_tag_and_project):
                 if not digest or digest == image.digest:
-                    image.digest = digest
-                    return image
+                    found_image = image
+                    break
                 else:
                     LOGGER.debug(f"Skipping image due to digest, looking for {digest} got {image}")
             elif (
                 image_name_with_tag_and_digest in image.aliases
                 or url_or_name == image.to_full_url()
             ):
-                # the digest would have been matched already in the aliases or the container
-                image.digest = digest
-                return image
+                found_image = image
+                break
+
+        if found_image:
+            LOGGER.debug(f"Found matching image {found_image} for {image_name}")
+            new_image = found_image.model_copy()
+            # the digest would have been matched already in the aliases or the short_name
+            new_image.digest = digest
+            # if a digest was passed to us explicitly, then add it to the short name too
+            if digest and digest in image_name_with_tag_and_digest:
+                new_image.short_name = image_name_with_tag_and_digest
+            return new_image
 
         LOGGER.debug(
             f"Unable to find matching image for {url_or_name}, available images for tool {tool_name}: {all_images}"
         )
-        if raise_for_nonexisting:
-            raise TjfValidationError(f"No such image '{url_or_name}'")
 
+        # this is an image that does not match any known one
+        # this might be because it's been deprecated (and not on the list anymore)
         aliases = []
         # If we have a digest, keep it as an alias too
         if digest:
             aliases.append(image_name_with_tag_and_digest)
 
-        # this is a buildpack image
-        host = _get_harbor_config().host
-        path, tag = image_name_with_tag_and_project.split(":", 1)
-        return cls(
+        if image_type == ImageType.BUILDPACK:
+            host = host or _get_harbor_config().host
+            if ":" in image_name_with_tag_and_project:
+                path, tag = image_name_with_tag_and_project.split(":", 1)
+                tag = tag.split("@", 1)[0]
+            else:
+                path = image_name_with_tag_and_project
+                tag = "latest"
+        else:
+            path = url_or_name
+            tag = ""
+            if "/" in path and path.startswith("docker-registry."):
+                path = path.split("/", 1)[-1]
+            if ":" in path:
+                path, tag = path.split(":", 1)
+                tag = tag.split("@", 1)[0]
+
+        new_image = cls(
             type=image_type,
-            short_name=image_name_with_tag_and_project,
+            short_name=image_name_with_tag_and_digest,
             aliases=aliases,
             host=host,
             path=path,
             tag=tag,
             state=image_state,
             digest=digest,
+            exists=False,
         )
+        LOGGER.debug(f"Got unknown image {new_image}")
+        return new_image
 
 
-def _get_hostless_url(url: str) -> str:
+def _split_host_from_url(url: str) -> tuple[str, str]:
+    host = ""
     harbor_host = _get_harbor_config().host
     if url.startswith(f"{harbor_host}/"):
         image_name_with_tag = url.removeprefix(f"{harbor_host}/")
+        host = harbor_host
     # the next two cases will go away soon-ish
     elif url.startswith("docker-registry.tools.wmflabs.org/"):
         image_name_with_tag = url.removeprefix("docker-registry.tools.wmflabs.org/")
+        host = "docker-registry.tools.wmflabs.org"
     elif url.startswith("docker-registry.svc.toolforge.org/"):
         image_name_with_tag = url.removeprefix("docker-registry.svc.toolforge.org/")
+        host = "docker-registry.svc.toolforge.org"
+    elif "/" in url and "." in url.split("/", 1)[0]:
+        # trying to match unknown host, for old non-supported images coming from k8s
+        host, image_name_with_tag = url.split("/", 1)
     else:
         image_name_with_tag = url
-    return image_name_with_tag
+    return host, image_name_with_tag
 
 
 @dataclass

@@ -47,6 +47,10 @@ class TjfJobNotFoundError(TjfError):
     """Custom error class for when jobs don't exist"""
 
 
+class TjfImageNotFoundError(TjfValidationError):
+    """Raised when an image was not found in the list of available ones."""
+
+
 def tjf_error_from_weld_error(error: ToolforgeError) -> TjfError:
     error_class = TjfError
     if isinstance(error, ToolforgeUserError):

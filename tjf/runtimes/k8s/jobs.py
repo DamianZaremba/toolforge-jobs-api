@@ -486,7 +486,6 @@ def get_common_job_from_k8s(
     imageurl = podspec["template"]["spec"]["containers"][0]["image"]
     image = Image.from_short_name_or_url(
         url_or_name=imageurl,
-        raise_for_nonexisting=False,
         tool_name=tool,
     )
     resources = podspec["template"]["spec"]["containers"][0].get("resources", {})

@@ -1,7 +1,7 @@
 import pytest
 
 from tests.helpers.fakes import FAKE_HARBOR_HOST
-from tjf.core.error import TjfValidationError
+from tests.test_utils import cases
 from tjf.core.images import (
     Image,
     ImageType,
@@ -72,7 +72,7 @@ IMAGE_NAME_TESTS = [
     [
         "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
         Image(
-            short_name="tool-some-tool/some-container:latest",
+            short_name="tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
             type=ImageType.BUILDPACK,
             host=FAKE_HARBOR_HOST,
             path="tool-some-tool/some-container",
@@ -102,7 +102,7 @@ IMAGE_NAME_TESTS = [
     [
         "tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
         Image(
-            short_name="tool-some-tool/some-container:stable",
+            short_name="tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
             type=ImageType.BUILDPACK,
             host=FAKE_HARBOR_HOST,
             path="tool-some-tool/some-container",
@@ -132,7 +132,7 @@ IMAGE_NAME_TESTS = [
     [
         "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
         Image(
-            short_name="tool-some-tool/some-container:latest",
+            short_name="tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
             type=ImageType.BUILDPACK,
             host=FAKE_HARBOR_HOST,
             path="tool-some-tool/some-container",
@@ -165,19 +165,16 @@ IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX = [
 def test_from_short_name_or_url_happy_path(
     fake_images, provided_name, expected_name, expected_image
 ):
-    gotten_image = Image.from_short_name_or_url(
-        url_or_name=provided_name, tool_name="some-tool", raise_for_nonexisting=True
-    )
+    gotten_image = Image.from_short_name_or_url(url_or_name=provided_name, tool_name="some-tool")
     assert gotten_image == expected_image
 
 
 def test_from_short_name_or_url_raises_value_error_when_not_found_if_passing_rase_for_nonexisting(
     fake_images,
 ):
-    with pytest.raises(TjfValidationError):
-        Image.from_short_name_or_url(
-            url_or_name="invalid", tool_name="some-tool", raise_for_nonexisting=True
-        )
+    gotten_image = Image.from_short_name_or_url(url_or_name="invalid", tool_name="some-tool")
+
+    assert not gotten_image.exists
 
 
 @pytest.mark.parametrize(
@@ -189,7 +186,65 @@ def test_from_short_name_or_url_using_to_full_url_happy_path(
 ):
     image = Image.from_short_name_or_url(
         url_or_name=expected_image.to_full_url(),
-        raise_for_nonexisting=False,
         tool_name="some-tool",
     )
     assert image.short_name == expected_name or expected_name in image.aliases
+
+
+@cases(
+    "expected_image,short_name",
+    [
+        "Full url without digest",
+        [
+            Image(
+                short_name="randomimage:randomtag",
+                type=ImageType.STANDARD,
+                host="docker-registry.idontexist",
+                path="randomimage",
+                tag="randomtag",
+                exists=False,
+            ),
+            "docker-registry.idontexist/randomimage:randomtag",
+        ],
+    ],
+    [
+        "Full url with digest",
+        [
+            Image(
+                short_name="randomimage:randomtag@sha:1234567890123345678901234",
+                type=ImageType.STANDARD,
+                host="docker-registry.idontexist",
+                path="randomimage",
+                tag="randomtag",
+                digest="sha:1234567890123345678901234",
+                aliases=[
+                    "randomimage:randomtag@sha:1234567890123345678901234",
+                ],
+                exists=False,
+            ),
+            "docker-registry.idontexist/randomimage:randomtag@sha:1234567890123345678901234",
+        ],
+    ],
+    [
+        "Alias without digest",
+        [
+            Image(
+                short_name="python1.5",
+                type=ImageType.STANDARD,
+                host="",
+                path="python1.5",
+                tag="",
+                exists=False,
+            ),
+            "python1.5",
+        ],
+    ],
+)
+def test_from_short_name_or_url_non_existing_image_without_raising(
+    fake_images, expected_image: Image, short_name: str
+):
+    gotten_image = Image.from_short_name_or_url(
+        url_or_name=short_name,
+        tool_name="some-tool",
+    )
+    assert gotten_image.model_dump() == expected_image.model_dump()

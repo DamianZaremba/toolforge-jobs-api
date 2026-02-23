@@ -7,7 +7,12 @@ from typing import Any, AsyncIterator
 import requests
 from toolforge_weld.kubernetes import MountOption, parse_quantity
 
-from ...core.error import TjfError, TjfJobNotFoundError, TjfValidationError
+from ...core.error import (
+    TjfError,
+    TjfImageNotFoundError,
+    TjfJobNotFoundError,
+    TjfValidationError,
+)
 from ...core.images import (
     Image,
     ImageType,
@@ -188,27 +193,24 @@ class K8sRuntime(BaseRuntime):
     def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
         set_fields = job.model_dump(exclude_unset=True)
 
-        image = Image.from_short_name_or_url(
-            url_or_name=job.image.short_name,
-            tool_name=job.tool_name,
-            raise_for_nonexisting=True,
-        )
+        if not job.image.exists:
+            raise TjfImageNotFoundError(f"No such image '{job.image.to_full_url()}'")
+
         if not job.mount:
-            if image.type == ImageType.BUILDPACK:
+            if job.image.type == ImageType.BUILDPACK:
                 job.mount = MountOption.NONE
             else:
                 job.mount = MountOption.ALL
-        if image.type != ImageType.BUILDPACK and not job.mount.supports_non_buildservice:
+        if job.image.type != ImageType.BUILDPACK and not job.mount.supports_non_buildservice:
             raise TjfValidationError(
                 f"Mount type {job.mount.value} is only supported for build service images"
             )
 
-        if "filelog" not in set_fields and image.type != ImageType.BUILDPACK:
+        if "filelog" not in set_fields and job.image.type != ImageType.BUILDPACK:
             job.filelog = True
 
         if job.filelog and job.mount != MountOption.ALL:
             raise TjfValidationError("File logging is only available with --mount=all")
-        job.image = image
 
         # TODO,REFACTOR: instead of mixing creating multiple k8s objects, have a function for each type of job that
         # creates all the needed objects for that job
