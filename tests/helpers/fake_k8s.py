@@ -1000,7 +1000,7 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
         job_name="migrate",
         cmd="cmdname with-arguments 'other argument with spaces'",
         image=Image(
-            canonical_name="bullseye",
+            short_name="bullseye",
             container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
             type=ImageType.STANDARD,
             state="stable",
@@ -1043,9 +1043,9 @@ def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJo
     params = dict(
         job_name="testoneoff",
         cmd="date",
-        # When creating a new job, the job that comes as input only has the canonical_name for the image
+        # When creating a new job, the job that comes as input only has the short_name for the image
         image=Image(
-            canonical_name="python3.11",
+            short_name="python3.11",
             type=ImageType.STANDARD,
             state="stable",
             container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",

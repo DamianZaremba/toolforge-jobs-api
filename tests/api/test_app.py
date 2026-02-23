@@ -459,7 +459,7 @@ class TestApiUpdateJob:
             {
                 "name": dummy_job.job_name,
                 "cmd": dummy_job.cmd,
-                "imagename": dummy_job.image.canonical_name,
+                "imagename": dummy_job.image.short_name,
                 "filelog_stderr": "/dev/null",
                 "filelog_stdout": "/dev/null",
             }
@@ -498,7 +498,7 @@ class TestApiUpdateJob:
             {
                 "name": dummy_job.job_name,
                 "cmd": dummy_job.cmd,
-                "imagename": dummy_job.image.canonical_name,
+                "imagename": dummy_job.image.short_name,
                 "filelog_stderr": "/dev/null",
                 "filelog_stdout": "/dev/null",
             }

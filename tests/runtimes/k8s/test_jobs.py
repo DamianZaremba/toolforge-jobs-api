@@ -37,7 +37,7 @@ class TestJobFromK8s:
                 filelog_stdout=PosixPath("/data/project/tf-test/cronjobtest.out"),
                 image=Image(
                     type=ImageType.STANDARD,
-                    canonical_name="python3.11",
+                    short_name="python3.11",
                     aliases=[],
                     container="docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
                     state="stable",
@@ -140,7 +140,7 @@ class TestGetJobForK8s:
                     {
                         "mount": MountOption.NONE,
                         "image": Image(
-                            canonical_name="tool-some-tool/some-container:latest",
+                            short_name="tool-some-tool/some-container:latest",
                             container="harbor.example.org/tool-some-tool/some_container:latest",
                             type=ImageType.BUILDPACK,
                         ),
@@ -155,7 +155,7 @@ class TestGetJobForK8s:
                     {
                         "mount": MountOption.ALL,
                         "image": Image(
-                            canonical_name="tool-some-tool/some-container:latest",
+                            short_name="tool-some-tool/some-container:latest",
                             container="harbor.example.org/tool-some-tool/some-container:latest",
                             type=ImageType.BUILDPACK,
                         ),
@@ -170,7 +170,7 @@ class TestGetJobForK8s:
                     {
                         "mount": MountOption.ALL,
                         "image": Image(
-                            canonical_name="bullseye",
+                            short_name="bullseye",
                             container="docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                             type=ImageType.STANDARD,
                             state="stable",

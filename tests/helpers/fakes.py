@@ -36,7 +36,7 @@ def get_dummy_job(**overrides) -> AnyJob:
         "cmd": "silly command",
         "image": Image(
             type=ImageType.BUILDPACK,
-            canonical_name="tool-some-tool/some-container:latest",
+            short_name="tool-some-tool/some-container:latest",
             aliases=[
                 "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
             ],

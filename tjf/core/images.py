@@ -60,7 +60,7 @@ class ImageType(str, Enum):
 
 
 class Image(BaseModel):
-    canonical_name: str
+    short_name: str
     type: ImageType | None = None
     aliases: list[str] = []
     container: str | None = None
@@ -72,7 +72,7 @@ class Image(BaseModel):
         # a bit flaky, improve onece we move the image info to bulids-api
         # needed here so we have that info when validating the jobs at the core layer, without getting into the runtime
         if self.type is None:
-            if "/" in self.canonical_name:
+            if "/" in self.short_name:
                 self.type = ImageType.BUILDPACK
 
             else:
@@ -90,7 +90,7 @@ class Image(BaseModel):
         return self.container
 
     @classmethod
-    def from_url_or_name(
+    def from_short_name_or_url(
         cls,
         tool_name: str,
         url_or_name: str,
@@ -100,7 +100,7 @@ class Image(BaseModel):
         """
         Given a url or name, gives back a matching existing image or a new image with the resolved information.
         Supported url/name formats:
-        * canonical name only: "node12"
+        * short name only: "node12"
         * alias: "tf-node12"
         * image path: "tool-<mytool>/<myimage>:latest"
         * image path with digest: "tool-<mytool>/<myimage>:latest@sha256:123454..."
@@ -133,7 +133,7 @@ class Image(BaseModel):
         all_images = get_images(tool=tool_name, use_harbor_cache=use_harbor_cache)
 
         for image in all_images:
-            if image.canonical_name in (image_name, image_name_with_tag_and_project):
+            if image.short_name in (image_name, image_name_with_tag_and_project):
                 if not digest or digest == image.digest:
                     image.digest = digest
                     return image
@@ -157,7 +157,7 @@ class Image(BaseModel):
 
         return cls(
             type=image_type,
-            canonical_name=image_name_with_tag_and_project,
+            short_name=image_name_with_tag_and_project,
             aliases=aliases,
             container=url_or_name,
             state=image_state,
@@ -254,7 +254,7 @@ def _get_prebuilt_images() -> list[Image]:
         container = image_data["variants"][CONFIG_VARIANT_KEY]["image"]
         image = Image(
             type=ImageType.STANDARD,
-            canonical_name=name,
+            short_name=name,
             aliases=image_data.get("aliases", []),
             container=f"{container}:{CONFIG_CONTAINER_TAG}",
             state=image_data["state"],
@@ -305,7 +305,7 @@ def _get_harbor_images_for_name(project: str, name: str) -> list[Image]:
             images.append(
                 Image(
                     type=ImageType.BUILDPACK,
-                    canonical_name=f"{project}/{name}:{tag_name}",
+                    short_name=f"{project}/{name}:{tag_name}",
                     aliases=[f"{project}/{name}:{tag_name}@{digest}"],
                     container=f"{config.host}/{project}/{name}:{tag_name}",
                     state=HARBOR_IMAGE_STATE,

@@ -113,7 +113,7 @@ class TestGetJob:
                 },
                 get_continuous_job_fixture_as_job(
                     image=Image(
-                        canonical_name="tool-some-tool/some-container:latest",
+                        short_name="tool-some-tool/some-container:latest",
                         container="harbor.example.org/tool-some-tool/some-container:latest",
                         aliases=[
                             "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
@@ -184,7 +184,7 @@ class TestGetJob:
                 },
                 get_continuous_job_fixture_as_job(
                     image=Image(
-                        canonical_name="tool-some-tool/some-container:latest",
+                        short_name="tool-some-tool/some-container:latest",
                         container="harbor.example.org/tool-some-tool/some-container:latest",
                         type=ImageType.BUILDPACK,
                         digest="",
@@ -305,7 +305,7 @@ class TestDiffWithRunningJob:
         [
             "Different container image",
             get_continuous_job_fixture_as_job(
-                image=Image(canonical_name="different image than fixture")
+                image=Image(short_name="different image than fixture")
             ),
         ],
         ["Different cpu limit", get_continuous_job_fixture_as_job(cpu="200m")],
@@ -328,14 +328,14 @@ class TestDiffWithRunningJob:
     ):
         new_job = get_continuous_job_fixture_as_new_job(
             cmd="launcher mycommand",
-            image=Image.from_url_or_name(
+            image=Image.from_short_name_or_url(
                 url_or_name="harbor.example.org/tool-some-tool/some-container:latest",
                 tool_name="some-tool",
             ),
         )
         existing_job = get_continuous_job_fixture_as_job(
             cmd="mycommand",
-            image=Image.from_url_or_name(
+            image=Image.from_short_name_or_url(
                 url_or_name="harbor.example.org/tool-some-tool/some-container:latest",
                 tool_name="some-tool",
             ),
@@ -350,10 +350,10 @@ class TestDiffWithRunningJob:
         self, monkeypatch: pytest.MonkeyPatch
     ):
         new_job = get_continuous_job_fixture_as_new_job(
-            cmd="launcher mycommand", image=Image(canonical_name="bullseye")
+            cmd="launcher mycommand", image=Image(short_name="bullseye")
         )
         existing_job = get_continuous_job_fixture_as_job(
-            cmd="mycommand", image=Image(canonical_name="bullseye", type=ImageType.STANDARD)
+            cmd="mycommand", image=Image(short_name="bullseye", type=ImageType.STANDARD)
         )
         my_runtime = K8sRuntime(settings=get_settings())
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)

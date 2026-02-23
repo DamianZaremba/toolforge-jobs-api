@@ -96,7 +96,7 @@ class CommonJob(BaseModel):
             "cmd": self.cmd,
             "tool_name": tool_name,
             "job_name": self.name,
-            "image": ImageData.from_url_or_name(
+            "image": ImageData.from_short_name_or_url(
                 url_or_name=self.imagename, tool_name=tool_name, use_harbor_cache=False
             ),
         }
@@ -138,7 +138,7 @@ class CommonJob(BaseModel):
         params: dict[str, Any] = {
             "name": core_job.job_name,
             "cmd": core_job.cmd,
-            "imagename": core_job.image.canonical_name,  # not being validated because image from k8s might not exist
+            "imagename": core_job.image.short_name,  # not being validated because image from k8s might not exist
             **optional_params,
         }
 
@@ -262,8 +262,8 @@ class DefinedCommonJob(CommonJob):
 
         params: dict[str, Any] = {
             # not being validated because image from k8s might not exist
-            "image": core_job.image.canonical_name,
-            "imagename": core_job.image.canonical_name,
+            "image": core_job.image.short_name,
+            "imagename": core_job.image.short_name,
             **common_params,
             **optional_params,
         }
@@ -346,8 +346,8 @@ class DefinedScheduledJob(DefinedCommonJob, BaseModel):
             optional_params["schedule_actual"] = str(core_job.schedule)
 
         params: dict[str, Any] = {
-            "image": core_job.image.canonical_name,
-            "imagename": core_job.image.canonical_name,  # not being validated because image from k8s might not exist
+            "image": core_job.image.short_name,
+            "imagename": core_job.image.short_name,  # not being validated because image from k8s might not exist
             **common_params,
             **optional_params,
         }
@@ -443,7 +443,7 @@ class Image(BaseModel):
 
     @classmethod
     def from_image_data(cls: Type["Image"], image_data: ImageData) -> "Image":
-        return cls(shortname=image_data.canonical_name, image=image_data.container)
+        return cls(shortname=image_data.short_name, image=image_data.container)
 
 
 class ResponseMessages(BaseModel):

@@ -36,7 +36,7 @@ from tjf.core.models import (
 def get_dummy_core_common_job(**overrides) -> CoreCommonJob:
     params = dict(
         cmd="dummy-command",
-        image=Image.from_url_or_name(url_or_name="python3.11", tool_name="some-tool"),
+        image=Image.from_short_name_or_url(url_or_name="python3.11", tool_name="some-tool"),
         job_name="dummy-job-name",
         tool_name="some-tool",
     )
@@ -70,7 +70,7 @@ def get_dummy_defined_common_job(**overrides) -> DefinedCommonJob:
 def get_dummy_core_oneoff_job(**overrides) -> CoreOneOffJob:
     params = {
         "cmd": "dummy-command",
-        "image": Image.from_url_or_name(url_or_name="python3.11", tool_name="some-tool"),
+        "image": Image.from_short_name_or_url(url_or_name="python3.11", tool_name="some-tool"),
         "job_name": "dummy-job-name",
         "tool_name": "some-tool",
     }
@@ -105,7 +105,7 @@ def get_dummy_defined_oneoff_job(**overrides) -> DefinedOneOffJob:
 def get_dummy_core_scheduled_job(**overrides) -> CoreScheduledJob:
     params = dict(
         cmd="dummy-command",
-        image=Image.from_url_or_name(url_or_name="python3.11", tool_name="some-tool"),
+        image=Image.from_short_name_or_url(url_or_name="python3.11", tool_name="some-tool"),
         job_name="dummy-job-name",
         tool_name="some-tool",
         schedule=CronExpression.parse(
@@ -148,7 +148,7 @@ def get_dummy_defined_scheduled_job(**overrides) -> DefinedScheduledJob:
 def get_dummy_core_continuous_job(**overrides) -> CoreContinuousJob:
     params = dict(
         cmd="dummy-command",
-        image=Image.from_url_or_name(url_or_name="python3.11", tool_name="some-tool"),
+        image=Image.from_short_name_or_url(url_or_name="python3.11", tool_name="some-tool"),
         job_name="dummy-job-name",
         tool_name="some-tool",
     )
@@ -364,7 +364,7 @@ class TestDefinedCommonJob:
             status_long="dummy status long",
         )
         core_job = get_dummy_core_common_job(
-            image=Image.from_url_or_name(url_or_name="python3.11", tool_name="some-tool"),
+            image=Image.from_short_name_or_url(url_or_name="python3.11", tool_name="some-tool"),
             status_short="dummy status short",
             status_long="dummy status long",
         )

@@ -188,8 +188,8 @@ class K8sRuntime(BaseRuntime):
     def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
         set_fields = job.model_dump(exclude_unset=True)
 
-        image = Image.from_url_or_name(
-            url_or_name=job.image.canonical_name,
+        image = Image.from_short_name_or_url(
+            url_or_name=job.image.short_name,
             tool_name=job.tool_name,
             raise_for_nonexisting=True,
         )
@@ -387,7 +387,7 @@ class K8sRuntime(BaseRuntime):
         images = get_images(tool=toolname)
         images = [
             image
-            for image in sorted(images, key=lambda image: image.canonical_name)
+            for image in sorted(images, key=lambda image: image.short_name)
             if image.state == "stable"
         ]
         return images

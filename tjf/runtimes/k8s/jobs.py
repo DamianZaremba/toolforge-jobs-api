@@ -484,7 +484,7 @@ def get_common_job_from_k8s(
     )
     mount = MountOption(metadata["labels"].get("toolforge.org/mount-storage", MountOption.NONE))
     imageurl = podspec["template"]["spec"]["containers"][0]["image"]
-    image = Image.from_url_or_name(
+    image = Image.from_short_name_or_url(
         url_or_name=imageurl,
         raise_for_nonexisting=False,
         tool_name=tool,

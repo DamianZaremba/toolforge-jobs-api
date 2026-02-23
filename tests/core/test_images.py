@@ -18,7 +18,7 @@ IMAGE_NAME_TESTS = [
     [
         "node12",
         Image(
-            canonical_name="node12",
+            short_name="node12",
             type=ImageType.STANDARD,
             container="docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base:latest",
             aliases=["tf-node12", "tf-node12-DEPRECATED"],
@@ -29,7 +29,7 @@ IMAGE_NAME_TESTS = [
     [
         "tf-node12",
         Image(
-            canonical_name="node12",
+            short_name="node12",
             type=ImageType.STANDARD,
             container="docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base:latest",
             aliases=["tf-node12", "tf-node12-DEPRECATED"],
@@ -40,7 +40,7 @@ IMAGE_NAME_TESTS = [
     [
         "php7.3",
         Image(
-            canonical_name="php7.3",
+            short_name="php7.3",
             type=ImageType.STANDARD,
             container="docker-registry.tools.wmflabs.org/toolforge-php73-sssd-base:latest",
             aliases=["tf-php73", "tf-php73-DEPRECATED"],
@@ -51,7 +51,7 @@ IMAGE_NAME_TESTS = [
     [
         "tool-some-tool/some-container:latest",
         Image(
-            canonical_name="tool-some-tool/some-container:latest",
+            short_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
             container=f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest",
             aliases=[
@@ -64,7 +64,7 @@ IMAGE_NAME_TESTS = [
     [
         "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
         Image(
-            canonical_name="tool-some-tool/some-container:latest",
+            short_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
             container=f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest",
             aliases=[
@@ -77,7 +77,7 @@ IMAGE_NAME_TESTS = [
     [
         "tool-some-tool/some-container:stable",
         Image(
-            canonical_name="tool-some-tool/some-container:stable",
+            short_name="tool-some-tool/some-container:stable",
             type=ImageType.BUILDPACK,
             container=f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:stable",
             aliases=[
@@ -90,7 +90,7 @@ IMAGE_NAME_TESTS = [
     [
         "tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
         Image(
-            canonical_name="tool-some-tool/some-container:stable",
+            short_name="tool-some-tool/some-container:stable",
             type=ImageType.BUILDPACK,
             container=f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:stable",
             aliases=[
@@ -103,7 +103,7 @@ IMAGE_NAME_TESTS = [
     [
         "tool-other/tagged:example",
         Image(
-            canonical_name="tool-other/tagged:example",
+            short_name="tool-other/tagged:example",
             type=ImageType.BUILDPACK,
             container=f"{FAKE_HARBOR_HOST}/tool-other/tagged:example",
             aliases=[
@@ -116,7 +116,7 @@ IMAGE_NAME_TESTS = [
     [
         "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
         Image(
-            canonical_name="tool-some-tool/some-container:latest",
+            short_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
             container=f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest",
             aliases=[
@@ -144,19 +144,20 @@ IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX = [
     ["provided_name", "expected_name", "expected_image"],
     IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX,
 )
-def test_get_image_by_url_or_name(fake_images, provided_name, expected_name, expected_image):
-    """Basic test for the Image.from_url_or_name() func."""
-    gotten_image = Image.from_url_or_name(
+def test_from_short_name_or_url_happy_path(
+    fake_images, provided_name, expected_name, expected_image
+):
+    gotten_image = Image.from_short_name_or_url(
         url_or_name=provided_name, tool_name="some-tool", raise_for_nonexisting=True
     )
     assert gotten_image == expected_image
 
 
-def test_get_image_from_url_or_name_raises_value_error_when_not_found_if_passing_rase_for_nonexisting(
+def test_from_short_name_or_url_raises_value_error_when_not_found_if_passing_rase_for_nonexisting(
     fake_images,
 ):
     with pytest.raises(TjfValidationError):
-        Image.from_url_or_name(
+        Image.from_short_name_or_url(
             url_or_name="invalid", tool_name="some-tool", raise_for_nonexisting=True
         )
 
@@ -165,13 +166,12 @@ def test_get_image_from_url_or_name_raises_value_error_when_not_found_if_passing
     ["provided_name", "expected_name", "expected_image"],
     IMAGE_NAME_TESTS_INCLUDING_REGISTRY_PREFIX,
 )
-def test_get_image_from_url_or_name_as_expected(
+def test_from_short_name_or_url_using_to_full_url_happy_path(
     fake_images, provided_name, expected_name, expected_image: Image
 ):
-    """Basic test for the Image.from_url_or_name() func."""
-    image = Image.from_url_or_name(
+    image = Image.from_short_name_or_url(
         url_or_name=expected_image.to_full_url(),
         raise_for_nonexisting=False,
         tool_name="some-tool",
     )
-    assert image.canonical_name == expected_name or expected_name in image.aliases
+    assert image.short_name == expected_name or expected_name in image.aliases
