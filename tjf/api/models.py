@@ -98,7 +98,10 @@ class CommonJob(BaseModel):
             "tool_name": tool_name,
             "job_name": self.name,
             "image": ImageData.from_short_name_or_url(
-                url_or_name=self.imagename, tool_name=tool_name, use_harbor_cache=False
+                url_or_name=self.imagename,
+                tool_name=tool_name,
+                use_harbor_cache=False,
+                raise_for_nonexisting=True,
             ),
         }
 
@@ -139,7 +142,7 @@ class CommonJob(BaseModel):
         params: dict[str, Any] = {
             "name": core_job.job_name,
             "cmd": core_job.cmd,
-            "imagename": core_job.image.short_name,  # not being validated because image from k8s might not exist
+            "imagename": core_job.image.to_full_url(),  # not being validated because image from k8s might not exist
             **optional_params,
         }
 

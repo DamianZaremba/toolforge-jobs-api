@@ -22,11 +22,11 @@ import urllib.parse
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any, Self
+from typing import Any
 
 import requests
 import yaml
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig
 
@@ -69,22 +69,15 @@ class Image(BaseModel):
     path: str
     tag: str = "latest"
 
-    @model_validator(mode="after")
-    def set_image_type(self) -> Self:
-        # a bit flaky, improve onece we move the image info to bulids-api
-        # needed here so we have that info when validating the jobs at the core layer, without getting into the runtime
-        if self.type is None:
-            if "/" in self.short_name:
-                self.type = ImageType.BUILDPACK
-
-            else:
-                self.type = ImageType.STANDARD
-
-        return self
-
     def to_full_url(self) -> str:
         """Full url is the url you can use to pull the container."""
-        full_url = f"{self.host}/{self.path}:{self.tag}"
+        full_url = ""
+        if self.host:
+            full_url += f"{self.host}/"
+        if self.path:
+            full_url += f"{self.path}"
+        if self.tag:
+            full_url += f":{self.tag}"
         if self.digest:
             full_url += f"@{self.digest}"
 
@@ -101,123 +94,115 @@ class Image(BaseModel):
         """
         Given a url or name, gives back a matching existing image or a new image with the resolved information.
         Supported url/name formats:
-        * short name only: "node12"
-        * alias: "tf-node12"
-        * image path: "tool-<mytool>/<myimage>:latest"
-        * image path with digest: "tool-<mytool>/<myimage>:latest@sha256:123454..."
-        * image path with host: "harbor.example.org/tool-<mytool>/<myimage>:latest"
-        * image path with host and digest: "harbor.example.org/tool-<mytool>/<myimage>:latest@sha256:123454..."
+        * prebuilt image: docker-registry.tools.wmflabs.org/toolforge-node12:latest
+        * prebuilt image without tag: docker-registry.tools.wmflabs.org/toolforge-node12
+        * prebuilt image without tag and host: toolforge-node12
+        * prebuilt image short name: node12
+        * prebuilt image alias: tf-node12
+        * harbor image: harbor.example.org/tool-<mytool>/<myimage>:latest@sha256:abcd...
+        * harbor image without digest: harbor.example.org/tool-<mytool>/<myimage>:latest
+        * harbor image without tag or digest: harbor.example.org/tool-<mytool>/<myimage>
+        * harbor image without host, tag or digest: tool-<mytool>/<myimage>
+        * harbor image of another tool: tool-<another>/<theirimage>
         """
-        image_name_with_tag_and_digest = _get_hostless_url(url=url_or_name)
-        image_type = ImageType.STANDARD
-        image_state = DEFAULT_IMAGE_STATE
+        rest = url_or_name
+        host = project = name = digest = ""
+        tag = "latest"
 
-        if "@" in image_name_with_tag_and_digest:
-            image_name_with_tag_and_project, digest = image_name_with_tag_and_digest.split("@", 1)
+        # extract digest if any
+        if "@" in rest:
+            rest, digest = rest.split("@", 1)
+            LOGGER.debug(f"digest: {digest}, rest: {rest}")
+
+        # extract host if any
+        if "/" in rest:
+            potential_host = rest.split("/", 1)[0]
+            if "." in potential_host:
+                host, rest = rest.split("/", 1)
+                LOGGER.debug(f"host: {host}, rest: {rest}")
+
+        # extract harbor project prefix if any (e.g., "tool-mytool")
+        if "/" in rest and rest.startswith("tool-"):
+            project, rest = rest.split("/", 1)
+            LOGGER.debug(f"project: {project}, rest: {rest}")
+
+        # extract tag if any. remaining string is considered image name
+        if ":" in rest:
+            name, tag = rest.rsplit(":", 1)
         else:
-            image_name_with_tag_and_project, digest = image_name_with_tag_and_digest, ""
+            name = rest
+        LOGGER.debug(f"name: {name}, tag: {tag}")
 
-        if "/" in image_name_with_tag_and_project:
-            project = image_name_with_tag_and_project.split("/", 1)[0]
-            image_type = ImageType.BUILDPACK
-            image_state = HARBOR_IMAGE_STATE
-        else:
-            project = ""
-            image_type = ImageType.STANDARD
+        # reconstruct full path for the fallback object
+        path = f"{project}/{name}" if project else name
 
-        # we don't really use tags yet :/, expecting it to be 'latest'
-        image_name = image_name_with_tag_and_project.split(":", 1)[0]
+        project_tool_name = project.replace("tool-", "")
+        harbor_images = []
+        if (
+            project_tool_name
+        ):  # if project is not set, this is probably a prebuilt image. avoid harbor query
+            harbor_images = _get_harbor_images(
+                tool=project_tool_name, use_harbor_cache=use_harbor_cache
+            )
+        prebuilt_images = _get_prebuilt_images()
 
-        if project and "tool-" in project:
-            # we allow tools to use other tools images
-            tool_name = project.split("tool-", 1)[-1]
+        # match against harbor images
+        for image in harbor_images:
+            if host and host != image.host:
+                continue
+            if project and not image.path.startswith(f"{project}/"):
+                continue
+            if name and not image.path.endswith(f"/{name}"):
+                continue
+            if tag and image.tag != tag:
+                continue
+            if digest and image.digest != digest:
+                continue
 
-        all_images = get_images(tool=tool_name, use_harbor_cache=use_harbor_cache)
+            matched_image = image.model_copy()
+            matched_image.digest = digest
+            LOGGER.debug(f"Returning matching harbor image: {matched_image}")
+            return matched_image
 
-        found_image = None
-        for image in all_images:
-            if image.short_name in (image_name, image_name_with_tag_and_project):
-                if not digest or digest == image.digest:
-                    found_image = image
-                    break
-                else:
-                    LOGGER.debug(f"Skipping image due to digest, looking for {digest} got {image}")
-            elif (
-                image_name_with_tag_and_digest in image.aliases
-                or url_or_name == image.to_full_url()
-            ):
-                found_image = image
-                break
+        # match against prebuilt images
+        for image in prebuilt_images:
+            if (
+                project or digest
+            ):  # Prebuilt images don't use Harbor project prefixes or digests for now
+                continue
+            if host and host != image.host:
+                continue
+            if tag and image.tag != tag:
+                continue
 
-        if found_image:
-            LOGGER.debug(f"Found matching image {found_image} for {image_name}")
-            new_image = found_image.model_copy()
-            # the digest would have been matched already in the aliases or the short_name
-            new_image.digest = digest
-            # if a digest was passed to us explicitly, then add it to the short name too
-            if digest and digest in image_name_with_tag_and_digest:
-                new_image.short_name = image_name_with_tag_and_digest
-            return new_image
+            # Match against known aliases, short names, or the isolated name/path
+            if image.path == path or image.short_name == name or name in image.aliases:
+                LOGGER.debug(f"Returning matching prebuilt image: {image}")
+                return image.model_copy()
 
-        LOGGER.debug(
-            f"Unable to find matching image for {url_or_name}, available images for tool {tool_name}: {all_images}"
-        )
         if raise_for_nonexisting:
+            LOGGER.debug(
+                f"Unable to find matching image for {url_or_name}, available images for tool {project_tool_name}: {harbor_images + prebuilt_images}"
+            )
             raise TjfValidationError(f"No such image '{url_or_name}'")
 
-        # this is an image that does not match any known one
-        # this might be because it's been deprecated (and not on the list anymore)
-        aliases = []
-        # If we have a digest, keep it as an alias too
-        if digest:
-            aliases.append(image_name_with_tag_and_digest)
-
-        if image_type == ImageType.BUILDPACK:
-            host = _get_harbor_config().host
-            if ":" in image_name_with_tag_and_project:
-                path, tag = image_name_with_tag_and_project.split(":", 1)
-                tag = tag.split("@", 1)[0]
-            else:
-                path = image_name_with_tag_and_project
-                tag = "latest"
-        else:
-            path = url_or_name
-            host = tag = ""
-            if "/" in path and path.startswith("docker-registry."):
-                host, path = path.split("/", 1)
-            if ":" in path:
-                path, tag = path.split(":", 1)
-                tag = tag.split("@", 1)[0]
-
-        new_image = cls(
+        # fallback to creating a new image
+        image_type = ImageType.BUILDPACK if project else ImageType.STANDARD
+        image_state = (
+            HARBOR_IMAGE_STATE if image_type == ImageType.BUILDPACK else DEFAULT_IMAGE_STATE
+        )
+        image = cls(
             type=image_type,
-            short_name=image_name_with_tag_and_digest,
-            aliases=aliases,
+            short_name=name,
+            aliases=[],
             host=host,
             path=path,
             tag=tag,
             state=image_state,
             digest=digest,
         )
-        LOGGER.debug(f"Got unknown image {new_image}")
-        return new_image
-
-
-def _get_hostless_url(url: str) -> str:
-    harbor_host = _get_harbor_config().host
-    if url.startswith(f"{harbor_host}/"):
-        image_name_with_tag = url.removeprefix(f"{harbor_host}/")
-    # the next two cases will go away soon-ish
-    elif url.startswith("docker-registry.tools.wmflabs.org/"):
-        image_name_with_tag = url.removeprefix("docker-registry.tools.wmflabs.org/")
-    elif url.startswith("docker-registry.svc.toolforge.org/"):
-        image_name_with_tag = url.removeprefix("docker-registry.svc.toolforge.org/")
-    elif "." in url.split("/", 1)[0]:
-        # trying to match unknown host, for old non-supported images coming from k8s
-        image_name_with_tag = url.split("/", 1)[-1]
-    else:
-        image_name_with_tag = url
-    return image_name_with_tag
+        LOGGER.debug(f"Returning unknown image: {image}")
+        return image
 
 
 @dataclass

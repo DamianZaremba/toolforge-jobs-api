@@ -57,8 +57,8 @@ def get_dummy_defined_common_job(**overrides) -> DefinedCommonJob:
         "name": "dummy-job-name",
         "cmd": "dummy-command",
         # these two are the same, imagename to be removed eventually
-        "image": "python3.11",
-        "imagename": "python3.11",
+        "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+        "imagename": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
         "image_state": "stable",
     }
     defined_job = DefinedCommonJob.model_validate(params | overrides)
@@ -91,8 +91,8 @@ def get_dummy_defined_oneoff_job(**overrides) -> DefinedOneOffJob:
         "name": "dummy-job-name",
         "cmd": "dummy-command",
         # these two are the same, imagename to be removed eventually
-        "image": "python3.11",
-        "imagename": "python3.11",
+        "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+        "imagename": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
         "job_type": JobType.ONE_OFF,
         "image_state": "stable",
     }
@@ -130,8 +130,8 @@ def get_dummy_defined_scheduled_job(**overrides) -> DefinedScheduledJob:
         "name": "dummy-job-name",
         "cmd": "dummy-command",
         # these two are the same, imagename to be removed eventually
-        "image": "python3.11",
-        "imagename": "python3.11",
+        "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+        "imagename": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
         "image_state": "stable",
         "schedule": "@daily",
         "schedule_actual": "58 4 * * *",
@@ -169,8 +169,8 @@ def get_dummy_defined_continuous_job(**overrides) -> DefinedContinuousJob:
         "name": "dummy-job-name",
         "cmd": "dummy-command",
         # these two are the same, imagename to be removed eventually
-        "image": "python3.11",
-        "imagename": "python3.11",
+        "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
+        "imagename": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base:latest",
         "image_state": "stable",
         # For now these two are always set and returned
         "job_type": JobType.CONTINUOUS,
@@ -357,8 +357,6 @@ class TestDefinedCommonJob:
 
     def test_to_job_returns_expected_value_when_all_fields_set(self):
         expected_defined_job = get_dummy_defined_common_job(
-            image="python3.11",
-            imagename="python3.11",
             image_state="stable",
             status_short="dummy status short",
             status_long="dummy status long",

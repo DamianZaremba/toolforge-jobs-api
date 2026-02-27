@@ -73,7 +73,7 @@ IMAGE_NAME_TESTS = [
     [
         "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
         Image(
-            short_name="tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
+            short_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
             host=FAKE_HARBOR_HOST,
             path="tool-some-tool/some-container",
@@ -103,7 +103,7 @@ IMAGE_NAME_TESTS = [
     [
         "tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
         Image(
-            short_name="tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
+            short_name="tool-some-tool/some-container:stable",
             type=ImageType.BUILDPACK,
             host=FAKE_HARBOR_HOST,
             path="tool-some-tool/some-container",
@@ -133,7 +133,7 @@ IMAGE_NAME_TESTS = [
     [
         "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
         Image(
-            short_name="tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
+            short_name="tool-some-tool/some-container:latest",
             type=ImageType.BUILDPACK,
             host=FAKE_HARBOR_HOST,
             path="tool-some-tool/some-container",
@@ -202,7 +202,7 @@ def test_from_short_name_or_url_using_to_full_url_happy_path(
         "Full url without digest",
         [
             Image(
-                short_name="randomimage:randomtag",
+                short_name="randomimage",
                 type=ImageType.STANDARD,
                 host="docker-registry.idontexist",
                 path="randomimage",
@@ -215,15 +215,13 @@ def test_from_short_name_or_url_using_to_full_url_happy_path(
         "Full url with digest",
         [
             Image(
-                short_name="randomimage:randomtag@sha:1234567890123345678901234",
+                short_name="randomimage",
                 type=ImageType.STANDARD,
                 host="docker-registry.idontexist",
                 path="randomimage",
                 tag="randomtag",
                 digest="sha:1234567890123345678901234",
-                aliases=[
-                    "randomimage:randomtag@sha:1234567890123345678901234",
-                ],
+                aliases=[],
             ),
             "docker-registry.idontexist/randomimage:randomtag@sha:1234567890123345678901234",
         ],
@@ -236,7 +234,7 @@ def test_from_short_name_or_url_using_to_full_url_happy_path(
                 type=ImageType.STANDARD,
                 host="",
                 path="python1.5",
-                tag="",
+                tag="latest",
             ),
             "python1.5",
         ],
