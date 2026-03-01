@@ -8,7 +8,7 @@ repos:
       - id: black
 
   - repo: https://github.com/PyCQA/isort
-    rev: 7.0.0
+    rev: 8.0.1
     hooks:
       - id: isort
         additional_dependencies: [toml]
@@ -53,7 +53,7 @@ repos:
       - id: check-merge-conflict
 
   - repo: https://github.com/python-openapi/openapi-spec-validator
-    rev: 0.8.0b1
+    rev: 0.8.3
     hooks:
       - id: openapi-spec-validator
 
