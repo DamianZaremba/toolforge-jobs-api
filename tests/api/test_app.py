@@ -537,8 +537,7 @@ class TestApiUpdateJob:
                 "name": "silly-job-name",
                 "cmd": "silly command",
                 "imagename": "python3.11",
-                "filelog_stderr": "/dev/null",
-                "filelog_stdout": "/dev/null",
+                "job_type": "continuous",
             }
         )
 
@@ -548,7 +547,7 @@ class TestApiUpdateJob:
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
-            json=new_job.model_dump(mode="json"),
+            json=new_job.model_dump(exclude_unset=True),
             headers=fake_auth_headers,
         )
 
