@@ -146,6 +146,25 @@ class CommonJob(PydanticBaseModel):
             self.mount = MountOption.ALL
             self.model_fields_set.remove("mount")
 
+        elif "mount" not in self.model_fields_set and self.image.type == ImageType.BUILDPACK:
+            LOGGER.debug("Found buildpack image with default mount, setting to none")
+            self.mount = MountOption.NONE
+            self.model_fields_set.remove("mount")
+
+        if (
+            "filelog" not in self.model_fields_set
+            and self.mount == MountOption.ALL
+            and self.image.type != ImageType.BUILDPACK
+        ):
+            # defaulting filelog to True when mount=all and image_type=standard. something to pay attention to in the future
+            self.filelog = True
+            self.model_fields_set.remove("filelog")
+
+        if self.image.type != ImageType.BUILDPACK and not self.mount.supports_non_buildservice:
+            raise ValueError(
+                f"Mount type {self.mount.value} is only supported for build service images"
+            )
+
         if self.filelog and self.mount != MountOption.ALL:
             raise ValueError("File logging is only available with --mount=all")
 
