@@ -455,6 +455,9 @@ class TestApiUpdateJob:
             }
         )
         monkeypatch.setattr(app.core.runtime, "get_job", value=lambda *args, **kwargs: dummy_job)
+        monkeypatch.setattr(
+            app.core.runtime, "diff_with_running_job", value=lambda *args, **kwargs: ""
+        )
 
         new_job = NewContinuousJob.model_validate(
             {
@@ -468,19 +471,17 @@ class TestApiUpdateJob:
 
         expected_response = UpdateResponse(
             job_changed=False,
-            messages=ResponseMessages(
-                info=["Job silly-job-name is already up to date in runtime"]
-            ),
+            messages=ResponseMessages(info=["Job silly-job-name is already up to date"]),
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
-            json=new_job.model_dump(mode="json"),
+            json=new_job.model_dump(mode="json", exclude_unset=True),
             headers=fake_auth_headers,
         )
 
         assert UpdateResponse.model_validate(actual_response.json()) == expected_response
 
-    def test_job_with_changes(
+    def test_job_with_changes_in_runtime_only(
         self,
         client: TestClient,
         app: JobsApi,
@@ -488,13 +489,11 @@ class TestApiUpdateJob:
         fake_auth_headers: dict[str, str],
         fake_images: dict[str, Any],
     ) -> None:
-        dummy_job = get_dummy_job(
-            **{
-                "filelog_stderr": "/dev/null",
-                "filelog_stdout": "/dev/random",
-            }
+        dummy_job = get_dummy_job()
+        monkeypatch.setattr(app.core, "get_job", value=lambda *args, **kwargs: dummy_job)
+        monkeypatch.setattr(
+            app.core.runtime, "diff_with_running_job", value=lambda *args, **kwargs: "some changes"
         )
-        monkeypatch.setattr(app.core.runtime, "get_job", value=lambda *args, **kwargs: dummy_job)
         monkeypatch.setattr(app.core.runtime, "update_job", value=lambda *args, **kwargs: None)
 
         new_job = NewContinuousJob.model_validate(
@@ -502,13 +501,48 @@ class TestApiUpdateJob:
                 "name": dummy_job.job_name,
                 "cmd": dummy_job.cmd,
                 "imagename": dummy_job.image.short_name,
-                "filelog_stderr": "/dev/null",
-                "filelog_stdout": "/dev/null",
+                "job_type": JobType.CONTINUOUS,
             }
         )
 
         expected_response = UpdateResponse(
-            job_changed=True, messages=ResponseMessages(info=["Job silly-job-name updated"])
+            job_changed=True,
+            messages=ResponseMessages(info=["Job silly-job-name was updated in runtime only"]),
+        )
+        actual_response = client.patch(
+            "/v1/tool/some-tool/jobs/",
+            json=new_job.model_dump(mode="json", exclude_unset=True),
+            headers=fake_auth_headers,
+        )
+
+        assert UpdateResponse.model_validate(actual_response.json()) == expected_response
+
+    def test_job_with_changes_in_storage_only(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+        fake_images: dict[str, Any],
+    ) -> None:
+        dummy_job = get_dummy_job()
+        different_dummy_job = get_dummy_job(cmd="different job")
+        monkeypatch.setattr(app.core, "get_job", value=lambda *args, **kwargs: different_dummy_job)
+        monkeypatch.setattr(
+            app.core.runtime, "diff_with_running_job", value=lambda *args, **kwargs: ""
+        )
+
+        new_job = NewContinuousJob.model_validate(
+            {
+                "name": dummy_job.job_name,
+                "cmd": dummy_job.cmd,
+                "imagename": dummy_job.image.short_name,
+            }
+        )
+
+        expected_response = UpdateResponse(
+            job_changed=True,
+            messages=ResponseMessages(info=["Job silly-job-name was updated in storage only"]),
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
@@ -518,7 +552,7 @@ class TestApiUpdateJob:
 
         assert UpdateResponse.model_validate(actual_response.json()) == expected_response
 
-    def test_missing_job(
+    def test_missing_job_in_storage_and_runtime(
         self,
         client: TestClient,
         app: JobsApi,
@@ -529,21 +563,32 @@ class TestApiUpdateJob:
         def raise_not_found(*args, **kwargs):
             raise NotFoundInRuntime(f"{args}, {kwargs}")
 
-        monkeypatch.setattr(app.core.runtime, "create_job", value=lambda *args, **kwargs: None)
+        dummy_job = get_dummy_job(
+            job_name="silly-job-name",
+            cmd="silly command",
+            job_type=JobType.CONTINUOUS,
+        )
+
+        monkeypatch.setattr(
+            app.core.storage, "create_job", value=lambda *args, **kwargs: dummy_job
+        )
         monkeypatch.setattr(app.core.runtime, "get_job", value=raise_not_found)
+        monkeypatch.setattr(
+            app.core.runtime, "create_job", value=lambda *args, **kwargs: dummy_job
+        )
 
         new_job = NewContinuousJob.model_validate(
             {
                 "name": "silly-job-name",
                 "cmd": "silly command",
-                "imagename": "python3.11",
+                "imagename": "tool-some-tool/some-container:latest",
                 "job_type": "continuous",
             }
         )
 
         expected_response = UpdateResponse(
             job_changed=True,
-            messages=ResponseMessages(info=["Job silly-job-name created in runtime"]),
+            messages=ResponseMessages(info=["Job silly-job-name created in storage and runtime"]),
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
