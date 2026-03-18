@@ -1,9 +1,9 @@
 from enum import Enum
 from logging import getLogger
 from pathlib import Path
-from typing import Any, Literal, Type
+from typing import Any, Literal, Self, Type
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from toolforge_weld.kubernetes import MountOption, parse_quantity
 from typing_extensions import Annotated
 
@@ -90,6 +90,9 @@ class CommonJob(BaseModel):
         return job_name
 
     def to_core_job(self, tool_name: str) -> CoreCommonJob:
+        LOGGER.debug(
+            f"CommonJob.to_core_job: got {self} (with set fields {self.model_fields_set})"
+        )
         set_job_params = self.model_dump(exclude_unset=True)
 
         image = ImageData.from_short_name_or_url(
@@ -125,13 +128,13 @@ class CommonJob(BaseModel):
             # we move to the same defaults
             self.model_fields_set.remove("mount")
 
-        LOGGER.debug(f"Got {self}, \ngenerated {my_job}")
+        LOGGER.debug(
+            f"Got {self} (set fields {self.model_fields_set}), \ngenerated {my_job} (fields set {my_job.model_fields_set})"
+        )
         return my_job
 
     @classmethod
     def from_core_job(cls, core_job: AnyCoreJob) -> "CommonJob":
-        set_core_params = core_job.model_dump(exclude_unset=True)
-
         optional_params = {}
         for param, value in [
             ("filelog", core_job.filelog),
@@ -142,7 +145,7 @@ class CommonJob(BaseModel):
             ("memory", core_job.memory),
             ("cpu", core_job.cpu),
         ]:
-            if param in set_core_params:
+            if param in core_job.model_fields_set:
                 optional_params[param] = value
 
         params: dict[str, Any] = {
@@ -153,7 +156,9 @@ class CommonJob(BaseModel):
         }
 
         my_job = CommonJob.model_validate(params)
-        LOGGER.debug(f"Got {core_job}, \ngenerated {my_job}")
+        LOGGER.debug(
+            f"Got {core_job} (set fields {core_job.model_fields_set}), \ngenerated {my_job} (set fields {my_job.model_fields_set})"
+        )
         return my_job
 
 
@@ -162,7 +167,16 @@ class NewOneOffJob(CommonJob, BaseModel):
     retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields["retry"].default
     continuous: Literal[False] = False
 
+    @model_validator(mode="after")
+    def job_type_validator(self) -> Self:
+        """Job_type is always set as it defines the model we have to use."""
+        self.model_fields_set.add("job_type")
+        return self
+
     def to_core_job(self, tool_name: str) -> CoreOneOffJob:
+        LOGGER.debug(
+            f"NewOneOffJob.to_core_job: got {self} (with set fields {self.model_fields_set})"
+        )
         if "continuous" in self.model_fields_set:
             self.model_fields_set.remove("continuous")
         common_core_fields = (
@@ -180,7 +194,16 @@ class NewScheduledJob(CommonJob, BaseModel):
     timeout: Annotated[int, Field(ge=0)] | None = CoreScheduledJob.model_fields["timeout"].default
     continuous: Literal[False] = False
 
+    @model_validator(mode="after")
+    def job_type_validator(self) -> Self:
+        """Job_type is always set as it defines the model we have to use."""
+        self.model_fields_set.add("job_type")
+        return self
+
     def to_core_job(self, tool_name: str) -> CoreScheduledJob:
+        LOGGER.debug(
+            f"NewScheduledJob.to_core_job: got {self} (with set fields {self.model_fields_set})"
+        )
         if "continuous" in self.model_fields_set:
             self.model_fields_set.remove("continuous")
         common_core_fields = (
@@ -223,7 +246,16 @@ class NewContinuousJob(CommonJob, BaseModel):
         discriminator="health_check_type",
     )
 
+    @model_validator(mode="after")
+    def job_type_validator(self) -> Self:
+        """Job_type is always set as it defines the model we have to use."""
+        self.model_fields_set.add("job_type")
+        return self
+
     def to_core_job(self, tool_name: str) -> CoreContinuousJob:
+        LOGGER.debug(
+            f"NewContinuousJob.to_core_job: got {self} (with set fields {self.model_fields_set})"
+        )
         if "continuous" in self.model_fields_set:
             self.model_fields_set.remove("continuous")
         common_core_fields = (
@@ -242,7 +274,9 @@ class NewContinuousJob(CommonJob, BaseModel):
         }
 
         my_job = CoreContinuousJob.model_validate(all_fields)
-        LOGGER.debug(f"Got {self}, \ngenerated {my_job}")
+        LOGGER.debug(
+            f"Got {self} (set fields {self.model_fields_set}), \ngenerated {my_job} (set fields {my_job.model_fields_set})"
+        )
         return my_job
 
 
