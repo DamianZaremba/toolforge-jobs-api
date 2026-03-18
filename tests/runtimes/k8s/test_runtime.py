@@ -121,7 +121,6 @@ class TestGetJob:
                             "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
                         ],
                         type=ImageType.BUILDPACK,
-                        digest="",
                         state="stable",
                     ),
                     mount=MountOption.NONE,
@@ -191,7 +190,6 @@ class TestGetJob:
                         path="tool-some-tool/some-container",
                         tag="latest",
                         type=ImageType.BUILDPACK,
-                        digest="",
                         aliases=[
                             "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
                         ],
