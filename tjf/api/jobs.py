@@ -104,9 +104,11 @@ def api_create_job(request: Request, toolname: str, new_job: AnyNewJob) -> JobRe
 def api_update_job(request: Request, toolname: str, new_job: AnyNewJob) -> UpdateResponse:
     ensure_authenticated(request=request)
     core = current_app(request).core
-    logging.debug(f"Generated NewJob: {new_job}")
+    logging.debug(
+        f"Generated NewJob: {new_job.__class__}:{new_job} (set fields {new_job.model_fields_set})"
+    )
     job = new_job.to_core_job(tool_name=toolname)
-    logging.debug(f"Generated CoreJob: {job}")
+    logging.debug(f"Generated CoreJob: {job} (set fields {job.model_fields_set})")
 
     job_changed, message = core.update_job(job=job)
     messages = ResponseMessages(info=[message])

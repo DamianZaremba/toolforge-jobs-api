@@ -295,6 +295,7 @@ class TestStorage:
                     "apiVersion": "jobs-api.toolforge.org/v1",
                     "metadata": {"name": "testcont2"},
                     "spec": {
+                        "job_type": "continuous",
                         "cmd": "while sleep 2; do date; done",
                         "filelog": False,
                         "image": {
@@ -326,6 +327,7 @@ class TestStorage:
                     "apiVersion": "jobs-api.toolforge.org/v1",
                     "metadata": {"name": "testsched2"},
                     "spec": {
+                        "job_type": "scheduled",
                         "cmd": "date",
                         "image": {
                             "short_name": "python3.11",
