@@ -1009,7 +1009,6 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
             type=ImageType.STANDARD,
             state="stable",
             aliases=[],
-            digest="",
         ),
         job_type=JobType.CONTINUOUS,
         tool_name="some-tool",

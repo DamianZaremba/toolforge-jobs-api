@@ -156,11 +156,16 @@ class Image(BaseModel):
         if found_image:
             LOGGER.debug(f"Found matching image {found_image} for {image_name}")
             new_image = found_image.model_copy()
-            # the digest would have been matched already in the aliases or the short_name
-            new_image.digest = digest
-            # if a digest was passed to us explicitly, then add it to the short name too
-            if digest and digest in image_name_with_tag_and_digest:
-                new_image.short_name = image_name_with_tag_and_digest
+            if digest:
+                # if a digest was passed to us explicitly, then set it and add it to the short name too
+                new_image.digest = digest
+                if digest in image_name_with_tag_and_digest:
+                    new_image.short_name = image_name_with_tag_and_digest
+            else:
+                # If no digest was passed by the user, then don't set it even if the
+                # found image has it
+                new_image.digest = ""
+                new_image.model_fields_set.remove("digest")
             return new_image
 
         LOGGER.debug(
@@ -191,7 +196,7 @@ class Image(BaseModel):
                 path, tag = path.split(":", 1)
                 tag = tag.split("@", 1)[0]
 
-        new_image = cls(
+        params = dict(
             type=image_type,
             short_name=image_name_with_tag_and_digest,
             aliases=aliases,
@@ -199,9 +204,12 @@ class Image(BaseModel):
             path=path,
             tag=tag,
             state=image_state,
-            digest=digest,
             exists=False,
         )
+        if digest:
+            params["digest"] = digest
+
+        new_image = cls.model_validate(params)
         LOGGER.debug(f"Got unknown image {new_image}")
         return new_image
 
