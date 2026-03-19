@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.7.0"
+  version: "4.8.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -545,7 +545,7 @@ components:
           $ref: "#/components/schemas/StatusShort"
         messages:
           type: array
-          description: "This field is to for more detailed explaination of a job's status"
+          description: "This field is to for more detailed explanation of a job's status"
           example: ["scheduling", "initializing", "exitcode 1"]
         duration:
           type: string
@@ -555,7 +555,7 @@ components:
           type: boolean
           description: |
             User's can bypass toolforge to directly modify resources in their runtime namespace.
-            This field is to report if such changes was made resulting in the copy of the job in
+            This field is to report if such changes were made resulting in the copy of the job in
             the runtime being different from what the user submitted during creation
     OneOffJobStatus:
       allOf:

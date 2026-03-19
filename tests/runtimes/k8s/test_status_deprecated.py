@@ -1,3 +1,4 @@
+# TODO: after merging https://gitlab.wikimedia.org/repos/cloud/toolforge/jobs-api/-/merge_requests/208
 from typing import Any
 
 from helpers.fakes import get_fake_account
@@ -6,7 +7,7 @@ import tests.helpers.fake_k8s as fake_k8s
 from tests.test_utils import cases
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.jobs import get_job_from_k8s
-from tjf.runtimes.k8s.ops_status_deprecated import (
+from tjf.runtimes.k8s.status_deprecated import (
     _get_quota_error,
     refresh_job_short_status,
 )

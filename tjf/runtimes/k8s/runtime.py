@@ -43,13 +43,13 @@ from .jobs import (
 from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
 from .ops import trigger_scheduled_job, validate_job_limits, wait_for_pods_exit
-from .ops_status import (
+from .services import get_k8s_service_object
+from .status import (
     get_continuous_job_status,
     get_one_off_job_status,
     get_scheduled_job_status,
 )
-from .ops_status_deprecated import refresh_job_long_status, refresh_job_short_status
-from .services import get_k8s_service_object
+from .status_deprecated import refresh_job_long_status, refresh_job_short_status
 
 LOGGER = getLogger(__name__)
 
@@ -76,7 +76,7 @@ class K8sRuntime(BaseRuntime):
                 )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
-                job.status = self.get_job_status(job=job, tool=tool)
+                job.status = self._get_job_status(job=job, tool=tool)
                 job_list.append(job)
 
         return job_list
@@ -99,7 +99,7 @@ class K8sRuntime(BaseRuntime):
                 )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
-                job.status = self.get_job_status(job=job, tool=tool)
+                job.status = self._get_job_status(job=job, tool=tool)
                 return job
 
         raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool}.")
@@ -245,7 +245,7 @@ class K8sRuntime(BaseRuntime):
 
             refresh_job_short_status(tool_account, job)
             refresh_job_long_status(tool_account, job)
-            job.status = self.get_job_status(job=job, tool=tool)
+            job.status = self._get_job_status(job=job, tool=tool)
         except requests.exceptions.HTTPError as error:
             raise create_error_from_k8s_response(error=error, job=job, spec=spec)
 
@@ -312,7 +312,7 @@ class K8sRuntime(BaseRuntime):
         )
         return "".join([line for line in list(diff) if line is not None])
 
-    def get_job_status(self, *, job: AnyJob, tool: str) -> AnyJobStatus:
+    def _get_job_status(self, *, job: AnyJob, tool: str) -> AnyJobStatus:
         LOGGER.debug(f"Getting status for the job {job.job_name}, for tool {tool}")
         user = ToolAccount(name=tool)
         k8s_type = K8sJobKind.from_job_type(job.job_type)
@@ -323,20 +323,15 @@ class K8sRuntime(BaseRuntime):
         )
         k8s_pods = user.k8s_cli.get_objects(kind="pods", label_selector=selector)
 
-        if k8s_type == K8sJobKind.JOB:
-            LOGGER.debug(f"job '{job.job_name}' k8s job object: {job.k8s_object}")
-            LOGGER.debug(f"job '{job.job_name}' k8s pod objects: {k8s_pods}")
+        if job.job_type == JobType.ONE_OFF:
             one_off_job_status = get_one_off_job_status(
                 user=user, k8s_job=job.k8s_object, k8s_pods=k8s_pods
             )
             LOGGER.debug(f"job status: {one_off_job_status}")
             return one_off_job_status
 
-        if k8s_type == K8sJobKind.CRON_JOB:
+        if job.job_type == JobType.SCHEDULED:
             k8s_jobs = user.k8s_cli.get_objects(kind="jobs", label_selector=selector)
-            LOGGER.debug(f"job '{job.job_name}' k8s cronjob object: {job.k8s_object}")
-            LOGGER.debug(f"job '{job.job_name}' k8s job objects: {k8s_jobs}")
-            LOGGER.debug(f"job '{job.job_name}' k8s pod objects: {k8s_pods}")
             scheduled_job_status = get_scheduled_job_status(
                 user=user,
                 job=job,
@@ -347,9 +342,7 @@ class K8sRuntime(BaseRuntime):
             LOGGER.debug(f"job status: {scheduled_job_status}")
             return scheduled_job_status
 
-        if k8s_type == K8sJobKind.DEPLOYMENT:
-            LOGGER.debug(f"job '{job.job_name}' k8s deployment object: {job.k8s_object}")
-            LOGGER.debug(f"job '{job.job_name}' k8s pod objects: {k8s_pods}")
+        if job.job_type == JobType.CONTINUOUS:
             continuous_job_status = get_continuous_job_status(
                 k8s_deployment=job.k8s_object, k8s_pods=k8s_pods
             )

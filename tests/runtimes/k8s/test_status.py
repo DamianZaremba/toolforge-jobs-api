@@ -16,7 +16,7 @@ from tjf.core.models import (
     ScheduledJob,
     ScheduledJobStatus,
 )
-from tjf.runtimes.k8s.ops_status import (
+from tjf.runtimes.k8s.status import (
     _get_quota_error,
     get_continuous_job_status,
     get_one_off_job_status,
@@ -222,7 +222,7 @@ def test_get_quota_error():
         ],
     ],
 )
-def test_k8s_job_status(
+def test_get_one_off_job_status(
     k8s_job: str,
     k8s_pod: str | None,
     expected_status: OneOffJobStatus,
@@ -637,7 +637,7 @@ def test_k8s_job_status(
         ],
     ],
 )
-def test_k8s_cronjob_status(
+def test_get_scheduled_job_status(
     job: ScheduledJob,
     k8s_cronjob: str,
     k8s_job: str | None,
@@ -781,7 +781,7 @@ def test_k8s_cronjob_status(
         ],
     ],
 )
-def test_k8s_deployment_status(
+def test_get_continuous_job_status(
     k8s_deployment: str,
     k8s_pod: str | None,
     expected_status: ContinuousJobStatus,

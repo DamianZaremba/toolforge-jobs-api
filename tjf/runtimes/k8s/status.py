@@ -53,12 +53,52 @@ def _get_duration(start_time: str | None) -> str:
     return format_duration(int((datetime.now(timezone.utc) - start_time_obj).total_seconds()))
 
 
+def _get_highest_priority_status(
+    aggregated_statuses: dict[str, list[CommonJobStatus]],
+) -> CommonJobStatus | None:
+    # in order of priority: failed ---> unknown.
+    # If there are more than 1 statuses for a status type, we only return one of them.
+    # e.g. if there are three pods pod1(initializing) pod2(initializing) pod3(running),
+    # we return initializing because it's of a higher priority.
+    # (we don't differentiate between pod1 and pod2 because from the perspective of the job they are the same)
+    if aggregated_statuses["failed"]:
+        return aggregated_statuses["failed"][0]
+
+    if aggregated_statuses["scheduling"]:
+        return aggregated_statuses["scheduling"][0]
+
+    if aggregated_statuses["initializing"]:
+        return aggregated_statuses["initializing"][0]
+
+    if aggregated_statuses["running"]:
+        return aggregated_statuses["running"][0]
+
+    if aggregated_statuses["restarted"]:
+        return aggregated_statuses["restarted"][0]
+
+    if aggregated_statuses["succeeded"]:
+        return aggregated_statuses["succeeded"][0]
+
+    if aggregated_statuses["unknown"]:
+        return aggregated_statuses["unknown"][0]
+
+    return None
+
+
 def _extract_container_statuses(
     phase: str,
     last_condition: dict[str, Any],
     container_statuses: list[dict[str, Any]],
-    aggregated_statuses: dict[str, list[CommonJobStatus]],
-) -> None:
+) -> dict[str, list[CommonJobStatus]]:
+    aggregated_statuses: dict[str, list[CommonJobStatus]] = {
+        "failed": [],
+        "scheduling": [],
+        "initializing": [],
+        "running": [],
+        "restarted": [],
+        "succeeded": [],
+        "unknown": [],
+    }
     for container_status in container_statuses:
         state = container_status.get("state", {})
         if phase == "pending" and state.get("waiting", None):
@@ -76,8 +116,9 @@ def _extract_container_statuses(
                     up_to_date=True,
                 )
             )
+            continue
 
-        elif phase == "running" and state.get("running", None):
+        if phase == "running" and state.get("running", None):
             running_state = state["running"]
             aggregated_statuses["running"].append(
                 CommonJobStatus(
@@ -87,8 +128,9 @@ def _extract_container_statuses(
                     up_to_date=True,
                 )
             )
+            continue
 
-        elif phase == "running" and state.get("terminated", None):
+        if phase == "running" and state.get("terminated", None):
             terminated_state = state["terminated"]
             exit_code = terminated_state.get("exitCode", 0)
             restart_count = container_status.get("restartCount", 0)
@@ -105,8 +147,9 @@ def _extract_container_statuses(
                     up_to_date=True,
                 )
             )
+            continue
 
-        elif phase == "running" and state.get("waiting", None):
+        if phase == "running" and state.get("waiting", None):
             restart_count = container_status.get("restartCount", 0)
             messages = [f"restarted ({restart_count})"]
             if container_status.get("lastState", {}).get("terminated", None):
@@ -123,8 +166,9 @@ def _extract_container_statuses(
                     up_to_date=True,
                 )
             )
+            continue
 
-        elif phase == "succeeded" and state.get("terminated", None):
+        if phase == "succeeded" and state.get("terminated", None):
             terminated_state = state["terminated"]
             aggregated_statuses["succeeded"].append(
                 CommonJobStatus(
@@ -134,8 +178,9 @@ def _extract_container_statuses(
                     up_to_date=True,
                 )
             )
+            continue
 
-        elif phase == "failed" and state.get("terminated", None):
+        if phase == "failed" and state.get("terminated", None):
             terminated_state = state["terminated"]
             exit_code = terminated_state.get("exitCode", 0)
             aggregated_statuses["failed"].append(
@@ -146,21 +191,21 @@ def _extract_container_statuses(
                     up_to_date=True,
                 )
             )
-        else:
-            aggregated_statuses["unknown"].append(
-                CommonJobStatus(
-                    short=StatusShort.UNKNOWN,
-                    messages=[StatusShort.UNKNOWN.value],
-                    duration=_get_duration(
-                        start_time=last_condition.get("lastTransitionTime", None)
-                    ),
-                    up_to_date=True,
-                )
+            continue
+
+        aggregated_statuses["unknown"].append(
+            CommonJobStatus(
+                short=StatusShort.UNKNOWN,
+                messages=[StatusShort.UNKNOWN.value],
+                duration=_get_duration(start_time=last_condition.get("lastTransitionTime", None)),
+                up_to_date=True,
             )
+        )
+    return aggregated_statuses
 
 
-def _get_pods_aggregated_status(pods: list[dict[str, Any]]) -> CommonJobStatus | None:
-    aggregated_statuses: dict[str, list[CommonJobStatus]] = {
+def _get_status_from_pods(pods: list[dict[str, Any]]) -> CommonJobStatus | None:
+    pod_aggregated_statuses: dict[str, list[CommonJobStatus]] = {
         "failed": [],
         "scheduling": [],
         "initializing": [],
@@ -187,7 +232,7 @@ def _get_pods_aggregated_status(pods: list[dict[str, Any]]) -> CommonJobStatus |
             messages.append(last_condition["message"])
 
         if phase == "pending" and not container_statuses:
-            aggregated_statuses["scheduling"].append(
+            pod_aggregated_statuses["scheduling"].append(
                 CommonJobStatus(
                     short=StatusShort.PENDING,
                     messages=["scheduling"] + messages,
@@ -197,146 +242,163 @@ def _get_pods_aggregated_status(pods: list[dict[str, Any]]) -> CommonJobStatus |
                     up_to_date=True,
                 )
             )
-        _extract_container_statuses(
+        container_aggregated_statuses = _extract_container_statuses(
             phase=phase,
             last_condition=last_condition,
             container_statuses=container_statuses,
-            aggregated_statuses=aggregated_statuses,
         )
 
-    # in order of priority: failed ---> unknown.
-    # If there are more than 1 statuses for a status type, we only return one of them.
-    # e.g. if there are three pods pod1(initializing) pod2(initializing) pod3(running),
-    # we return initializing because it's of a higher priority.
-    # (we don't differentiate between pod1 and pod2 because from the perspective of the job they are the same)
-    aggregated_status: CommonJobStatus | None = None
-    if aggregated_statuses["unknown"]:
-        aggregated_status = aggregated_statuses["unknown"][0]
+        pod_aggregated_statuses = {
+            "failed": [
+                *pod_aggregated_statuses["failed"],
+                *container_aggregated_statuses["failed"],
+            ],
+            "scheduling": [
+                *pod_aggregated_statuses["scheduling"],
+                *container_aggregated_statuses["scheduling"],
+            ],
+            "initializing": [
+                *pod_aggregated_statuses["initializing"],
+                *container_aggregated_statuses["initializing"],
+            ],
+            "running": [
+                *pod_aggregated_statuses["running"],
+                *container_aggregated_statuses["running"],
+            ],
+            "restarted": [
+                *pod_aggregated_statuses["restarted"],
+                *container_aggregated_statuses["restarted"],
+            ],
+            "succeeded": [
+                *pod_aggregated_statuses["succeeded"],
+                *container_aggregated_statuses["succeeded"],
+            ],
+            "unknown": [
+                *pod_aggregated_statuses["unknown"],
+                *container_aggregated_statuses["unknown"],
+            ],
+        }
 
-    if aggregated_statuses["succeeded"]:
-        aggregated_status = aggregated_statuses["succeeded"][0]
-
-    if aggregated_statuses["restarted"]:
-        aggregated_status = aggregated_statuses["restarted"][0]
-
-    if aggregated_statuses["running"]:
-        aggregated_status = aggregated_statuses["running"][0]
-
-    if aggregated_statuses["initializing"]:
-        aggregated_status = aggregated_statuses["initializing"][0]
-
-    if aggregated_statuses["scheduling"]:
-        aggregated_status = aggregated_statuses["scheduling"][0]
-
-    if aggregated_statuses["failed"]:
-        aggregated_status = aggregated_statuses["failed"][0]
-
-    LOGGER.debug(f"highest priority status gotten: {aggregated_status}. Returning...")
-    return aggregated_status
+    return _get_highest_priority_status(aggregated_statuses=pod_aggregated_statuses)
 
 
-def _get_relevant_k8s_job(
+def _get_automatically_triggered_job(k8s_job_spec: dict[str, Any]) -> dict[str, Any] | None:
+    instantiate = (
+        k8s_job_spec.get("metadata", {})
+        .get("annotations", {})
+        .get("cronjob.kubernetes.io/instantiate", None)
+    )
+    if not instantiate:
+        return k8s_job_spec
+
+    return None
+
+
+def _get_manually_triggered_job(
+    job: AnyJob, cronjob_uid: str, k8s_job_spec: dict[str, Any]
+) -> dict[str, Any] | None:
+    instantiate = (
+        k8s_job_spec.get("metadata", {})
+        .get("annotations", {})
+        .get("cronjob.kubernetes.io/instantiate", None)
+    )
+    if instantiate != "manual":
+        return None
+
+    ownerreferences = k8s_job_spec.get("metadata", {}).get("ownerReferences", [])
+    if not ownerreferences:
+        return None
+
+    matching_reference = False
+    for reference in ownerreferences:
+        if reference.get("kind", None) != "CronJob":
+            continue
+
+        if reference.get("name", None) != job.job_name:
+            continue
+
+        if reference.get("uid", None) == cronjob_uid:
+            matching_reference = True
+
+    if not matching_reference:
+        return None
+
+    # manual k8s_job_spec comes from k8s so if we can't get command and args, let things blow up.
+    # because in that case something is seriously wrong
+    manual_k8s_job_container = k8s_job_spec["spec"]["template"]["spec"]["containers"][0]
+    manual_k8s_job_command = manual_k8s_job_container["command"]
+    manual_k8s_job_args = manual_k8s_job_container.get("args", None)
+    manual_k8s_job_generated_command = GeneratedCommand(
+        command=manual_k8s_job_command, args=manual_k8s_job_args
+    )
+    scheduled_job_command = Command(
+        user_command=job.cmd,
+        filelog=job.filelog,
+        filelog_stdout=job.filelog_stdout,
+        filelog_stderr=job.filelog_stderr,
+    )
+    scheduled_job_generated_command = get_command_for_k8s(
+        command=scheduled_job_command,
+        job_name=job.job_name,
+        tool_name=job.tool_name,
+    )
+    if manual_k8s_job_generated_command != scheduled_job_generated_command:
+        return None
+
+    # finally, everything matches, we are certain this job was manually created from the cronjob
+    return k8s_job_spec
+
+
+def _get_latest_k8s_cronjob_job(
     job: AnyJob, k8s_cronjob: dict[str, Any], k8s_jobs: list[dict[str, Any]]
 ) -> dict[str, Any] | None:
     """
     This function tries to retrieve the most recent auto and manually triggered jobs,
-    then sort and return the most recent job.
+    then return the most recent job.
     """
-
     if not k8s_jobs:
         return None
 
-    auto_job: dict[str, Any] = {}
-    manual_job: dict[str, Any] = {}
+    auto_job: dict[str, Any] | None = None
+    manual_job: dict[str, Any] | None = None
     cronjob_uid = k8s_cronjob.get("metadata", {}).get("uid", None)
     if not cronjob_uid:  # not sure why a cronjob should not have uid, but that's not good
         return None
 
-    # Sort jobs by creation time
     k8s_jobs = sorted(k8s_jobs, key=lambda j: j["metadata"]["creationTimestamp"], reverse=True)
-
-    # checking for automatically triggered job  #######
     for k8s_job_spec in k8s_jobs:
-        instantiate = (
-            k8s_job_spec.get("metadata", {})
-            .get("annotations", {})
-            .get("cronjob.kubernetes.io/instantiate", None)
-        )
-        if not auto_job and not instantiate:
-            auto_job = k8s_job_spec
-            continue
+        if not auto_job:
+            auto_job = _get_automatically_triggered_job(k8s_job_spec=k8s_job_spec)
 
-    #  checking for manually triggered job  #######
-    for k8s_job_spec in k8s_jobs:
-        instantiate = (
-            k8s_job_spec.get("metadata", {})
-            .get("annotations", {})
-            .get("cronjob.kubernetes.io/instantiate", None)
-        )
-        if manual_job or instantiate != "manual":
-            continue
-
-        ownerreferences = k8s_job_spec.get("metadata", {}).get("ownerReferences", [])
-        if not ownerreferences:
-            continue
-
-        matching_reference = False
-        for reference in ownerreferences:
-            if reference.get("kind", None) != "CronJob":
-                continue
-
-            if reference.get("name", None) != job.job_name:
-                continue
-
-            if reference.get("uid", None) == cronjob_uid:
-                matching_reference = True
-
-        if not matching_reference:
-            continue
-
-        # manual k8s_job_spec comes from k8s so if we can't get command and args, let things blow up.
-        # because in that case something is seriously wrong
-        manual_k8s_job_container = k8s_job_spec["spec"]["template"]["spec"]["containers"][0]
-        manual_k8s_job_cmd = manual_k8s_job_container["command"]
-        manual_k8s_job_args = manual_k8s_job_container.get("args", None)
-        manual_k8s_job_generated_command = GeneratedCommand(
-            command=manual_k8s_job_cmd, args=manual_k8s_job_args
-        )
-        schd_job_command = Command(
-            user_command=job.cmd,
-            filelog=job.filelog,
-            filelog_stdout=job.filelog_stdout,
-            filelog_stderr=job.filelog_stderr,
-        )
-        schd_job_generated_command = get_command_for_k8s(
-            command=schd_job_command,
-            job_name=job.job_name,
-            tool_name=job.tool_name,
-        )
-        if manual_k8s_job_generated_command != schd_job_generated_command:
-            continue
-
-        # finally, everything matches, we are certain this job was manually created from the cronjob
-        manual_job = k8s_job_spec
-
-    # Here we return the most recent between the auto and manual jobs we may have retrieved
-    return next(
-        iter(
-            sorted(
-                [auto_job, manual_job],
-                key=lambda j: j.get("metadata", {}).get("creationTimestamp", ""),
-                reverse=True,
+        if not manual_job:
+            manual_job = _get_manually_triggered_job(
+                job=job, cronjob_uid=cronjob_uid, k8s_job_spec=k8s_job_spec
             )
-        ),
-        None,
+
+        if auto_job and manual_job:
+            break
+
+    auto_job_creation_timestamp = (
+        auto_job.get("metadata", {}).get("creationTimestamp", "") if auto_job else ""
     )
+    manual_job_creation_timestamp = (
+        manual_job.get("metadata", {}).get("creationTimestamp", "") if manual_job else ""
+    )
+    if auto_job_creation_timestamp > manual_job_creation_timestamp:
+        return auto_job
+
+    return manual_job
 
 
 def get_one_off_job_status(
     user: ToolAccount, k8s_job: dict[str, Any], k8s_pods: list[dict[str, Any]]
 ) -> OneOffJobStatus:
+    LOGGER.debug(f"k8s job object: {k8s_job}")
+    LOGGER.debug(f"k8s pod objects: {k8s_pods}")
     job_status = k8s_job.get("status", {})
-    pod_status = _get_pods_aggregated_status(k8s_pods)
+
+    pod_status = _get_status_from_pods(k8s_pods)
+    LOGGER.debug(f"gotten pod status: {pod_status}")
 
     if pod_status and pod_status.short != "unknown":
         return OneOffJobStatus(**pod_status.model_dump())
@@ -419,8 +481,13 @@ def get_scheduled_job_status(
     k8s_jobs: list[dict[str, Any]],
     k8s_pods: list[dict[str, Any]],
 ) -> ScheduledJobStatus:
+    LOGGER.debug(f"k8s cronjob object: {k8s_cronjob}")
+    LOGGER.debug(f"k8s job objects: {k8s_jobs}")
+    LOGGER.debug(f"k8s pod objects: {k8s_pods}")
+
     schedule = k8s_cronjob.get("spec", {}).get("schedule", None)
     cronjob_status = k8s_cronjob.get("status", {})
+    # TODO: drop croniter when https://github.com/kubernetes/kubernetes/issues/78564 is resolved
     next_schedule = (
         croniter(expr_format=schedule)
         .get_next(datetime)
@@ -429,7 +496,7 @@ def get_scheduled_job_status(
         .replace("+00:00", "Z")
     )
 
-    k8s_job = _get_relevant_k8s_job(job=job, k8s_cronjob=k8s_cronjob, k8s_jobs=k8s_jobs)
+    k8s_job = _get_latest_k8s_cronjob_job(job=job, k8s_cronjob=k8s_cronjob, k8s_jobs=k8s_jobs)
     # if a job is running, use it's creationTimestamp for previous_schedule,
     # else use the cronjob's lastScheduleTime which is always defined if the cronjob has ever run
     previous_schedule = k8s_job and k8s_job.get("metadata", {}).get("creationTimestamp", "")
@@ -478,8 +545,11 @@ def get_continuous_job_status(
     k8s_deployment: dict[str, Any],
     k8s_pods: list[dict[str, Any]],
 ) -> ContinuousJobStatus:
+    LOGGER.debug(f"k8s deployment object: {k8s_deployment}")
+    LOGGER.debug(f"k8s pod objects: {k8s_pods}")
+
     deployment_status = k8s_deployment.get("status", {})
-    pod_status = _get_pods_aggregated_status(k8s_pods)
+    pod_status = _get_status_from_pods(k8s_pods)
 
     if pod_status and pod_status.short == "running":
         return ContinuousJobStatus(**pod_status.model_dump())
