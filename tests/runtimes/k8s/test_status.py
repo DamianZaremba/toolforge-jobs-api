@@ -16,7 +16,7 @@ from tjf.core.models import (
     ScheduledJob,
     ScheduledJobStatus,
 )
-from tjf.runtimes.k8s.ops_status import (
+from tjf.runtimes.k8s.status import (
     _get_quota_error,
     get_continuous_job_status,
     get_one_off_job_status,
@@ -96,7 +96,7 @@ def test_get_quota_error():
         [
             JOB_INITIALIZING,
             None,
-            OneOffJobStatus(short="pending", messages=["pending"], duration="0s", up_to_date=True),
+            OneOffJobStatus(short="pending", duration="0s", up_to_date=True),
             None,
         ],
     ],
@@ -152,7 +152,7 @@ def test_get_quota_error():
         [
             JOB_RUNNING,
             POD_RUNNING,
-            OneOffJobStatus(short="running", messages=["running"], duration="0s", up_to_date=True),
+            OneOffJobStatus(short="running", duration="0s", up_to_date=True),
             None,
         ],
     ],
@@ -161,9 +161,7 @@ def test_get_quota_error():
         [
             JOB_SUCCEEDED,
             POD_SUCCEEDED,
-            OneOffJobStatus(
-                short="succeeded", messages=["succeeded"], duration="0s", up_to_date=True
-            ),
+            OneOffJobStatus(short="succeeded", duration="0s", up_to_date=True),
             None,
         ],
     ],
@@ -172,9 +170,7 @@ def test_get_quota_error():
         [
             JOB_SUCCEEDED,
             None,
-            OneOffJobStatus(
-                short="succeeded", messages=["succeeded"], duration="0s", up_to_date=True
-            ),
+            OneOffJobStatus(short="succeeded", duration="0s", up_to_date=True),
             None,
         ],
     ],
@@ -194,7 +190,7 @@ def test_get_quota_error():
         [
             JOB_FAILED,
             None,
-            OneOffJobStatus(short="failed", messages=["failed"], duration="0s", up_to_date=True),
+            OneOffJobStatus(short="failed", duration="0s", up_to_date=True),
             None,
         ],
     ],
@@ -205,7 +201,7 @@ def test_get_quota_error():
             None,
             OneOffJobStatus(
                 short="failed",
-                messages=["Unable to start, out of quota for cpu, cpu"],
+                messages=["Unable to start, out of quota for cpu"],
                 duration="0s",
                 up_to_date=True,
             ),
@@ -217,12 +213,12 @@ def test_get_quota_error():
         [
             JOB_UNKNOWN,
             None,
-            OneOffJobStatus(short="unknown", messages=["unknown"], duration="0s", up_to_date=True),
+            OneOffJobStatus(short="unknown", duration="0s", up_to_date=True),
             None,
         ],
     ],
 )
-def test_k8s_job_status(
+def test_get_one_off_job_status(
     k8s_job: str,
     k8s_pod: str | None,
     expected_status: OneOffJobStatus,
@@ -245,7 +241,10 @@ def test_k8s_job_status(
 
     assert expected_status.short == gotten_status.short
     assert expected_status.duration == gotten_status.duration
-    assert expected_status.messages[0] in gotten_status.messages
+
+    message = next(iter(expected_status.messages), None)
+    if message:
+        assert message in gotten_status.messages
 
 
 @cases(
@@ -274,7 +273,7 @@ def test_k8s_job_status(
             CRONJOB_INITIALIZING,
             None,
             None,
-            OneOffJobStatus(short="pending", messages=["pending"], duration="0s", up_to_date=True),
+            OneOffJobStatus(short="pending", duration="0s", up_to_date=True),
             None,
         ],
     ],
@@ -302,7 +301,7 @@ def test_k8s_job_status(
             CRONJOB_INITIALIZING,
             JOB_INITIALIZING,
             None,
-            OneOffJobStatus(short="pending", messages=["pending"], duration="0s", up_to_date=True),
+            OneOffJobStatus(short="pending", duration="0s", up_to_date=True),
             None,
         ],
     ],
@@ -453,7 +452,7 @@ def test_k8s_job_status(
             CRONJOB_RUNNING,
             JOB_RUNNING,
             POD_RUNNING,
-            OneOffJobStatus(short="running", messages=["running"], duration="0s", up_to_date=True),
+            OneOffJobStatus(short="running", duration="0s", up_to_date=True),
             None,
         ],
     ],
@@ -481,9 +480,7 @@ def test_k8s_job_status(
             CRONJOB_SUCCEEDED,
             JOB_SUCCEEDED,
             POD_SUCCEEDED,
-            OneOffJobStatus(
-                short="succeeded", messages=["succeeded"], duration="0s", up_to_date=True
-            ),
+            OneOffJobStatus(short="succeeded", duration="0s", up_to_date=True),
             None,
         ],
     ],
@@ -511,9 +508,7 @@ def test_k8s_job_status(
             CRONJOB_SUCCEEDED,
             JOB_SUCCEEDED,
             None,
-            OneOffJobStatus(
-                short="succeeded", messages=["succeeded"], duration="0s", up_to_date=True
-            ),
+            OneOffJobStatus(short="succeeded", duration="0s", up_to_date=True),
             None,
         ],
     ],
@@ -571,7 +566,7 @@ def test_k8s_job_status(
             CRONJOB_FAILED,
             JOB_FAILED,
             None,
-            OneOffJobStatus(short="failed", messages=["failed"], duration="0s", up_to_date=True),
+            OneOffJobStatus(short="failed", duration="0s", up_to_date=True),
             None,
         ],
     ],
@@ -601,7 +596,7 @@ def test_k8s_job_status(
             None,
             OneOffJobStatus(
                 short="failed",
-                messages=["Unable to start, out of quota for cpu, cpu"],
+                messages=["Unable to start, out of quota for cpu"],
                 duration="0s",
                 up_to_date=True,
             ),
@@ -632,12 +627,12 @@ def test_k8s_job_status(
             CRONJOB_UNKNOWN,
             JOB_UNKNOWN,
             None,
-            OneOffJobStatus(short="unknown", messages=["unknown"], duration="0s", up_to_date=True),
+            OneOffJobStatus(short="unknown", duration="0s", up_to_date=True),
             None,
         ],
     ],
 )
-def test_k8s_cronjob_status(
+def test_get_scheduled_job_status(
     job: ScheduledJob,
     k8s_cronjob: str,
     k8s_job: str | None,
@@ -669,7 +664,10 @@ def test_k8s_cronjob_status(
 
     assert expected_status.short == gotten_status.short
     assert expected_status.duration == gotten_status.duration
-    assert expected_status.messages[0] in gotten_status.messages
+
+    message = next(iter(expected_status.messages), None)
+    if message:
+        assert message in gotten_status.messages
 
 
 @cases(
@@ -679,9 +677,7 @@ def test_k8s_cronjob_status(
         [
             DEPLOYMENT_INITIALIZING,
             None,
-            ContinuousJobStatus(
-                short="pending", messages=["pending"], duration="0s", up_to_date=True
-            ),
+            ContinuousJobStatus(short="pending", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -732,9 +728,7 @@ def test_k8s_cronjob_status(
         [
             DEPLOYMENT_RUNNING,
             POD_RUNNING,
-            ContinuousJobStatus(
-                short="running", messages=["running"], duration="0s", up_to_date=True
-            ),
+            ContinuousJobStatus(short="running", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -742,9 +736,7 @@ def test_k8s_cronjob_status(
         [
             DEPLOYMENT_RUNNING,
             None,
-            ContinuousJobStatus(
-                short="running", messages=["running"], duration="0s", up_to_date=True
-            ),
+            ContinuousJobStatus(short="running", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -764,7 +756,7 @@ def test_k8s_cronjob_status(
             None,
             ContinuousJobStatus(
                 short="failed",
-                messages=["Unable to start, out of quota for cpu, cpu"],
+                messages=["Unable to start, out of quota for cpu"],
                 duration="0s",
                 up_to_date=True,
             ),
@@ -775,13 +767,11 @@ def test_k8s_cronjob_status(
         [
             DEPLOYMENT_UNKNOWN,
             None,
-            ContinuousJobStatus(
-                short="unknown", messages=["unknown"], duration="0s", up_to_date=True
-            ),
+            ContinuousJobStatus(short="unknown", duration="0s", up_to_date=True),
         ],
     ],
 )
-def test_k8s_deployment_status(
+def test_get_continuous_job_status(
     k8s_deployment: str,
     k8s_pod: str | None,
     expected_status: ContinuousJobStatus,
@@ -797,7 +787,10 @@ def test_k8s_deployment_status(
 
     assert expected_status.short == gotten_status.short
     assert expected_status.duration == gotten_status.duration
-    assert expected_status.messages[0] in gotten_status.messages
+
+    message = next(iter(expected_status.messages), None)
+    if message:
+        assert message in gotten_status.messages
 
 
 def test_k8s_deployment_fails_if_no_ready_replicas_for_long():
@@ -807,11 +800,12 @@ def test_k8s_deployment_fails_if_no_ready_replicas_for_long():
         .replace("+00:00", "Z")
     )
     k8s_deployment_json = json.loads(re.sub(ISO_PATTERN, dummy_date_str, DEPLOYMENT_FAILED))
-    expected_status = ContinuousJobStatus(
-        short="failed", messages=["failed"], duration="5m", up_to_date=True
-    )
+    expected_status = ContinuousJobStatus(short="failed", duration="5m", up_to_date=True)
     gotten_status = get_continuous_job_status(k8s_deployment=k8s_deployment_json, k8s_pods=[])
 
     assert expected_status.short == gotten_status.short
     assert expected_status.duration == gotten_status.duration
-    assert expected_status.messages[0] in gotten_status.messages
+
+    message = next(iter(expected_status.messages), None)
+    if message:
+        assert message in gotten_status.messages

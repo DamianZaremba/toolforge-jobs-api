@@ -90,6 +90,7 @@ class TestCore:
                     job_type=job_type,
                     status_short="Unknown",
                     status_long=f"The running version of job '{my_storage_job.job_name}' is different from what was configured, please recreate or redeploy.",
+                    status={"up_to_date": False},
                 )
                 my_core = get_my_core(enable_storage=True)
 
@@ -127,7 +128,7 @@ class TestCore:
             ):
                 my_storage_job = get_dummy_job(job_name="job-from-storage", job_type=job_type)
                 my_runtime_job = get_dummy_job(job_name="job-from-runtime", job_type=job_type)
-                expected_job = get_dummy_job(job_type=job_type)
+                expected_job = get_dummy_job(job_type=job_type, status={"up_to_date": False})
                 my_core = get_my_core(enable_storage=True)
 
                 mock_runtime_create_job = MagicMock(

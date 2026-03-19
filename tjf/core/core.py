@@ -50,7 +50,7 @@ def _update_storage_job_status_from_runtime(
             f"Found a different running version than in storage:\nSTORAGE: {storage_job.model_dump(exclude=to_exclude)}\nRUNTIME: {runtime_job and runtime_job.model_dump(exclude=to_exclude)}"
         )
         storage_job.status_long = f"The running version of job '{storage_job.job_name}' is different from what was configured, please recreate or redeploy."
-
+        storage_job.status.up_to_date = False
     return storage_job
 
 

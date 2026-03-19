@@ -119,7 +119,7 @@ class StatusShort(str, Enum):
 
 
 class CommonJobStatus(BaseModel):
-    short: StatusShort
+    short: StatusShort = StatusShort.UNKNOWN
     messages: list[str] = []
     # TODO: use better typing for duration. might require changing the format
     duration: str | None = None

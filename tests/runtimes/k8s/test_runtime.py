@@ -319,7 +319,7 @@ class TestGetJob:
         my_runtime = K8sRuntime(settings=get_settings())
         monkeypatch.setattr(
             my_runtime,
-            "get_job_status",
+            "_get_job_status",
             lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
         )
 
@@ -346,7 +346,7 @@ class TestDiffWithRunningJob:
         monkeypatch.setattr(my_runtime, "get_job", raise_not_found)
         monkeypatch.setattr(
             my_runtime,
-            "get_job_status",
+            "_get_job_status",
             lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
         )
 
@@ -362,7 +362,7 @@ class TestDiffWithRunningJob:
         my_runtime = K8sRuntime(settings=get_settings())
         monkeypatch.setattr(
             my_runtime,
-            "get_job_status",
+            "_get_job_status",
             lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
         )
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
@@ -398,7 +398,7 @@ class TestDiffWithRunningJob:
         my_runtime = K8sRuntime(settings=get_settings())
         monkeypatch.setattr(
             my_runtime,
-            "get_job_status",
+            "_get_job_status",
             lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
         )
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
@@ -426,7 +426,7 @@ class TestDiffWithRunningJob:
         my_runtime = K8sRuntime(settings=get_settings())
         monkeypatch.setattr(
             my_runtime,
-            "get_job_status",
+            "_get_job_status",
             lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
         )
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
@@ -451,7 +451,7 @@ class TestDiffWithRunningJob:
         my_runtime = K8sRuntime(settings=get_settings())
         monkeypatch.setattr(
             my_runtime,
-            "get_job_status",
+            "_get_job_status",
             lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
         )
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
