@@ -177,6 +177,7 @@ class CommonJob(PydanticBaseModel):
                 path=self.filelog_stderr, home=tool_home, default=Path(f"{self.job_name}.err")
             )
 
+        LOGGER.debug(f"Validated common job, {self} (with set fields {self.model_fields_set})")
         return self
 
 
@@ -184,12 +185,22 @@ class OneOffJob(CommonJob, BaseModel):
     job_type: Literal[JobType.ONE_OFF] = JobType.ONE_OFF
     retry: Annotated[int, Field(ge=0, le=5)] = 0
 
+    @model_validator(mode="after")
+    def validate_one_off_job(self) -> Self:
+        self.model_fields_set.add("job_type")
+        return self
+
 
 class ScheduledJob(CommonJob, BaseModel):
     job_type: Literal[JobType.SCHEDULED] = JobType.SCHEDULED
     schedule: CronExpression
     retry: Annotated[int, Field(ge=0, le=5)] = 0
     timeout: Annotated[int, Field(ge=0)] = 0
+
+    @model_validator(mode="after")
+    def validate_scheduled_job(self) -> Self:
+        self.model_fields_set.add("job_type")
+        return self
 
 
 class ContinuousJob(CommonJob, BaseModel):
@@ -204,6 +215,7 @@ class ContinuousJob(CommonJob, BaseModel):
 
     @model_validator(mode="after")
     def validate_continuous_job(self) -> Self:
+        self.model_fields_set.add("job_type")
         if (
             self.health_check
             and self.health_check.health_check_type == HealthCheckType.HTTP
