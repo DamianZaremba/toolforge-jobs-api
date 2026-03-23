@@ -90,12 +90,7 @@ class Core:
         return job
 
     def update_job(self, job: AnyJob) -> Tuple[bool, str]:
-        if self.settings.enable_storage:
-            return self._update_job_using_storage(job)
-
-        return self._update_job_using_runtime(job)
-
-    def _update_job_using_storage(self, job: AnyJob) -> Tuple[bool, str]:
+        # this already syncs storage and runtime (taking into account which is configured as the source of truth)
         maybe_fresh_job = self.get_job(toolname=job.tool_name, name=job.job_name)
         if not maybe_fresh_job:
             # even if it's updating, it might be that the job does not exist yet
@@ -105,33 +100,47 @@ class Core:
             LOGGER.info(message)
             return True, message
 
-        to_exclude = set(["status_short", "status_long"])
-        needs_storage_update = maybe_fresh_job.model_dump(
+        LOGGER.debug(f"Updating job in storage {job.job_name}")
+        changed_in_storage = self._update_job_in_storage(existing_job=maybe_fresh_job, new_job=job)
+
+        LOGGER.debug(f"Updating job in runtime {job.job_name}")
+        changed_in_runtime = self._update_job_in_runtime(job)
+
+        message = f"Job {job.job_name} "
+        if changed_in_runtime and changed_in_storage:
+            message += "was updated in storage and runtime"
+        elif changed_in_storage:
+            message += "was updated in storage only"
+        elif changed_in_runtime:
+            message += "was updated in runtime only"
+        else:
+            message += "is already up to date"
+
+        return (changed_in_storage or changed_in_runtime, message)
+
+    def _update_job_in_storage(self, existing_job: AnyJob, new_job: AnyJob) -> bool:
+        to_exclude = set(["status_short", "status_long", "k8s_object"])
+        are_the_same = existing_job.model_dump(
             exclude_unset=True, exclude=to_exclude
-        ) != job.model_dump(exclude_unset=True, exclude=to_exclude)
+        ) == new_job.model_dump(exclude_unset=True, exclude=to_exclude)
+        if are_the_same:
+            LOGGER.debug("Got the same job, skipping storage")
+            return False
+
         LOGGER.debug(
             "Got two different jobs:"
-            f"\nEXISTING JOB: {maybe_fresh_job.model_dump(exclude_unset=True, exclude=to_exclude)}"
-            f"\nNEW JOB: {job.model_dump(exclude_unset=True, exclude=to_exclude)}"
+            f"\nEXISTING JOB: {existing_job.model_dump(exclude_unset=True, exclude=to_exclude, mode='json')}"
+            f"\nNEW JOB:      {new_job.model_dump(exclude_unset=True, exclude=to_exclude, mode='json')}"
         )
+        LOGGER.debug(f"Updating job {new_job.job_name}")
+        self.storage.delete_job(job=new_job)
+        self.storage.create_job(job=new_job)
+        LOGGER.info(f"Job {new_job.job_name} updated in storage")
 
-        changed_in_storage = False
-        storage_message = ""
-        if needs_storage_update:
-            LOGGER.debug(f"Updating job {job.job_name}")
-            self.storage.delete_job(job=job)
-            self.storage.create_job(job=job)
-            storage_message = f"Job {job.job_name} updated in storage."
-            LOGGER.info(storage_message)
-            changed_in_storage = True
+        return True
 
-        LOGGER.debug(f"Updating job in runtime only {job.job_name}")
-        changed_in_runtime, runtime_message = self._update_job_using_runtime(job=job)
-
-        return (changed_in_storage or changed_in_runtime, f"{storage_message} {runtime_message}")
-
-    def _update_job_using_runtime(self, job: AnyJob) -> Tuple[bool, str]:
-        changed, message = False, f"Job {job.job_name} is already up to date in runtime"
+    def _update_job_in_runtime(self, job: AnyJob) -> bool:
+        changed = False
 
         try:
             # TODO: instead of using diff_with_running_job, move to compare bare jobs
@@ -142,16 +151,14 @@ class Core:
                 LOGGER.debug(f"Updating job {job.job_name}")
                 self.runtime.update_job(tool=job.tool_name, job=job)
                 changed = True
-                message = f"Job {job.job_name} updated"
 
         except TjfJobNotFoundError:
             LOGGER.debug(f"Creating job {job.job_name}")
             self.runtime.create_job(job=job, tool=job.tool_name)
             changed = True
-            message = f"Job {job.job_name} created in runtime"
 
-        LOGGER.info(f"{message} (changed: {changed})")
-        return changed, message
+        LOGGER.info(f"Job {job.job_name} changed in runtime: {changed})")
+        return changed
 
     async def get_logs(
         self, toolname: str, job_name: str, request_args: Mapping[str, str]
