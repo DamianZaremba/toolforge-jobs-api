@@ -72,16 +72,23 @@ class LokiSource:
                     for entry in _parse_stream(result):
                         yield entry
 
-    def _do_query(self, logql: str, lines: int) -> Iterator[LogEntry]:
+    def _do_query(
+        self, logql: str, lines: int, since: datetime | None, until: datetime | None
+    ) -> Iterator[LogEntry]:
+        params = {
+            "query": logql,
+            "limit": str(lines),
+            "direction": "forward",
+            "since": "1h",  # this should get superceded by "start" if present
+        }
+        if since:
+            params["start"] = str(int(since.timestamp() * 1e9))
+        if until:
+            params["end"] = str(int(until.timestamp() * 1e9))
+
         response = self.session.get(
             f"{self.base_url}/api/v1/query_range",
-            params={
-                "query": logql,
-                # TODO: once fully migrated to Loki, make this customizable for users
-                "since": "1h",
-                "limit": str(lines),
-                "direction": "forward",
-            },
+            params=params,
             # TODO: is this fine?
             timeout=15,
         )
@@ -91,7 +98,13 @@ class LokiSource:
             yield from _parse_stream(result)
 
     async def query(
-        self, *, selector: dict[str, str], follow: bool, lines: int | None
+        self,
+        *,
+        selector: dict[str, str],
+        follow: bool,
+        lines: int | None,
+        since: datetime | None = None,
+        until: datetime | None = None,
     ) -> AsyncIterator[LogEntry]:
         if not lines:
             lines = 500
@@ -116,6 +129,8 @@ class LokiSource:
                 self._do_query,
                 logql=build_logql(selector),
                 lines=lines,
+                since=since,
+                until=until,
             ),
         ):
             yield entry

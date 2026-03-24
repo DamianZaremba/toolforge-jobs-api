@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.6.5"
+  version: "4.7.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -266,6 +266,48 @@ paths:
           required: true
           schema:
             type: string
+        - name: lines
+          in: query
+          description: "Number of lines to return."
+          required: false
+          schema:
+            default: 5000
+            type: integer
+        - name: since
+          in: query
+          required: false
+          schema:
+            anyOf:
+            - type: string
+            - type: 'null'
+            title: Since time
+            description: Retrieve logs from this time
+            examples:
+            - '2026-03-02T21:29:55+01:00'
+            - '2026-03-02'
+            - 1h32m22s
+          description: Retrieve logs from this time
+        - name: until
+          in: query
+          required: false
+          schema:
+            anyOf:
+            - type: string
+            - type: 'null'
+            title: Until time
+            description: Retrieve logs up to this time
+            examples:
+            - '2026-03-02T21:29:55+01:00'
+            - '2026-03-02'
+            - 1h32m22s
+          description: Retrieve logs up to this time
+        - name: follow
+          in: query
+          description: "Follow the logs"
+          required: false
+          schema:
+            type: boolean
+            default: false
       responses:
         "200":
           description: "Job logs are served."
