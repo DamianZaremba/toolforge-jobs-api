@@ -22,6 +22,9 @@ from ..core.models import (
     BaseModel,
 )
 from ..core.models import CommonJob as CoreCommonJob
+from ..core.models import (
+    CommonJobStatus,
+)
 from ..core.models import ContinuousJob as CoreContinuousJob
 from ..core.models import (
     ContinuousJobStatus,
@@ -294,6 +297,7 @@ class DefinedCommonJob(CommonJob):
     image_state: str = ImageData.model_fields["state"].default
     status_short: str = CoreCommonJob.model_fields["status_short"].default
     status_long: str = CoreCommonJob.model_fields["status_long"].default
+    status: CommonJobStatus = CoreCommonJob.model_fields["status"].default
 
     @classmethod
     def from_core_job(cls, core_job: AnyCoreJob) -> "DefinedCommonJob":
@@ -304,6 +308,7 @@ class DefinedCommonJob(CommonJob):
         for param, value in [
             ("status_long", core_job.status_long),
             ("status_short", core_job.status_short),
+            ("status", core_job.status),
         ]:
             if param in set_core_params:
                 optional_params[param] = value
@@ -319,7 +324,7 @@ class DefinedCommonJob(CommonJob):
 
         my_job = cls.model_validate(params)
         # remove fields that should be skipped when excluding_unset
-        for field in ["status_short", "status_long", "image_state"]:
+        for field in ["status_short", "status_long", "status", "image_state"]:
             if field in my_job.model_fields_set:
                 my_job.model_fields_set.remove(field)
 

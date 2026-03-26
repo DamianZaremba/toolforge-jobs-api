@@ -48,12 +48,11 @@ def _set_warnings_for_jobs_not_up_to_date(
     warnings = []
     for job in jobs:
         if not job.status.up_to_date:
-            warnings.append(
-                f"The running version of job '{job.name}' is different from what was configured, please recreate or redeploy."
-            )
+            warning_message = f"The running version of job '{job.name}' is different from what was configured, please recreate or redeploy."
+            job.status_long = warning_message
+            warnings.append(warning_message)
     if warnings:
-        old_warnings = messages.warning or []
-        messages = messages.model_copy(update={"warning": old_warnings + warnings})
+        messages = messages.model_copy(update={"warning": messages.warning + warnings})
     return messages
 
 

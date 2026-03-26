@@ -157,6 +157,7 @@ class CommonJob(PydanticBaseModel):
     mount: MountOption = MountOption.NONE
     status_short: str | None = "Unknown"
     status_long: str | None = "Unknown"
+    status: CommonJobStatus = CommonJobStatus()
 
     @field_validator("memory")
     @classmethod

@@ -1014,7 +1014,7 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
     if add_status:
         overrides["status_short"] = "Not running"
         overrides["status_long"] = "No pods were created for this job."
-        overrides["status"] = {"short": "unknown", "duration": ""}
+        overrides["status"] = {}
 
     job = get_dummy_job(**(params | overrides))
     # this is needed as the mount field has a dynamic default
@@ -1064,5 +1064,6 @@ def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJo
     if add_status:
         overrides["status_short"] = "Unknown"
         overrides["status_long"] = "Unknown"
+        overrides["status"] = {}
 
     return get_dummy_job(**(params | optional_params | overrides))
