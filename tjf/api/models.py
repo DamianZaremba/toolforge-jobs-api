@@ -304,7 +304,6 @@ class DefinedCommonJob(CommonJob):
         for param, value in [
             ("status_long", core_job.status_long),
             ("status_short", core_job.status_short),
-            # ("status", core_job.status.model_dump() if core_job.status else None)
         ]:
             if param in set_core_params:
                 optional_params[param] = value
