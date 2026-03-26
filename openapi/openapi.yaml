@@ -567,11 +567,11 @@ components:
           properties:
             previous_schedule:
               type: string
-              description: "datetime string of the prev time the job was triggered"
+              description: "datetime string of the prev time the job was triggered (iso8601)"
               example: "2025-08-27T10:07:48Z"
             next_schedule:
               type: string
-              description: "datetime string of the next time the job will be triggered"
+              description: "datetime string of the next time the job will be triggered (iso8601)"
               example: "2025-08-28T10:07:48Z"
     ContinuousJobStatus:
       allOf:
@@ -761,7 +761,8 @@ components:
               type: object
               description: "v2 of status_long|status_short, for standardized job status reporting"
               oneOf:
-                - $ref: "#/components/schemas/CommonJobStatus"
+                - $ref: "#/components/schemas/OneOffJobStatus"
+                - $ref: "#/components/schemas/ContinuousJobStatus"
                 - $ref: "#/components/schemas/ScheduledJobStatus"
     DefinedOneOffJob:
       allOf:
