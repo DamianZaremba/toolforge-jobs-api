@@ -56,7 +56,7 @@ def get_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
     if add_status:
         overrides["status_short"] = "Not running"
         overrides["status_long"] = "No pods were created for this job."
-        overrides["status"] = ContinuousJobStatus(short="unknown", duration="")
+        overrides["status"] = {}
     return get_dummy_job(
         **overrides,
     )
@@ -320,7 +320,7 @@ class TestGetJob:
         monkeypatch.setattr(
             my_runtime,
             "_get_job_status",
-            lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
+            lambda *args, **kwargs: ContinuousJobStatus(),
         )
 
         gotten_job = my_runtime.get_job(
@@ -347,7 +347,7 @@ class TestDiffWithRunningJob:
         monkeypatch.setattr(
             my_runtime,
             "_get_job_status",
-            lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
+            lambda *args, **kwargs: ContinuousJobStatus(),
         )
 
         with pytest.raises(TjfJobNotFoundError):
@@ -363,7 +363,7 @@ class TestDiffWithRunningJob:
         monkeypatch.setattr(
             my_runtime,
             "_get_job_status",
-            lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
+            lambda *args, **kwargs: ContinuousJobStatus(),
         )
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
 
@@ -399,7 +399,7 @@ class TestDiffWithRunningJob:
         monkeypatch.setattr(
             my_runtime,
             "_get_job_status",
-            lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
+            lambda *args, **kwargs: ContinuousJobStatus(),
         )
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
 
@@ -427,7 +427,7 @@ class TestDiffWithRunningJob:
         monkeypatch.setattr(
             my_runtime,
             "_get_job_status",
-            lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
+            lambda *args, **kwargs: ContinuousJobStatus(),
         )
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
 
@@ -452,7 +452,7 @@ class TestDiffWithRunningJob:
         monkeypatch.setattr(
             my_runtime,
             "_get_job_status",
-            lambda *args, **kwargs: ContinuousJobStatus(short="unknown", duration=""),
+            lambda *args, **kwargs: ContinuousJobStatus(),
         )
         monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
 

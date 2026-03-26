@@ -49,7 +49,6 @@ def _update_storage_job_status_from_runtime(
         LOGGER.debug(
             f"Found a different running version than in storage:\nSTORAGE: {storage_job.model_dump(exclude=to_exclude)}\nRUNTIME: {runtime_job and runtime_job.model_dump(exclude=to_exclude)}"
         )
-        storage_job.status_long = f"The running version of job '{storage_job.job_name}' is different from what was configured, please recreate or redeploy."
         storage_job.status.up_to_date = False
     return storage_job
 
@@ -119,7 +118,7 @@ class Core:
         return (changed_in_storage or changed_in_runtime, message)
 
     def _update_job_in_storage(self, existing_job: AnyJob, new_job: AnyJob) -> bool:
-        to_exclude = set(["status_short", "status_long", "k8s_object"])
+        to_exclude = set(["status_short", "status_long", "k8s_object", "status"])
         are_the_same = existing_job.model_dump(
             exclude_unset=True, exclude=to_exclude
         ) == new_job.model_dump(exclude_unset=True, exclude=to_exclude)

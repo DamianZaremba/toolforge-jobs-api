@@ -305,35 +305,37 @@ class K8sRuntime(BaseRuntime):
         )
         k8s_pods = user.k8s_cli.get_objects(kind="pods", label_selector=selector)
 
-        if job.job_type == JobType.ONE_OFF:
-            one_off_job_status = get_one_off_job_status(
-                user=user, k8s_job=job.k8s_object, k8s_pods=k8s_pods
-            )
-            LOGGER.debug(f"job status: {one_off_job_status}")
-            return one_off_job_status
+        job_status: AnyJobStatus
+        match job.job_type:
+            case JobType.ONE_OFF:
+                one_off_job_status = get_one_off_job_status(
+                    user=user, k8s_job=job.k8s_object, k8s_pods=k8s_pods
+                )
+                job_status = one_off_job_status
 
-        if job.job_type == JobType.SCHEDULED:
-            k8s_jobs = user.k8s_cli.get_objects(kind="jobs", label_selector=selector)
-            scheduled_job_status = get_scheduled_job_status(
-                user=user,
-                job=job,
-                k8s_cronjob=job.k8s_object,
-                k8s_jobs=k8s_jobs,
-                k8s_pods=k8s_pods,
-            )
-            LOGGER.debug(f"job status: {scheduled_job_status}")
-            return scheduled_job_status
+            case JobType.SCHEDULED:
+                k8s_jobs = user.k8s_cli.get_objects(kind="jobs", label_selector=selector)
+                scheduled_job_status = get_scheduled_job_status(
+                    user=user,
+                    job=job,
+                    k8s_cronjob=job.k8s_object,
+                    k8s_jobs=k8s_jobs,
+                    k8s_pods=k8s_pods,
+                )
+                job_status = scheduled_job_status
 
-        if job.job_type == JobType.CONTINUOUS:
-            continuous_job_status = get_continuous_job_status(
-                k8s_deployment=job.k8s_object, k8s_pods=k8s_pods
-            )
-            LOGGER.debug(f"job status: {continuous_job_status}")
-            return continuous_job_status
+            case JobType.CONTINUOUS:
+                continuous_job_status = get_continuous_job_status(
+                    k8s_deployment=job.k8s_object, k8s_pods=k8s_pods
+                )
+                job_status = continuous_job_status
 
-        raise TjfError(
-            f"Unable to get status for job {job.job_name} with unknown type: {job.job_type}"
-        )
+            case _:
+                raise TjfError(
+                    f"Unable to get status for job {job.job_name} with unknown type: {job.job_type}"
+                )
+        LOGGER.debug(f"job status: {job_status}")
+        return job_status
 
     def get_quotas(self, *, tool: str) -> list[QuotaData]:
         tool_account = ToolAccount(name=tool)

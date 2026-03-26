@@ -454,14 +454,16 @@ def get_one_off_job_status(
     if status_from_conditions:
         return status_from_conditions
 
-    if job_status.get("active", 0) and not job_status.get("ready", 0):
+    active = job_status.get("active", 0)
+    ready = job_status.get("ready", 0)
+    if active and not ready:
         return OneOffJobStatus(
             short=StatusShort.PENDING,
             duration=_get_duration(start_time=job_status.get("startTime", None)),
             up_to_date=True,
         )
 
-    if not job_status.get("active", 0) and not job_status.get("ready", 0):
+    if not active and not ready:
         status_from_event = _get_one_off_job_status_from_out_of_quota_event(user, k8s_job)
         if status_from_event:
             return status_from_event
