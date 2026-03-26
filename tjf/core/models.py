@@ -216,7 +216,7 @@ class CommonJob(PydanticBaseModel):
 class OneOffJob(CommonJob, BaseModel):
     job_type: Literal[JobType.ONE_OFF] = JobType.ONE_OFF
     retry: Annotated[int, Field(ge=0, le=5)] = 0
-    status: OneOffJobStatus = OneOffJobStatus(short=StatusShort.UNKNOWN)
+    status: OneOffJobStatus = OneOffJobStatus()
 
     @model_validator(mode="after")
     def validate_one_off_job(self) -> Self:
@@ -229,7 +229,7 @@ class ScheduledJob(CommonJob, BaseModel):
     schedule: CronExpression
     retry: Annotated[int, Field(ge=0, le=5)] = 0
     timeout: Annotated[int, Field(ge=0)] = 0
-    status: ScheduledJobStatus = ScheduledJobStatus(short=StatusShort.UNKNOWN)
+    status: ScheduledJobStatus = ScheduledJobStatus()
 
     @model_validator(mode="after")
     def validate_scheduled_job(self) -> Self:
@@ -246,7 +246,7 @@ class ContinuousJob(CommonJob, BaseModel):
         default=None,
         discriminator="health_check_type",
     )
-    status: ContinuousJobStatus = ContinuousJobStatus(short=StatusShort.UNKNOWN)
+    status: ContinuousJobStatus = ContinuousJobStatus()
 
     @model_validator(mode="after")
     def validate_continuous_job(self) -> Self:
