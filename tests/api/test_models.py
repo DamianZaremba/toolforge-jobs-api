@@ -370,6 +370,7 @@ class TestDefinedCommonJob:
             image_state="stable",
             status_short="dummy status short",
             status_long="dummy status long",
+            status={},
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
@@ -378,6 +379,7 @@ class TestDefinedCommonJob:
             image=Image.from_short_name_or_url(url_or_name="python3.11", tool_name="some-tool"),
             status_short="dummy status short",
             status_long="dummy status long",
+            status={},
             filelog=True,
         )
 

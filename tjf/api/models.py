@@ -22,19 +22,25 @@ from ..core.models import (
     BaseModel,
 )
 from ..core.models import CommonJob as CoreCommonJob
+from ..core.models import (
+    CommonJobStatus,
+)
 from ..core.models import ContinuousJob as CoreContinuousJob
 from ..core.models import (
+    ContinuousJobStatus,
     EmailOption,
     HttpHealthCheck,
     JobType,
 )
 from ..core.models import OneOffJob as CoreOneOffJob
 from ..core.models import (
+    OneOffJobStatus,
     PortProtocol,
     Quota,
 )
 from ..core.models import ScheduledJob as CoreScheduledJob
 from ..core.models import (
+    ScheduledJobStatus,
     ScriptHealthCheck,
 )
 
@@ -291,6 +297,7 @@ class DefinedCommonJob(CommonJob):
     image_state: str = ImageData.model_fields["state"].default
     status_short: str = CoreCommonJob.model_fields["status_short"].default
     status_long: str = CoreCommonJob.model_fields["status_long"].default
+    status: CommonJobStatus = CoreCommonJob.model_fields["status"].default
 
     @classmethod
     def from_core_job(cls, core_job: AnyCoreJob) -> "DefinedCommonJob":
@@ -301,6 +308,7 @@ class DefinedCommonJob(CommonJob):
         for param, value in [
             ("status_long", core_job.status_long),
             ("status_short", core_job.status_short),
+            ("status", core_job.status),
         ]:
             if param in set_core_params:
                 optional_params[param] = value
@@ -316,7 +324,7 @@ class DefinedCommonJob(CommonJob):
 
         my_job = cls.model_validate(params)
         # remove fields that should be skipped when excluding_unset
-        for field in ["status_short", "status_long", "image_state"]:
+        for field in ["status_short", "status_long", "status", "image_state"]:
             if field in my_job.model_fields_set:
                 my_job.model_fields_set.remove(field)
 
@@ -327,6 +335,7 @@ class DefinedCommonJob(CommonJob):
 class DefinedOneOffJob(DefinedCommonJob, BaseModel):
     job_type: Literal[JobType.ONE_OFF] = CoreOneOffJob.model_fields["job_type"].default
     retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields["retry"].default
+    status: OneOffJobStatus = CoreOneOffJob.model_fields["status"].default
 
     @classmethod
     def from_core_job(cls, core_job: AnyCoreJob) -> "DefinedOneOffJob":
@@ -341,6 +350,7 @@ class DefinedOneOffJob(DefinedCommonJob, BaseModel):
             "job_type": JobType.ONE_OFF,
             "status_short": defined_common_job.status_short,
             "status_long": defined_common_job.status_long,
+            "status": core_job.status,
             "image_state": defined_common_job.image_state,
         }
         if "retry" in set_core_params:
@@ -349,7 +359,7 @@ class DefinedOneOffJob(DefinedCommonJob, BaseModel):
         params = {**common_params, **optional_params}
         my_job = cls.model_validate(params)
         # remove fields that should be skipped when excluding_unset
-        for field in ["status_short", "status_long", "image_state"]:
+        for field in ["status_short", "status_long", "status", "image_state"]:
             if field in my_job.model_fields_set:
                 my_job.model_fields_set.remove(field)
 
@@ -362,6 +372,7 @@ class DefinedScheduledJob(DefinedCommonJob, BaseModel):
     timeout: Annotated[int, Field(ge=0)] = CoreScheduledJob.model_fields["timeout"].default
     schedule: str
     schedule_actual: str | None = None
+    status: ScheduledJobStatus = CoreScheduledJob.model_fields["status"].default
 
     @classmethod
     def from_core_job(cls, core_job: AnyCoreJob) -> "DefinedScheduledJob":
@@ -379,6 +390,7 @@ class DefinedScheduledJob(DefinedCommonJob, BaseModel):
             "job_type": JobType.SCHEDULED,
             "status_short": defined_common_job.status_short,
             "status_long": defined_common_job.status_long,
+            "status": core_job.status,
             "image_state": defined_common_job.image_state,
         }
         for param, value in [
@@ -399,7 +411,7 @@ class DefinedScheduledJob(DefinedCommonJob, BaseModel):
 
         my_job = cls.model_validate(params)
         # remove fields that should be skipped when excluding_unset
-        for field in ["status_short", "status_long", "image_state", "schedule_actual"]:
+        for field in ["status_short", "status_long", "status", "image_state", "schedule_actual"]:
             if field in my_job.model_fields_set:
                 my_job.model_fields_set.remove(field)
 
@@ -422,6 +434,7 @@ class DefinedContinuousJob(DefinedCommonJob, BaseModel):
         default=CoreContinuousJob.model_fields["health_check"].default,
         discriminator="health_check_type",
     )
+    status: ContinuousJobStatus = CoreContinuousJob.model_fields["status"].default
 
     @classmethod
     def from_core_job(cls, core_job: AnyCoreJob) -> "DefinedContinuousJob":
@@ -440,6 +453,7 @@ class DefinedContinuousJob(DefinedCommonJob, BaseModel):
             "job_type": JobType.CONTINUOUS,
             "status_short": defined_common_job.status_short,
             "status_long": defined_common_job.status_long,
+            "status": core_job.status,
             "image_state": defined_common_job.image_state,
         }
         for param, value in [
@@ -461,7 +475,7 @@ class DefinedContinuousJob(DefinedCommonJob, BaseModel):
 
         my_job = cls.model_validate(params)
         # remove fields that should be skipped when excluding_unset
-        for field in ["status_short", "status_long", "image_state"]:
+        for field in ["status_short", "status_long", "status", "image_state"]:
             if field in my_job.model_fields_set:
                 my_job.model_fields_set.remove(field)
         LOGGER.debug(f"Got {core_job}, \ngenerated {my_job}")
