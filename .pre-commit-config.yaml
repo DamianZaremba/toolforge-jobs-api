@@ -3,7 +3,7 @@ default_language_version:
 
 repos:
   - repo: https://github.com/psf/black
-    rev: 26.1.0
+    rev: 26.3.1
     hooks:
       - id: black
 
@@ -53,11 +53,11 @@ repos:
       - id: check-merge-conflict
 
   - repo: https://github.com/python-openapi/openapi-spec-validator
-    rev: 0.8.3
+    rev: 0.8.4
     hooks:
       - id: openapi-spec-validator
 
   - repo: https://gitlab.wikimedia.org/repos/cloud/cicd/gitlab-ci
-    rev: 8482c68abdd8c45cfd8307b3dfc480844db6d9ad
+    rev: bb2ab7469bc423a1bd42511fa2bb9956f324afb7
     hooks:
       - id: check-openapi-version-bump
