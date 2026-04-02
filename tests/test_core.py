@@ -89,7 +89,8 @@ class TestCore:
                 expected_job = get_dummy_job(
                     job_type=job_type,
                     status_short="Unknown",
-                    status_long=f"The running version of job '{my_storage_job.job_name}' is different from what was configured, please recreate or redeploy.",
+                    status_long="Unknown",
+                    status={"up_to_date": False},
                 )
                 my_core = get_my_core(enable_storage=True)
 
@@ -117,7 +118,7 @@ class TestCore:
                 ["Continuous job", [JobType.CONTINUOUS]],
                 ["Scheduled job", [JobType.SCHEDULED]],
             )
-            def test_returns_storage_if_both_exist_and_complains_about_difference(
+            def test_returns_storage_if_both_exist_and_set_up_to_date_false_if_different(
                 self,
                 get_my_core: GetMyCore,
                 storage_k8s_cli: MagicMock,
@@ -127,7 +128,7 @@ class TestCore:
             ):
                 my_storage_job = get_dummy_job(job_name="job-from-storage", job_type=job_type)
                 my_runtime_job = get_dummy_job(job_name="job-from-runtime", job_type=job_type)
-                expected_job = get_dummy_job(job_type=job_type)
+                expected_job = get_dummy_job(job_type=job_type, status={"up_to_date": False})
                 my_core = get_my_core(enable_storage=True)
 
                 mock_runtime_create_job = MagicMock(
@@ -146,10 +147,7 @@ class TestCore:
                 )
 
                 assert gotten_job.job_name == "job-from-storage"
-                assert (
-                    gotten_job.status_long
-                    == f"The running version of job '{gotten_job.job_name}' is different from what was configured, please recreate or redeploy."
-                )
+                assert gotten_job.status.up_to_date is False
                 assert gotten_job.model_dump(
                     exclude=["job_name", "status_long"]
                 ) == expected_job.model_dump(exclude=["job_name", "status_long"])

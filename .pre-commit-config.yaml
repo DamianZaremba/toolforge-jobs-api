@@ -34,6 +34,8 @@ repos:
             "fastapi",
             "types-requests",
             "types-setuptools",
+            "types-croniter",
+            "types-python-dateutil",
             "prometheus-client",
             "prometheus-fastapi-instrumentator",
             "pydantic-settings",

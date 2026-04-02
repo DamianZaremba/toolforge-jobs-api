@@ -47,7 +47,7 @@ def _job_to_k8s_crd(*, job: AnyJob) -> dict[str, Any]:
         "apiVersion": f"{API_GROUP}/{API_VERSION}",
         "metadata": {"name": job.job_name},
         "spec": job.model_dump(
-            mode="json", exclude_unset=True, exclude={"status_short", "status_long"}
+            mode="json", exclude_unset=True, exclude={"status_short", "status_long", "status"}
         ),
     }
     return k8s_dict

@@ -344,6 +344,28 @@ class TestJobsEndpoint:
         assert response_json is not None, "Response JSON is None"
         assert expected_response.model_dump(exclude_unset=True, mode="json") == response_json
 
+    def test_set_warning_message_if_job_is_not_up_to_date(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_job(status={"up_to_date": False})
+        expected_message = f"The running version of job '{dummy_job.job_name}' is different from what was configured, please recreate or redeploy."
+        monkeypatch.setattr(
+            app.core,
+            "get_jobs",
+            value=lambda *args, **kwargs: [dummy_job],
+        )
+        gotten_response = client.get("/v1/tool/some-tool/jobs/", headers=fake_auth_headers)
+
+        assert gotten_response.status_code == http.HTTPStatus.OK
+        response_json = gotten_response.json()
+        assert response_json is not None, "Response JSON is None"
+        assert expected_message == response_json["jobs"][0]["status_long"]
+        assert expected_message in response_json["messages"]["warning"]
+
 
 class TestApiGetJob:
     def test_skips_unset_fields_for_continuous_job(

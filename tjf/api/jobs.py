@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from ..core.error import TjfValidationError
 from .auth import ensure_authenticated
 from .models import (
+    AnyDefinedJob,
     AnyNewJob,
     CommonJob,
     DeleteResponse,
@@ -41,6 +42,20 @@ LOGGER = logging.getLogger(__name__)
 jobs = APIRouter(prefix="/v1/tool/{toolname}/jobs", redirect_slashes=False)
 
 
+def _set_warnings_for_jobs_not_up_to_date(
+    jobs: list[AnyDefinedJob], messages: ResponseMessages
+) -> ResponseMessages:
+    warnings = []
+    for job in jobs:
+        if not job.status.up_to_date:
+            warning_message = f"The running version of job '{job.name}' is different from what was configured, please recreate or redeploy."
+            job.status_long = warning_message
+            warnings.append(warning_message)
+    if warnings:
+        messages = messages.model_copy(update={"warning": messages.warning + warnings})
+    return messages
+
+
 @jobs.get("")
 @jobs.get("/", include_in_schema=False)
 def api_get_jobs(
@@ -56,9 +71,12 @@ def api_get_jobs(
     ensure_authenticated(request=request)
 
     user_jobs = current_app(request).core.get_jobs(toolname=toolname)
+    defined_jobs = [get_job_for_api(job) for job in user_jobs]
     response = JobListResponse(
-        jobs=[get_job_for_api(job) for job in user_jobs],
-        messages=ResponseMessages(),
+        jobs=defined_jobs,
+        messages=_set_warnings_for_jobs_not_up_to_date(
+            jobs=defined_jobs, messages=ResponseMessages()
+        ),
     )
     if include_unset:
         LOGGER.debug(f"Returning {response}")
@@ -96,7 +114,12 @@ def api_create_job(request: Request, toolname: str, new_job: AnyNewJob) -> JobRe
     defined_job = get_job_for_api(job=job)
     logging.debug(f"Generated DefinedJob: {defined_job}")
 
-    return JobResponse(job=defined_job, messages=ResponseMessages())
+    return JobResponse(
+        job=defined_job,
+        messages=_set_warnings_for_jobs_not_up_to_date(
+            jobs=[defined_job], messages=ResponseMessages()
+        ),
+    )
 
 
 @jobs.patch("")
@@ -143,7 +166,13 @@ def api_get_job(
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
-    response = JobResponse(job=get_job_for_api(job), messages=ResponseMessages())
+    defined_job = get_job_for_api(job)
+    response = JobResponse(
+        job=defined_job,
+        messages=_set_warnings_for_jobs_not_up_to_date(
+            jobs=[defined_job], messages=ResponseMessages()
+        ),
+    )
     if include_unset:
         LOGGER.debug(f"Returning object directly: {response}")
         return response

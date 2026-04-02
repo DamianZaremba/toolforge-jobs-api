@@ -20,6 +20,7 @@ from ...core.images import (
 )
 from ...core.models import (
     AnyJob,
+    AnyJobStatus,
     ContinuousJob,
     JobType,
     OneOffJob,
@@ -42,8 +43,13 @@ from .jobs import (
 from .k8s_errors import create_error_from_k8s_response
 from .labels import labels_selector
 from .ops import trigger_scheduled_job, validate_job_limits, wait_for_pods_exit
-from .ops_status import refresh_job_long_status, refresh_job_short_status
 from .services import get_k8s_service_object
+from .status import (
+    get_continuous_job_status,
+    get_one_off_job_status,
+    get_scheduled_job_status,
+)
+from .status_deprecated import refresh_job_long_status, refresh_job_short_status
 
 LOGGER = getLogger(__name__)
 
@@ -70,6 +76,7 @@ class K8sRuntime(BaseRuntime):
                 )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
+                job.status = self._get_job_status(job=job, tool=tool)
                 job_list.append(job)
 
         return job_list
@@ -92,6 +99,7 @@ class K8sRuntime(BaseRuntime):
                 )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
+                job.status = self._get_job_status(job=job, tool=tool)
                 return job
 
         raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool}.")
@@ -115,10 +123,10 @@ class K8sRuntime(BaseRuntime):
         elif isinstance(job, ContinuousJob):
             # Update the Deployment spec and let Kubernetes cycle the pods, this ensures a graceful restart
             k8s_obj = user.k8s_cli.get_object("deployments", job.job_name)
-            if "annotations" not in k8s_obj["spec"]["template"]["metadata"]:
-                k8s_obj["spec"]["template"]["metadata"]["annotations"] = {}
-            k8s_obj["spec"]["template"]["metadata"]["annotations"] |= {
-                "app.kubernetes.io/restartedAt": datetime.now(timezone.utc).isoformat()
+            pod_annotations = k8s_obj["spec"]["template"]["metadata"].get("annotations", {})
+            k8s_obj["spec"]["template"]["metadata"]["annotations"] = {
+                **pod_annotations,
+                "app.kubernetes.io/restartedAt": datetime.now(timezone.utc).isoformat(),
             }
             user.k8s_cli.replace_object("deployments", k8s_obj)
 
@@ -219,6 +227,7 @@ class K8sRuntime(BaseRuntime):
 
             refresh_job_short_status(tool_account, job)
             refresh_job_long_status(tool_account, job)
+            job.status = self._get_job_status(job=job, tool=tool)
         except requests.exceptions.HTTPError as error:
             raise create_error_from_k8s_response(error=error, job=job, spec=spec)
 
@@ -267,11 +276,11 @@ class K8sRuntime(BaseRuntime):
             job.cmd = job.cmd.split(" ", 1)[-1]
 
         clean_current_job = current_job.model_dump_json(
-            exclude={"k8s_object", "status_short", "status_long"}, indent=4
+            exclude={"k8s_object", "status_short", "status_long", "status"}, indent=4
         )
 
         clean_new_job = job.model_dump_json(
-            exclude={"k8s_object", "status_short", "status_long"}, indent=4
+            exclude={"k8s_object", "status_short", "status_long", "status"}, indent=4
         )
         LOGGER.debug(f"Got new job:\n{clean_new_job}")
         LOGGER.debug(f"Got current job:\n{clean_current_job}")
@@ -284,6 +293,49 @@ class K8sRuntime(BaseRuntime):
             lineterm="",
         )
         return "".join([line for line in list(diff) if line is not None])
+
+    def _get_job_status(self, *, job: AnyJob, tool: str) -> AnyJobStatus:
+        LOGGER.debug(f"Getting status for the job {job.job_name}, for tool {tool}")
+        user = ToolAccount(name=tool)
+        k8s_type = K8sJobKind.from_job_type(job.job_type)
+        selector = labels_selector(
+            job_name=job.job_name,
+            user_name=user.name,
+            type=k8s_type.api_path_name,
+        )
+        k8s_pods = user.k8s_cli.get_objects(kind="pods", label_selector=selector)
+
+        job_status: AnyJobStatus
+        match job.job_type:
+            case JobType.ONE_OFF:
+                one_off_job_status = get_one_off_job_status(
+                    user=user, k8s_job=job.k8s_object, k8s_pods=k8s_pods
+                )
+                job_status = one_off_job_status
+
+            case JobType.SCHEDULED:
+                k8s_jobs = user.k8s_cli.get_objects(kind="jobs", label_selector=selector)
+                scheduled_job_status = get_scheduled_job_status(
+                    user=user,
+                    job=job,
+                    k8s_cronjob=job.k8s_object,
+                    k8s_jobs=k8s_jobs,
+                    k8s_pods=k8s_pods,
+                )
+                job_status = scheduled_job_status
+
+            case JobType.CONTINUOUS:
+                continuous_job_status = get_continuous_job_status(
+                    k8s_deployment=job.k8s_object, k8s_pods=k8s_pods
+                )
+                job_status = continuous_job_status
+
+            case _:
+                raise TjfError(
+                    f"Unable to get status for job {job.job_name} with unknown type: {job.job_type}"
+                )
+        LOGGER.debug(f"job status: {job_status}")
+        return job_status
 
     def get_quotas(self, *, tool: str) -> list[QuotaData]:
         tool_account = ToolAccount(name=tool)
