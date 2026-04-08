@@ -35,6 +35,15 @@ node16:
       image: docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base
     webservice:
       image: docker-registry.tools.wmflabs.org/toolforge-node16-sssd-web
+php8.4:
+  state: stable
+  variants:
+    jobs-framework:
+      image: docker-registry.svc.toolforge.org/toolforge-php84-sssd-base
+    webservice:
+      image: docker-registry.svc.toolforge.org/toolforge-php84-sssd-web
+      extra:
+        wstype: lighttpd
 php7.3:
   aliases:
   - tf-php73

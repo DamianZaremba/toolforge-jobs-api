@@ -106,6 +106,7 @@ class Image(BaseModel):
         """
         Given a url or name, gives back a matching existing image or a new image with the resolved information.
         Supported url/name formats:
+        * full url: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base:latest
         * short name only: "node12"
         * alias: "tf-node12"
         * image path: "tool-<mytool>/<myimage>:latest"
