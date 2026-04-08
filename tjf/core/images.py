@@ -106,6 +106,7 @@ class Image(BaseModel):
         """
         Given a url or name, gives back a matching existing image or a new image with the resolved information.
         Supported url/name formats:
+        * full url: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base:latest
         * short name only: "node12"
         * alias: "tf-node12"
         * image path: "tool-<mytool>/<myimage>:latest"
@@ -199,7 +200,6 @@ class Image(BaseModel):
         params = dict(
             type=image_type,
             short_name=image_name_with_tag_and_digest,
-            aliases=aliases,
             host=host,
             path=path,
             tag=tag,
@@ -208,6 +208,9 @@ class Image(BaseModel):
         )
         if digest:
             params["digest"] = digest
+
+        if aliases:
+            params["aliases"] = aliases
 
         new_image = cls.model_validate(params)
         LOGGER.debug(f"Got unknown image {new_image}")
@@ -311,18 +314,20 @@ def _get_prebuilt_images() -> list[Image]:
         host, path = container.split("/", 1)
         path, tag = path.split(":", 1) if ":" in path else (path, "latest")
         tag, digest = tag.split("@", 1) if "@" in path else (tag, "")
-        image = Image(
+        aliases = image_data.get("aliases", [])
+        params = dict(
             type=ImageType.STANDARD,
             short_name=name,
-            aliases=image_data.get("aliases", []),
             host=host,
             path=path,
             digest=digest,
             tag=tag,
             state=image_data["state"],
         )
+        if aliases:
+            params["aliases"] = aliases
 
-        available_images.append(image)
+        available_images.append(Image(**params))
 
     if len(available_images) < 1:
         raise TjfError("Empty list of available images")

@@ -38,7 +38,6 @@ class TestJobFromK8s:
                 image=Image(
                     type=ImageType.STANDARD,
                     short_name="python3.11",
-                    aliases=[],
                     host="docker-registry.tools.wmflabs.org",
                     path="toolforge-python311-sssd-base",
                     tag="latest",
