@@ -3,6 +3,7 @@ from tests.test_utils import cases
 from tjf.core.images import (
     Image,
     ImageType,
+    _get_image_variant_aliases,
     get_images,
 )
 
@@ -23,7 +24,11 @@ IMAGE_NAME_TESTS = [
                 host="docker-registry.tools.wmflabs.org",
                 path="toolforge-node12-sssd-base",
                 tag="latest",
-                aliases=["tf-node12", "tf-node12-DEPRECATED"],
+                aliases=[
+                    "tf-node12",
+                    "tf-node12-DEPRECATED",
+                    *_get_image_variant_aliases(path="toolforge-node12-sssd-base"),
+                ],
                 state="deprecated",
             ),
         ],
@@ -38,7 +43,10 @@ IMAGE_NAME_TESTS = [
                 host="docker-registry.tools.wmflabs.org",
                 path="toolforge-node16-sssd-base",
                 tag="latest",
-                aliases=["tf-node16"],
+                aliases=[
+                    "tf-node16",
+                    *_get_image_variant_aliases(path="toolforge-node16-sssd-base"),
+                ],
                 state="stable",
             ),
         ],
@@ -53,7 +61,11 @@ IMAGE_NAME_TESTS = [
                 host="docker-registry.tools.wmflabs.org",
                 path="toolforge-php73-sssd-base",
                 tag="latest",
-                aliases=["tf-php73", "tf-php73-DEPRECATED"],
+                aliases=[
+                    "tf-php73",
+                    "tf-php73-DEPRECATED",
+                    *_get_image_variant_aliases(path="toolforge-php73-sssd-base"),
+                ],
                 state="deprecated",
             ),
         ],
@@ -68,7 +80,113 @@ IMAGE_NAME_TESTS = [
                 host="docker-registry.svc.toolforge.org",
                 path="toolforge-php84-sssd-base",
                 tag="latest",
+                aliases=_get_image_variant_aliases(path="toolforge-php84-sssd-base"),
                 state="stable",
+            ),
+        ],
+    ],
+    [
+        "base variant alias for node16",
+        [
+            "toolforge-node16",
+            Image(
+                short_name="node16",
+                type=ImageType.STANDARD,
+                host="docker-registry.tools.wmflabs.org",
+                path="toolforge-node16-sssd-base",
+                tag="latest",
+                aliases=[
+                    "tf-node16",
+                    *_get_image_variant_aliases(path="toolforge-node16-sssd-base"),
+                ],
+                state="stable",
+            ),
+        ],
+    ],
+    [
+        "job variant alias for node16",
+        [
+            "toolforge-node16-sssd-base",
+            Image(
+                short_name="node16",
+                type=ImageType.STANDARD,
+                host="docker-registry.tools.wmflabs.org",
+                path="toolforge-node16-sssd-base",
+                tag="latest",
+                aliases=[
+                    "tf-node16",
+                    *_get_image_variant_aliases(path="toolforge-node16-sssd-base"),
+                ],
+                state="stable",
+            ),
+        ],
+    ],
+    [
+        "web variant alias for node16",
+        [
+            "toolforge-node16-sssd-web",
+            Image(
+                short_name="node16",
+                type=ImageType.STANDARD,
+                host="docker-registry.tools.wmflabs.org",
+                path="toolforge-node16-sssd-base",
+                tag="latest",
+                aliases=[
+                    "tf-node16",
+                    *_get_image_variant_aliases(path="toolforge-node16-sssd-base"),
+                ],
+                state="stable",
+            ),
+        ],
+    ],
+    [
+        "job variant alias with tag for node16",
+        [
+            "toolforge-node16-sssd-base:latest",
+            Image(
+                short_name="node16",
+                type=ImageType.STANDARD,
+                host="docker-registry.tools.wmflabs.org",
+                path="toolforge-node16-sssd-base",
+                tag="latest",
+                aliases=[
+                    "tf-node16",
+                    *_get_image_variant_aliases(path="toolforge-node16-sssd-base"),
+                ],
+                state="stable",
+            ),
+        ],
+    ],
+    [
+        "web variant alias with tag for node16",
+        [
+            "toolforge-node16-sssd-web:latest",
+            Image(
+                short_name="node16",
+                type=ImageType.STANDARD,
+                host="docker-registry.tools.wmflabs.org",
+                path="toolforge-node16-sssd-base",
+                tag="latest",
+                aliases=[
+                    "tf-node16",
+                    *_get_image_variant_aliases(path="toolforge-node16-sssd-base"),
+                ],
+                state="stable",
+            ),
+        ],
+    ],
+    [
+        "short name for php8.4 image",
+        [
+            "php8.4",
+            Image(
+                short_name="php8.4",
+                type=ImageType.STANDARD,
+                host="docker-registry.svc.toolforge.org",
+                path="toolforge-php84-sssd-base",
+                tag="latest",
+                state="stable",
+                aliases=_get_image_variant_aliases(path="toolforge-php84-sssd-base"),
             ),
         ],
     ],
@@ -345,6 +463,36 @@ def test_from_short_name_or_url_happy_path(fake_images, provided_name, expected_
                 state="unknown",
             ),
             "python1.5",
+        ],
+    ],
+    [
+        "Malformed variant name (-xx suffix)",
+        [
+            Image(
+                short_name="toolforge-node16-sssd-web-xx:latest",
+                type=ImageType.STANDARD,
+                host="",
+                path="toolforge-node16-sssd-web-xx",
+                tag="latest",
+                exists=False,
+                state="unknown",
+            ),
+            "toolforge-node16-sssd-web-xx:latest",
+        ],
+    ],
+    [
+        "Malformed variant name (xx- prefix)",
+        [
+            Image(
+                short_name="xx-toolforge-node16-sssd-web:latest",
+                type=ImageType.STANDARD,
+                host="",
+                path="xx-toolforge-node16-sssd-web",
+                tag="latest",
+                exists=False,
+                state="unknown",
+            ),
+            "xx-toolforge-node16-sssd-web:latest",
         ],
     ],
 )

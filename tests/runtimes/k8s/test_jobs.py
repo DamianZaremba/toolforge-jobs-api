@@ -12,7 +12,7 @@ from tests.helpers.fake_k8s import (
 )
 from tests.test_utils import cases, patch_spec
 from tjf.core.cron import CronExpression
-from tjf.core.images import Image, ImageType
+from tjf.core.images import Image, ImageType, _get_image_variant_aliases
 from tjf.core.models import (
     EmailOption,
     HttpHealthCheck,
@@ -38,6 +38,7 @@ class TestJobFromK8s:
                 image=Image(
                     type=ImageType.STANDARD,
                     short_name="python3.11",
+                    aliases=_get_image_variant_aliases(path="toolforge-python311-sssd-base"),
                     host="docker-registry.tools.wmflabs.org",
                     path="toolforge-python311-sssd-base",
                     tag="latest",

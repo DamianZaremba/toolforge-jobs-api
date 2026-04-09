@@ -5,7 +5,7 @@ from pathlib import Path
 from toolforge_weld.kubernetes import MountOption
 
 from tests.helpers.fakes import get_dummy_job
-from tjf.core.images import Image, ImageType
+from tjf.core.images import Image, ImageType, _get_image_variant_aliases
 from tjf.core.models import AnyJob, JobType
 
 TESTS_PATH = Path(__file__).parent.resolve()
@@ -1018,6 +1018,7 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
             tag="latest",
             type=ImageType.STANDARD,
             state="stable",
+            aliases=_get_image_variant_aliases(path="toolforge-bullseye-sssd"),
         ),
         job_type=JobType.CONTINUOUS,
         tool_name="some-tool",
@@ -1063,6 +1064,7 @@ def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJo
             host="docker-registry.tools.wmflabs.org",
             path="toolforge-python311-sssd-base",
             tag="latest",
+            aliases=_get_image_variant_aliases(path="toolforge-python311-sssd-base"),
         ),
         job_type=JobType.ONE_OFF,
         tool_name="tf-test",

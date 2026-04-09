@@ -129,6 +129,10 @@ class Image(BaseModel):
         * prebuilt image full url: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base:latest
         * prebuilt image short name: node12
         * prebuilt image alias: tf-node12
+        * prebuilt image base, job and web variants, with or without tag:
+          toolforge-node12, toolforge-node12-sssd-base,
+          toolforge-node12-sssd-base:latest, toolforge-node12-sssd-web, toolforge-node12-sssd-web:latest
+
         * buildservice image full url: harbor.example.org/tool-<mytool>/<myimage>:latest@sha256:abcd...
         * buildservice image full url (without digest): harbor.example.org/tool-<mytool>/<myimage>:latest
         * buildservice image without host: tool-<mytool>/<myimage>:latest@sha256:abcd...
@@ -255,6 +259,26 @@ def _get_images_data() -> dict[str, Any]:
     }
 
 
+def _get_image_variant_aliases(path: str) -> list[str]:
+    base_variant_name = (
+        path.split("-sssd-base", 1)[0].split("-web-sssd", 1)[0].split("-sssd-web", 1)[0]
+    )
+
+    # these images only have one variant
+    if path == base_variant_name:
+        return [base_variant_name]
+
+    job_variant_name = f"{base_variant_name}-sssd-base"
+    web_variant_name = f"{base_variant_name}-sssd-web"
+    # because bookworm and trixie images use a different web naming convention compared to others
+    if base_variant_name.endswith("toolforge-bookworm") or base_variant_name.endswith(
+        "toolforge-trixie"
+    ):
+        web_variant_name = f"{base_variant_name}-web-sssd"
+
+    return [base_variant_name, web_variant_name, job_variant_name]
+
+
 def _get_prebuilt_images() -> list[Image]:
     settings = get_settings()
     refresh_interval = settings.images_config_refresh_interval
@@ -286,10 +310,13 @@ def _get_prebuilt_images() -> list[Image]:
         host, path = container.split("/", 1)
         path, tag = path.split(":", 1) if ":" in path else (path, "latest")
         tag, digest = tag.split("@", 1) if "@" in path else (tag, "")
+
         aliases = image_data.get("aliases", [])
+        aliases.extend(_get_image_variant_aliases(path=path))
         params = dict(
             type=ImageType.STANDARD,
             short_name=name,
+            aliases=aliases,
             host=host,
             path=path,
             tag=tag,
@@ -298,8 +325,6 @@ def _get_prebuilt_images() -> list[Image]:
         # prebuilt images don't have digests for now, this may change in the future
         if digest:
             params["digest"] = digest
-        if aliases:
-            params["aliases"] = aliases
 
         available_images.append(Image(**params))
 
