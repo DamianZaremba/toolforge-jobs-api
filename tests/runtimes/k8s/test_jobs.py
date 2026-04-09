@@ -38,11 +38,15 @@ class TestJobFromK8s:
                 image=Image(
                     type=ImageType.STANDARD,
                     short_name="python3.11",
-                    aliases=[],
                     host="docker-registry.tools.wmflabs.org",
                     path="toolforge-python311-sssd-base",
                     tag="latest",
                     state="stable",
+                    aliases=[
+                        "toolforge-python311",
+                        "toolforge-python311-sssd-base",
+                        "toolforge-python311-sssd-web",
+                    ],
                 ),
                 job_name="cronjobtest",
                 tool_name="tf-test",
