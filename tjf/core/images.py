@@ -129,6 +129,10 @@ class Image(BaseModel):
         * prebuilt image full url: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base:latest
         * prebuilt image short name: node12
         * prebuilt image alias: tf-node12
+        * prebuilt image base, job and web variants, with or without tag:
+          toolforge-node12, toolforge-node12-sssd-base,
+          toolforge-node12-sssd-base:latest, toolforge-node12-sssd-web, toolforge-node12-sssd-web:latest
+
         * buildservice image full url: harbor.example.org/tool-<mytool>/<myimage>:latest@sha256:abcd...
         * buildservice image full url (without digest): harbor.example.org/tool-<mytool>/<myimage>:latest
         * buildservice image without host: tool-<mytool>/<myimage>:latest@sha256:abcd...

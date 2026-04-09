@@ -13,13 +13,18 @@ FIXTURES_PATH = TESTS_PATH / "fixtures"
 FAKE_IMAGE_CONFIG = """
 bullseye:
   state: stable
+  aliases:
+    - toolforge-bullseye
   variants:
     jobs-framework:
       image: docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd
 node12:
   aliases:
-  - tf-node12
-  - tf-node12-DEPRECATED
+    - tf-node12
+    - tf-node12-DEPRECATED
+    - toolforge-node12
+    - toolforge-node12-sssd-base
+    - toolforge-node12-sssd-web
   state: deprecated
   variants:
     jobs-framework:
@@ -28,7 +33,10 @@ node12:
       image: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-web
 node16:
   aliases:
-  - tf-node16
+    - tf-node16
+    - toolforge-node16
+    - toolforge-node16-sssd-base
+    - toolforge-node16-sssd-web
   state: stable
   variants:
     jobs-framework:
@@ -38,6 +46,10 @@ node16:
 php8.4:
   image: docker-registry.svc.toolforge.org/toolforge-php84-sssd-web
   state: stable
+  aliases:
+    - toolforge-php84
+    - toolforge-php84-sssd-base
+    - toolforge-php84-sssd-web
   variants:
     jobs-framework:
       image: docker-registry.svc.toolforge.org/toolforge-php84-sssd-base
@@ -47,8 +59,11 @@ php8.4:
         wstype: lighttpd
 php7.3:
   aliases:
-  - tf-php73
-  - tf-php73-DEPRECATED
+    - tf-php73
+    - tf-php73-DEPRECATED
+    - toolforge-php73
+    - toolforge-php73-sssd-base
+    - toolforge-php73-sssd-web
   state: deprecated
   variants:
     jobs-framework:
@@ -57,7 +72,10 @@ php7.3:
       image: docker-registry.tools.wmflabs.org/toolforge-php73-sssd-web
 php7.4:
   aliases:
-  - tf-php74
+    - tf-php74
+    - toolforge-php74
+    - toolforge-php74-sssd-base
+    - toolforge-php74-sssd-web
   state: stable
   variants:
     jobs-framework:
@@ -67,6 +85,10 @@ php7.4:
 
 python3.11:
   state: stable
+  aliases:
+    - toolforge-python311
+    - toolforge-python311-sssd-base
+    - toolforge-python311-sssd-web
   variants:
     jobs-framework:
       image: docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base
@@ -1018,6 +1040,9 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
             tag="latest",
             type=ImageType.STANDARD,
             state="stable",
+            aliases=[
+                "toolforge-bullseye",
+            ],
         ),
         job_type=JobType.CONTINUOUS,
         tool_name="some-tool",
@@ -1063,6 +1088,11 @@ def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJo
             host="docker-registry.tools.wmflabs.org",
             path="toolforge-python311-sssd-base",
             tag="latest",
+            aliases=[
+                "toolforge-python311",
+                "toolforge-python311-sssd-base",
+                "toolforge-python311-sssd-web",
+            ],
         ),
         job_type=JobType.ONE_OFF,
         tool_name="tf-test",
