@@ -326,9 +326,6 @@ def test_from_short_name_or_url_happy_path(fake_images, provided_name, expected_
                 path="randomimage",
                 tag="randomtag",
                 digest="sha:1234567890123345678901234",
-                aliases=[
-                    "randomimage:randomtag@sha:1234567890123345678901234",
-                ],
                 exists=False,
                 state="unknown",
             ),

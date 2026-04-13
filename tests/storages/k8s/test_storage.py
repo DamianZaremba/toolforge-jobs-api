@@ -6,7 +6,7 @@ import pytest
 from fastapi import status
 
 from tjf.core.cron import CronExpression
-from tjf.core.images import Image
+from tjf.core.images import Image, ImageType
 from tjf.core.models import (
     ContinuousJob,
     ScheduledJob,
@@ -35,6 +35,7 @@ def get_continuous_job(name: str = "testcont") -> ContinuousJob:
             short_name="python3.11",
             host="docker-registry.tools.wmflabs.org",
             path="toolforge-python311-sssd-base",
+            type=ImageType.STANDARD,
         ),
         job_name=name,
         tool_name="tf-test",
@@ -87,6 +88,7 @@ def get_scheduled_job(name: str = "testsched") -> ScheduledJob:
             short_name="python3.11",
             host="docker-registry.tools.wmflabs.org",
             path="toolforge-python311-sssd-base",
+            type=ImageType.STANDARD,
         ),
         job_name=name,
         tool_name="tf-test",
