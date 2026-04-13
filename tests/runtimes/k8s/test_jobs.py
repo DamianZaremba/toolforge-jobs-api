@@ -39,7 +39,7 @@ class TestJobFromK8s:
                     type=ImageType.STANDARD,
                     short_name="python3.11",
                     host="docker-registry.tools.wmflabs.org",
-                    path="toolforge-python311-sssd-base",
+                    path="toolforge-python311-sssd-web",
                     tag="latest",
                     state="stable",
                     aliases=[

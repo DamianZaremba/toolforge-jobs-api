@@ -21,7 +21,7 @@ IMAGE_NAME_TESTS = [
                 short_name="node12",
                 type=ImageType.STANDARD,
                 host="docker-registry.tools.wmflabs.org",
-                path="toolforge-node12-sssd-base",
+                path="toolforge-node12-sssd-web",
                 tag="latest",
                 aliases=[
                     "tf-node12",
@@ -42,7 +42,7 @@ IMAGE_NAME_TESTS = [
                 short_name="node16",
                 type=ImageType.STANDARD,
                 host="docker-registry.tools.wmflabs.org",
-                path="toolforge-node16-sssd-base",
+                path="toolforge-node16-sssd-web",
                 tag="latest",
                 aliases=[
                     "tf-node16",
@@ -62,7 +62,7 @@ IMAGE_NAME_TESTS = [
                 short_name="php7.3",
                 type=ImageType.STANDARD,
                 host="docker-registry.tools.wmflabs.org",
-                path="toolforge-php73-sssd-base",
+                path="toolforge-php73-sssd-web",
                 tag="latest",
                 aliases=[
                     "tf-php73",
@@ -83,7 +83,7 @@ IMAGE_NAME_TESTS = [
                 short_name="php8.4",
                 type=ImageType.STANDARD,
                 host="docker-registry.svc.toolforge.org",
-                path="toolforge-php84-sssd-base",
+                path="toolforge-php84-sssd-web",
                 tag="latest",
                 aliases=[
                     "toolforge-php84",
@@ -102,7 +102,7 @@ IMAGE_NAME_TESTS = [
                 short_name="node16",
                 type=ImageType.STANDARD,
                 host="docker-registry.tools.wmflabs.org",
-                path="toolforge-node16-sssd-base",
+                path="toolforge-node16-sssd-web",
                 tag="latest",
                 aliases=[
                     "tf-node16",
@@ -122,7 +122,7 @@ IMAGE_NAME_TESTS = [
                 short_name="node16",
                 type=ImageType.STANDARD,
                 host="docker-registry.tools.wmflabs.org",
-                path="toolforge-node16-sssd-base",
+                path="toolforge-node16-sssd-web",
                 tag="latest",
                 aliases=[
                     "tf-node16",
@@ -137,12 +137,12 @@ IMAGE_NAME_TESTS = [
     [
         "web variant alias for node16",
         [
-            "toolforge-node16-sssd-web",
+            "toolforge-node16-sssd-base",
             Image(
                 short_name="node16",
                 type=ImageType.STANDARD,
                 host="docker-registry.tools.wmflabs.org",
-                path="toolforge-node16-sssd-base",
+                path="toolforge-node16-sssd-web",
                 tag="latest",
                 aliases=[
                     "tf-node16",
@@ -162,7 +162,7 @@ IMAGE_NAME_TESTS = [
                 short_name="node16",
                 type=ImageType.STANDARD,
                 host="docker-registry.tools.wmflabs.org",
-                path="toolforge-node16-sssd-base",
+                path="toolforge-node16-sssd-web",
                 tag="latest",
                 aliases=[
                     "tf-node16",
@@ -177,12 +177,12 @@ IMAGE_NAME_TESTS = [
     [
         "web variant alias with tag for node16",
         [
-            "toolforge-node16-sssd-web:latest",
+            "toolforge-node16-sssd-base:latest",
             Image(
                 short_name="node16",
                 type=ImageType.STANDARD,
                 host="docker-registry.tools.wmflabs.org",
-                path="toolforge-node16-sssd-base",
+                path="toolforge-node16-sssd-web",
                 tag="latest",
                 aliases=[
                     "tf-node16",
@@ -202,7 +202,7 @@ IMAGE_NAME_TESTS = [
                 short_name="php8.4",
                 type=ImageType.STANDARD,
                 host="docker-registry.svc.toolforge.org",
-                path="toolforge-php84-sssd-base",
+                path="toolforge-php84-sssd-web",
                 tag="latest",
                 state="stable",
                 aliases=[
