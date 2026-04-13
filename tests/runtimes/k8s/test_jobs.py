@@ -42,6 +42,11 @@ class TestJobFromK8s:
                     path="toolforge-python311-sssd-base",
                     tag="latest",
                     state="stable",
+                    aliases=[
+                        "toolforge-python311",
+                        "toolforge-python311-sssd-base",
+                        "toolforge-python311-sssd-web",
+                    ],
                 ),
                 job_name="cronjobtest",
                 tool_name="tf-test",
