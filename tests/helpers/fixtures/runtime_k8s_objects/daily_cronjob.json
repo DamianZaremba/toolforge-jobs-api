@@ -188,7 +188,9 @@
                 "imagePullPolicy": "Always",
                 "securityContext": {
                   "capabilities": {
-                    "drop": ["ALL"]
+                    "drop": [
+                      "ALL"
+                    ]
                   },
                   "privileged": false,
                   "runAsUser": 50001,
