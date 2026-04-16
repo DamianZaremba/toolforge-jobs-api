@@ -119,6 +119,10 @@ class Core:
         return (changed_in_storage or changed_in_runtime, message)
 
     def _update_job_in_storage(self, existing_job: AnyJob, new_job: AnyJob) -> bool:
+        if isinstance(new_job, OneOffJob):
+            LOGGER.debug("Skipping updating one-off job in storage.")
+            return False
+
         to_exclude = set(["status_short", "status_long", "k8s_object"])
         are_the_same = existing_job.model_dump(
             exclude_unset=True, exclude=to_exclude
