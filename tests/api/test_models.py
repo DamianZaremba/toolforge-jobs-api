@@ -4,6 +4,7 @@ from typing import Any, Generator
 import pytest
 from toolforge_weld.kubernetes import MountOption
 
+from tests.helpers.fake_k8s import K8S_ONEOFF_JOB_OBJ
 from tjf.api.models import (
     CommonJob,
     DefinedCommonJob,
@@ -15,7 +16,7 @@ from tjf.api.models import (
     NewScheduledJob,
 )
 from tjf.core.cron import CronExpression
-from tjf.core.images import Image
+from tjf.core.images import Image, ImageType
 from tjf.core.models import CommonJob as CoreCommonJob
 from tjf.core.models import ContinuousJob as CoreContinuousJob
 from tjf.core.models import EmailOption, HealthCheckType, JobType
@@ -23,6 +24,7 @@ from tjf.core.models import OneOffJob as CoreOneOffJob
 from tjf.core.models import PortProtocol
 from tjf.core.models import ScheduledJob as CoreScheduledJob
 from tjf.core.models import ScriptHealthCheck
+from tjf.runtimes.k8s.jobs import get_job_from_k8s
 
 
 def get_dummy_core_common_job(**overrides) -> CoreCommonJob:
@@ -564,3 +566,72 @@ class TestDefinedContinuousJob:
         gotten_defined_job = DefinedContinuousJob.from_core_job(core_job=core_job)
 
         assert gotten_defined_job.model_dump() == expected_defined_job.model_dump()
+
+
+class TestGetResolvedCoreJob:
+    def test_common_job_resolves_mount_and_filelog_for_standard_image(self):
+        job = get_dummy_core_common_job()
+        resolved = job.get_resolved_core_job()
+        assert resolved.mount == MountOption.ALL
+        assert resolved.filelog is True
+        assert resolved.filelog_stdout == Path("/data/project/some-tool/dummy-job-name.out")
+        assert resolved.filelog_stderr == Path("/data/project/some-tool/dummy-job-name.err")
+
+    def test_common_job_resolves_mount_and_filelog_for_buildpack_image(self):
+        job = get_dummy_core_common_job(
+            image=Image(
+                short_name="tool-some-tool/myimage:latest",
+                type=ImageType.BUILDPACK,
+                host="harbor.example.org",
+                path="tool-some-tool/myimage",
+                tag="latest",
+                state="stable",
+            )
+        )
+        resolved = job.get_resolved_core_job()
+        assert resolved.mount == MountOption.NONE
+        assert resolved.filelog is False
+
+    def test_common_job_explicit_mount_not_overridden(self):
+        job = get_dummy_core_common_job(
+            image=Image(
+                short_name="tool-some-tool/myimage:latest",
+                type=ImageType.BUILDPACK,
+                host="harbor.example.org",
+                path="tool-some-tool/myimage",
+                tag="latest",
+                state="stable",
+            ),
+            mount=MountOption.ALL,
+        )
+        resolved = job.get_resolved_core_job()
+        assert resolved.mount == MountOption.ALL
+
+    def test_explicit_filelog_false_not_overridden_no_paths(self):
+        job = get_dummy_core_common_job(filelog=False)
+        resolved = job.get_resolved_core_job()
+        assert resolved.filelog is False
+        assert resolved.filelog_stdout is None
+        assert resolved.filelog_stderr is None
+
+    def test_resolved_job_matches_k8s_job_unresolved_does_not(self):
+        k8s_job = get_job_from_k8s(
+            k8s_object=K8S_ONEOFF_JOB_OBJ,
+            kind="jobs",
+            default_cpu_limit="1000m",
+            tool="some-tool",
+        )
+        unresolved = CoreOneOffJob(
+            cmd=k8s_job.cmd,
+            image=k8s_job.image,
+            job_name=k8s_job.job_name,
+            tool_name=k8s_job.tool_name,
+        )
+        resolved = unresolved.get_resolved_core_job()
+
+        assert k8s_job.model_dump(exclude=["k8s_object"]) == resolved.model_dump(
+            exclude=["k8s_object"]
+        )
+        assert k8s_job.model_dump(exclude=["k8s_object"]) != unresolved.model_dump(
+            exclude=["k8s_object"]
+        )

@@ -527,28 +527,16 @@ def get_common_job_from_k8s(
         "k8s_object": k8s_object,
         "tool_name": user,
         "image": image,
+        "filelog": command.filelog,
+        "filelog_stderr": command.filelog_stderr,
+        "filelog_stdout": command.filelog_stdout,
+        "emails": emails,
+        "mount": mount,
+        "memory": parse_and_format_mem(memory),
+        "cpu": format_quantity(parse_quantity(cpu)),
     }
 
-    maybe_add_value_param_list: list[tuple[Any, str]] = [
-        (command.filelog, "filelog"),
-        (command.filelog_stderr, "filelog_stderr"),
-        (command.filelog_stdout, "filelog_stdout"),
-        (parse_and_format_mem(memory), "memory"),
-        (format_quantity(parse_quantity(cpu)), "cpu"),
-        (emails, "emails"),
-        (mount, "mount"),
-    ]
-    for value, name in maybe_add_value_param_list:
-        if name in CommonJob.model_fields and CommonJob.model_fields[name].default != value:
-            params[name] = value
-
     myjob = CommonJob.model_validate(params)
-
-    # handle dynamic mount default
-    if image.type == ImageType.STANDARD and mount == MountOption.ALL:
-        if "mount" in myjob.model_fields_set:
-            myjob.model_fields_set.remove("mount")
-
     return myjob
 
 
@@ -559,18 +547,9 @@ def get_oneoff_job_from_k8s(k8s_object: dict[str, Any], common_job: CommonJob) -
         raise TjfError(
             "Invalid k8s object, did not contain a spec", data={"k8s_object": k8s_object}
         )
-    optional_params = {}
-    retry = podspec.get("backoffLimit", None)
-    if retry is not None and OneOffJob.model_fields["retry"].default != retry:
-        optional_params["retry"] = retry
-
-    params = {"job_type": JobType.ONE_OFF, **set_common_params, **optional_params}
+    retry = podspec.get("backoffLimit", 0)
+    params = {"job_type": JobType.ONE_OFF, "retry": retry, **set_common_params}
     my_job = OneOffJob.model_validate(params)
-    # Handle the dynamic mount option
-    if common_job.image.type == ImageType.STANDARD and common_job.mount == MountOption.ALL:
-        if "mount" in my_job.model_fields_set:
-            my_job.model_fields_set.remove("mount")
-        my_job.mount = common_job.mount
 
     return my_job
 
@@ -613,31 +592,23 @@ def get_scheduled_job_from_k8s(k8s_object: dict[str, Any], common_job: CommonJob
         configured=configured_schedule,
     )
 
-    params = {"job_type": JobType.SCHEDULED, "schedule": schedule, **set_common_params}
-
-    timeout = spec.get("activeDeadlineSeconds", 0)
-    maybe_add_value_param_list: list[tuple[Any, str]] = [
-        (timeout, "timeout"),
-    ]
-    for value, name in maybe_add_value_param_list:
-        if name in ScheduledJob.model_fields and ScheduledJob.model_fields[name].default != value:
-            params[name] = value
+    timeout = spec.get("jobTemplate", {}).get("spec", {}).get("activeDeadlineSeconds", 0)
+    retry = spec.get("jobTemplate", {}).get("spec", {}).get("backoffLimit", 0)
+    params = {
+        "job_type": JobType.SCHEDULED,
+        "schedule": schedule,
+        "timeout": timeout,
+        "retry": retry,
+        **set_common_params,
+    }
 
     my_job = ScheduledJob.model_validate(params)
-    # Handle the dynamic mount option
-    if common_job.mount == MountOption.NONE and common_job.image.type == ImageType.BUILDPACK:
-        if "mount" in my_job.model_fields_set:
-            my_job.model_fields_set.remove("mount")
-        my_job.mount = common_job.mount
-
     return my_job
 
 
 def get_continuous_job_from_k8s(
     k8s_object: dict[str, Any], common_job: CommonJob
 ) -> ContinuousJob:
-    set_common_params = common_job.model_dump(exclude_unset=True)
-    params = {"job_type": JobType.CONTINUOUS, **set_common_params}
 
     podspec = dict_get_object(k8s_object, "spec")
     if not podspec:
@@ -665,27 +636,17 @@ def get_continuous_job_from_k8s(
         path = container_spec["startupProbe"]["httpGet"]["path"]
         health_check = HttpHealthCheck(type=HealthCheckType.HTTP, path=path)
 
-    maybe_add_value_param_list: list[tuple[Any, str]] = [
-        (port, "port"),
-        (port_protocol, "port_protocol"),
-        (health_check, "health_check"),
-        (replicas, "replicas"),
-    ]
-    for value, name in maybe_add_value_param_list:
-        if (
-            name in ContinuousJob.model_fields
-            and ContinuousJob.model_fields[name].default != value
-        ):
-            params[name] = value
+    set_common_params = common_job.model_dump(exclude_unset=True)
+    params = {
+        "job_type": JobType.CONTINUOUS,
+        "port": port,
+        "port_protocol": port_protocol,
+        "health_check": health_check,
+        "replicas": replicas,
+        **set_common_params,
+    }
 
     my_job = ContinuousJob.model_validate(params)
-    # Handle the dynamic mount option
-    if common_job.mount == MountOption.NONE and common_job.image.type == ImageType.BUILDPACK:
-        # Note: the order of setting the mount and removing from the model_fields_set is relevant
-        my_job.mount = common_job.mount
-        if "mount" in my_job.model_fields_set:
-            my_job.model_fields_set.remove("mount")
-
     return my_job
 
 

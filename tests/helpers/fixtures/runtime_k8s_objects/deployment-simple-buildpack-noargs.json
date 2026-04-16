@@ -59,7 +59,9 @@
       "spec": {
         "containers": [
           {
-            "command": ["cmdname"],
+            "command": [
+              "cmdname"
+            ],
             "env": [
               {
                 "name": "NO_HOME",
