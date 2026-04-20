@@ -333,7 +333,11 @@ class TestDefinedCommonJob:
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_common_job(filelog=True)
+        core_job = get_dummy_core_common_job(
+            filelog=True,
+            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
+            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
+        )
 
         gotten_defined_job = DefinedCommonJob.from_core_job(core_job=core_job)
 
@@ -347,7 +351,11 @@ class TestDefinedCommonJob:
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_common_job(filelog=True)
+        core_job = get_dummy_core_common_job(
+            filelog=True,
+            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
+            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
+        )
 
         gotten_defined_job = DefinedCommonJob.from_core_job(core_job=core_job)
 
@@ -371,6 +379,8 @@ class TestDefinedCommonJob:
             status_short="dummy status short",
             status_long="dummy status long",
             filelog=True,
+            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
+            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
 
         gotten_defined_job = DefinedCommonJob.from_core_job(core_job=core_job)
@@ -385,7 +395,11 @@ class TestDefinedOneOffJob:
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_oneoff_job(filelog=True)
+        core_job = get_dummy_core_oneoff_job(
+            filelog=True,
+            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
+            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
+        )
 
         gotten_defined_job = DefinedOneOffJob.from_core_job(core_job=core_job)
 
@@ -400,7 +414,11 @@ class TestDefinedOneOffJob:
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_oneoff_job(filelog=True)
+        core_job = get_dummy_core_oneoff_job(
+            filelog=True,
+            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
+            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
+        )
 
         gotten_defined_job = DefinedOneOffJob.from_core_job(core_job=core_job)
 
@@ -415,7 +433,12 @@ class TestDefinedOneOffJob:
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_oneoff_job(retry=5, filelog=True)
+        core_job = get_dummy_core_oneoff_job(
+            retry=5,
+            filelog=True,
+            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
+            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
+        )
 
         gotten_defined_job = DefinedOneOffJob.from_core_job(core_job=core_job)
 
@@ -429,7 +452,11 @@ class TestDefinedScheduledJob:
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_scheduled_job(filelog=True)
+        core_job = get_dummy_core_scheduled_job(
+            filelog=True,
+            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
+            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
+        )
 
         gotten_defined_job = DefinedScheduledJob.from_core_job(core_job=core_job)
 
@@ -444,7 +471,11 @@ class TestDefinedScheduledJob:
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_scheduled_job(filelog=True)
+        core_job = get_dummy_core_scheduled_job(
+            filelog=True,
+            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
+            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
+        )
 
         gotten_defined_job = DefinedScheduledJob.from_core_job(core_job=core_job)
 
@@ -462,6 +493,8 @@ class TestDefinedScheduledJob:
         core_job = get_dummy_core_scheduled_job(
             timeout=120,
             filelog=True,
+            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
+            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
 
         gotten_defined_job = DefinedScheduledJob.from_core_job(core_job=core_job)
@@ -476,7 +509,11 @@ class TestDefinedContinuousJob:
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_continuous_job(filelog=True)
+        core_job = get_dummy_core_continuous_job(
+            filelog=True,
+            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
+            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
+        )
 
         gotten_defined_job = DefinedContinuousJob.from_core_job(core_job=core_job)
 
@@ -492,7 +529,11 @@ class TestDefinedContinuousJob:
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_continuous_job(filelog=True)
+        core_job = get_dummy_core_continuous_job(
+            filelog=True,
+            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
+            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
+        )
 
         gotten_defined_job = DefinedContinuousJob.from_core_job(core_job=core_job)
 
@@ -516,6 +557,8 @@ class TestDefinedContinuousJob:
             port_protocol=PortProtocol.UDP,
             health_check=ScriptHealthCheck(script="dummy-script", type=HealthCheckType.SCRIPT),
             filelog=True,
+            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
+            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
 
         gotten_defined_job = DefinedContinuousJob.from_core_job(core_job=core_job)

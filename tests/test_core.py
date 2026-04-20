@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from helpers.fakes import get_dummy_job
+from toolforge_weld.kubernetes import MountOption
 
 from tests.test_utils import cases
 from tjf.core import core
@@ -56,8 +57,8 @@ class TestCore:
                 job_type: JobType,
             ):
                 my_storage_job = None
-                my_runtime_job = get_dummy_job(job_type=job_type)
-                expected_job = get_dummy_job(job_type=job_type)
+                my_runtime_job = get_dummy_job(job_type=job_type, mount=MountOption.NONE)
+                expected_job = get_dummy_job(job_type=job_type, mount=MountOption.NONE)
                 my_core = get_my_core(enable_storage=True)
 
                 gotten_job = my_core._reconciliate_storage_and_runtime(
@@ -164,8 +165,8 @@ class TestCore:
                 monkeypatch: pytest.MonkeyPatch,
             ):
                 my_storage_job = None
-                my_runtime_job = get_dummy_job(job_type=JobType.ONE_OFF)
-                expected_job = get_dummy_job(job_type=JobType.ONE_OFF)
+                my_runtime_job = get_dummy_job(job_type=JobType.ONE_OFF, mount=MountOption.NONE)
+                expected_job = get_dummy_job(job_type=JobType.ONE_OFF, mount=MountOption.NONE)
                 my_core = get_my_core(enable_storage=True)
 
                 mock_runtime_create_job = MagicMock(
@@ -212,8 +213,8 @@ class TestCore:
                 job_type: JobType,
             ):
                 my_storage_job = None
-                my_runtime_job = get_dummy_job(job_type=job_type)
-                expected_job = get_dummy_job(job_type=job_type)
+                my_runtime_job = get_dummy_job(job_type=job_type, mount=MountOption.NONE)
+                expected_job = get_dummy_job(job_type=job_type, mount=MountOption.NONE)
                 my_core = get_my_core(enable_storage=False)
 
                 gotten_job = my_core._reconciliate_storage_and_runtime(
@@ -312,8 +313,8 @@ class TestCore:
                 monkeypatch: pytest.MonkeyPatch,
             ):
                 my_storage_job = None
-                my_runtime_job = get_dummy_job(job_type=JobType.ONE_OFF)
-                expected_job = get_dummy_job(job_type=JobType.ONE_OFF)
+                my_runtime_job = get_dummy_job(job_type=JobType.ONE_OFF, mount=MountOption.NONE)
+                expected_job = get_dummy_job(job_type=JobType.ONE_OFF, mount=MountOption.NONE)
                 my_core = get_my_core(enable_storage=False)
 
                 mock_runtime_create_job = MagicMock(

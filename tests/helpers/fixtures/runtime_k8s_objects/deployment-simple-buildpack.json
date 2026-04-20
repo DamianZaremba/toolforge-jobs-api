@@ -14,6 +14,7 @@
 			"app.kubernetes.io/name": "migrate",
 			"app.kubernetes.io/version": "2",
 			"jobs.toolforge.org/emails": "none",
+			"toolforge.org/mount-storage": "all",
 			"toolforge": "tool"
 		},
 		"name": "migrate",
@@ -33,6 +34,7 @@
 				"app.kubernetes.io/name": "migrate",
 				"app.kubernetes.io/version": "2",
 				"jobs.toolforge.org/emails": "none",
+				"toolforge.org/mount-storage": "all",
 				"toolforge": "tool"
 			}
 		},
