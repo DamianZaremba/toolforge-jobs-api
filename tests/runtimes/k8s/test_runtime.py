@@ -48,7 +48,10 @@ class TestGetJob:
 
     @cases(
         "patch, expected_job",
-        ["We get the same as the fixture", [None, get_continuous_job_fixture_as_job()]],
+        [
+            "We get the same as the fixture",
+            [None, get_continuous_job_fixture_as_job()],
+        ],
         [
             "Ignores metadata.creationTimestamp",
             [
@@ -58,11 +61,17 @@ class TestGetJob:
         ],
         [
             "Ignores metadata.resourceVersion",
-            [{"metadata": {"resourceVersion": "123456"}}, get_continuous_job_fixture_as_job()],
+            [
+                {"metadata": {"resourceVersion": "123456"}},
+                get_continuous_job_fixture_as_job(),
+            ],
         ],
         [
             "Ignores metadata.selfLink",
-            [{"metadata": {"selfLink": "self-link"}}, get_continuous_job_fixture_as_job()],
+            [
+                {"metadata": {"selfLink": "self-link"}},
+                get_continuous_job_fixture_as_job(),
+            ],
         ],
         [
             "Ignores metadata.uid",
@@ -74,7 +83,10 @@ class TestGetJob:
         ],
         [
             "Ignores metadata.managedFields",
-            [{"metadata": {"managedFields": []}}, get_continuous_job_fixture_as_job()],
+            [
+                {"metadata": {"managedFields": []}},
+                get_continuous_job_fixture_as_job(),
+            ],
         ],
         [
             "Ignores metadata.finalizers",
@@ -82,7 +94,10 @@ class TestGetJob:
         ],
         [
             "Ignores metadata.ownerReferences",
-            [{"metadata": {"ownerReferences": []}}, get_continuous_job_fixture_as_job()],
+            [
+                {"metadata": {"ownerReferences": []}},
+                get_continuous_job_fixture_as_job(),
+            ],
         ],
         [
             "Ignores metadata.annotations",
@@ -123,12 +138,12 @@ class TestGetJob:
                         type=ImageType.BUILDPACK,
                         state="stable",
                     ),
-                    mount=MountOption.NONE,
+                    mount=MountOption.ALL,
                 ),
             ],
         ],
         [
-            "Strips off filelogs if there",
+            "pickup filelogs if there",
             [
                 {
                     "metadata": {
@@ -155,7 +170,12 @@ class TestGetJob:
                         },
                     },
                 },
-                get_continuous_job_fixture_as_job(filelog=True, mount=MountOption.ALL),
+                get_continuous_job_fixture_as_job(
+                    filelog=True,
+                    mount=MountOption.ALL,
+                    filelog_stderr="/data/project/some-tool/migrate.err",
+                    filelog_stdout="/data/project/some-tool/migrate.out",
+                ),
             ],
         ],
         [
@@ -163,7 +183,7 @@ class TestGetJob:
             [
                 {"spec": {"template": {"spec": {"containers": [{"command": ["test-command"]}]}}}},
                 get_continuous_job_fixture_as_job(
-                    cmd="test-command with-arguments 'other argument with spaces'"
+                    cmd="test-command with-arguments 'other argument with spaces'",
                 ),
             ],
         ],
@@ -195,7 +215,7 @@ class TestGetJob:
                         ],
                         state="stable",
                     ),
-                    mount=MountOption.NONE,
+                    mount=MountOption.ALL,
                 ),
             ],
         ],
@@ -270,9 +290,7 @@ class TestGetJob:
             job_name=expected_job.job_name, tool=expected_job.tool_name
         )
         assert gotten_job
-        assert gotten_job.model_dump(exclude_unset=True) == expected_job.model_dump(
-            exclude_unset=True
-        )
+        assert gotten_job.model_dump() == expected_job.model_dump()
 
 
 class TestDiffWithRunningJob:
