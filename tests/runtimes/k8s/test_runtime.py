@@ -50,58 +50,58 @@ class TestGetJob:
         "patch, expected_job",
         [
             "We get the same as the fixture",
-            [None, get_continuous_job_fixture_as_job()],
+            [None, get_continuous_job_fixture_as_job(filelog=False)],
         ],
         [
             "Ignores metadata.creationTimestamp",
             [
                 {"metadata": {"creationTimestamp": "2021-09-01T00:00:00Z"}},
-                get_continuous_job_fixture_as_job(),
+                get_continuous_job_fixture_as_job(filelog=False),
             ],
         ],
         [
             "Ignores metadata.resourceVersion",
             [
                 {"metadata": {"resourceVersion": "123456"}},
-                get_continuous_job_fixture_as_job(),
+                get_continuous_job_fixture_as_job(filelog=False),
             ],
         ],
         [
             "Ignores metadata.selfLink",
             [
                 {"metadata": {"selfLink": "self-link"}},
-                get_continuous_job_fixture_as_job(),
+                get_continuous_job_fixture_as_job(filelog=False),
             ],
         ],
         [
             "Ignores metadata.uid",
-            [{"metadata": {"uid": "123456"}}, get_continuous_job_fixture_as_job()],
+            [{"metadata": {"uid": "123456"}}, get_continuous_job_fixture_as_job(filelog=False)],
         ],
         [
             "Ignores metadata.generation",
-            [{"metadata": {"generation": 10}}, get_continuous_job_fixture_as_job()],
+            [{"metadata": {"generation": 10}}, get_continuous_job_fixture_as_job(filelog=False)],
         ],
         [
             "Ignores metadata.managedFields",
             [
                 {"metadata": {"managedFields": []}},
-                get_continuous_job_fixture_as_job(),
+                get_continuous_job_fixture_as_job(filelog=False),
             ],
         ],
         [
             "Ignores metadata.finalizers",
-            [{"metadata": {"finalizers": []}}, get_continuous_job_fixture_as_job()],
+            [{"metadata": {"finalizers": []}}, get_continuous_job_fixture_as_job(filelog=False)],
         ],
         [
             "Ignores metadata.ownerReferences",
             [
                 {"metadata": {"ownerReferences": []}},
-                get_continuous_job_fixture_as_job(),
+                get_continuous_job_fixture_as_job(filelog=False),
             ],
         ],
         [
             "Ignores metadata.annotations",
-            [{"metadata": {"annotations": {}}}, get_continuous_job_fixture_as_job()],
+            [{"metadata": {"annotations": {}}}, get_continuous_job_fixture_as_job(filelog=False)],
         ],
         [
             "Ignores prefix launcher in the command when buildpack image",
@@ -139,6 +139,7 @@ class TestGetJob:
                         state="stable",
                     ),
                     mount=MountOption.ALL,
+                    filelog=False,
                 ),
             ],
         ],
@@ -184,6 +185,7 @@ class TestGetJob:
                 {"spec": {"template": {"spec": {"containers": [{"command": ["test-command"]}]}}}},
                 get_continuous_job_fixture_as_job(
                     cmd="test-command with-arguments 'other argument with spaces'",
+                    filelog=False,
                 ),
             ],
         ],
@@ -216,6 +218,7 @@ class TestGetJob:
                         state="stable",
                     ),
                     mount=MountOption.ALL,
+                    filelog=False,
                 ),
             ],
         ],
@@ -229,7 +232,7 @@ class TestGetJob:
                         }
                     }
                 },
-                get_continuous_job_fixture_as_job(cpu="1"),
+                get_continuous_job_fixture_as_job(cpu="1", filelog=False),
             ],
         ],
         [
@@ -242,14 +245,14 @@ class TestGetJob:
                         }
                     }
                 },
-                get_continuous_job_fixture_as_job(memory="1Gi"),
+                get_continuous_job_fixture_as_job(memory="1Gi", filelog=False),
             ],
         ],
         [
             "Picks up email setting",
             [
                 {"metadata": {"labels": {"jobs.toolforge.org/emails": "all"}}},
-                get_continuous_job_fixture_as_job(emails=EmailOption.all),
+                get_continuous_job_fixture_as_job(emails=EmailOption.all, filelog=False),
             ],
         ],
         [
@@ -262,7 +265,7 @@ class TestGetJob:
                         }
                     }
                 },
-                get_continuous_job_fixture_as_job(port=8080),
+                get_continuous_job_fixture_as_job(port=8080, filelog=False),
             ],
         ],
     )

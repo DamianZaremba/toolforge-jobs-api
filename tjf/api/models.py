@@ -12,7 +12,6 @@ from tjf.core.utils import format_quantity, parse_and_format_mem
 from ..core.cron import CronExpression, CronParsingError
 from ..core.error import TjfValidationError
 from ..core.images import Image as ImageData
-from ..core.images import ImageType
 from ..core.models import (
     JOBNAME_MAX_LENGTH,
     JOBNAME_PATTERN,
@@ -103,31 +102,9 @@ class CommonJob(BaseModel):
             "tool_name": tool_name,
             "job_name": self.name,
             "image": image,
+            **set_job_params,
         }
-
-        for field in ["filelog", "filelog_stdout", "filelog_stderr"]:
-            if field in set_job_params:
-                params[field] = f"{set_job_params[field]}" if field is not None else None
-
-        for param, value in [
-            ("emails", self.emails.value),
-            ("mount", self.mount.value),
-            ("memory", self.memory),
-            ("cpu", self.cpu),
-        ]:
-            if param in set_job_params and value != CoreCommonJob.model_fields[param].default:
-                params[param] = value
-
         my_job = CoreCommonJob.model_validate(params)
-
-        is_standard_image_and_mount_all = (
-            self.mount == MountOption.ALL and image.type == ImageType.STANDARD
-        )
-        if is_standard_image_and_mount_all and "mount" in self.model_fields_set:
-            # default for mount with buildpack is none, and for standard is all, we can remove this whole block when
-            # we move to the same defaults
-            self.model_fields_set.remove("mount")
-
         LOGGER.debug(
             f"Got {self} (set fields {self.model_fields_set}), \ngenerated {my_job} (fields set {my_job.model_fields_set})"
         )
@@ -135,24 +112,19 @@ class CommonJob(BaseModel):
 
     @classmethod
     def from_core_job(cls, core_job: AnyCoreJob) -> "CommonJob":
-        optional_params = {}
-        for param, value in [
-            ("filelog", core_job.filelog),
-            ("filelog_stdout", core_job.filelog_stdout),
-            ("filelog_stderr", core_job.filelog_stderr),
-            ("emails", core_job.emails.value),
-            ("mount", core_job.mount.value),
-            ("memory", core_job.memory),
-            ("cpu", core_job.cpu),
-        ]:
-            if param in core_job.model_fields_set:
-                optional_params[param] = value
+        set_job_params = core_job.model_dump(exclude_unset=True)
+        name = set_job_params.pop("job_name")
+        imagename = set_job_params.pop("image")["short_name"]
+
+        # remove fields that don't belong in this model
+        for field in list(set_job_params.keys()):
+            if field not in cls.model_fields:
+                set_job_params.pop(field)
 
         params: dict[str, Any] = {
-            "name": core_job.job_name,
-            "cmd": core_job.cmd,
-            "imagename": core_job.image.short_name,  # not being validated because image from k8s might not exist
-            **optional_params,
+            "name": name,
+            "imagename": imagename,  # not being validated because image from k8s might not exist
+            **set_job_params,
         }
 
         my_job = CommonJob.model_validate(params)
@@ -177,12 +149,18 @@ class NewOneOffJob(CommonJob, BaseModel):
         LOGGER.debug(
             f"NewOneOffJob.to_core_job: got {self} (with set fields {self.model_fields_set})"
         )
-        if "continuous" in self.model_fields_set:
-            self.model_fields_set.remove("continuous")
         common_core_fields = (
             super().to_core_job(tool_name=tool_name).model_dump(exclude_unset=True)
         )
-        my_job = CoreOneOffJob.model_validate(common_core_fields)
+        set_fields = self.model_dump(exclude_unset=True)
+
+        # remove fields that don't belong in this model
+        for field in list(set_fields.keys()):
+            if field not in CoreOneOffJob.model_fields:
+                set_fields.pop(field)
+
+        all_fields = {**set_fields, **common_core_fields}
+        my_job = CoreOneOffJob.model_validate(all_fields)
         LOGGER.debug(f"Got {self}, \ngenerated {my_job}")
         return my_job
 
@@ -204,29 +182,28 @@ class NewScheduledJob(CommonJob, BaseModel):
         LOGGER.debug(
             f"NewScheduledJob.to_core_job: got {self} (with set fields {self.model_fields_set})"
         )
-        if "continuous" in self.model_fields_set:
-            self.model_fields_set.remove("continuous")
         common_core_fields = (
             super().to_core_job(tool_name=tool_name).model_dump(exclude_unset=True)
         )
         set_fields = self.model_dump(exclude_unset=True)
-        new_optional_fields = {}
 
+        # remove fields that don't belong in this model
+        for field in list(set_fields.keys()):
+            if field not in CoreScheduledJob.model_fields:
+                set_fields.pop(field)
+
+        schedule = set_fields.pop("schedule")
         # TODO: move the validation to the core layer
         try:
-            schedule = CronExpression.parse(
-                value=self.schedule,
+            schedule_obj = CronExpression.parse(
+                value=schedule,
                 job_name=common_core_fields["job_name"],
                 tool_name=tool_name,
             )
         except CronParsingError as e:
-            raise TjfValidationError(f'Unable to parse cron expression "{self.schedule}"') from e
+            raise TjfValidationError(f'Unable to parse cron expression "{schedule}"') from e
 
-        if "timeout" in set_fields:
-            new_optional_fields["timeout"] = set_fields["timeout"]
-
-        all_fields = {"schedule": schedule, **common_core_fields, **new_optional_fields}
-
+        all_fields = {**set_fields, **common_core_fields, "schedule": schedule_obj}
         my_job = CoreScheduledJob.model_validate(all_fields)
         LOGGER.debug(f"Got {self}, \ngenerated {my_job}")
         return my_job
@@ -256,23 +233,17 @@ class NewContinuousJob(CommonJob, BaseModel):
         LOGGER.debug(
             f"NewContinuousJob.to_core_job: got {self} (with set fields {self.model_fields_set})"
         )
-        if "continuous" in self.model_fields_set:
-            self.model_fields_set.remove("continuous")
         common_core_fields = (
             super().to_core_job(tool_name=tool_name).model_dump(exclude_unset=True)
         )
         set_fields = self.model_dump(exclude_unset=True)
-        new_optional_fields = {}
 
-        for field in ["replicas", "port", "health_check", "port_protocol"]:
-            if field in set_fields:
-                new_optional_fields[field] = set_fields[field]
+        # remove fields that don't belong in this model
+        for field in list(set_fields.keys()):
+            if field not in CoreContinuousJob.model_fields:
+                set_fields.pop(field)
 
-        all_fields = {
-            **common_core_fields,
-            **new_optional_fields,
-        }
-
+        all_fields = {**set_fields, **common_core_fields}
         my_job = CoreContinuousJob.model_validate(all_fields)
         LOGGER.debug(
             f"Got {self} (set fields {self.model_fields_set}), \ngenerated {my_job} (set fields {my_job.model_fields_set})"
@@ -295,23 +266,19 @@ class DefinedCommonJob(CommonJob):
     @classmethod
     def from_core_job(cls, core_job: AnyCoreJob) -> "DefinedCommonJob":
         common_params = CommonJob.from_core_job(core_job=core_job).model_dump(exclude_unset=True)
-
         set_core_params = core_job.model_dump(exclude_unset=True)
-        optional_params = {}
-        for param, value in [
-            ("status_long", core_job.status_long),
-            ("status_short", core_job.status_short),
-        ]:
-            if param in set_core_params:
-                optional_params[param] = value
+        image_state = set_core_params.pop("image")["state"]
 
-        if "state" in set_core_params["image"]:
-            optional_params["image_state"] = core_job.image.state
+        # remove fields that don't belong in this model
+        for field in list(set_core_params.keys()):
+            if field not in cls.model_fields:
+                set_core_params.pop(field)
 
         params: dict[str, Any] = {
-            "image": common_params["imagename"],
+            **set_core_params,
             **common_params,
-            **optional_params,
+            "image": common_params["imagename"],
+            "image_state": image_state,
         }
 
         my_job = cls.model_validate(params)
@@ -336,17 +303,19 @@ class DefinedOneOffJob(DefinedCommonJob, BaseModel):
         defined_common_job = DefinedCommonJob.from_core_job(core_job=core_job)
         common_params = defined_common_job.model_dump(exclude_unset=True)
         set_core_params = core_job.model_dump(exclude_unset=True)
-        optional_params: dict[str, Any] = {
-            # always return these one
-            "job_type": JobType.ONE_OFF,
-            "status_short": defined_common_job.status_short,
-            "status_long": defined_common_job.status_long,
-            "image_state": defined_common_job.image_state,
-        }
-        if "retry" in set_core_params:
-            optional_params["retry"] = set_core_params["retry"]
+        image_state = set_core_params.pop("image")["state"]
 
-        params = {**common_params, **optional_params}
+        # remove fields that don't belong in this model
+        for field in list(set_core_params.keys()):
+            if field not in cls.model_fields:
+                set_core_params.pop(field)
+
+        params = {
+            "job_type": JobType.ONE_OFF,
+            "image_state": image_state,
+            **set_core_params,
+            **common_params,
+        }
         my_job = cls.model_validate(params)
         # remove fields that should be skipped when excluding_unset
         for field in ["status_short", "status_long", "image_state"]:
@@ -360,6 +329,7 @@ class DefinedOneOffJob(DefinedCommonJob, BaseModel):
 class DefinedScheduledJob(DefinedCommonJob, BaseModel):
     job_type: Literal[JobType.SCHEDULED] = CoreScheduledJob.model_fields["job_type"].default
     timeout: Annotated[int, Field(ge=0)] = CoreScheduledJob.model_fields["timeout"].default
+    retry: Annotated[int, Field(ge=0, le=5)] = CoreScheduledJob.model_fields["retry"].default
     schedule: str
     schedule_actual: str | None = None
 
@@ -372,38 +342,32 @@ class DefinedScheduledJob(DefinedCommonJob, BaseModel):
 
         defined_common_job = DefinedCommonJob.from_core_job(core_job=core_job)
         common_params = defined_common_job.model_dump(exclude_unset=True)
-
         set_core_params = core_job.model_dump(exclude_unset=True)
-        optional_params: dict[str, Any] = {
-            # always return this one
-            "job_type": JobType.SCHEDULED,
-            "status_short": defined_common_job.status_short,
-            "status_long": defined_common_job.status_long,
-            "image_state": defined_common_job.image_state,
-        }
-        for param, value in [
-            ("timeout", core_job.timeout),
-        ]:
-            if param in set_core_params and value != CoreScheduledJob.model_fields[param].default:
-                optional_params[param] = value
+        schedule = set_core_params.pop("schedule")["text"]
+        image_state = set_core_params.pop("image")["state"]
 
-        if "schedule" in set_core_params:
-            optional_params["schedule"] = core_job.schedule.text
-            optional_params["schedule_actual"] = str(core_job.schedule)
+        # remove fields that don't belong in this model
+        for field in list(set_core_params.keys()):
+            if field not in cls.model_fields:
+                set_core_params.pop(field)
 
         params: dict[str, Any] = {
-            "image": common_params["imagename"],
+            "job_type": JobType.SCHEDULED,
+            "schedule": schedule,
+            "schedule_actual": str(core_job.schedule),
+            "image_state": image_state,
+            **set_core_params,
             **common_params,
-            **optional_params,
         }
 
         my_job = cls.model_validate(params)
-        # remove fields that should be skipped when excluding_unset
+        # remove fields that should be skipped when excluding unset
         for field in ["status_short", "status_long", "image_state", "schedule_actual"]:
             if field in my_job.model_fields_set:
                 my_job.model_fields_set.remove(field)
 
         LOGGER.debug(f"Got {core_job}, \ngenerated {my_job}")
+        LOGGER.debug(f"Without unset: {my_job.model_dump(exclude_unset=True)}")
         return my_job
 
 
@@ -429,36 +393,23 @@ class DefinedContinuousJob(DefinedCommonJob, BaseModel):
             raise TjfValidationError(
                 "DefinedContinuousJob can only be created from a CoreContinuousJob"
             )
-
         defined_common_job = DefinedCommonJob.from_core_job(core_job=core_job)
         common_params = defined_common_job.model_dump(exclude_unset=True)
-
         set_core_params = core_job.model_dump(exclude_unset=True)
-        optional_params = {
-            # always return these two for now
-            "continuous": True,
-            "job_type": JobType.CONTINUOUS,
-            "status_short": defined_common_job.status_short,
-            "status_long": defined_common_job.status_long,
-            "image_state": defined_common_job.image_state,
-        }
-        for param, value in [
-            ("replicas", core_job.replicas),
-            ("port", core_job.port),
-            ("port_protocol", core_job.port_protocol),
-            (
-                "health_check",
-                core_job.health_check.model_dump(by_alias=True) if core_job.health_check else None,
-            ),
-        ]:
-            if param in set_core_params:
-                optional_params[param] = value
+        image_state = set_core_params.pop("image")["state"]
+
+        # remove fields that don't belong in this model
+        for field in list(set_core_params.keys()):
+            if field not in cls.model_fields:
+                set_core_params.pop(field)
 
         params: dict[str, Any] = {
+            "job_type": JobType.CONTINUOUS,
+            "continuous": True,
+            "image_state": image_state,
+            **set_core_params,
             **common_params,
-            **optional_params,
         }
-
         my_job = cls.model_validate(params)
         # remove fields that should be skipped when excluding_unset
         for field in ["status_short", "status_long", "image_state"]:

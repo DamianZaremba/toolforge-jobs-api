@@ -77,7 +77,9 @@
             "securityContext": {
               "allowPrivilegeEscalation": false,
               "capabilities": {
-                "drop": ["ALL"]
+                "drop": [
+                  "ALL"
+                ]
               },
               "privileged": false,
               "readOnlyRootFilesystem": false,

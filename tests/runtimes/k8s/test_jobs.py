@@ -71,8 +71,7 @@ class TestJobFromK8s:
 
     class TestOneoffJob:
         def test_minimal_fields(self, fake_images: dict[str, Any]):
-            expected_job = get_oneoff_job_fixture_as_job()
-
+            expected_job = get_oneoff_job_fixture_as_job(mount=MountOption.ALL)
             gotten_job = jobs.get_job_from_k8s(
                 k8s_object=K8S_ONEOFF_JOB_OBJ,
                 kind="jobs",
@@ -84,7 +83,9 @@ class TestJobFromK8s:
 
         def test_all_fields(self, fake_images: dict[str, Any]):
             k8s_object = patch_spec(spec=K8S_ONEOFF_JOB_OBJ, patch={"spec": {"backoffLimit": 5}})
-            expected_job = get_oneoff_job_fixture_as_job(retry=5, k8s_object=k8s_object)
+            expected_job = get_oneoff_job_fixture_as_job(
+                retry=5, k8s_object=k8s_object, mount=MountOption.ALL
+            )
 
             gotten_job = jobs.get_job_from_k8s(
                 k8s_object=k8s_object, kind="jobs", default_cpu_limit="1000m", tool="some-tool"
@@ -94,7 +95,7 @@ class TestJobFromK8s:
 
     class TestContinuousJob:
         def test_minimal_fields(self, fake_images: dict[str, Any]):
-            expected_job = get_continuous_job_fixture_as_job(add_status=False)
+            expected_job = get_continuous_job_fixture_as_job(add_status=False, filelog=False)
 
             gotten_job = jobs.get_job_from_k8s(
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
@@ -106,7 +107,7 @@ class TestJobFromK8s:
             assert gotten_job.model_dump() == expected_job.model_dump()
 
         def test_all_fields(self, fake_images: dict[str, Any]):
-            expected_job = get_continuous_job_fixture_as_job(add_status=False)
+            expected_job = get_continuous_job_fixture_as_job(add_status=False, filelog=False)
 
             gotten_job = jobs.get_job_from_k8s(
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
@@ -191,7 +192,12 @@ class TestGetJobForK8s:
             [
                 "Test filelog true",
                 [
-                    {"mount": MountOption.ALL, "filelog": True},
+                    {
+                        "mount": MountOption.ALL,
+                        "filelog": True,
+                        "filelog_stderr": Path("/data/project/some-tool/migrate.err"),
+                        "filelog_stdout": Path("/data/project/some-tool/migrate.out"),
+                    },
                     # TODO: maybe make this check less flaky
                     lambda k8s_obj: (
                         k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"] == "all"
