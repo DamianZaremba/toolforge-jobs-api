@@ -35,6 +35,16 @@ node16:
       image: docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base
     webservice:
       image: docker-registry.tools.wmflabs.org/toolforge-node16-sssd-web
+php8.4:
+  image: docker-registry.svc.toolforge.org/toolforge-php84-sssd-web
+  state: stable
+  variants:
+    jobs-framework:
+      image: docker-registry.svc.toolforge.org/toolforge-php84-sssd-base
+    webservice:
+      image: docker-registry.svc.toolforge.org/toolforge-php84-sssd-web
+      extra:
+        wstype: lighttpd
 php7.3:
   aliases:
   - tf-php73
@@ -1008,7 +1018,6 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
             tag="latest",
             type=ImageType.STANDARD,
             state="stable",
-            aliases=[],
         ),
         job_type=JobType.CONTINUOUS,
         tool_name="some-tool",
