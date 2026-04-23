@@ -97,8 +97,8 @@ class Core:
             # even if it's updating, it might be that the job does not exist yet
             LOGGER.debug(f"Creating job {job.job_name}")
             self.create_job(job=job)
-            message = f"Job {job.job_name} created in storage and runtime"
-            LOGGER.info(message)
+            message = f"Job {job.job_name} created"
+            LOGGER.info(f"{message} in storage and runtime")
             return True, message
 
         LOGGER.debug(f"Updating job in storage {job.job_name}")
@@ -109,13 +109,17 @@ class Core:
 
         message = f"Job {job.job_name} "
         if changed_in_runtime and changed_in_storage:
-            message += "was updated in storage and runtime"
+            message += "was updated"
+            LOGGER.debug(f"{message} in storage and runtime")
         elif changed_in_storage:
-            message += "was updated in storage only"
+            message += "was updated"
+            LOGGER.debug(f"{message} in storage only")
         elif changed_in_runtime:
-            message += "was updated in runtime only"
+            message += "was updated"
+            LOGGER.debug(f"{message} in runtime only")
         else:
             message += "is already up to date"
+            LOGGER.debug(f"{message}")
 
         return (changed_in_storage or changed_in_runtime, message)
 

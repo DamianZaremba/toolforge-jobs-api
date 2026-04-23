@@ -6,7 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
-from pytest import MonkeyPatch
+from pytest import LogCaptureFixture, MonkeyPatch
 from toolforge_weld.errors import ToolforgeUserError
 
 from tests.helpers.fakes import get_dummy_job
@@ -486,6 +486,7 @@ class TestApiUpdateJob:
         client: TestClient,
         app: JobsApi,
         monkeypatch: MonkeyPatch,
+        caplog: LogCaptureFixture,
         fake_auth_headers: dict[str, str],
         fake_images: dict[str, Any],
     ) -> None:
@@ -505,9 +506,10 @@ class TestApiUpdateJob:
             }
         )
 
+        exp_info_msg = "Job silly-job-name was updated"
         expected_response = UpdateResponse(
             job_changed=True,
-            messages=ResponseMessages(info=["Job silly-job-name was updated in runtime only"]),
+            messages=ResponseMessages(info=[exp_info_msg]),
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
@@ -516,12 +518,14 @@ class TestApiUpdateJob:
         )
 
         assert UpdateResponse.model_validate(actual_response.json()) == expected_response
+        assert f"{exp_info_msg} in runtime only" in caplog.text
 
     def test_job_with_changes_in_storage_only(
         self,
         client: TestClient,
         app: JobsApi,
         monkeypatch: MonkeyPatch,
+        caplog: LogCaptureFixture,
         fake_auth_headers: dict[str, str],
         fake_images: dict[str, Any],
     ) -> None:
@@ -540,9 +544,10 @@ class TestApiUpdateJob:
             }
         )
 
+        exp_info_msg = "Job silly-job-name was updated"
         expected_response = UpdateResponse(
             job_changed=True,
-            messages=ResponseMessages(info=["Job silly-job-name was updated in storage only"]),
+            messages=ResponseMessages(info=[exp_info_msg]),
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
@@ -551,12 +556,14 @@ class TestApiUpdateJob:
         )
 
         assert UpdateResponse.model_validate(actual_response.json()) == expected_response
+        assert f"{exp_info_msg} in storage only" in caplog.text
 
     def test_missing_job_in_storage_and_runtime(
         self,
         client: TestClient,
         app: JobsApi,
         monkeypatch: MonkeyPatch,
+        caplog: LogCaptureFixture,
         fake_auth_headers: dict[str, str],
         fake_images: dict[str, Any],
     ) -> None:
@@ -586,9 +593,10 @@ class TestApiUpdateJob:
             }
         )
 
+        exp_info_msg = "Job silly-job-name created"
         expected_response = UpdateResponse(
             job_changed=True,
-            messages=ResponseMessages(info=["Job silly-job-name created in storage and runtime"]),
+            messages=ResponseMessages(info=[exp_info_msg]),
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
@@ -597,3 +605,4 @@ class TestApiUpdateJob:
         )
 
         assert UpdateResponse.model_validate(actual_response.json()) == expected_response
+        assert f"{exp_info_msg} in storage and runtime" in caplog.text
