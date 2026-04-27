@@ -1,4 +1,5 @@
 #!/bin/bash
+# TODO: remove this file, no longer used for any reason.
 # local deployment only
 set -o errexit
 set -o nounset

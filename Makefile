@@ -1,5 +1,6 @@
 SHELL := /bin/bash
 
+# TODO: remove these files, no longer used for any reason.
 # not generating any local files
 .PHONY: run image kind_load rollout build-and-deploy-local
 
