@@ -11,7 +11,7 @@ license = "AGPL-3.0-or-later"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.13"
 pyyaml = "^6.0.1"
 requests = "^2.31.0"
 toolforge-weld = "^1.6.12"
@@ -38,7 +38,7 @@ pytest-asyncio = "^1.2.0"
 
 [tool.black]
 line-length = 99
-target-version = ['py311']
+target-version = ['py313']
 
 [tool.isort]
 profile = "black"
