@@ -1,10 +1,13 @@
 include:
   - project: "repos/cloud/cicd/gitlab-ci"
     file: "py3.13-trixie-tox/gitlab-ci.yaml"
+    ref: upgrade_blubber_to_v0_24_0 # TODO: change back to main after upgrade_blubber_to_v0_24_0 is merged
   - project: "repos/cloud/cicd/gitlab-ci"
     file: "toolforge-cd/only_image_publish.yaml"
+    ref: upgrade_blubber_to_v0_24_0 # TODO: change back to main after upgrade_blubber_to_v0_24_0 is merged
   - project: "repos/cloud/cicd/gitlab-ci"
     file: "toolforge-cd/only_helm_publish.yaml"
+    ref: upgrade_blubber_to_v0_24_0 # TODO: change back to main after upgrade_blubber_to_v0_24_0 is merged
 
 variables:
   PROJECT_NAME: jobs-api
