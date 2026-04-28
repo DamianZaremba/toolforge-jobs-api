@@ -18,19 +18,11 @@ from tjf.core.cron import CronExpression
 from tjf.core.images import Image
 from tjf.core.models import CommonJob as CoreCommonJob
 from tjf.core.models import ContinuousJob as CoreContinuousJob
-from tjf.core.models import (
-    EmailOption,
-    HealthCheckType,
-    JobType,
-)
+from tjf.core.models import EmailOption, HealthCheckType, JobType
 from tjf.core.models import OneOffJob as CoreOneOffJob
-from tjf.core.models import (
-    PortProtocol,
-)
+from tjf.core.models import PortProtocol
 from tjf.core.models import ScheduledJob as CoreScheduledJob
-from tjf.core.models import (
-    ScriptHealthCheck,
-)
+from tjf.core.models import ScriptHealthCheck
 
 
 def get_dummy_core_common_job(**overrides) -> CoreCommonJob:
