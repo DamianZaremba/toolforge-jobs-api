@@ -18,25 +18,14 @@ from ..core.models import (
     JOBNAME_PATTERN,
 )
 from ..core.models import AnyJob as AnyCoreJob
-from ..core.models import (
-    BaseModel,
-)
+from ..core.models import BaseModel
 from ..core.models import CommonJob as CoreCommonJob
 from ..core.models import ContinuousJob as CoreContinuousJob
-from ..core.models import (
-    EmailOption,
-    HttpHealthCheck,
-    JobType,
-)
+from ..core.models import EmailOption, HttpHealthCheck, JobType
 from ..core.models import OneOffJob as CoreOneOffJob
-from ..core.models import (
-    PortProtocol,
-    Quota,
-)
+from ..core.models import PortProtocol, Quota
 from ..core.models import ScheduledJob as CoreScheduledJob
-from ..core.models import (
-    ScriptHealthCheck,
-)
+from ..core.models import ScriptHealthCheck
 
 LOGGER = getLogger(__name__)
 
