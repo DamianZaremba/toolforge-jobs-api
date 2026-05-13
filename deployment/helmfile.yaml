@@ -16,7 +16,7 @@ releases:
             pullpolicy: Never
 
         harbor:
-          host: "192.168.5.15"
+          host: "harbor.local"
           protocol: http
         certificates:
           internalClusterDomain: cluster.local
