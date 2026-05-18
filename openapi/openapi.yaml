@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.10.0"
+  version: "4.11.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -563,6 +563,16 @@ components:
     ScheduledJobStatus:
       allOf:
         - $ref: "#/components/schemas/CommonJobStatus"
+        - type: object
+          properties:
+            previous_schedule:
+              type: string
+              description: "datetime string of the prev time the job was triggered (iso8601)"
+              example: "2025-08-27T10:07:48Z"
+            next_schedule:
+              type: string
+              description: "datetime string of the next time the job will be triggered (iso8601)"
+              example: "2025-08-28T10:07:48Z"
     ContinuousJobStatus:
       allOf:
         - $ref: "#/components/schemas/CommonJobStatus"

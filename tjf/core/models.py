@@ -148,7 +148,8 @@ class ContinuousJobStatus(CommonJobStatus):
 
 
 class ScheduledJobStatus(CommonJobStatus):
-    pass
+    previous_schedule: str | None = None
+    next_schedule: str | None = None
 
 
 AnyJobStatus = OneOffJobStatus | ContinuousJobStatus | ScheduledJobStatus

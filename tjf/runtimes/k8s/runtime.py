@@ -317,6 +317,7 @@ class K8sRuntime(BaseRuntime):
                 k8s_jobs = user.k8s_cli.get_objects(kind="jobs", label_selector=selector)
                 scheduled_job_status = get_scheduled_job_status(
                     user=user,
+                    job=job,
                     k8s_cronjob=job.k8s_object,
                     k8s_jobs=k8s_jobs,
                     k8s_pods=k8s_pods,

@@ -1,11 +1,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2025 Raymond Ndibe <rndibe@wikimedia.org>
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from logging import getLogger
 from typing import Any
 
+from croniter import croniter  # TODO: avoid installing new lib if possible
+from dateutil import parser as date_parser
+
 from ...core.models import (
+    AnyJob,
+    Command,
     CommonJobStatus,
     ContinuousJobStatus,
     OneOffJobStatus,
@@ -18,6 +23,8 @@ from ...core.utils import (
     remove_prefixes,
 )
 from .account import ToolAccount
+from .command import GeneratedCommand, get_command_for_k8s
+from .jobs import JOB_PROGRESS_DEADLINE_SECONDS
 
 LOGGER = getLogger(__name__)
 
@@ -162,10 +169,8 @@ def _extract_container_statuses(
                 messages = [f"restarted ({restart_count})"]
                 if container_status.get("lastState", {}).get("terminated", None):
                     exit_code = container_status["lastState"]["terminated"].get("exitCode", 0)
-                    messages = [
-                        f"restarted ({restart_count})",
-                        f"exitcode {exit_code}",
-                    ]
+                    messages = [f"restarted ({restart_count})", f"exitcode {exit_code}"]
+
                 aggregated_statuses["restarted"].append(
                     CommonJobStatus(
                         short=StatusShort.PENDING,
@@ -203,7 +208,9 @@ def _extract_container_statuses(
             else:
                 aggregated_statuses["unknown"].append(
                     CommonJobStatus(
-                        short=StatusShort.UNKNOWN, duration=default_duration, up_to_date=True
+                        short=StatusShort.UNKNOWN,
+                        duration=default_duration,
+                        up_to_date=True,
                     )
                 )
 
@@ -213,7 +220,6 @@ def _extract_container_statuses(
 def _extract_pending_scheduling_status_from_pods(
     pods: list[dict[str, Any]],
 ) -> list[CommonJobStatus]:
-
     pod_scheduling_statuses: list[CommonJobStatus] = []
     for pod in pods:
         LOGGER.debug(f"getting status for pod {pod['metadata']['name']}")
@@ -260,8 +266,7 @@ def _get_status_from_pods(pods: list[dict[str, Any]]) -> CommonJobStatus | None:
 
 
 def _get_one_off_job_status_from_out_of_quota_event(
-    user: ToolAccount,
-    k8s_job: dict[str, Any],
+    user: ToolAccount, k8s_job: dict[str, Any]
 ) -> OneOffJobStatus | None:
     """
     Detect out-of-quota failures via Kubernetes Events for k8s jobs.
@@ -274,12 +279,14 @@ def _get_one_off_job_status_from_out_of_quota_event(
     """
     k8s_job_uid = k8s_job["metadata"].get("uid", None)
     if not k8s_job_uid:
+        LOGGER.warning("Got no uid for job, unable to update status: %s", str(k8s_job))
         return OneOffJobStatus(
             short=StatusShort.UNKNOWN,
             duration=_get_duration(start_time=k8s_job["metadata"]["creationTimestamp"]),
             up_to_date=True,
         )
 
+    LOGGER.debug("Got uid %s for job, getting events", k8s_job_uid)
     events = user.k8s_cli.get_objects(
         kind="events", field_selector=f"involvedObject.uid={k8s_job_uid}"
     )
@@ -300,9 +307,118 @@ def _get_one_off_job_status_from_out_of_quota_event(
     return None
 
 
-def _get_one_off_job_status_from_conditions(
-    job_status: dict[str, Any],
-) -> OneOffJobStatus | None:
+def _get_automatically_triggered_job(k8s_job_spec: dict[str, Any]) -> dict[str, Any] | None:
+    instantiate = (
+        k8s_job_spec.get("metadata", {})
+        .get("annotations", {})
+        .get("cronjob.kubernetes.io/instantiate", None)
+    )
+    if not instantiate:
+        return k8s_job_spec
+
+    return None
+
+
+def _are_commands_equal(job: AnyJob, k8s_job_spec: dict[str, Any]) -> bool:
+    manual_k8s_job_container = k8s_job_spec["spec"]["template"]["spec"]["containers"][0]
+    # manual k8s_job_spec comes from k8s so if we can't get command, let things blow up.
+    # because in that case something is seriously wrong
+    manual_k8s_job_command = manual_k8s_job_container["command"]
+    manual_k8s_job_args = manual_k8s_job_container.get("args", None)
+    manual_k8s_job_generated_command = GeneratedCommand(
+        command=manual_k8s_job_command, args=manual_k8s_job_args
+    )
+    scheduled_job_command = Command(
+        user_command=job.cmd,
+        filelog=job.filelog,
+        filelog_stdout=job.filelog_stdout,
+        filelog_stderr=job.filelog_stderr,
+    )
+    scheduled_job_generated_command = get_command_for_k8s(
+        command=scheduled_job_command,
+        job_name=job.job_name,
+        tool_name=job.tool_name,
+    )
+    return manual_k8s_job_generated_command == scheduled_job_generated_command
+
+
+def _get_manually_triggered_job(
+    job: AnyJob, cronjob_uid: str, k8s_job_spec: dict[str, Any]
+) -> dict[str, Any] | None:
+    instantiate = (
+        k8s_job_spec.get("metadata", {})
+        .get("annotations", {})
+        .get("cronjob.kubernetes.io/instantiate", None)
+    )
+    if instantiate != "manual":
+        return None
+
+    ownerreferences = k8s_job_spec.get("metadata", {}).get("ownerReferences", [])
+    if not ownerreferences:
+        return None
+
+    matching_reference = False
+    for reference in ownerreferences:
+        if reference.get("kind", None) != "CronJob":
+            continue
+
+        if reference.get("name", None) != job.job_name:
+            continue
+
+        if reference.get("uid", None) == cronjob_uid:
+            matching_reference = True
+
+    if not matching_reference:
+        return None
+
+    if not _are_commands_equal(job, k8s_job_spec):
+        return None
+
+    return k8s_job_spec
+
+
+def _get_latest_k8s_cronjob_job(
+    job: AnyJob, k8s_cronjob: dict[str, Any], k8s_jobs: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """
+    This function tries to retrieve the most recent auto and manually triggered jobs,
+    then return the most recent job.
+    """
+    if not k8s_jobs:
+        return None
+
+    auto_job: dict[str, Any] | None = None
+    manual_job: dict[str, Any] | None = None
+    cronjob_uid = k8s_cronjob.get("metadata", {}).get("uid", None)
+    if not cronjob_uid:  # not sure why a cronjob should not have uid, but that's not good
+        return None
+
+    k8s_jobs = sorted(k8s_jobs, key=lambda j: j["metadata"]["creationTimestamp"], reverse=True)
+    for k8s_job_spec in k8s_jobs:
+        if not auto_job:
+            auto_job = _get_automatically_triggered_job(k8s_job_spec=k8s_job_spec)
+
+        if not manual_job:
+            manual_job = _get_manually_triggered_job(
+                job=job, cronjob_uid=cronjob_uid, k8s_job_spec=k8s_job_spec
+            )
+
+        if auto_job and manual_job:
+            break
+
+    auto_job_creation_timestamp = (
+        auto_job.get("metadata", {}).get("creationTimestamp", "") if auto_job else ""
+    )
+    manual_job_creation_timestamp = (
+        manual_job.get("metadata", {}).get("creationTimestamp", "") if manual_job else ""
+    )
+    if auto_job_creation_timestamp > manual_job_creation_timestamp:
+        return auto_job
+
+    return manual_job
+
+
+def _get_one_off_job_status_from_conditions(job_status: dict[str, Any]) -> OneOffJobStatus | None:
     for condition in job_status.get("conditions", []):
         duration = _get_duration(start_time=condition.get("lastTransitionTime", None))
 
@@ -316,11 +432,8 @@ def _get_one_off_job_status_from_conditions(
 
 
 def get_one_off_job_status(
-    user: ToolAccount,
-    k8s_job: dict[str, Any],
-    k8s_pods: list[dict[str, Any]],
+    user: ToolAccount, k8s_job: dict[str, Any], k8s_pods: list[dict[str, Any]]
 ) -> OneOffJobStatus:
-
     LOGGER.debug(f"k8s job object: {k8s_job}")
     LOGGER.debug(f"k8s pod objects: {k8s_pods}")
     job_status = k8s_job.get("status", {})
@@ -350,7 +463,7 @@ def get_one_off_job_status(
         if status_from_event:
             return status_from_event
 
-    # default if all attempts to get status fail
+    # default if all attempts to get status fails
     if pod_status:
         return OneOffJobStatus(**pod_status.model_dump())
 
@@ -374,36 +487,66 @@ def _filter_k8s_job_pods(
 
 def get_scheduled_job_status(
     user: ToolAccount,
+    job: AnyJob,
     k8s_cronjob: dict[str, Any],
     k8s_jobs: list[dict[str, Any]],
     k8s_pods: list[dict[str, Any]],
 ) -> ScheduledJobStatus:
-
     LOGGER.debug(f"k8s cronjob object: {k8s_cronjob}")
     LOGGER.debug(f"k8s job objects: {k8s_jobs}")
     LOGGER.debug(f"k8s pod objects: {k8s_pods}")
 
-    if k8s_jobs:
-        # Find the most recent job
-        latest_job = max(
-            k8s_jobs,
-            key=lambda j: j.get("metadata", {}).get("creationTimestamp", ""),
-        )
+    schedule = k8s_cronjob.get("spec", {}).get("schedule", None)
+    cronjob_status = k8s_cronjob.get("status", {})
+    # TODO: drop croniter when https://github.com/kubernetes/kubernetes/issues/78564 is resolved
+    next_schedule = (
+        croniter(expr_format=schedule)
+        .get_next(datetime)
+        .replace(tzinfo=timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+    k8s_job = _get_latest_k8s_cronjob_job(job=job, k8s_cronjob=k8s_cronjob, k8s_jobs=k8s_jobs)
+    # if a job is running, use it's creationTimestamp for previous_schedule,
+    # else use the cronjob's lastScheduleTime which is always defined if the cronjob has ever run
+    previous_schedule = k8s_job and k8s_job.get("metadata", {}).get("creationTimestamp", "")
+    previous_schedule = previous_schedule or cronjob_status.get("lastScheduleTime", "")
+    if previous_schedule:
+        base_time = date_parser.isoparse(previous_schedule).replace(tzinfo=timezone.utc)
+        cron = croniter(expr_format=schedule, start_time=base_time)
+        next_schedule = cron.get_next(datetime).isoformat().replace("+00:00", "Z")
+
+    if k8s_job:
         # Restrict pods to those belonging to the latest job only, otherwise
         # pods from older (e.g. failed) runs can contaminate the status.
-        k8s_pods = _filter_k8s_job_pods(k8s_job=latest_job, k8s_pods=k8s_pods)
-        job_status = get_one_off_job_status(user=user, k8s_job=latest_job, k8s_pods=k8s_pods)
-        return ScheduledJobStatus(**job_status.model_dump())
+        k8s_pods = _filter_k8s_job_pods(k8s_job=k8s_job, k8s_pods=k8s_pods)
+        job_status = get_one_off_job_status(user=user, k8s_job=k8s_job, k8s_pods=k8s_pods)
+        return ScheduledJobStatus(
+            **job_status.model_dump(),
+            previous_schedule=previous_schedule or None,
+            next_schedule=next_schedule,
+        )
 
-    # No active job found — the CronJob is waiting for its next schedule
+    # The thinking here is a bit tricky, so I felt the need to write this possibly long explanation:
+    # * if the scheduled job has never run been triggered, then previous_schedule will be empty, and we should use the cronjob's creationTimestamp, that's easy.
+    # * if the scheduled job has been triggered and the last run was successful,
+    #   the duration it has been pending for (waiting for next schedule) is calculated to be from the time the last successful run ended,
+    #   to whatever the current time is. This is what lastSuccessfulTime represents and we should use that.
+    # * if the scheduled job has been triggered, but the last run failed, the best we can do is to use lastScheduleTime. Unfortunately we don't know at what time the
+    #   last run failed.
+    # we are using max to select the most recent between lastSuccessfulTime and lastScheduleTime. If the scheduled job is failing,
+    # lastSuccessfulTime will likely be older and we should use lastScheduleTime instead.
+    duration_start_time = max(
+        cronjob_status.get("lastSuccessfulTime", ""),
+        previous_schedule,
+        k8s_cronjob["metadata"]["creationTimestamp"],
+    )
     return ScheduledJobStatus(
         short=StatusShort.PENDING,
-        duration=_get_duration(
-            start_time=k8s_cronjob.get("status", {}).get(
-                "lastScheduleTime",
-                k8s_cronjob["metadata"]["creationTimestamp"],
-            )
-        ),
+        duration=_get_duration(start_time=duration_start_time),
+        previous_schedule=previous_schedule or None,
+        next_schedule=next_schedule,
         up_to_date=True,
     )
 
@@ -439,12 +582,39 @@ def _get_continuous_job_status_from_out_of_quota_events(
 def _get_continuous_job_status_from_deployment_status(
     k8s_deployment: dict[str, Any],
     pod_status: CommonJobStatus | None,
+    restarted_at: str,
 ) -> ContinuousJobStatus | None:
-
     deployment_status = k8s_deployment.get("status", {})
     replicas = k8s_deployment.get("spec", {}).get("replicas", 0)
     ready_replicas = deployment_status.get("readyReplicas", 0)
     unavailable_replicas = deployment_status.get("unavailableReplicas", 0)
+
+    deployment_restart_time_obj = restarted_at and datetime.strptime(
+        restarted_at,
+        "%Y-%m-%dT%H:%M:%S.%f%z",  # can't use KUBERNETES_DATE_FORMAT here because of the format
+    ).replace(tzinfo=timezone.utc)
+    deployment_start_time_obj = datetime.strptime(
+        k8s_deployment["metadata"]["creationTimestamp"], KUBERNETES_DATE_FORMAT
+    ).replace(tzinfo=timezone.utc)
+    success_deadline_exceeded = datetime.now(timezone.utc) - (
+        deployment_restart_time_obj or deployment_start_time_obj
+    ) > timedelta(seconds=JOB_PROGRESS_DEADLINE_SECONDS)
+
+    # ProgressDeadlineExceeded condition can be temporally used to detect that a deployment has been failing for a long time,
+    # but this can be reset by k8s randomly, so we can't depend on that.
+    # Instead we programmatically check if a deployment has been failing for more than progressDeadlineSeconds and mark it as failed if so.
+    if unavailable_replicas and success_deadline_exceeded:
+        duration_start_time = datetime.strftime(
+            (deployment_restart_time_obj or deployment_start_time_obj)
+            + timedelta(seconds=JOB_PROGRESS_DEADLINE_SECONDS),
+            KUBERNETES_DATE_FORMAT,
+        )
+        return ContinuousJobStatus(
+            short=StatusShort.FAILED,
+            messages=pod_status.messages if pod_status else [],
+            duration=_get_duration(start_time=duration_start_time),
+            up_to_date=True,
+        )
 
     # If any informational status is available, return it
     if pod_status and pod_status.short != "unknown":
@@ -455,14 +625,20 @@ def _get_continuous_job_status_from_deployment_status(
         return ContinuousJobStatus(
             short=StatusShort.PENDING,
             messages=pod_status.messages if pod_status else [],
-            duration=_get_duration(start_time=k8s_deployment["metadata"]["creationTimestamp"]),
+            # no pod_status so use either restarted_at or creationTimestamp as best guess, which one is available.
+            duration=_get_duration(
+                start_time=restarted_at or k8s_deployment["metadata"]["creationTimestamp"]
+            ),
             up_to_date=True,
         )
 
     if ready_replicas == replicas:
         return ContinuousJobStatus(
             short=StatusShort.RUNNING,
-            duration=_get_duration(start_time=k8s_deployment["metadata"]["creationTimestamp"]),
+            # no pod_status so use either restarted_at or creationTimestamp as best guess, which one is available.
+            duration=_get_duration(
+                start_time=restarted_at or k8s_deployment["metadata"]["creationTimestamp"]
+            ),
             up_to_date=True,
         )
 
@@ -473,7 +649,6 @@ def get_continuous_job_status(
     k8s_deployment: dict[str, Any],
     k8s_pods: list[dict[str, Any]],
 ) -> ContinuousJobStatus:
-
     LOGGER.debug(f"k8s deployment object: {k8s_deployment}")
     LOGGER.debug(f"k8s pod objects: {k8s_pods}")
 
@@ -495,8 +670,17 @@ def get_continuous_job_status(
     if status_from_quota_events:
         return status_from_quota_events
 
+    restarted_at = (
+        k8s_deployment.get("spec", {})
+        .get("template", {})
+        .get("metadata", {})
+        .get("annotations", {})
+        .get("app.kubernetes.io/restartedAt", "")
+    )
     status_from_deployment = _get_continuous_job_status_from_deployment_status(
-        k8s_deployment=k8s_deployment, pod_status=pod_status
+        k8s_deployment=k8s_deployment,
+        pod_status=pod_status,
+        restarted_at=restarted_at,
     )
     if status_from_deployment:
         return status_from_deployment
@@ -505,8 +689,11 @@ def get_continuous_job_status(
     if pod_status:
         return ContinuousJobStatus(**pod_status.model_dump())
 
+    # Fallback
     return ContinuousJobStatus(
         short=StatusShort.UNKNOWN,
-        duration=_get_duration(start_time=k8s_deployment["metadata"]["creationTimestamp"]),
+        duration=_get_duration(
+            start_time=restarted_at or k8s_deployment["metadata"]["creationTimestamp"]
+        ),
         up_to_date=True,
     )
