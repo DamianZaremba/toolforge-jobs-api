@@ -13,7 +13,7 @@ from tests.helpers.fake_k8s import (
 from tests.test_utils import cases, patch_spec
 from tjf.core.error import TjfJobNotFoundError
 from tjf.core.images import Image, ImageType
-from tjf.core.models import AnyJob, EmailOption
+from tjf.core.models import AnyJob, ContinuousJobStatus, EmailOption
 from tjf.runtimes.exceptions import NotFoundInRuntime
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.runtime import K8sRuntime
@@ -288,6 +288,11 @@ class TestGetJob:
             ),
         )
         my_runtime = K8sRuntime(settings=get_settings())
+        monkeypatch.setattr(
+            my_runtime,
+            "_get_job_status",
+            lambda *args, **kwargs: ContinuousJobStatus(),
+        )
 
         gotten_job = my_runtime.get_job(
             job_name=expected_job.job_name, tool=expected_job.tool_name

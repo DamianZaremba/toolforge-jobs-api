@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.6.6"
+  version: "4.7.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -526,6 +526,32 @@ components:
         - onfinish
         - onfailure
       example: "all"
+    StatusShort:
+      type: string
+      description: "Short strings representing a job's status"
+      enum:
+        - pending
+        - running
+        - succeeded
+        - failed
+        - unknown
+    CommonJobStatus:
+      type: object
+      required:
+        - short
+      properties:
+        short:
+          $ref: "#/components/schemas/StatusShort"
+    OneOffJobStatus:
+      allOf:
+        - $ref: "#/components/schemas/CommonJobStatus"
+    ScheduledJobStatus:
+      allOf:
+        - $ref: "#/components/schemas/CommonJobStatus"
+    ContinuousJobStatus:
+      allOf:
+        - $ref: "#/components/schemas/CommonJobStatus"
+    # common job fields
     CommonJob:
       type: object
       required:
@@ -706,6 +732,13 @@ components:
               type: string
               description: "Job status, extended text."
               example: "Running since 30 seconds ago."
+            status:
+              type: object
+              description: "v2 of status_long|status_short, for standardized job status reporting"
+              oneOf:
+                - $ref: "#/components/schemas/OneOffJobStatus"
+                - $ref: "#/components/schemas/ContinuousJobStatus"
+                - $ref: "#/components/schemas/ScheduledJobStatus"
     DefinedOneOffJob:
       allOf:
         - $ref: "#/components/schemas/DefinedCommonJob"

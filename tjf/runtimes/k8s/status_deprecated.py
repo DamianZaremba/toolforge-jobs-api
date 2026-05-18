@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2023 Arturo Borrero Gonzalez <aborrero@wikimedia.org>
+# TODO: remove after https://gitlab.wikimedia.org/repos/cloud/toolforge/jobs-api/-/merge_requests/208 is merged and been in use for a while
 from datetime import datetime
 from logging import getLogger
 from typing import Any

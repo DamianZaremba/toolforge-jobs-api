@@ -40,8 +40,9 @@ def _update_storage_job_status_from_runtime(
     if runtime_job:
         storage_job.status_short = runtime_job.status_short
         storage_job.status_long = runtime_job.status_long
+        storage_job.status = runtime_job.status.model_copy()
 
-    to_exclude = set(["k8s_object"])
+    to_exclude = set(["k8s_object", "status"])
 
     if not runtime_job or runtime_job.model_dump(
         exclude=to_exclude
@@ -124,7 +125,7 @@ class Core:
             LOGGER.debug("Skipping updating one-off job in storage.")
             return False
 
-        to_exclude = set(["status_short", "status_long", "k8s_object"])
+        to_exclude = set(["status_short", "status_long", "status", "k8s_object"])
         are_the_same = existing_job.model_dump(
             exclude_unset=True, exclude=to_exclude
         ) == new_job.model_dump(exclude_unset=True, exclude=to_exclude)

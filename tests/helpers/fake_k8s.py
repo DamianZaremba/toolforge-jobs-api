@@ -1021,14 +1021,10 @@ LIMIT_RANGE_OBJECT = {
 }
 
 K8S_CONTINUOUS_JOB_OBJ = json.loads(
-    (FIXTURES_PATH / "runtime_k8s_objects" / "deployment-simple-buildpack.json").read_text()
+    (FIXTURES_PATH / "deployments" / "deployment-simple-buildpack.json").read_text()
 )
-K8S_SCHEDULED_JOB_OBJ = json.loads(
-    (FIXTURES_PATH / "runtime_k8s_objects" / "daily_cronjob.json").read_text()
-)
-K8S_ONEOFF_JOB_OBJ = json.loads(
-    (FIXTURES_PATH / "runtime_k8s_objects" / "oneoff-simple-prebuilt.json").read_text()
-)
+K8S_SCHEDULED_JOB_OBJ = json.loads((FIXTURES_PATH / "cronjobs" / "daily_cronjob.json").read_text())
+K8S_ONEOFF_JOB_OBJ = json.loads((FIXTURES_PATH / "jobs" / "job-simple-prebuilt.json").read_text())
 
 
 def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
@@ -1040,14 +1036,16 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
         job_name="migrate",
         cmd="cmdname with-arguments 'other argument with spaces'",
         image=Image(
-            short_name="bullseye",
+            short_name="python3.11",
             host="docker-registry.tools.wmflabs.org",
-            path="toolforge-bullseye-sssd",
+            path="toolforge-python311-sssd-web",
             tag="latest",
             type=ImageType.STANDARD,
             state="stable",
             aliases=[
-                "toolforge-bullseye",
+                "toolforge-python311",
+                "toolforge-python311-sssd-base",
+                "toolforge-python311-sssd-web",
             ],
         ),
         job_type=JobType.CONTINUOUS,
@@ -1058,6 +1056,7 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
     if add_status:
         overrides["status_short"] = "Not running"
         overrides["status_long"] = "No pods were created for this job."
+        overrides["status"] = {}
 
     job = get_dummy_job(**(params | overrides))
     return job
@@ -1106,5 +1105,6 @@ def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJo
     if add_status:
         overrides["status_short"] = "Unknown"
         overrides["status_long"] = "Unknown"
+        overrides["status"] = {}
 
     return get_dummy_job(**(params | optional_params | overrides))

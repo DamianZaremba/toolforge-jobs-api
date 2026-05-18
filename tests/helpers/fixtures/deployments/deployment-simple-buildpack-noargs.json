@@ -68,7 +68,7 @@
                 "value": "a buildservice pod does not need a home env"
               }
             ],
-            "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
+            "image": "docker-registry.tools.wmflabs.org/toolforge-python311-sssd-web:latest",
             "imagePullPolicy": "Always",
             "name": "job",
             "resources": {},
