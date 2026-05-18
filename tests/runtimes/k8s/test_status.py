@@ -50,7 +50,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_INITIALIZING,
             None,
-            OneOffJobStatus(short="pending", duration="0s"),
+            OneOffJobStatus(short="pending", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -58,7 +58,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_INITIALIZING,
             POD_INITIALIZING,
-            OneOffJobStatus(short="pending", duration="0s"),
+            OneOffJobStatus(short="pending", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -66,7 +66,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_RUNNING,
             POD_RUNNING,
-            OneOffJobStatus(short="running", duration="0s"),
+            OneOffJobStatus(short="running", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -74,7 +74,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_SUCCEEDED,
             POD_SUCCEEDED,
-            OneOffJobStatus(short="succeeded", duration="0s"),
+            OneOffJobStatus(short="succeeded", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -82,7 +82,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_SUCCEEDED,
             None,
-            OneOffJobStatus(short="succeeded", duration="0s"),
+            OneOffJobStatus(short="succeeded", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -90,7 +90,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_FAILED,
             POD_FAILED,
-            OneOffJobStatus(short="failed", duration="0s"),
+            OneOffJobStatus(short="failed", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -98,7 +98,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_FAILED,
             None,
-            OneOffJobStatus(short="failed", duration="0s"),
+            OneOffJobStatus(short="failed", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -106,7 +106,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_UNKNOWN,
             None,
-            OneOffJobStatus(short="unknown", duration="0s"),
+            OneOffJobStatus(short="unknown", duration="0s", up_to_date=True),
         ],
     ],
 )
@@ -134,7 +134,7 @@ def test_get_one_off_job_status(
             CRONJOB_INITIALIZING,
             None,
             None,
-            ScheduledJobStatus(short="pending", duration="0s"),
+            ScheduledJobStatus(short="pending", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -143,7 +143,7 @@ def test_get_one_off_job_status(
             CRONJOB_INITIALIZING,
             JOB_INITIALIZING,
             None,
-            ScheduledJobStatus(short="pending", duration="0s"),
+            ScheduledJobStatus(short="pending", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -152,7 +152,7 @@ def test_get_one_off_job_status(
             CRONJOB_INITIALIZING,
             JOB_INITIALIZING,
             POD_INITIALIZING,
-            ScheduledJobStatus(short="pending", duration="0s"),
+            ScheduledJobStatus(short="pending", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -161,7 +161,7 @@ def test_get_one_off_job_status(
             CRONJOB_RUNNING,
             JOB_RUNNING,
             POD_RUNNING,
-            ScheduledJobStatus(short="running", duration="0s"),
+            ScheduledJobStatus(short="running", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -170,7 +170,7 @@ def test_get_one_off_job_status(
             CRONJOB_SUCCEEDED,
             JOB_SUCCEEDED,
             POD_SUCCEEDED,
-            ScheduledJobStatus(short="succeeded", duration="0s"),
+            ScheduledJobStatus(short="succeeded", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -179,7 +179,7 @@ def test_get_one_off_job_status(
             CRONJOB_SUCCEEDED,
             JOB_SUCCEEDED,
             None,
-            ScheduledJobStatus(short="succeeded", duration="0s"),
+            ScheduledJobStatus(short="succeeded", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -188,7 +188,7 @@ def test_get_one_off_job_status(
             CRONJOB_FAILED,
             JOB_FAILED,
             POD_FAILED,
-            ScheduledJobStatus(short="failed", duration="0s"),
+            ScheduledJobStatus(short="failed", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -197,7 +197,7 @@ def test_get_one_off_job_status(
             CRONJOB_FAILED,
             JOB_FAILED,
             None,
-            ScheduledJobStatus(short="failed", duration="0s"),
+            ScheduledJobStatus(short="failed", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -206,7 +206,7 @@ def test_get_one_off_job_status(
             CRONJOB_UNKNOWN,
             JOB_UNKNOWN,
             None,
-            ScheduledJobStatus(short="unknown", duration="0s"),
+            ScheduledJobStatus(short="unknown", duration="0s", up_to_date=True),
         ],
     ],
 )
@@ -239,7 +239,7 @@ def test_get_scheduled_job_status(
         [
             DEPLOYMENT_INITIALIZING,
             None,
-            ContinuousJobStatus(short="pending", duration="0s"),
+            ContinuousJobStatus(short="pending", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -247,7 +247,7 @@ def test_get_scheduled_job_status(
         [
             DEPLOYMENT_INITIALIZING,
             POD_INITIALIZING,
-            ContinuousJobStatus(short="pending", duration="0s"),
+            ContinuousJobStatus(short="pending", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -255,7 +255,7 @@ def test_get_scheduled_job_status(
         [
             DEPLOYMENT_RUNNING,
             POD_RUNNING,
-            ContinuousJobStatus(short="running", duration="0s"),
+            ContinuousJobStatus(short="running", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -263,7 +263,7 @@ def test_get_scheduled_job_status(
         [
             DEPLOYMENT_RUNNING,
             None,
-            ContinuousJobStatus(short="running", duration="0s"),
+            ContinuousJobStatus(short="running", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -271,7 +271,7 @@ def test_get_scheduled_job_status(
         [
             DEPLOYMENT_UNKNOWN,
             POD_FAILED,
-            ContinuousJobStatus(short="failed", duration="0s"),
+            ContinuousJobStatus(short="failed", duration="0s", up_to_date=True),
         ],
     ],
     [
@@ -279,7 +279,7 @@ def test_get_scheduled_job_status(
         [
             DEPLOYMENT_UNKNOWN,
             None,
-            ContinuousJobStatus(short="unknown", duration="0s"),
+            ContinuousJobStatus(short="unknown", duration="0s", up_to_date=True),
         ],
     ],
 )

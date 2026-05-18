@@ -96,11 +96,14 @@ def _extract_container_statuses(
                     CommonJobStatus(
                         short=StatusShort.PENDING,
                         duration=default_duration,
+                        up_to_date=True,
                     )
                 )
             elif phase == "running":
                 aggregated_statuses["running"].append(
-                    CommonJobStatus(short=StatusShort.RUNNING, duration=default_duration)
+                    CommonJobStatus(
+                        short=StatusShort.RUNNING, duration=default_duration, up_to_date=True
+                    )
                 )
             elif phase == "succeeded" and state.get("terminated", None):
                 aggregated_statuses["succeeded"].append(
@@ -109,6 +112,7 @@ def _extract_container_statuses(
                         duration=_get_duration(
                             start_time=state["terminated"].get("finishedAt", None)
                         ),
+                        up_to_date=True,
                     )
                 )
             elif phase == "failed" and state.get("terminated", None):
@@ -118,11 +122,14 @@ def _extract_container_statuses(
                         duration=_get_duration(
                             start_time=state["terminated"].get("finishedAt", None)
                         ),
+                        up_to_date=True,
                     )
                 )
             else:
                 aggregated_statuses["unknown"].append(
-                    CommonJobStatus(short=StatusShort.UNKNOWN, duration=default_duration)
+                    CommonJobStatus(
+                        short=StatusShort.UNKNOWN, duration=default_duration, up_to_date=True
+                    )
                 )
 
     return aggregated_statuses
@@ -152,6 +159,7 @@ def _extract_pending_scheduling_status_from_pods(
                     duration=_get_duration(
                         start_time=last_condition.get("lastTransitionTime", None)
                     ),
+                    up_to_date=True,
                 )
             )
 
@@ -179,10 +187,10 @@ def _get_one_off_job_status_from_conditions(
         duration = _get_duration(start_time=condition.get("lastTransitionTime", None))
 
         if condition.get("type") == "Complete" and condition.get("status") == "True":
-            return OneOffJobStatus(short=StatusShort.SUCCEEDED, duration=duration)
+            return OneOffJobStatus(short=StatusShort.SUCCEEDED, duration=duration, up_to_date=True)
 
         if condition.get("type") == "Failed" and condition.get("status") == "True":
-            return OneOffJobStatus(short=StatusShort.FAILED, duration=duration)
+            return OneOffJobStatus(short=StatusShort.FAILED, duration=duration, up_to_date=True)
 
     return None
 
@@ -200,7 +208,9 @@ def get_one_off_job_status(
     LOGGER.debug(f"gotten pod status: {pod_status}")
 
     if pod_status and pod_status.short != "unknown":
-        return OneOffJobStatus(short=pod_status.short, duration=pod_status.duration)
+        return OneOffJobStatus(
+            short=pod_status.short, duration=pod_status.duration, up_to_date=True
+        )
 
     LOGGER.debug(f"inconclusive status gotten '{pod_status}', performing further processing...")
     status_from_conditions = _get_one_off_job_status_from_conditions(job_status)
@@ -213,15 +223,19 @@ def get_one_off_job_status(
         return OneOffJobStatus(
             short=StatusShort.PENDING,
             duration=_get_duration(start_time=job_status.get("startTime", None)),
+            up_to_date=True,
         )
 
     # default if all attempts to get status fail
     if pod_status:
-        return OneOffJobStatus(short=pod_status.short, duration=pod_status.duration)
+        return OneOffJobStatus(
+            short=pod_status.short, duration=pod_status.duration, up_to_date=True
+        )
 
     return OneOffJobStatus(
         short=StatusShort.UNKNOWN,
         duration=_get_duration(start_time=k8s_job["metadata"]["creationTimestamp"]),
+        up_to_date=True,
     )
 
 
@@ -259,6 +273,7 @@ def get_scheduled_job_status(
         return ScheduledJobStatus(
             short=job_status.short,
             duration=job_status.duration,
+            up_to_date=True,
         )
 
     # No active job found — the CronJob is waiting for its next schedule
@@ -289,17 +304,21 @@ def get_continuous_job_status(
     pod_status = _get_status_from_pods(k8s_pods)
 
     if pod_status and pod_status.short != "unknown":
-        return ContinuousJobStatus(short=pod_status.short, duration=pod_status.duration)
+        return ContinuousJobStatus(
+            short=pod_status.short, duration=pod_status.duration, up_to_date=True
+        )
 
     # At this point if we don't have any good idea what the status is, infer it from the deployment itself
     if unavailable_replicas:
-        return ContinuousJobStatus(short=StatusShort.PENDING, duration=duration)
+        return ContinuousJobStatus(short=StatusShort.PENDING, duration=duration, up_to_date=True)
 
     if ready_replicas == replicas:
-        return ContinuousJobStatus(short=StatusShort.RUNNING, duration=duration)
+        return ContinuousJobStatus(short=StatusShort.RUNNING, duration=duration, up_to_date=True)
 
     # Fallback
     if pod_status:
-        return ContinuousJobStatus(short=pod_status.short, duration=pod_status.duration)
+        return ContinuousJobStatus(
+            short=pod_status.short, duration=pod_status.duration, up_to_date=True
+        )
 
-    return ContinuousJobStatus(short=StatusShort.UNKNOWN, duration=duration)
+    return ContinuousJobStatus(short=StatusShort.UNKNOWN, duration=duration, up_to_date=True)

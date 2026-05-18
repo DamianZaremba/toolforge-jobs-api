@@ -29,7 +29,7 @@ from ..storages.exceptions import NotFoundInStorage
 from ..storages.k8s.storage import K8sStorage
 from .error import TjfError, TjfJobNotFoundError, TjfValidationError
 from .images import Image
-from .models import AnyJob, OneOffJob, QuotaData
+from .models import OUT_OF_SYNC_JOB_WARNING_MESSAGE, AnyJob, OneOffJob, QuotaData
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,7 +50,10 @@ def _update_storage_job_status_from_runtime(
         LOGGER.debug(
             f"Found a different running version than in storage:\nSTORAGE: {storage_job.get_resolved_core_job().model_dump(exclude=to_exclude)}\nRUNTIME: {runtime_job and runtime_job.model_dump(exclude=to_exclude)}"
         )
-        storage_job.status_long = f"The running version of job '{storage_job.job_name}' is different from what was configured, please recreate or redeploy."
+        storage_job.status_long = OUT_OF_SYNC_JOB_WARNING_MESSAGE.format(
+            job_name=storage_job.job_name
+        )
+        storage_job.status.up_to_date = False
 
     return storage_job
 

@@ -53,6 +53,7 @@ JOB_DEFAULT_MEMORY = "512Mi"
 # This is set to more or less the mean usage in the cluster
 JOB_DEFAULT_CPU = "100m"
 JOB_DEFAULT_REPLICAS = 1
+OUT_OF_SYNC_JOB_WARNING_MESSAGE = "The running version of job '{job_name}' is different from what was configured, please recreate or redeploy."
 
 
 class BaseModel(PydanticBaseModel):
@@ -134,6 +135,7 @@ class StatusShort(str, Enum):
 class CommonJobStatus(BaseModel):
     short: StatusShort = StatusShort.UNKNOWN
     duration: str | None = None
+    up_to_date: bool = True
 
 
 class OneOffJobStatus(CommonJobStatus):
