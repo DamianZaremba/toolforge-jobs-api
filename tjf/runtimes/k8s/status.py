@@ -15,9 +15,25 @@ from ...core.models import (
 from ...core.utils import (
     KUBERNETES_DATE_FORMAT,
     format_duration,
+    remove_prefixes,
 )
+from .account import ToolAccount
 
 LOGGER = getLogger(__name__)
+
+
+# TODO: the string format expected here only applies ResourceQuota errors, should we handle LimitRange errors?
+def _get_quota_error(message: str) -> str:
+    keyword = "limited: "
+    if keyword in message:
+        quota_types = set(
+            remove_prefixes(entry.split("=")[0], {"requests.", "limits."})
+            for entry in message[message.rindex(keyword) + len(keyword) :].split(",")
+        )
+    else:
+        quota_types = set()
+
+    return f"out of quota for {', '.join(sorted(quota_types))}"
 
 
 def _get_duration(start_time: str | None) -> str:
@@ -199,6 +215,47 @@ def _get_status_from_pods(pods: list[dict[str, Any]]) -> CommonJobStatus | None:
     return _get_highest_priority_status(aggregated_statuses=pod_aggregated_statuses)
 
 
+def _get_one_off_job_status_from_out_of_quota_event(
+    user: ToolAccount,
+    k8s_job: dict[str, Any],
+) -> OneOffJobStatus | None:
+    """
+    Detect out-of-quota failures via Kubernetes Events for k8s jobs.
+
+    Quota errors are subtle — they don't appear in pod or job status directly
+    but are recorded as `FailedCreate` events with `exceeded quota` in the
+    message. This function looks up events attached to the job's UID.
+
+    See: https://kubernetes.io/docs/concepts/policy/resource-quotas/
+    """
+    k8s_job_uid = k8s_job["metadata"].get("uid", None)
+    if not k8s_job_uid:
+        return OneOffJobStatus(
+            short=StatusShort.UNKNOWN,
+            duration=_get_duration(start_time=k8s_job["metadata"]["creationTimestamp"]),
+            up_to_date=True,
+        )
+
+    events = user.k8s_cli.get_objects(
+        kind="events", field_selector=f"involvedObject.uid={k8s_job_uid}"
+    )
+    for event in sorted(events, key=lambda event: event["lastTimestamp"], reverse=True):
+        reason = event.get("reason", None)
+        if reason == "FailedCreate":
+            message = "Unable to start"
+            event_message = event.get("message", None)
+            if event_message and "is forbidden: exceeded quota" in event_message:
+                message += f", {_get_quota_error(event_message)}"
+
+            return OneOffJobStatus(
+                short=StatusShort.FAILED,
+                messages=[message],
+                duration=_get_duration(start_time=event["lastTimestamp"]),
+                up_to_date=True,
+            )
+    return None
+
+
 def _get_one_off_job_status_from_conditions(
     job_status: dict[str, Any],
 ) -> OneOffJobStatus | None:
@@ -215,6 +272,7 @@ def _get_one_off_job_status_from_conditions(
 
 
 def get_one_off_job_status(
+    user: ToolAccount,
     k8s_job: dict[str, Any],
     k8s_pods: list[dict[str, Any]],
 ) -> OneOffJobStatus:
@@ -243,6 +301,11 @@ def get_one_off_job_status(
             up_to_date=True,
         )
 
+    if not active and not ready:
+        status_from_event = _get_one_off_job_status_from_out_of_quota_event(user, k8s_job)
+        if status_from_event:
+            return status_from_event
+
     # default if all attempts to get status fail
     if pod_status:
         return OneOffJobStatus(**pod_status.model_dump())
@@ -266,6 +329,7 @@ def _filter_k8s_job_pods(
 
 
 def get_scheduled_job_status(
+    user: ToolAccount,
     k8s_cronjob: dict[str, Any],
     k8s_jobs: list[dict[str, Any]],
     k8s_pods: list[dict[str, Any]],
@@ -284,7 +348,7 @@ def get_scheduled_job_status(
         # Restrict pods to those belonging to the latest job only, otherwise
         # pods from older (e.g. failed) runs can contaminate the status.
         k8s_pods = _filter_k8s_job_pods(k8s_job=latest_job, k8s_pods=k8s_pods)
-        job_status = get_one_off_job_status(k8s_job=latest_job, k8s_pods=k8s_pods)
+        job_status = get_one_off_job_status(user=user, k8s_job=latest_job, k8s_pods=k8s_pods)
         return ScheduledJobStatus(**job_status.model_dump())
 
     # No active job found — the CronJob is waiting for its next schedule
@@ -300,6 +364,67 @@ def get_scheduled_job_status(
     )
 
 
+def _get_continuous_job_status_from_out_of_quota_events(
+    deployment_conditions: list[dict[str, Any]],
+) -> ContinuousJobStatus | None:
+    """
+    Detect out-of-quota failures for continuous jobs via Deployment conditions.
+
+    For Deployments, quota errors surface as `ReplicaFailure` conditions
+    with `reason=FailedCreate` and `exceeded quota` in the message.
+
+    See: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#failed-deployment
+    """
+    for condition in deployment_conditions:
+        if (
+            condition.get("type", "") == "ReplicaFailure"
+            and condition.get("reason", "") == "FailedCreate"
+            and condition.get("status", "") == "True"
+            and "forbidden: exceeded quota" in condition.get("message", "")
+        ):
+            quota_error = _get_quota_error(condition["message"])
+            return ContinuousJobStatus(
+                short=StatusShort.FAILED,
+                messages=[f"Unable to start, {quota_error}"],
+                duration=_get_duration(start_time=condition.get("lastTransitionTime", None)),
+                up_to_date=True,
+            )
+    return None
+
+
+def _get_continuous_job_status_from_deployment_status(
+    k8s_deployment: dict[str, Any],
+    pod_status: CommonJobStatus | None,
+) -> ContinuousJobStatus | None:
+
+    deployment_status = k8s_deployment.get("status", {})
+    replicas = k8s_deployment.get("spec", {}).get("replicas", 0)
+    ready_replicas = deployment_status.get("readyReplicas", 0)
+    unavailable_replicas = deployment_status.get("unavailableReplicas", 0)
+
+    # If any informational status is available, return it
+    if pod_status and pod_status.short != "unknown":
+        return ContinuousJobStatus(**pod_status.model_dump())
+
+    # At this point if we don't have any good idea what the status is, infer it from the deployment itself
+    if unavailable_replicas:
+        return ContinuousJobStatus(
+            short=StatusShort.PENDING,
+            messages=pod_status.messages if pod_status else [],
+            duration=_get_duration(start_time=k8s_deployment["metadata"]["creationTimestamp"]),
+            up_to_date=True,
+        )
+
+    if ready_replicas == replicas:
+        return ContinuousJobStatus(
+            short=StatusShort.RUNNING,
+            duration=_get_duration(start_time=k8s_deployment["metadata"]["creationTimestamp"]),
+            up_to_date=True,
+        )
+
+    return None
+
+
 def get_continuous_job_status(
     k8s_deployment: dict[str, Any],
     k8s_pods: list[dict[str, Any]],
@@ -309,24 +434,35 @@ def get_continuous_job_status(
     LOGGER.debug(f"k8s pod objects: {k8s_pods}")
 
     deployment_status = k8s_deployment.get("status", {})
-    replicas = k8s_deployment.get("spec", {}).get("replicas", 0)
-    ready_replicas = deployment_status.get("readyReplicas", 0)
-    unavailable_replicas = deployment_status.get("unavailableReplicas", 0)
-    duration = _get_duration(start_time=k8s_deployment["metadata"]["creationTimestamp"])
     pod_status = _get_status_from_pods(k8s_pods)
 
-    if pod_status and pod_status.short != "unknown":
+    if pod_status and pod_status.short == "running":
         return ContinuousJobStatus(**pod_status.model_dump())
 
-    # At this point if we don't have any good idea what the status is, infer it from the deployment itself
-    if unavailable_replicas:
-        return ContinuousJobStatus(short=StatusShort.PENDING, duration=duration, up_to_date=True)
+    LOGGER.debug(f"inconclusive status gotten '{pod_status}', performing further processing...")
+    deployment_conditions = sorted(
+        deployment_status.get("conditions", []),
+        key=lambda c: c.get("lastTransitionTime", None),
+        reverse=True,
+    )
+    status_from_quota_events = _get_continuous_job_status_from_out_of_quota_events(
+        deployment_conditions
+    )
+    if status_from_quota_events:
+        return status_from_quota_events
 
-    if ready_replicas == replicas:
-        return ContinuousJobStatus(short=StatusShort.RUNNING, duration=duration, up_to_date=True)
+    status_from_deployment = _get_continuous_job_status_from_deployment_status(
+        k8s_deployment=k8s_deployment, pod_status=pod_status
+    )
+    if status_from_deployment:
+        return status_from_deployment
 
     # Fallback
     if pod_status:
         return ContinuousJobStatus(**pod_status.model_dump())
 
-    return ContinuousJobStatus(short=StatusShort.UNKNOWN, duration=duration, up_to_date=True)
+    return ContinuousJobStatus(
+        short=StatusShort.UNKNOWN,
+        duration=_get_duration(start_time=k8s_deployment["metadata"]["creationTimestamp"]),
+        up_to_date=True,
+    )
