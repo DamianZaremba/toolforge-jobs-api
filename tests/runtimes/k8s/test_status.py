@@ -17,11 +17,20 @@ from tjf.runtimes.k8s.status import (
 ISO_PATTERN = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"
 
 POD_INITIALIZING = (fake_k8s.FIXTURES_PATH / "pods" / "pod_pending_initializing.json").read_text()
+POD_RESTARTING_WAITING = (
+    fake_k8s.FIXTURES_PATH / "pods" / "pod_pending_restarting_waiting.json"
+).read_text()
+POD_RESTARTING_TERMINATED = (
+    fake_k8s.FIXTURES_PATH / "pods" / "pod_pending_restarting_terminated.json"
+).read_text()
+POD_SCHEDULING = (fake_k8s.FIXTURES_PATH / "pods" / "pod_pending_scheduling.json").read_text()
 POD_RUNNING = (fake_k8s.FIXTURES_PATH / "pods" / "pod_running.json").read_text()
 POD_SUCCEEDED = (fake_k8s.FIXTURES_PATH / "pods" / "pod_succeeded.json").read_text()
 POD_FAILED = (fake_k8s.FIXTURES_PATH / "pods" / "pod_failed.json").read_text()
 
 JOB_INITIALIZING = (fake_k8s.FIXTURES_PATH / "jobs" / "job_pending_initializing.json").read_text()
+JOB_RESTARTING = (fake_k8s.FIXTURES_PATH / "jobs" / "job_pending_restarting.json").read_text()
+JOB_SCHEDULING = (fake_k8s.FIXTURES_PATH / "jobs" / "job_pending_scheduling.json").read_text()
 JOB_RUNNING = (fake_k8s.FIXTURES_PATH / "jobs" / "job_running.json").read_text()
 JOB_SUCCEEDED = (fake_k8s.FIXTURES_PATH / "jobs" / "job_succeeded.json").read_text()
 JOB_FAILED = (fake_k8s.FIXTURES_PATH / "jobs" / "job_failed.json").read_text()
@@ -31,8 +40,15 @@ EXCEEDED_QUOTA = (
     fake_k8s.FIXTURES_PATH / "events" / "failed_to_create_pod_exceeded_quota_event.json"
 ).read_text()
 
+
 CRONJOB_INITIALIZING = (
     fake_k8s.FIXTURES_PATH / "cronjobs" / "cronjob_pending_initializing.json"
+).read_text()
+CRONJOB_RESTARTING = (
+    fake_k8s.FIXTURES_PATH / "cronjobs" / "cronjob_pending_restarting.json"
+).read_text()
+CRONJOB_SCHEDULING = (
+    fake_k8s.FIXTURES_PATH / "cronjobs" / "cronjob_pending_scheduling.json"
 ).read_text()
 CRONJOB_RUNNING = (fake_k8s.FIXTURES_PATH / "cronjobs" / "cronjob_running.json").read_text()
 CRONJOB_SUCCEEDED = (fake_k8s.FIXTURES_PATH / "cronjobs" / "cronjob_succeeded.json").read_text()
@@ -42,12 +58,16 @@ CRONJOB_UNKNOWN = (fake_k8s.FIXTURES_PATH / "cronjobs" / "cronjob_unknown.json")
 DEPLOYMENT_INITIALIZING = (
     fake_k8s.FIXTURES_PATH / "deployments" / "deployment_pending_initializing.json"
 ).read_text()
-DEPLOYMENT_RUNNING = (
-    fake_k8s.FIXTURES_PATH / "deployments" / "deployment_running.json"
+DEPLOYMENT_RESTARTING = (
+    fake_k8s.FIXTURES_PATH / "deployments" / "deployment_pending_restarting.json"
 ).read_text()
 DEPLOYMENT_SCHEDULING = (
     fake_k8s.FIXTURES_PATH / "deployments" / "deployment_pending_scheduling.json"
 ).read_text()
+DEPLOYMENT_RUNNING = (
+    fake_k8s.FIXTURES_PATH / "deployments" / "deployment_running.json"
+).read_text()
+DEPLOYMENT_FAILED = (fake_k8s.FIXTURES_PATH / "deployments" / "deployment_failed.json").read_text()
 DEPLOYMENT_UNKNOWN = (
     fake_k8s.FIXTURES_PATH / "deployments" / "deployment_unknown.json"
 ).read_text()
@@ -74,12 +94,48 @@ def test_get_quota_error():
         ],
     ],
     [
-        "Job pending status from k8s_pod",
+        "Job pending initializing status from k8s_pod",
         [
             JOB_INITIALIZING,
             POD_INITIALIZING,
             OneOffJobStatus(
                 short="pending", messages=["initializing"], duration="0s", up_to_date=True
+            ),
+            None,
+        ],
+    ],
+    [
+        "Job pending restarting status from k8s_pod",
+        [
+            JOB_RESTARTING,
+            POD_RESTARTING_WAITING,
+            OneOffJobStatus(
+                short="pending", messages=["restarted (3)"], duration="0s", up_to_date=True
+            ),
+            None,
+        ],
+    ],
+    [
+        "Job pending restarting status from k8s_pod (exitcode 1)",
+        [
+            JOB_RESTARTING,
+            POD_RESTARTING_TERMINATED,
+            OneOffJobStatus(
+                short="pending",
+                messages=["exitcode 1", "restarted (3)"],
+                duration="0s",
+                up_to_date=True,
+            ),
+            None,
+        ],
+    ],
+    [
+        "Job pending scheduling status from k8s_pod",
+        [
+            JOB_SCHEDULING,
+            POD_SCHEDULING,
+            OneOffJobStatus(
+                short="pending", messages=["scheduling"], duration="0s", up_to_date=True
             ),
             None,
         ],
@@ -217,6 +273,45 @@ def test_get_one_off_job_status(
         ],
     ],
     [
+        "Cronjob pending restarting status from k8s_pod",
+        [
+            CRONJOB_RESTARTING,
+            JOB_RESTARTING,
+            POD_RESTARTING_WAITING,
+            ScheduledJobStatus(
+                short="pending", messages=["restarted (3)"], duration="0s", up_to_date=True
+            ),
+            None,
+        ],
+    ],
+    [
+        "Cronjob pending restarting status from k8s_pod (exitcode 1)",
+        [
+            CRONJOB_RESTARTING,
+            JOB_RESTARTING,
+            POD_RESTARTING_TERMINATED,
+            ScheduledJobStatus(
+                short="pending",
+                messages=["exitcode 1", "restarted (3)"],
+                duration="0s",
+                up_to_date=True,
+            ),
+            None,
+        ],
+    ],
+    [
+        "Cronjob pending scheduling status from k8s_pod",
+        [
+            CRONJOB_SCHEDULING,
+            JOB_SCHEDULING,
+            POD_SCHEDULING,
+            ScheduledJobStatus(
+                short="pending", messages=["scheduling"], duration="0s", up_to_date=True
+            ),
+            None,
+        ],
+    ],
+    [
         "Cronjob running status from k8s_pod",
         [
             CRONJOB_RUNNING,
@@ -347,6 +442,39 @@ def test_get_scheduled_job_status(
             POD_INITIALIZING,
             ContinuousJobStatus(
                 short="pending", messages=["initializing"], duration="0s", up_to_date=True
+            ),
+        ],
+    ],
+    [
+        "Deployment pending restarting status from k8s_pod",
+        [
+            DEPLOYMENT_RESTARTING,
+            POD_RESTARTING_WAITING,
+            ContinuousJobStatus(
+                short="pending", messages=["restarted (3)"], duration="0s", up_to_date=True
+            ),
+        ],
+    ],
+    [
+        "Deployment pending restarting status from k8s_pod (exitcode 1)",
+        [
+            DEPLOYMENT_RESTARTING,
+            POD_RESTARTING_TERMINATED,
+            ContinuousJobStatus(
+                short="pending",
+                messages=["exitcode 1", "restarted (3)"],
+                duration="0s",
+                up_to_date=True,
+            ),
+        ],
+    ],
+    [
+        "Deployment pending scheduling status from k8s_pod",
+        [
+            DEPLOYMENT_UNKNOWN,
+            POD_SCHEDULING,
+            ContinuousJobStatus(
+                short="pending", messages=["scheduling"], duration="0s", up_to_date=True
             ),
         ],
     ],

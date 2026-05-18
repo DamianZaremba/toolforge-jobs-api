@@ -69,6 +69,9 @@ def _get_highest_priority_status(
     if aggregated_statuses["running"]:
         return aggregated_statuses["running"][0]
 
+    if aggregated_statuses["restarted"]:
+        return aggregated_statuses["restarted"][0]
+
     if aggregated_statuses["succeeded"]:
         return aggregated_statuses["succeeded"][0]
 
@@ -87,6 +90,7 @@ def _extract_container_statuses(
         "scheduling": [],
         "initializing": [],
         "running": [],
+        "restarted": [],
         "succeeded": [],
         "unknown": [],
     }
@@ -127,7 +131,47 @@ def _extract_container_statuses(
             elif phase == "running" and state.get("running", None):
                 aggregated_statuses["running"].append(
                     CommonJobStatus(
-                        short=StatusShort.RUNNING, duration=default_duration, up_to_date=True
+                        short=StatusShort.RUNNING,
+                        duration=_get_duration(start_time=state["running"].get("startedAt", None)),
+                        up_to_date=True,
+                    )
+                )
+
+            # running + terminated: container crashed and was restarted
+            # See: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-states
+            elif phase == "running" and state.get("terminated", None):
+                terminated_state = state["terminated"]
+                exit_code = terminated_state.get("exitCode", 0)
+                restart_count = container_status.get("restartCount", 0)
+                aggregated_statuses["restarted"].append(
+                    CommonJobStatus(
+                        short=StatusShort.PENDING,
+                        messages=[
+                            f"restarted ({restart_count})",
+                            f"exitcode {exit_code}",
+                        ],
+                        duration=default_duration,
+                        up_to_date=True,
+                    )
+                )
+
+            # running + waiting (CrashLoopBackOff): container looping
+            # See: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-states
+            elif phase == "running" and state.get("waiting", None):
+                restart_count = container_status.get("restartCount", 0)
+                messages = [f"restarted ({restart_count})"]
+                if container_status.get("lastState", {}).get("terminated", None):
+                    exit_code = container_status["lastState"]["terminated"].get("exitCode", 0)
+                    messages = [
+                        f"restarted ({restart_count})",
+                        f"exitcode {exit_code}",
+                    ]
+                aggregated_statuses["restarted"].append(
+                    CommonJobStatus(
+                        short=StatusShort.PENDING,
+                        messages=messages,
+                        duration=default_duration,
+                        up_to_date=True,
                     )
                 )
 
