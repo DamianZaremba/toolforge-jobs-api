@@ -133,6 +133,7 @@ class StatusShort(str, Enum):
 
 class CommonJobStatus(BaseModel):
     short: StatusShort = StatusShort.UNKNOWN
+    duration: str | None = None
 
 
 class OneOffJobStatus(CommonJobStatus):

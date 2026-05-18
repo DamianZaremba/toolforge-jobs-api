@@ -50,7 +50,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_INITIALIZING,
             None,
-            OneOffJobStatus(short="pending"),
+            OneOffJobStatus(short="pending", duration="0s"),
         ],
     ],
     [
@@ -58,7 +58,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_INITIALIZING,
             POD_INITIALIZING,
-            OneOffJobStatus(short="pending"),
+            OneOffJobStatus(short="pending", duration="0s"),
         ],
     ],
     [
@@ -66,7 +66,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_RUNNING,
             POD_RUNNING,
-            OneOffJobStatus(short="running"),
+            OneOffJobStatus(short="running", duration="0s"),
         ],
     ],
     [
@@ -74,7 +74,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_SUCCEEDED,
             POD_SUCCEEDED,
-            OneOffJobStatus(short="succeeded"),
+            OneOffJobStatus(short="succeeded", duration="0s"),
         ],
     ],
     [
@@ -82,7 +82,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_SUCCEEDED,
             None,
-            OneOffJobStatus(short="succeeded"),
+            OneOffJobStatus(short="succeeded", duration="0s"),
         ],
     ],
     [
@@ -90,7 +90,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_FAILED,
             POD_FAILED,
-            OneOffJobStatus(short="failed"),
+            OneOffJobStatus(short="failed", duration="0s"),
         ],
     ],
     [
@@ -98,7 +98,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_FAILED,
             None,
-            OneOffJobStatus(short="failed"),
+            OneOffJobStatus(short="failed", duration="0s"),
         ],
     ],
     [
@@ -106,7 +106,7 @@ DEPLOYMENT_UNKNOWN = (
         [
             JOB_UNKNOWN,
             None,
-            OneOffJobStatus(short="unknown"),
+            OneOffJobStatus(short="unknown", duration="0s"),
         ],
     ],
 )
@@ -123,6 +123,7 @@ def test_get_one_off_job_status(
     gotten_status = get_one_off_job_status(k8s_job=k8s_job_json, k8s_pods=k8s_pods_json)
 
     assert expected_status.short == gotten_status.short
+    assert expected_status.duration == gotten_status.duration
 
 
 @cases(
@@ -133,7 +134,7 @@ def test_get_one_off_job_status(
             CRONJOB_INITIALIZING,
             None,
             None,
-            ScheduledJobStatus(short="pending"),
+            ScheduledJobStatus(short="pending", duration="0s"),
         ],
     ],
     [
@@ -142,7 +143,7 @@ def test_get_one_off_job_status(
             CRONJOB_INITIALIZING,
             JOB_INITIALIZING,
             None,
-            ScheduledJobStatus(short="pending"),
+            ScheduledJobStatus(short="pending", duration="0s"),
         ],
     ],
     [
@@ -151,7 +152,7 @@ def test_get_one_off_job_status(
             CRONJOB_INITIALIZING,
             JOB_INITIALIZING,
             POD_INITIALIZING,
-            ScheduledJobStatus(short="pending"),
+            ScheduledJobStatus(short="pending", duration="0s"),
         ],
     ],
     [
@@ -160,7 +161,7 @@ def test_get_one_off_job_status(
             CRONJOB_RUNNING,
             JOB_RUNNING,
             POD_RUNNING,
-            ScheduledJobStatus(short="running"),
+            ScheduledJobStatus(short="running", duration="0s"),
         ],
     ],
     [
@@ -169,7 +170,7 @@ def test_get_one_off_job_status(
             CRONJOB_SUCCEEDED,
             JOB_SUCCEEDED,
             POD_SUCCEEDED,
-            ScheduledJobStatus(short="succeeded"),
+            ScheduledJobStatus(short="succeeded", duration="0s"),
         ],
     ],
     [
@@ -178,7 +179,7 @@ def test_get_one_off_job_status(
             CRONJOB_SUCCEEDED,
             JOB_SUCCEEDED,
             None,
-            ScheduledJobStatus(short="succeeded"),
+            ScheduledJobStatus(short="succeeded", duration="0s"),
         ],
     ],
     [
@@ -187,7 +188,7 @@ def test_get_one_off_job_status(
             CRONJOB_FAILED,
             JOB_FAILED,
             POD_FAILED,
-            ScheduledJobStatus(short="failed"),
+            ScheduledJobStatus(short="failed", duration="0s"),
         ],
     ],
     [
@@ -196,7 +197,7 @@ def test_get_one_off_job_status(
             CRONJOB_FAILED,
             JOB_FAILED,
             None,
-            ScheduledJobStatus(short="failed"),
+            ScheduledJobStatus(short="failed", duration="0s"),
         ],
     ],
     [
@@ -205,7 +206,7 @@ def test_get_one_off_job_status(
             CRONJOB_UNKNOWN,
             JOB_UNKNOWN,
             None,
-            ScheduledJobStatus(short="unknown"),
+            ScheduledJobStatus(short="unknown", duration="0s"),
         ],
     ],
 )
@@ -228,6 +229,7 @@ def test_get_scheduled_job_status(
     )
 
     assert expected_status.short == gotten_status.short
+    assert expected_status.duration == gotten_status.duration
 
 
 @cases(
@@ -237,19 +239,23 @@ def test_get_scheduled_job_status(
         [
             DEPLOYMENT_INITIALIZING,
             None,
-            ContinuousJobStatus(short="pending"),
+            ContinuousJobStatus(short="pending", duration="0s"),
         ],
     ],
     [
         "Deployment pending status from k8s_pod",
-        [DEPLOYMENT_INITIALIZING, POD_INITIALIZING, ContinuousJobStatus(short="pending")],
+        [
+            DEPLOYMENT_INITIALIZING,
+            POD_INITIALIZING,
+            ContinuousJobStatus(short="pending", duration="0s"),
+        ],
     ],
     [
         "Deployment running status from k8s_pod",
         [
             DEPLOYMENT_RUNNING,
             POD_RUNNING,
-            ContinuousJobStatus(short="running"),
+            ContinuousJobStatus(short="running", duration="0s"),
         ],
     ],
     [
@@ -257,7 +263,7 @@ def test_get_scheduled_job_status(
         [
             DEPLOYMENT_RUNNING,
             None,
-            ContinuousJobStatus(short="running"),
+            ContinuousJobStatus(short="running", duration="0s"),
         ],
     ],
     [
@@ -265,7 +271,7 @@ def test_get_scheduled_job_status(
         [
             DEPLOYMENT_UNKNOWN,
             POD_FAILED,
-            ContinuousJobStatus(short="failed"),
+            ContinuousJobStatus(short="failed", duration="0s"),
         ],
     ],
     [
@@ -273,7 +279,7 @@ def test_get_scheduled_job_status(
         [
             DEPLOYMENT_UNKNOWN,
             None,
-            ContinuousJobStatus(short="unknown"),
+            ContinuousJobStatus(short="unknown", duration="0s"),
         ],
     ],
 )
@@ -292,3 +298,4 @@ def test_get_continuous_job_status(
     )
 
     assert expected_status.short == gotten_status.short
+    assert expected_status.duration == gotten_status.duration

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2025 Raymond Ndibe <rndibe@wikimedia.org>
 
+from datetime import datetime, timezone
 from logging import getLogger
 from typing import Any
 
@@ -11,8 +12,23 @@ from ...core.models import (
     ScheduledJobStatus,
     StatusShort,
 )
+from ...core.utils import (
+    KUBERNETES_DATE_FORMAT,
+    format_duration,
+)
 
 LOGGER = getLogger(__name__)
+
+
+def _get_duration(start_time: str | None) -> str:
+    if start_time:
+        start_time_obj = datetime.strptime(start_time, KUBERNETES_DATE_FORMAT)
+        start_time_obj = start_time_obj.replace(tzinfo=timezone.utc)
+    else:
+        start_time_obj = datetime.now(timezone.utc)
+    # TODO: The format of the string returned by format_duration ("24d24h59m45s") has terrible UX.
+    # Maybe use something else or refactor format_duration?
+    return format_duration(int((datetime.now(timezone.utc) - start_time_obj).total_seconds()))
 
 
 def _get_highest_priority_status(
@@ -63,23 +79,51 @@ def _extract_container_statuses(
         status = pod.get("status", {})
         phase = status.get("phase", "unknown").lower()
         container_statuses = status.get("containerStatuses", [])
+        conditions = sorted(
+            status.get("conditions", []),
+            key=lambda c: c.get("lastTransitionTime", None),
+            reverse=True,
+        )
+        last_condition = conditions[0] if len(conditions) > 0 else {}
 
-        for _container_status in container_statuses:
-            # For now, just map the pod phase directly to the status short.
+        for container_status in container_statuses:
+            state = container_status.get("state", {})
+            default_duration = _get_duration(
+                start_time=last_condition.get("lastTransitionTime", None)
+            )
             if phase == "pending":
                 aggregated_statuses["initializing"].append(
-                    CommonJobStatus(short=StatusShort.PENDING)
+                    CommonJobStatus(
+                        short=StatusShort.PENDING,
+                        duration=default_duration,
+                    )
                 )
             elif phase == "running":
-                aggregated_statuses["running"].append(CommonJobStatus(short=StatusShort.RUNNING))
-            elif phase == "succeeded":
-                aggregated_statuses["succeeded"].append(
-                    CommonJobStatus(short=StatusShort.SUCCEEDED)
+                aggregated_statuses["running"].append(
+                    CommonJobStatus(short=StatusShort.RUNNING, duration=default_duration)
                 )
-            elif phase == "failed":
-                aggregated_statuses["failed"].append(CommonJobStatus(short=StatusShort.FAILED))
+            elif phase == "succeeded" and state.get("terminated", None):
+                aggregated_statuses["succeeded"].append(
+                    CommonJobStatus(
+                        short=StatusShort.SUCCEEDED,
+                        duration=_get_duration(
+                            start_time=state["terminated"].get("finishedAt", None)
+                        ),
+                    )
+                )
+            elif phase == "failed" and state.get("terminated", None):
+                aggregated_statuses["failed"].append(
+                    CommonJobStatus(
+                        short=StatusShort.FAILED,
+                        duration=_get_duration(
+                            start_time=state["terminated"].get("finishedAt", None)
+                        ),
+                    )
+                )
             else:
-                aggregated_statuses["unknown"].append(CommonJobStatus(short=StatusShort.UNKNOWN))
+                aggregated_statuses["unknown"].append(
+                    CommonJobStatus(short=StatusShort.UNKNOWN, duration=default_duration)
+                )
 
     return aggregated_statuses
 
@@ -94,9 +138,22 @@ def _extract_pending_scheduling_status_from_pods(
         status = pod.get("status", {})
         phase = status.get("phase", "unknown").lower()
         container_statuses = status.get("containerStatuses", [])
+        conditions = sorted(
+            status.get("conditions", []),
+            key=lambda c: c.get("lastTransitionTime", None),
+            reverse=True,
+        )
+        last_condition = conditions[0] if len(conditions) > 0 else {}
 
         if phase == "pending" and not container_statuses:
-            pod_scheduling_statuses.append(CommonJobStatus(short=StatusShort.PENDING))
+            pod_scheduling_statuses.append(
+                CommonJobStatus(
+                    short=StatusShort.PENDING,
+                    duration=_get_duration(
+                        start_time=last_condition.get("lastTransitionTime", None)
+                    ),
+                )
+            )
 
     return pod_scheduling_statuses
 
@@ -119,10 +176,14 @@ def _get_one_off_job_status_from_conditions(
     job_status: dict[str, Any],
 ) -> OneOffJobStatus | None:
     for condition in job_status.get("conditions", []):
+        duration = _get_duration(start_time=condition.get("lastTransitionTime", None))
+
         if condition.get("type") == "Complete" and condition.get("status") == "True":
-            return OneOffJobStatus(short=StatusShort.SUCCEEDED)
+            return OneOffJobStatus(short=StatusShort.SUCCEEDED, duration=duration)
+
         if condition.get("type") == "Failed" and condition.get("status") == "True":
-            return OneOffJobStatus(short=StatusShort.FAILED)
+            return OneOffJobStatus(short=StatusShort.FAILED, duration=duration)
+
     return None
 
 
@@ -139,7 +200,7 @@ def get_one_off_job_status(
     LOGGER.debug(f"gotten pod status: {pod_status}")
 
     if pod_status and pod_status.short != "unknown":
-        return OneOffJobStatus(short=pod_status.short)
+        return OneOffJobStatus(short=pod_status.short, duration=pod_status.duration)
 
     LOGGER.debug(f"inconclusive status gotten '{pod_status}', performing further processing...")
     status_from_conditions = _get_one_off_job_status_from_conditions(job_status)
@@ -149,13 +210,19 @@ def get_one_off_job_status(
     active = job_status.get("active", 0)
     ready = job_status.get("ready", 0)
     if active and not ready:
-        return OneOffJobStatus(short=StatusShort.PENDING)
+        return OneOffJobStatus(
+            short=StatusShort.PENDING,
+            duration=_get_duration(start_time=job_status.get("startTime", None)),
+        )
 
     # default if all attempts to get status fail
     if pod_status:
-        return OneOffJobStatus(short=pod_status.short)
+        return OneOffJobStatus(short=pod_status.short, duration=pod_status.duration)
 
-    return OneOffJobStatus(short=StatusShort.UNKNOWN)
+    return OneOffJobStatus(
+        short=StatusShort.UNKNOWN,
+        duration=_get_duration(start_time=k8s_job["metadata"]["creationTimestamp"]),
+    )
 
 
 def _filter_k8s_job_pods(
@@ -191,11 +258,18 @@ def get_scheduled_job_status(
         job_status = get_one_off_job_status(k8s_job=latest_job, k8s_pods=k8s_pods)
         return ScheduledJobStatus(
             short=job_status.short,
+            duration=job_status.duration,
         )
 
     # No active job found — the CronJob is waiting for its next schedule
     return ScheduledJobStatus(
         short=StatusShort.PENDING,
+        duration=_get_duration(
+            start_time=k8s_cronjob.get("status", {}).get(
+                "lastScheduleTime",
+                k8s_cronjob["metadata"]["creationTimestamp"],
+            )
+        ),
     )
 
 
@@ -211,20 +285,21 @@ def get_continuous_job_status(
     replicas = k8s_deployment.get("spec", {}).get("replicas", 0)
     ready_replicas = deployment_status.get("readyReplicas", 0)
     unavailable_replicas = deployment_status.get("unavailableReplicas", 0)
-
+    duration = _get_duration(start_time=k8s_deployment["metadata"]["creationTimestamp"])
     pod_status = _get_status_from_pods(k8s_pods)
+
     if pod_status and pod_status.short != "unknown":
-        return ContinuousJobStatus(short=pod_status.short)
+        return ContinuousJobStatus(short=pod_status.short, duration=pod_status.duration)
 
     # At this point if we don't have any good idea what the status is, infer it from the deployment itself
     if unavailable_replicas:
-        return ContinuousJobStatus(short=StatusShort.PENDING)
+        return ContinuousJobStatus(short=StatusShort.PENDING, duration=duration)
 
     if ready_replicas == replicas:
-        return ContinuousJobStatus(short=StatusShort.RUNNING)
+        return ContinuousJobStatus(short=StatusShort.RUNNING, duration=duration)
 
     # Fallback
     if pod_status:
-        return ContinuousJobStatus(short=pod_status.short)
+        return ContinuousJobStatus(short=pod_status.short, duration=pod_status.duration)
 
-    return ContinuousJobStatus(short=StatusShort.UNKNOWN)
+    return ContinuousJobStatus(short=StatusShort.UNKNOWN, duration=duration)
