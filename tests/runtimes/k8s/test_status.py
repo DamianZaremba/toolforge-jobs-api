@@ -125,6 +125,10 @@ def test_get_one_off_job_status(
     assert expected_status.short == gotten_status.short
     assert expected_status.duration == gotten_status.duration
 
+    message = next(iter(expected_status.messages), None)
+    if message:
+        assert message in gotten_status.messages
+
 
 @cases(
     "k8s_cronjob, k8s_job, k8s_pod, expected_status",
@@ -231,6 +235,10 @@ def test_get_scheduled_job_status(
     assert expected_status.short == gotten_status.short
     assert expected_status.duration == gotten_status.duration
 
+    message = next(iter(expected_status.messages), None)
+    if message:
+        assert message in gotten_status.messages
+
 
 @cases(
     "k8s_deployment, k8s_pod, expected_status",
@@ -299,3 +307,7 @@ def test_get_continuous_job_status(
 
     assert expected_status.short == gotten_status.short
     assert expected_status.duration == gotten_status.duration
+
+    message = next(iter(expected_status.messages), None)
+    if message:
+        assert message in gotten_status.messages

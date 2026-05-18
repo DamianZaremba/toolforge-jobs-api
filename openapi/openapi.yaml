@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.9.0"
+  version: "4.10.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -543,6 +543,10 @@ components:
       properties:
         short:
           $ref: "#/components/schemas/StatusShort"
+        messages:
+          type: array
+          description: "This field is for more detailed explanation of a job's status"
+          example: ["scheduling", "initializing", "exitcode 1"]
         duration:
           type: string
           description: "This shows an estimate of how long a job has been in the current status"

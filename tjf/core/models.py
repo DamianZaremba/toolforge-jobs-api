@@ -136,6 +136,7 @@ class CommonJobStatus(BaseModel):
     short: StatusShort = StatusShort.UNKNOWN
     duration: str | None = None
     up_to_date: bool = True
+    messages: list[str] = []
 
 
 class OneOffJobStatus(CommonJobStatus):
