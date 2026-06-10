@@ -386,9 +386,8 @@ def _get_harbor_images_for_name(project: str, name: str) -> list[Image]:
         response = requests.get(
             f"{config.protocol}://{config.host}/api/v2.0/projects/{encoded_project}/repositories/{encoded_name}/artifacts",
             params={
-                # TODO: pagination if needed
-                "page": "1",
-                "page_size": "25",
+                # Disable default pagination, return all results
+                "page_size": "0",
             },
             headers={
                 "User-Agent": f"jobs-framework-api python-requests/{requests.__version__}",
@@ -442,9 +441,8 @@ def _get_harbor_images(tool: str, use_harbor_cache: bool) -> list[Image]:
             f"{config.protocol}://{config.host}/api/v2.0/projects/{encoded_project}/repositories",
             params={
                 "with_tag": "true",
-                # TODO: pagination if needed
-                "page": "1",
-                "page_size": "25",
+                # Disable default pagination, return all results
+                "page_size": "0",
             },
             headers={
                 "User-Agent": f"jobs-framework-api python-requests/{requests.__version__}",
