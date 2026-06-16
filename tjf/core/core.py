@@ -18,6 +18,7 @@ import logging
 from collections.abc import Mapping
 from typing import AsyncIterator, Tuple
 
+from pydantic.main import IncEx
 from toolforge_weld.utils import apeek
 
 from tjf.api.metrics import SYNCED_TO_STORAGE_COUNTER
@@ -42,7 +43,11 @@ def _update_storage_job_status_from_runtime(
         storage_job.status_long = runtime_job.status_long
         storage_job.status = runtime_job.status.model_copy()
 
-    to_exclude = set(["k8s_object", "status"])
+    to_exclude: Mapping[str, IncEx | bool] = {
+        "k8s_object": True,
+        "status": True,
+        "image": {"exists", "state"},
+    }
 
     if not runtime_job or runtime_job.model_dump(
         exclude=to_exclude
