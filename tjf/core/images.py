@@ -428,7 +428,7 @@ def _get_harbor_images_for_name(project: str, name: str) -> list[Image]:
 def _get_harbor_images(tool: str, use_harbor_cache: bool) -> list[Image]:
     if use_harbor_cache and tool in HARBOR_IMAGES_CACHE:
         cache_entry = HARBOR_IMAGES_CACHE[tool]
-        if cache_entry.creation_time - datetime.now(tz=UTC) < timedelta(seconds=5):
+        if datetime.now(tz=UTC) - cache_entry.creation_time < timedelta(seconds=5):
             return copy.deepcopy(cache_entry.images)
 
     config = _get_harbor_config()
