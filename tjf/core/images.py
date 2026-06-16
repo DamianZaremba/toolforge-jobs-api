@@ -193,6 +193,8 @@ class Image(BaseModel):
         if project:
             params["type"] = ImageType.BUILDPACK
             params["state"] = HARBOR_IMAGE_STATE
+            if tag and digest:
+                params["aliases"] = [f"{project}/{name}:{tag}@{digest}"]
 
         new_image = cls.model_validate(params)
         LOGGER.debug(f"Got unknown image {new_image}")
