@@ -83,7 +83,9 @@ def get_error_from_k8s_response(
         "409 Client Error: Conflict for url"
     ):
         return K8sAlreadyExists(
-            "An object with the same name exists already", http_status_code=409, data=error_data
+            "A k8s object with the same name exists already in the runtime",
+            http_status_code=409,
+            data=error_data,
         )
 
     if error.response.status_code == 404:

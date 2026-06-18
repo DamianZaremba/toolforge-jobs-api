@@ -117,6 +117,7 @@ def api_create_job(request: Request, toolname: str, new_job: AnyNewJob) -> JobRe
         logging.debug(f"Deleted existing job: {existing_job}")
 
     core.create_job(job=job)
+
     defined_job = get_job_for_api(job=job)
     logging.debug(f"Generated DefinedJob: {defined_job}")
 
