@@ -7,7 +7,14 @@ from toolforge_weld.kubernetes import MountOption
 
 from tests.test_utils import cases
 from tjf.core import core
-from tjf.core.models import JobType
+from tjf.core.images import Image, ImageType
+from tjf.core.models import (
+    AnyJobStatus,
+    ContinuousJobStatus,
+    JobType,
+    ScheduledJobStatus,
+    StatusShort,
+)
 from tjf.settings import Settings
 
 
@@ -332,3 +339,137 @@ class TestCore:
                 assert gotten_job.model_dump() == expected_job.model_dump()
                 storage_k8s_cli.create_namespaced_custom_objects.assert_not_called()
                 mock_runtime_create_job.assert_not_called()
+
+    class TestUpdateStorageStatusWithRuntime:
+        @cases(
+            ["job_type"],
+            ["Continuous job", [JobType.CONTINUOUS]],
+            ["Scheduled job", [JobType.SCHEDULED]],
+        )
+        def test_no_runtime_job_but_storage_job_updates_only_long_status_and_sets_up_to_date_false(
+            self, job_type: JobType, get_my_core: GetMyCore
+        ):
+            my_storage_job = get_dummy_job(job_name="job-from-storage", job_type=job_type)
+            my_runtime_job = None
+            gotten_job = core._update_storage_job_status_from_runtime(
+                storage_job=my_storage_job, runtime_job=my_runtime_job
+            )
+
+            assert not gotten_job.status.up_to_date
+            assert "is different" in gotten_job.status_long
+
+        @cases(
+            ["job_type", "job_status"],
+            [
+                "Continuous job",
+                [
+                    JobType.CONTINUOUS,
+                    ContinuousJobStatus(short=StatusShort.RUNNING),
+                ],
+            ],
+            [
+                "Scheduled job",
+                [
+                    JobType.SCHEDULED,
+                    ScheduledJobStatus(short=StatusShort.RUNNING),
+                ],
+            ],
+        )
+        def test_different_runtime_job_but_storage_job_updates_status_and_sets_up_to_date_false(
+            self, job_type: JobType, job_status: AnyJobStatus, get_my_core: GetMyCore
+        ):
+            my_storage_job = get_dummy_job(job_name="my-job", job_type=job_type)
+            my_runtime_job = get_dummy_job(
+                job_name="my-job",
+                job_type=job_type,
+                status=job_status,
+                cmd="different command",
+            )
+            gotten_job = core._update_storage_job_status_from_runtime(
+                storage_job=my_storage_job, runtime_job=my_runtime_job
+            )
+
+            assert not gotten_job.status.up_to_date
+            assert "is different" in gotten_job.status_long
+            assert my_runtime_job.status.short == gotten_job.status.short
+
+        @cases(
+            ["job_type", "job_status"],
+            [
+                "Continuous job",
+                [
+                    JobType.CONTINUOUS,
+                    ContinuousJobStatus(short=StatusShort.RUNNING),
+                ],
+            ],
+            [
+                "Scheduled job",
+                [
+                    JobType.SCHEDULED,
+                    ScheduledJobStatus(short=StatusShort.RUNNING),
+                ],
+            ],
+        )
+        def test_same_runtime_job_and_storage_job_updates_status_and_sets_up_to_date_true(
+            self, job_type: JobType, job_status: AnyJobStatus, get_my_core: GetMyCore
+        ):
+            my_storage_job = get_dummy_job(job_name="my-job", job_type=job_type)
+            my_runtime_job = get_dummy_job(
+                job_name="my-job",
+                job_type=job_type,
+                status=job_status,
+            )
+            gotten_job = core._update_storage_job_status_from_runtime(
+                storage_job=my_storage_job, runtime_job=my_runtime_job
+            )
+
+            assert gotten_job.status.up_to_date
+            assert my_runtime_job.status.short == gotten_job.status.short
+
+        def test_runtime_job_with_non_existing_image_matches_same_storage_job(
+            self, get_my_core: GetMyCore
+        ):
+            storage_image = Image(
+                type=ImageType.BUILDPACK,
+                short_name="tool-some-tool/some-container:latest",
+                aliases=[
+                    "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
+                ],
+                host="harbor.example.org",
+                path="tool-some-tool/some-container",
+                tag="latest",
+                state="stable",
+                exists=True,
+            )
+            my_storage_job = get_dummy_job(job_name="my-job", image=storage_image)
+            runtime_image = storage_image.model_copy(update={"exists": False})
+            my_runtime_job = get_dummy_job(job_name="my-job", image=runtime_image)
+            gotten_job = core._update_storage_job_status_from_runtime(
+                storage_job=my_storage_job, runtime_job=my_runtime_job
+            )
+
+            assert gotten_job.status.up_to_date
+
+        def test_runtime_job_with_state_changed_image_matches_same_storage_job(
+            self, get_my_core: GetMyCore
+        ):
+            storage_image = Image(
+                type=ImageType.BUILDPACK,
+                short_name="tool-some-tool/some-container:latest",
+                aliases=[
+                    "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
+                ],
+                host="harbor.example.org",
+                path="tool-some-tool/some-container",
+                tag="latest",
+                state="stable",
+                exists=True,
+            )
+            my_storage_job = get_dummy_job(job_name="my-job", image=storage_image)
+            runtime_image = storage_image.model_copy(update={"state": "deprecated"})
+            my_runtime_job = get_dummy_job(job_name="my-job", image=runtime_image)
+            gotten_job = core._update_storage_job_status_from_runtime(
+                storage_job=my_storage_job, runtime_job=my_runtime_job
+            )
+
+            assert gotten_job.status.up_to_date
