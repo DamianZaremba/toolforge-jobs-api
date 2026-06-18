@@ -155,7 +155,7 @@ class TestCreateErrorFromK8sResponse:
         )
 
         assert isinstance(error, K8sAlreadyExists)
-        assert error.args == ("An object with the same name exists already",)
+        assert error.args == ("A k8s object with the same name exists already in the runtime",)
         assert error.data == {
             "k8s_object": get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
             "k8s_error": {

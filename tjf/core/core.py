@@ -21,16 +21,28 @@ from typing import AsyncIterator, Tuple
 from pydantic.main import IncEx
 from toolforge_weld.utils import apeek
 
-from tjf.api.metrics import SYNCED_TO_STORAGE_COUNTER
+from tjf.api.metrics import ONLY_IN_RUNTIME_COUNTER, ONLY_IN_STORAGE_COUNTER
+from tjf.runtimes.k8s.k8s_errors import K8sAlreadyExists
 
 from ..runtimes.exceptions import NotFoundInRuntime
 from ..runtimes.k8s.runtime import K8sRuntime
 from ..settings import Settings
 from ..storages.exceptions import NotFoundInStorage
 from ..storages.k8s.storage import K8sStorage
-from .error import TjfError, TjfJobNotFoundError, TjfValidationError
+from .error import (
+    TjfError,
+    TjfJobAlreadyExistsOnRuntime,
+    TjfJobNotFoundError,
+    TjfValidationError,
+)
 from .images import Image
-from .models import OUT_OF_SYNC_JOB_WARNING_MESSAGE, AnyJob, OneOffJob, QuotaData
+from .models import (
+    OUT_OF_SYNC_JOB_WARNING_MESSAGE,
+    AnyJob,
+    JobType,
+    OneOffJob,
+    QuotaData,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -88,6 +100,8 @@ class Core:
         LOGGER.debug(f"Creating job in runtime: {job}")
         try:
             self.runtime.create_job(tool=job.tool_name, job=job)
+        except K8sAlreadyExists as error:
+            raise TjfJobAlreadyExistsOnRuntime(f"{error}") from error
         except TjfError as e:
             raise e
         except Exception as e:
@@ -228,21 +242,22 @@ class Core:
                 continue
 
             runtime_job = runtime_jobs_by_name.get(existing_job.job_name, None)
+
+            # One-offs are not stored in storage
+            if runtime_job and runtime_job.job_type == JobType.ONE_OFF:
+                final_jobs[runtime_job.job_name] = runtime_job
+                continue
+
             storage_job = storage_jobs_by_name.get(existing_job.job_name, None)
-            final_job = self._reconciliate_storage_and_runtime(
-                job_name=existing_job.job_name,
+            maybe_existing_job = self._reconciliate_storage_and_runtime(
                 tool_name=toolname,
                 runtime_job=runtime_job,
                 storage_job=storage_job,
             )
-            if not final_job:
-                LOGGER.warning(
-                    f"Unexpected event, one of runtime_job {runtime_job} and storage_job {storage_job} should not be "
-                    "None, but got None from _reconciliate_storage_and_runtime"
-                )
+            if not maybe_existing_job:
                 continue
 
-            final_jobs[final_job.job_name] = final_job
+            final_jobs[maybe_existing_job.job_name] = maybe_existing_job
 
         return list(final_jobs.values())
 
@@ -262,52 +277,29 @@ class Core:
             storage_job = None
 
         return self._reconciliate_storage_and_runtime(
-            job_name=name, tool_name=toolname, runtime_job=runtime_job, storage_job=storage_job
+            tool_name=toolname, runtime_job=runtime_job, storage_job=storage_job
         )
 
     def _reconciliate_storage_and_runtime(
-        self, job_name: str, tool_name: str, runtime_job: AnyJob | None, storage_job: AnyJob | None
+        self, tool_name: str, runtime_job: AnyJob | None, storage_job: AnyJob | None
     ) -> AnyJob | None:
-        if not runtime_job and not storage_job:
-            return None
-
-        if not runtime_job and storage_job:
-            LOGGER.warning(f"Found a job in storage but not in runtime: {storage_job}")
-            if not self.settings.enable_storage:
-                LOGGER.warning(f"enable_storage=False, deleting from storage: {storage_job}")
-                self.storage.delete_job(job=storage_job)
-                return None
-
-        if runtime_job and not storage_job:
-            if isinstance(runtime_job, OneOffJob):
-                # we skip creating oneoffs for now
-                storage_job = runtime_job
-            else:
-                # TODO: We should delete the runtime job once we are sure all jobs are migrated
-                #       Double checking first that no users are creating jobs-api valid jobs by hand
-                LOGGER.info(
-                    f"Creating storage job {job_name} for tool {tool_name} from runtime, this should never happen once all "
-                    "jobs are in storage"
-                )
-                SYNCED_TO_STORAGE_COUNTER.labels(tool_name=runtime_job.tool_name).inc()
-                storage_job = self._create_storage_job(job=runtime_job)
+        # One-offs are not stored in storage
+        if runtime_job and runtime_job.job_type == JobType.ONE_OFF:
+            return runtime_job
 
         if not storage_job:
-            # this should never happen, though mypy complains it might
-            LOGGER.error(
-                f"Failed to create storage job, aborting:\nstorage_job:{storage_job}\nruntime_job:{runtime_job}"
-            )
-            raise TjfError(
-                "This should never happen :/, unable to create storage job, unable to sync storage and runtime"
-            )
+            if runtime_job:
+                LOGGER.warning(f"Found a job in runtime but not in storage: {runtime_job}")
+                ONLY_IN_RUNTIME_COUNTER.labels(tool_name=tool_name).inc()
+            return None
+
+        if not runtime_job:
+            ONLY_IN_STORAGE_COUNTER.labels(tool_name=tool_name).inc()
+            LOGGER.warning(f"Found a job in storage but not in runtime: {storage_job}")
 
         storage_job = _update_storage_job_status_from_runtime(
             storage_job=storage_job, runtime_job=runtime_job
         )
-
-        if not self.settings.enable_storage:
-            LOGGER.debug(f"Not using storage to get job {job_name}, disabled by config")
-            return runtime_job
 
         return storage_job
 

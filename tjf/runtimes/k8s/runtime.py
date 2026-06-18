@@ -32,7 +32,7 @@ from ...core.utils import format_quantity, parse_and_format_mem
 from ...loki_logs import LokiSource
 from ...settings import Settings
 from ..base import BaseRuntime
-from ..exceptions import NotFoundInRuntime
+from ..exceptions import AlreadyExistsInRuntime, NotFoundInRuntime
 from .account import ToolAccount
 from .jobs import (
     K8sJobKind,
@@ -40,7 +40,7 @@ from .jobs import (
     get_job_for_k8s,
     get_job_from_k8s,
 )
-from .k8s_errors import get_error_from_k8s_response
+from .k8s_errors import K8sAlreadyExists, get_error_from_k8s_response
 from .labels import labels_selector
 from .ops import trigger_scheduled_job, validate_job_limits, wait_for_pods_exit
 from .services import get_k8s_service_object
@@ -222,6 +222,10 @@ class K8sRuntime(BaseRuntime):
                 kind=K8sJobKind.from_job_type(job.job_type).api_path_name,
                 spec=spec,
             )
+        except K8sAlreadyExists as error:
+            raise AlreadyExistsInRuntime(
+                f"Job {job.job_name} already exists in runtime"
+            ) from error
         except requests.exceptions.HTTPError as error:
             raise get_error_from_k8s_response(error=error, job=job, spec=spec)
 
