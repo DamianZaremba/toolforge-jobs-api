@@ -40,7 +40,7 @@ from .jobs import (
     get_job_for_k8s,
     get_job_from_k8s,
 )
-from .k8s_errors import create_error_from_k8s_response
+from .k8s_errors import get_error_from_k8s_response
 from .labels import labels_selector
 from .ops import trigger_scheduled_job, validate_job_limits, wait_for_pods_exit
 from .services import get_k8s_service_object
@@ -159,7 +159,7 @@ class K8sRuntime(BaseRuntime):
                     error.response is None
                     or error.response.status_code != HTTPStatus.UNPROCESSABLE_ENTITY
                 ):
-                    raise create_error_from_k8s_response(error=error, job=job, spec=spec)
+                    raise get_error_from_k8s_response(error=error, job=job, spec=spec)
 
                 LOGGER.warning(
                     f"Failed to patch k8s object, falling back to delete/create for {job.job_name} in {tool}: {error}"
@@ -196,7 +196,7 @@ class K8sRuntime(BaseRuntime):
         try:
             tool_account.k8s_cli.replace_object("services", spec)
         except requests.exceptions.HTTPError as error:
-            raise create_error_from_k8s_response(error=error, job=job, spec=spec)
+            raise get_error_from_k8s_response(error=error, job=job, spec=spec)
         return None
 
     def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
@@ -222,14 +222,18 @@ class K8sRuntime(BaseRuntime):
                 kind=K8sJobKind.from_job_type(job.job_type).api_path_name,
                 spec=spec,
             )
-            LOGGER.debug(f"Result from k8s: {k8s_result}")
-            job.k8s_object = k8s_result
+        except requests.exceptions.HTTPError as error:
+            raise get_error_from_k8s_response(error=error, job=job, spec=spec)
 
-            refresh_job_short_status(tool_account, job)
-            refresh_job_long_status(tool_account, job)
+        LOGGER.debug(f"Result from k8s: {k8s_result}")
+        job.k8s_object = k8s_result
+
+        refresh_job_short_status(tool_account, job)
+        refresh_job_long_status(tool_account, job)
+        try:
             job.status = self._get_job_status(job=job, tool=tool)
         except requests.exceptions.HTTPError as error:
-            raise create_error_from_k8s_response(error=error, job=job, spec=spec)
+            raise get_error_from_k8s_response(error=error, job=job, spec=spec)
 
     def delete_all_jobs(self, *, tool: str) -> None:
         """Deletes all jobs for a user."""

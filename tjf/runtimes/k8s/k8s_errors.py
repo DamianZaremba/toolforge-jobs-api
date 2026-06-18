@@ -19,8 +19,24 @@ from typing import Any
 
 import requests
 
-from ...core.error import TjfError, TjfJobNotFoundError, TjfValidationError
+from ...core.error import TjfError
 from ...core.models import AnyJob
+
+
+class K8sError(TjfError):
+    pass
+
+
+class K8sOutOfQuota(K8sError):
+    pass
+
+
+class K8sAlreadyExists(K8sError):
+    pass
+
+
+class K8sNotFound(K8sError):
+    pass
 
 
 def _is_out_of_quota(
@@ -34,7 +50,7 @@ def _is_out_of_quota(
     return "is forbidden: exceeded quota:" in e.response.text
 
 
-def create_error_from_k8s_response(
+def get_error_from_k8s_response(
     error: requests.exceptions.HTTPError,
     job: AnyJob,
     spec: dict[str, Any],
@@ -46,7 +62,7 @@ def create_error_from_k8s_response(
     }
 
     if error.response is None:
-        return TjfError(
+        return K8sError(
             "Failed to create a job, likely an internal bug in the jobs framework.",
             data=error_data,
         )
@@ -57,7 +73,7 @@ def create_error_from_k8s_response(
     }
 
     if _is_out_of_quota(error):
-        return TjfValidationError(
+        return K8sOutOfQuota(
             "Out of quota for this kind of job. Please see https://w.wiki/6YLP for details.",
             data=error_data,
         )
@@ -66,16 +82,16 @@ def create_error_from_k8s_response(
     if error.response.status_code == 409 or str(error).startswith(
         "409 Client Error: Conflict for url"
     ):
-        return TjfValidationError(
+        return K8sAlreadyExists(
             "An object with the same name exists already", http_status_code=409, data=error_data
         )
 
     if error.response.status_code == 404:
-        return TjfJobNotFoundError(
+        return K8sNotFound(
             f"Job {job.job_name} does not exist",
             data=error_data,
         )
 
-    return TjfError(
+    return K8sError(
         "Failed to create a job, likely an internal bug in the jobs framework.", data=error_data
     )

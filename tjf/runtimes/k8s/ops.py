@@ -23,7 +23,7 @@ from ...core.error import TjfValidationError
 from ...core.models import AnyJob, ScheduledJob
 from .account import ToolAccount
 from .jobs import get_k8s_job_from_cronjob
-from .k8s_errors import create_error_from_k8s_response
+from .k8s_errors import get_error_from_k8s_response
 from .labels import labels_selector
 
 
@@ -81,7 +81,7 @@ def trigger_scheduled_job(tool_account: ToolAccount, scheduled_job: ScheduledJob
     try:
         tool_account.k8s_cli.create_object(kind="jobs", spec=k8s_job)
     except requests.exceptions.HTTPError as error:
-        raise create_error_from_k8s_response(error=error, job=scheduled_job, spec=k8s_job)
+        raise get_error_from_k8s_response(error=error, job=scheduled_job, spec=k8s_job)
 
 
 def wait_for_pods_exit(

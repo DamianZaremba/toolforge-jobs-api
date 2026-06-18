@@ -28,7 +28,7 @@ from tests.helpers.fake_k8s import (
     LIMIT_RANGE_OBJECT,
 )
 from tests.helpers.fakes import get_dummy_job, get_fake_account
-from tjf.core.error import TjfError, TjfValidationError
+from tjf.core.error import TjfValidationError
 from tjf.core.models import AnyJob, JobType
 from tjf.runtimes.k8s.jobs import (
     JOB_DEFAULT_CPU,
@@ -36,7 +36,8 @@ from tjf.runtimes.k8s.jobs import (
     get_job_for_k8s,
     get_job_from_k8s,
 )
-from tjf.runtimes.k8s.ops import create_error_from_k8s_response, validate_job_limits
+from tjf.runtimes.k8s.k8s_errors import K8sAlreadyExists, K8sError, K8sOutOfQuota
+from tjf.runtimes.k8s.ops import get_error_from_k8s_response, validate_job_limits
 
 
 @pytest.fixture
@@ -73,12 +74,12 @@ class TestCreateErrorFromK8sResponse:
         self,
         fake_job: AnyJob,
     ):
-        error = create_error_from_k8s_response(
+        error = get_error_from_k8s_response(
             error=HTTPError("Foobar"),
             job=fake_job,
             spec=get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
         )
-        assert type(error) is TjfError
+        assert isinstance(error, K8sError)
         assert error.args == (
             "Failed to create a job, likely an internal bug in the jobs framework.",
         )
@@ -93,7 +94,7 @@ class TestCreateErrorFromK8sResponse:
         fake_job: AnyJob,
         requests_mock: RequestsMockMocker,
     ):
-        error = create_error_from_k8s_response(
+        error = get_error_from_k8s_response(
             error=_create_fake_http_error(
                 requests_mock, 500, {"message": "Something went wrong!"}
             ),
@@ -101,7 +102,7 @@ class TestCreateErrorFromK8sResponse:
             spec=get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
         )
 
-        assert type(error) is TjfError
+        assert isinstance(error, K8sError)
         assert error.args == (
             "Failed to create a job, likely an internal bug in the jobs framework.",
         )
@@ -121,13 +122,13 @@ class TestCreateErrorFromK8sResponse:
         fixtures_path: Path,
     ):
         response_data = json.loads((fixtures_path / "errors" / "quota.json").read_text())
-        error = create_error_from_k8s_response(
+        error = get_error_from_k8s_response(
             error=_create_fake_http_error(requests_mock, 403, response_data),
             job=fake_job,
             spec=get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
         )
 
-        assert type(error) is TjfValidationError
+        assert isinstance(error, K8sOutOfQuota)
         assert error.args == (
             "Out of quota for this kind of job. Please see https://w.wiki/6YLP for details.",
         )
@@ -147,13 +148,13 @@ class TestCreateErrorFromK8sResponse:
         fixtures_path: Path,
     ):
         response_data = json.loads((fixtures_path / "errors" / "already-exists.json").read_text())
-        error = create_error_from_k8s_response(
+        error = get_error_from_k8s_response(
             error=_create_fake_http_error(requests_mock, 409, response_data),
             job=fake_job,
             spec=get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
         )
 
-        assert type(error) is TjfValidationError
+        assert isinstance(error, K8sAlreadyExists)
         assert error.args == ("An object with the same name exists already",)
         assert error.data == {
             "k8s_object": get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
