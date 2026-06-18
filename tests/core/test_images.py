@@ -368,6 +368,25 @@ IMAGE_NAME_TESTS = [
             ),
         ],
     ],
+    [
+        "buildpack image of that does not exist anymore in harbor, with tag and digest",
+        [
+            f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container-that-does-not-exist:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
+            Image(
+                short_name="tool-some-tool/some-container-that-does-not-exist:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
+                type=ImageType.BUILDPACK,
+                host=FAKE_HARBOR_HOST,
+                path="tool-some-tool/some-container-that-does-not-exist",
+                tag="stable",
+                aliases=[
+                    "tool-some-tool/some-container-that-does-not-exist:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
+                ],
+                state="stable",
+                digest="sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
+                exists=False,
+            ),
+        ],
+    ],
 ]
 
 
