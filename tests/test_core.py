@@ -473,3 +473,27 @@ class TestCore:
             )
 
             assert gotten_job.status.up_to_date
+
+        def test_runtime_job_with_image_with_other_aliases_matches_same_storage_job(
+            self, get_my_core: GetMyCore
+        ):
+            storage_image = Image(
+                type=ImageType.BUILDPACK,
+                short_name="tool-some-tool/some-container:latest",
+                aliases=[
+                    "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
+                ],
+                host="harbor.example.org",
+                path="tool-some-tool/some-container",
+                tag="latest",
+                state="stable",
+                exists=True,
+            )
+            my_storage_job = get_dummy_job(job_name="my-job", image=storage_image)
+            runtime_image = storage_image.model_copy(update={"aliases": ["new_alias"]})
+            my_runtime_job = get_dummy_job(job_name="my-job", image=runtime_image)
+            gotten_job = core._update_storage_job_status_from_runtime(
+                storage_job=my_storage_job, runtime_job=my_runtime_job
+            )
+
+            assert gotten_job.status.up_to_date

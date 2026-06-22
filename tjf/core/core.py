@@ -46,13 +46,13 @@ def _update_storage_job_status_from_runtime(
     to_exclude: Mapping[str, IncEx | bool] = {
         "k8s_object": True,
         "status": True,
-        "image": {"exists", "state"},
+        "image": {"exists", "state", "aliases"},
     }
 
     if not runtime_job or runtime_job.model_dump(
         exclude=to_exclude
     ) != storage_job.get_resolved_core_job().model_dump(exclude=to_exclude):
-        LOGGER.debug(
+        LOGGER.info(
             f"Found a different running version than in storage:\nSTORAGE: {storage_job.get_resolved_core_job().model_dump(exclude=to_exclude)}\nRUNTIME: {runtime_job and runtime_job.model_dump(exclude=to_exclude)}"
         )
         storage_job.status_long = OUT_OF_SYNC_JOB_WARNING_MESSAGE.format(
