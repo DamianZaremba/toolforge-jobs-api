@@ -71,6 +71,12 @@ def api_get_jobs(
     ensure_authenticated(request=request)
 
     user_jobs = current_app(request).core.get_jobs(toolname=toolname)
+
+    # If the user requested all fields, we need to compute the missing fields
+    # using the same logic we use during runtime creation.
+    if include_unset:
+        user_jobs = [job.get_resolved_core_job() for job in user_jobs]
+
     defined_jobs = [get_job_for_api(job) for job in user_jobs]
     response = JobListResponse(
         jobs=defined_jobs,
@@ -160,6 +166,11 @@ def api_get_job(
     job = current_app(request).core.get_job(name=name, toolname=toolname)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
+
+    # If the user requested all fields, we need to compute the missing fields
+    # using the same logic we use during runtime creation.
+    if include_unset:
+        job = job.get_resolved_core_job()
 
     defined_job = get_job_for_api(job)
     response = JobResponse(
