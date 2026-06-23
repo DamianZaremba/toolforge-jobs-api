@@ -85,18 +85,19 @@ class Core:
             raise TjfError("Unable to save job") from error
 
     def _create_runtime_job(self, job: AnyJob) -> None:
-        resolved_job = job.get_resolved_core_job()
-        LOGGER.debug(f"Creating job in runtime: {resolved_job}")
+        LOGGER.debug(f"Creating job in runtime: {job}")
         try:
-            self.runtime.create_job(tool=job.tool_name, job=resolved_job)
+            self.runtime.create_job(tool=job.tool_name, job=job)
         except TjfError as e:
             raise e
         except Exception as e:
             raise TjfError("Unable to start job") from e
 
     def create_job(self, job: AnyJob) -> AnyJob:
+        resolved_job = job.get_resolved_core_job()
+        # we could make this function not return anything, as it does not really change the job at all
         job = self._create_storage_job(job=job)
-        self._create_runtime_job(job=job)
+        self._create_runtime_job(job=resolved_job)
         return job
 
     def update_job(self, job: AnyJob) -> Tuple[bool, str]:
@@ -110,11 +111,13 @@ class Core:
             LOGGER.info(message)
             return True, message
 
+        resolved_job = job.get_resolved_core_job()
+
         LOGGER.debug(f"Updating job in storage {job.job_name}")
         changed_in_storage = self._update_job_in_storage(existing_job=maybe_fresh_job, new_job=job)
 
         LOGGER.debug(f"Updating job in runtime {job.job_name}")
-        changed_in_runtime = self._update_job_in_runtime(job)
+        changed_in_runtime = self._update_job_in_runtime(job=resolved_job)
 
         message = f"Job {job.job_name} "
         if changed_in_runtime and changed_in_storage:
@@ -155,21 +158,20 @@ class Core:
 
     def _update_job_in_runtime(self, job: AnyJob) -> bool:
         changed = False
-        resolved_job = job.get_resolved_core_job()
 
         try:
             # TODO: instead of using diff_with_running_job, move to compare bare jobs
             #       directly (should not be very hard now that we have split models)
-            diff = self.runtime.diff_with_running_job(job=resolved_job)
+            diff = self.runtime.diff_with_running_job(job=job)
             LOGGER.debug(f"Diff for job {job.job_name}: {diff}")
             if diff:
                 LOGGER.debug(f"Updating job {job.job_name}")
-                self.runtime.update_job(tool=job.tool_name, job=resolved_job)
+                self.runtime.update_job(tool=job.tool_name, job=job)
                 changed = True
 
         except TjfJobNotFoundError:
             LOGGER.debug(f"Creating job {job.job_name}")
-            self.runtime.create_job(job=resolved_job, tool=job.tool_name)
+            self.runtime.create_job(job=job, tool=job.tool_name)
             changed = True
 
         LOGGER.info(f"Job {job.job_name} changed in runtime: {changed})")
