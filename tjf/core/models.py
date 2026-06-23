@@ -211,14 +211,17 @@ class CommonJob(PydanticBaseModel):
             "mount" not in common_job_params
             and common_job_params["image"]["type"] == ImageType.STANDARD
         ):
-            LOGGER.debug("Found stardand image with default mount, setting to all")
+            LOGGER.debug("Standard image with default mount, setting mount to all")
             common_job_params["mount"] = MountOption.ALL
 
         elif (
             "mount" not in common_job_params
             and common_job_params["image"]["type"] == ImageType.BUILDPACK
+            and "filelog" not in common_job_params
         ):
-            LOGGER.debug("Found buildpack image with default mount, setting to none")
+            LOGGER.debug(
+                "Buildpack image without filelog and default mount, setting mount to none"
+            )
             common_job_params["mount"] = MountOption.NONE
 
         if (
