@@ -14,6 +14,7 @@ from toolforge_weld.kubernetes import K8sClient
 from toolforge_weld.kubernetes_config import Kubeconfig, fake_kube_config
 
 import tjf.core.images
+import tjf.settings
 from tjf.api.app import JobsApi, create_app
 from tjf.api.auth import TOOL_HEADER
 from tjf.core.images import HarborConfig, _get_images_data
@@ -30,6 +31,12 @@ from tests.helpers.fake_k8s import FAKE_IMAGE_CONFIG, FIXTURES_PATH  # noqa
 from tests.helpers.fakes import FAKE_HARBOR_HOST, get_fake_harbor_config  # noqa
 
 FAKE_VALID_TOOL_TOOL_HEADER = "O=toolforge,CN=some-tool"
+
+
+@pytest.fixture(autouse=True)
+def clean_settings_environment(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("DEBUG", raising=False)
+    tjf.settings.settings = None
 
 
 @pytest.fixture
