@@ -1,5 +1,6 @@
 from pathlib import Path, PosixPath
 from typing import Any, Callable
+from unittest.mock import MagicMock, call
 
 from pytest import MonkeyPatch
 
@@ -10,10 +11,12 @@ from tests.helpers.fake_k8s import (
     get_continuous_job_fixture_as_job,
     get_oneoff_job_fixture_as_job,
 )
+from tests.helpers.fakes import get_dummy_job
 from tests.test_utils import cases, patch_spec
 from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
+    AnyJob,
     EmailOption,
     HttpHealthCheck,
     JobType,
@@ -24,6 +27,7 @@ from tjf.core.models import (
 )
 from tjf.core.utils import format_quantity, parse_quantity
 from tjf.runtimes.k8s import jobs
+from tjf.runtimes.k8s.account import ToolAccount
 
 
 class TestJobFromK8s:
@@ -441,3 +445,42 @@ class TestGetJobForK8s:
             gotten_k8s_obj = jobs.get_job_for_k8s(job=my_job, default_cpu_limit="1000m")
 
             assert match(gotten_k8s_obj)
+
+
+class TestDeleteJobFromK8s:
+    @cases(
+        "job, expected_delete_object, expected_delete_objects",
+        [
+            "Continuous job",
+            [get_dummy_job(job_type=JobType.CONTINUOUS), "deployments", ["pods", "services"]],
+        ],
+        ["Scheduled job", [get_dummy_job(job_type=JobType.SCHEDULED), "cronjobs", ["pods"]]],
+        ["One-off job", [get_dummy_job(job_type=JobType.ONE_OFF), "jobs", ["pods"]]],
+    )
+    def test_continuous_deletes_expected_objects(
+        self,
+        fake_tool_account: ToolAccount,
+        runtime_k8s_cli: MagicMock,
+        job: AnyJob,
+        expected_delete_object: str,
+        expected_delete_objects: list[str],
+    ) -> None:
+        jobs.delete_job_from_k8s(job=job, tool_account=fake_tool_account)
+        expected_delete_objects_calls = [
+            call(
+                kind=k8s_kind,
+                label_selector={
+                    "toolforge": "tool",
+                    "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+                    "app.kubernetes.io/created-by": "some-tool",
+                    "app.kubernetes.io/name": "silly-job-name",
+                },
+            )
+            for k8s_kind in expected_delete_objects
+        ]
+        expected_delete_object_call = [call(kind=expected_delete_object, name=job.job_name)]
+
+        runtime_k8s_cli.delete_objects.assert_has_calls(
+            expected_delete_objects_calls, any_order=True
+        )
+        runtime_k8s_cli.delete_object.assert_has_calls(expected_delete_object_call, any_order=True)

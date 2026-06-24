@@ -36,6 +36,7 @@ from ..exceptions import NotFoundInRuntime
 from .account import ToolAccount
 from .jobs import (
     K8sJobKind,
+    delete_job_from_k8s,
     format_logs,
     get_job_for_k8s,
     get_job_from_k8s,
@@ -248,15 +249,7 @@ class K8sRuntime(BaseRuntime):
         """Deletes a specified job."""
         LOGGER.debug("Deleting job %s for tool %s", job.job_name, tool)
         tool_account = ToolAccount(name=tool)
-        kind = K8sJobKind.from_job_type(job.job_type).api_path_name
-        tool_account.k8s_cli.delete_object(kind=kind, name=job.job_name)
-        for object_type in ["pods", "services"]:
-            tool_account.k8s_cli.delete_objects(
-                kind=object_type,
-                label_selector=labels_selector(
-                    job_name=job.job_name, user_name=tool_account.name, job_type=job.job_type
-                ),
-            )
+        delete_job_from_k8s(job=job, tool_account=tool_account)
         wait_for_pods_exit(tool=tool_account, job_name=job.job_name, job_type=job.job_type)
 
     def diff_with_running_job(self, *, job: AnyJob) -> str:
