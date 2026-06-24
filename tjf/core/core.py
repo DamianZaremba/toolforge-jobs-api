@@ -29,7 +29,7 @@ from ..settings import Settings
 from ..storages.exceptions import NotFoundInStorage
 from ..storages.k8s.storage import K8sStorage
 from .error import TjfError, TjfJobNotFoundError, TjfValidationError
-from .images import Image
+from .images import Image, ImageType
 from .models import OUT_OF_SYNC_JOB_WARNING_MESSAGE, AnyJob, OneOffJob, QuotaData
 
 LOGGER = logging.getLogger(__name__)
@@ -48,6 +48,12 @@ def _update_storage_job_status_from_runtime(
         "status": True,
         "image": {"exists", "state", "aliases"},
     }
+
+    # Hack due to us manually adding `launcher` to the runtime if not there
+    # for buildservice images
+    if storage_job.image.type == ImageType.BUILDPACK:
+        if storage_job.cmd.startswith("launcher ") and runtime_job:
+            runtime_job.cmd = f"launcher {runtime_job.cmd}"
 
     if not runtime_job or runtime_job.model_dump(
         exclude=to_exclude
