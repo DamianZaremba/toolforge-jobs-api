@@ -52,10 +52,17 @@ class HarborConfig:
 
 class ImageType(str, Enum):
     STANDARD = "standard"
-    BUILDPACK = "buildpack"
+    BUIDLSERVICE = "buildservice"
+
+    # TODO: delete once we have no "buildpack" anywhere in the DB
+    @classmethod
+    def _missing_(cls, value: object) -> "ImageType | None":
+        if value == "buildpack":
+            return cls.BUIDLSERVICE
+        return None
 
     def use_standard_nfs(self) -> bool:
-        return self != ImageType.BUILDPACK
+        return self != ImageType.BUIDLSERVICE
 
 
 class ImageUrlParts(NamedTuple):
@@ -191,7 +198,7 @@ class Image(BaseModel):
             params["digest"] = digest
             params["short_name"] = f"{params['short_name']}@{digest}"
         if project:
-            params["type"] = ImageType.BUILDPACK
+            params["type"] = ImageType.BUIDLSERVICE
             params["state"] = HARBOR_IMAGE_STATE
             if tag and digest:
                 params["aliases"] = [f"{project}/{name}:{tag}@{digest}"]
@@ -413,7 +420,7 @@ def _get_harbor_images_for_name(project: str, name: str) -> list[Image]:
             digest = artifact["digest"]
             images.append(
                 Image(
-                    type=ImageType.BUILDPACK,
+                    type=ImageType.BUIDLSERVICE,
                     short_name=f"{project}/{name}:{tag_name}",
                     aliases=[f"{project}/{name}:{tag_name}@{digest}"],
                     tag=tag_name,

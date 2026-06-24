@@ -142,7 +142,7 @@ class TestGetJobForK8s:
                 [{"replicas": 2}, lambda k8s_obj: k8s_obj["spec"]["replicas"] == 2],
             ],
             [
-                "Test mount none for buildpack image",
+                "Test mount none for buildservice image",
                 [
                     {
                         "mount": MountOption.NONE,
@@ -151,7 +151,7 @@ class TestGetJobForK8s:
                             host="harbor.example.org",
                             path="tool-some-tool/some_container",
                             tag="latest",
-                            type=ImageType.BUILDPACK,
+                            type=ImageType.BUIDLSERVICE,
                         ),
                     },
                     lambda k8s_obj: k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
@@ -159,7 +159,7 @@ class TestGetJobForK8s:
                 ],
             ],
             [
-                "Test mount all for buildpack image",
+                "Test mount all for buildservice image",
                 [
                     {
                         "mount": MountOption.ALL,
@@ -168,7 +168,7 @@ class TestGetJobForK8s:
                             host="harbor.example.org",
                             path="tool-some-tool/some-container",
                             tag="latest",
-                            type=ImageType.BUILDPACK,
+                            type=ImageType.BUIDLSERVICE,
                         ),
                     },
                     lambda k8s_obj: k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
@@ -176,7 +176,7 @@ class TestGetJobForK8s:
                 ],
             ],
             [
-                "Test mount all for non-buildpack image",
+                "Test mount all for non-buildservice image",
                 [
                     {
                         "mount": MountOption.ALL,

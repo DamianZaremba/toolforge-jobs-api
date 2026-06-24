@@ -195,12 +195,12 @@ IMAGE_NAME_TESTS = [
         ],
     ],
     [
-        "buildpack image with default tag, no host and no digest",
+        "buildservice image with default tag, no host and no digest",
         [
             "tool-some-tool/some-container:latest",
             Image(
                 short_name="tool-some-tool/some-container:latest",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host=FAKE_HARBOR_HOST,
                 path="tool-some-tool/some-container",
                 tag="latest",
@@ -212,12 +212,12 @@ IMAGE_NAME_TESTS = [
         ],
     ],
     [
-        "buildpack image with default tag and host, no digest",
+        "buildservice image with default tag and host, no digest",
         [
             f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest",
             Image(
                 short_name="tool-some-tool/some-container:latest",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host=FAKE_HARBOR_HOST,
                 path="tool-some-tool/some-container",
                 tag="latest",
@@ -229,12 +229,12 @@ IMAGE_NAME_TESTS = [
         ],
     ],
     [
-        "buildpack image with default tag and digest, no host",
+        "buildservice image with default tag and digest, no host",
         [
             "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
             Image(
                 short_name="tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host=FAKE_HARBOR_HOST,
                 path="tool-some-tool/some-container",
                 tag="latest",
@@ -247,12 +247,12 @@ IMAGE_NAME_TESTS = [
         ],
     ],
     [
-        "buildpack image with host, default tag and digest",
+        "buildservice image with host, default tag and digest",
         [
             f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
             Image(
                 short_name="tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host=FAKE_HARBOR_HOST,
                 path="tool-some-tool/some-container",
                 tag="latest",
@@ -265,12 +265,12 @@ IMAGE_NAME_TESTS = [
         ],
     ],
     [
-        "buildpack image with different tag, no host and no digest",
+        "buildservice image with different tag, no host and no digest",
         [
             "tool-some-tool/some-container:stable",
             Image(
                 short_name="tool-some-tool/some-container:stable",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host=FAKE_HARBOR_HOST,
                 path="tool-some-tool/some-container",
                 tag="stable",
@@ -282,12 +282,12 @@ IMAGE_NAME_TESTS = [
         ],
     ],
     [
-        "buildpack image with different tag and host, no digest",
+        "buildservice image with different tag and host, no digest",
         [
             f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:stable",
             Image(
                 short_name="tool-some-tool/some-container:stable",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host=FAKE_HARBOR_HOST,
                 path="tool-some-tool/some-container",
                 tag="stable",
@@ -299,12 +299,12 @@ IMAGE_NAME_TESTS = [
         ],
     ],
     [
-        "buildpack image with different tag and digest, no host",
+        "buildservice image with different tag and digest, no host",
         [
             "tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
             Image(
                 short_name="tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host=FAKE_HARBOR_HOST,
                 path="tool-some-tool/some-container",
                 tag="stable",
@@ -317,12 +317,12 @@ IMAGE_NAME_TESTS = [
         ],
     ],
     [
-        "buildpack image with host, different tag and digest",
+        "buildservice image with host, different tag and digest",
         [
             f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
             Image(
                 short_name="tool-some-tool/some-container:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host=FAKE_HARBOR_HOST,
                 path="tool-some-tool/some-container",
                 tag="stable",
@@ -335,12 +335,12 @@ IMAGE_NAME_TESTS = [
         ],
     ],
     [
-        "buildpack image of another tool with tag, no host and no digest",
+        "buildservice image of another tool with tag, no host and no digest",
         [
             "tool-other/tagged:example",
             Image(
                 short_name="tool-other/tagged:example",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host=FAKE_HARBOR_HOST,
                 path="tool-other/tagged",
                 tag="example",
@@ -352,12 +352,12 @@ IMAGE_NAME_TESTS = [
         ],
     ],
     [
-        "buildpack image of another tool with host and tag, no digest",
+        "buildservice image of another tool with host and tag, no digest",
         [
             f"{FAKE_HARBOR_HOST}/tool-other/tagged:example",
             Image(
                 short_name="tool-other/tagged:example",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host=FAKE_HARBOR_HOST,
                 path="tool-other/tagged",
                 tag="example",
@@ -369,12 +369,12 @@ IMAGE_NAME_TESTS = [
         ],
     ],
     [
-        "buildpack image of that does not exist anymore in harbor, with tag and digest",
+        "buildservice image of that does not exist anymore in harbor, with tag and digest",
         [
             f"{FAKE_HARBOR_HOST}/tool-some-tool/some-container-that-does-not-exist:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
             Image(
                 short_name="tool-some-tool/some-container-that-does-not-exist:stable@sha256:459de5f5ced49e4c8a104713a8a90a6b409a04f8894e1bc78340e4a8d76aed81",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host=FAKE_HARBOR_HOST,
                 path="tool-some-tool/some-container-that-does-not-exist",
                 tag="stable",

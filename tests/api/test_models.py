@@ -577,11 +577,11 @@ class TestGetResolvedCoreJob:
         assert resolved.filelog_stdout == Path("/data/project/some-tool/dummy-job-name.out")
         assert resolved.filelog_stderr == Path("/data/project/some-tool/dummy-job-name.err")
 
-    def test_common_job_resolves_mount_and_filelog_for_buildpack_image(self):
+    def test_common_job_resolves_mount_and_filelog_for_buildservice_image(self):
         job = get_dummy_core_common_job(
             image=Image(
                 short_name="tool-some-tool/myimage:latest",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host="harbor.example.org",
                 path="tool-some-tool/myimage",
                 tag="latest",
@@ -596,7 +596,7 @@ class TestGetResolvedCoreJob:
         job = get_dummy_core_common_job(
             image=Image(
                 short_name="tool-some-tool/myimage:latest",
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 host="harbor.example.org",
                 path="tool-some-tool/myimage",
                 tag="latest",

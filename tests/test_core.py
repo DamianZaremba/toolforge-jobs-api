@@ -430,7 +430,7 @@ class TestCore:
             self, get_my_core: GetMyCore
         ):
             storage_image = Image(
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 short_name="tool-some-tool/some-container:latest",
                 aliases=[
                     "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
@@ -454,7 +454,7 @@ class TestCore:
             self, get_my_core: GetMyCore
         ):
             storage_image = Image(
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 short_name="tool-some-tool/some-container:latest",
                 aliases=[
                     "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
@@ -478,7 +478,7 @@ class TestCore:
             self, get_my_core: GetMyCore
         ):
             storage_image = Image(
-                type=ImageType.BUILDPACK,
+                type=ImageType.BUIDLSERVICE,
                 short_name="tool-some-tool/some-container:latest",
                 aliases=[
                     "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"

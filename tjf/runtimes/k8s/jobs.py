@@ -179,7 +179,7 @@ def _get_common_k8s_podtemplate(*, job: AnyJob, default_cpu_limit: str) -> dict[
     if job.image.type is None:
         raise TjfValidationError(f"Unexpected job without image type: {job}")
 
-    if job.image.type == ImageType.BUILDPACK and not job.cmd.startswith("launcher "):
+    if job.image.type == ImageType.BUIDLSERVICE and not job.cmd.startswith("launcher "):
         LOGGER.debug(f"Found a buildservice image without launcher, prefixing the command: {job}")
         # this allows using either a procfile entry point or any command as command
         # for a buildservice-based job
@@ -210,7 +210,7 @@ def _get_common_k8s_podtemplate(*, job: AnyJob, default_cpu_limit: str) -> dict[
             }
         ]
 
-    if job.image.type != ImageType.BUILDPACK and not job.mount.supports_non_buildservice:
+    if job.image.type != ImageType.BUIDLSERVICE and not job.mount.supports_non_buildservice:
         raise TjfValidationError(
             f"Mount type {job.mount.value} is only supported for build service images"
         )
@@ -516,7 +516,7 @@ def get_common_job_from_k8s(
         raise
 
     # TODO: remove once we store the user command in storage, as we will not need to generate from k8s
-    if image.type == ImageType.BUILDPACK and command.user_command.startswith("launcher "):
+    if image.type == ImageType.BUIDLSERVICE and command.user_command.startswith("launcher "):
         user_command = command.user_command.split(" ", 1)[-1]
     else:
         user_command = command.user_command
