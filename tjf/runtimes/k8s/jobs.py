@@ -12,6 +12,7 @@ from toolforge_weld.kubernetes import ApiData, K8sClient, MountOption, parse_qua
 from toolforge_weld.logs import LogEntry
 
 from tjf.core.images import Image
+from tjf.runtimes.k8s.account import ToolAccount
 
 from ...core.cron import CronExpression
 from ...core.error import TjfError, TjfValidationError
@@ -34,7 +35,7 @@ from ...core.models import (
 from ...core.utils import dict_get_object, format_quantity, parse_and_format_mem
 from .command import get_command_for_k8s, get_command_from_k8s
 from .healthchecks import get_healthcheck_for_k8s
-from .labels import generate_labels
+from .labels import generate_labels, labels_selector
 
 K8S_OBJECT_TYPE = dict[str, Any]
 # tell kubernetes to delete jobs this many seconds after they finish
@@ -673,3 +674,50 @@ def get_job_from_k8s(
             return get_continuous_job_from_k8s(k8s_object=k8s_object, common_job=common_job)
         case _:
             raise TjfError("Unable to parse Kubernetes object", data={"object": k8s_object})
+
+
+def delete_scheduled_job(job: ScheduledJob, tool_account: ToolAccount) -> None:
+    tool_account.k8s_cli.delete_object(kind="cronjobs", name=job.job_name)
+    tool_account.k8s_cli.delete_objects(
+        kind="pods",
+        label_selector=labels_selector(
+            job_name=job.job_name, user_name=tool_account.name, job_type=job.job_type
+        ),
+    )
+
+
+def delete_oneoff_job(job: OneOffJob, tool_account: ToolAccount) -> None:
+    tool_account.k8s_cli.delete_object(kind="jobs", name=job.job_name)
+    tool_account.k8s_cli.delete_objects(
+        kind="pods",
+        label_selector=labels_selector(
+            job_name=job.job_name, user_name=tool_account.name, job_type=job.job_type
+        ),
+    )
+
+
+def delete_continuous_job(job: ContinuousJob, tool_account: ToolAccount) -> None:
+    tool_account.k8s_cli.delete_object(kind="deployments", name=job.job_name)
+    for object_type in ["pods", "services"]:
+        tool_account.k8s_cli.delete_objects(
+            kind=object_type,
+            label_selector=labels_selector(
+                job_name=job.job_name, user_name=tool_account.name, job_type=job.job_type
+            ),
+        )
+
+
+def delete_job_from_k8s(
+    job: AnyJob,
+    tool_account: ToolAccount,
+) -> AnyJob:
+    if isinstance(job, OneOffJob):
+        delete_oneoff_job(job=job, tool_account=tool_account)
+    elif isinstance(job, ScheduledJob):
+        delete_scheduled_job(job=job, tool_account=tool_account)
+    elif isinstance(job, ContinuousJob):
+        delete_continuous_job(job=job, tool_account=tool_account)
+    else:
+        raise TjfError(f"Unknown job type {type(job)}")
+
+    return job
