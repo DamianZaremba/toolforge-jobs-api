@@ -459,7 +459,7 @@ def format_logs(entry: LogEntry) -> str:
 
 def get_common_job_from_k8s(
     k8s_object: dict[str, Any],
-    kind: str,
+    job_type: JobType,
     default_cpu_limit: str,
     tool: str,
 ) -> CommonJob:
@@ -477,7 +477,7 @@ def get_common_job_from_k8s(
         )
 
     podspec = spec
-    if kind == "cronjobs":
+    if job_type == JobType.SCHEDULED:
         podspec = spec["jobTemplate"]["spec"]
 
     job_name = metadata["name"]
@@ -654,22 +654,22 @@ def get_continuous_job_from_k8s(
 
 def get_job_from_k8s(
     k8s_object: dict[str, Any],
-    kind: str,
+    job_type: JobType,
     default_cpu_limit: str,
     tool: str,
 ) -> AnyJob:
     common_job = get_common_job_from_k8s(
         k8s_object=k8s_object,
-        kind=kind,
+        job_type=job_type,
         default_cpu_limit=default_cpu_limit,
         tool=tool,
     )
-    match kind:
-        case "jobs":
+    match job_type:
+        case JobType.ONE_OFF:
             return get_oneoff_job_from_k8s(k8s_object=k8s_object, common_job=common_job)
-        case "cronjobs":
+        case JobType.SCHEDULED:
             return get_scheduled_job_from_k8s(k8s_object=k8s_object, common_job=common_job)
-        case "deployments":
+        case JobType.CONTINUOUS:
             return get_continuous_job_from_k8s(k8s_object=k8s_object, common_job=common_job)
         case _:
             raise TjfError("Unable to parse Kubernetes object", data={"object": k8s_object})

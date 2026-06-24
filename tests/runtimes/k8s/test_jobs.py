@@ -66,7 +66,7 @@ class TestJobFromK8s:
 
             gotten_job = jobs.get_job_from_k8s(
                 k8s_object=K8S_SCHEDULED_JOB_OBJ,
-                kind="cronjobs",
+                job_type=JobType.SCHEDULED,
                 default_cpu_limit="1000m",
                 tool="some-tool",
             )
@@ -78,7 +78,7 @@ class TestJobFromK8s:
             expected_job = get_oneoff_job_fixture_as_job(mount=MountOption.ALL)
             gotten_job = jobs.get_job_from_k8s(
                 k8s_object=K8S_ONEOFF_JOB_OBJ,
-                kind="jobs",
+                job_type=JobType.ONE_OFF,
                 default_cpu_limit="1000m",
                 tool="some-tool",
             )
@@ -92,7 +92,10 @@ class TestJobFromK8s:
             )
 
             gotten_job = jobs.get_job_from_k8s(
-                k8s_object=k8s_object, kind="jobs", default_cpu_limit="1000m", tool="some-tool"
+                k8s_object=k8s_object,
+                job_type=JobType.ONE_OFF,
+                default_cpu_limit="1000m",
+                tool="some-tool",
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
@@ -103,7 +106,7 @@ class TestJobFromK8s:
 
             gotten_job = jobs.get_job_from_k8s(
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
-                kind="deployments",
+                job_type=JobType.CONTINUOUS,
                 default_cpu_limit="1000m",
                 tool="some-tool",
             )
@@ -115,7 +118,7 @@ class TestJobFromK8s:
 
             gotten_job = jobs.get_job_from_k8s(
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
-                kind="deployments",
+                job_type=JobType.CONTINUOUS,
                 default_cpu_limit="1000m",
                 tool="some-tool",
             )
