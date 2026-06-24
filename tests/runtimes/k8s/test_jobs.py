@@ -519,3 +519,40 @@ class TestDeleteAllJobsFromK8s:
         runtime_k8s_cli.delete_objects.assert_has_calls(
             expected_delete_objects_calls, any_order=True
         )
+
+
+class TestGetAllK8sObjectsForType:
+    @cases(
+        "job_type, expected_kind, expected_objects",
+        [
+            "Continuous job",
+            [JobType.CONTINUOUS, "deployments", [{"fake": "k8s_object"}]],
+        ],
+        ["Scheduled job", [JobType.SCHEDULED, "cronjobs", [{"fake": "k8s_object"}]]],
+        ["One-off job", [JobType.ONE_OFF, "jobs", [{"fake": "k8s_object"}]]],
+    )
+    def test_continuous_deletes_expected_objects(
+        self,
+        fake_tool_account: ToolAccount,
+        runtime_k8s_cli: MagicMock,
+        job_type: JobType,
+        expected_kind: str,
+        expected_objects: list[dict[str, Any]],
+    ) -> None:
+        runtime_k8s_cli.get_objects.return_value = expected_objects
+        expected_calls = [
+            call(
+                kind=expected_kind,
+                label_selector={
+                    "toolforge": "tool",
+                    "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+                    "app.kubernetes.io/created-by": "some-tool",
+                },
+            )
+        ]
+        gotten_objects = jobs.get_all_k8s_objects_for_type(
+            job_type=job_type, tool_account=fake_tool_account
+        )
+
+        assert gotten_objects == expected_objects
+        runtime_k8s_cli.get_objects.assert_has_calls(expected_calls, any_order=True)
