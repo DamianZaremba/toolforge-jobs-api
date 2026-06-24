@@ -347,7 +347,8 @@ class TestCore:
             ["Scheduled job", [JobType.SCHEDULED]],
         )
         def test_no_runtime_job_but_storage_job_updates_only_long_status_and_sets_up_to_date_false(
-            self, job_type: JobType, get_my_core: GetMyCore
+            self,
+            job_type: JobType,
         ):
             my_storage_job = get_dummy_job(job_name="job-from-storage", job_type=job_type)
             my_runtime_job = None
@@ -376,7 +377,9 @@ class TestCore:
             ],
         )
         def test_different_runtime_job_but_storage_job_updates_status_and_sets_up_to_date_false(
-            self, job_type: JobType, job_status: AnyJobStatus, get_my_core: GetMyCore
+            self,
+            job_type: JobType,
+            job_status: AnyJobStatus,
         ):
             my_storage_job = get_dummy_job(job_name="my-job", job_type=job_type)
             my_runtime_job = get_dummy_job(
@@ -411,7 +414,9 @@ class TestCore:
             ],
         )
         def test_same_runtime_job_and_storage_job_updates_status_and_sets_up_to_date_true(
-            self, job_type: JobType, job_status: AnyJobStatus, get_my_core: GetMyCore
+            self,
+            job_type: JobType,
+            job_status: AnyJobStatus,
         ):
             my_storage_job = get_dummy_job(job_name="my-job", job_type=job_type)
             my_runtime_job = get_dummy_job(
@@ -427,7 +432,7 @@ class TestCore:
             assert my_runtime_job.status.short == gotten_job.status.short
 
         def test_runtime_job_with_non_existing_image_matches_same_storage_job(
-            self, get_my_core: GetMyCore
+            self,
         ):
             storage_image = Image(
                 type=ImageType.BUILDPACK,
@@ -451,7 +456,7 @@ class TestCore:
             assert gotten_job.status.up_to_date
 
         def test_runtime_job_with_state_changed_image_matches_same_storage_job(
-            self, get_my_core: GetMyCore
+            self,
         ):
             storage_image = Image(
                 type=ImageType.BUILDPACK,
@@ -475,7 +480,7 @@ class TestCore:
             assert gotten_job.status.up_to_date
 
         def test_runtime_job_with_image_with_other_aliases_matches_same_storage_job(
-            self, get_my_core: GetMyCore
+            self,
         ):
             storage_image = Image(
                 type=ImageType.BUILDPACK,
@@ -492,6 +497,17 @@ class TestCore:
             my_storage_job = get_dummy_job(job_name="my-job", image=storage_image)
             runtime_image = storage_image.model_copy(update={"aliases": ["new_alias"]})
             my_runtime_job = get_dummy_job(job_name="my-job", image=runtime_image)
+            gotten_job = core._update_storage_job_status_from_runtime(
+                storage_job=my_storage_job, runtime_job=my_runtime_job
+            )
+
+            assert gotten_job.status.up_to_date
+
+        def test_runtime_buildservice_job_with_trimmed_launcher_matches_storage_job_with_explicit_launcher(
+            self,
+        ):
+            my_storage_job = get_dummy_job(job_name="my-job", cmd="launcher some command")
+            my_runtime_job = my_storage_job.model_copy(update={"cmd": "some command"})
             gotten_job = core._update_storage_job_status_from_runtime(
                 storage_job=my_storage_job, runtime_job=my_runtime_job
             )
