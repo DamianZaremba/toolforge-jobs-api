@@ -276,7 +276,7 @@ class K8sRuntime(BaseRuntime):
 
         # TODO: remove once we store the original command
         # Note: the incoming job does not have an image type, so we get it from the existing job
-        if job.cmd.startswith("launcher ") and current_job.image.type == ImageType.BUILDPACK:
+        if job.cmd.startswith("launcher ") and current_job.image.type == ImageType.BUIDLSERVICE:
             job.cmd = job.cmd.split(" ", 1)[-1]
 
         clean_current_job = current_job.model_dump_json(

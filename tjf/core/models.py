@@ -187,7 +187,7 @@ class CommonJob(PydanticBaseModel):
         # we rely on the image having set the type even if we have not yet verified it's a valid one
         # (see the model validation)
         if (
-            self.image.type != ImageType.BUILDPACK
+            self.image.type != ImageType.BUIDLSERVICE
             and "mount" in self.model_fields_set
             and not self.mount.supports_non_buildservice
         ):
@@ -211,19 +211,19 @@ class CommonJob(PydanticBaseModel):
             "mount" not in common_job_params
             and common_job_params["image"]["type"] == ImageType.STANDARD
         ):
-            LOGGER.debug("Found stardand image with default mount, setting to all")
+            LOGGER.debug("Found standard image with default mount, setting to all")
             common_job_params["mount"] = MountOption.ALL
 
         elif (
             "mount" not in common_job_params
-            and common_job_params["image"]["type"] == ImageType.BUILDPACK
+            and common_job_params["image"]["type"] == ImageType.BUIDLSERVICE
         ):
-            LOGGER.debug("Found buildpack image with default mount, setting to none")
+            LOGGER.debug("Found buildservice image with default mount, setting to none")
             common_job_params["mount"] = MountOption.NONE
 
         if (
             "filelog" not in common_job_params
-            and common_job_params["image"]["type"] != ImageType.BUILDPACK
+            and common_job_params["image"]["type"] != ImageType.BUIDLSERVICE
         ):
             # defaulting filelog to True when mount=all and image_type=standard. something to pay attention to in the future
             common_job_params["filelog"] = True

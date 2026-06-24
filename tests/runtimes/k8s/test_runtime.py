@@ -104,7 +104,7 @@ class TestGetJob:
             [{"metadata": {"annotations": {}}}, get_continuous_job_fixture_as_job(filelog=False)],
         ],
         [
-            "Ignores prefix launcher in the command when buildpack image",
+            "Ignores prefix launcher in the command when buildservice image",
             [
                 {
                     "spec": {
@@ -135,7 +135,7 @@ class TestGetJob:
                         aliases=[
                             "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
                         ],
-                        type=ImageType.BUILDPACK,
+                        type=ImageType.BUIDLSERVICE,
                         state="stable",
                     ),
                     mount=MountOption.ALL,
@@ -211,7 +211,7 @@ class TestGetJob:
                         host="harbor.example.org",
                         path="tool-some-tool/some-container",
                         tag="latest",
-                        type=ImageType.BUILDPACK,
+                        type=ImageType.BUIDLSERVICE,
                         aliases=[
                             "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
                         ],
@@ -380,7 +380,7 @@ class TestDiffWithRunningJob:
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert diff == ""
 
-    def test_launcher_does_not_get_stripped_from_new_job_if_not_buildpack(
+    def test_launcher_does_not_get_stripped_from_new_job_if_not_buildservice(
         self, monkeypatch: pytest.MonkeyPatch
     ):
         new_job = get_continuous_job_fixture_as_new_job(
