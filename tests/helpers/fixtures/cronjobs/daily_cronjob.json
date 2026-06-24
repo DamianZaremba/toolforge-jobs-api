@@ -7,7 +7,7 @@
     "generation": 1,
     "creationTimestamp": "2025-07-02T12:18:52Z",
     "labels": {
-      "app.kubernetes.io/component": "cronjobs",
+      "app.kubernetes.io/component": "scheduled",
       "app.kubernetes.io/created-by": "tf-test",
       "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
       "app.kubernetes.io/name": "cronjobtest",
@@ -150,7 +150,7 @@
           "metadata": {
             "creationTimestamp": null,
             "labels": {
-              "app.kubernetes.io/component": "cronjobs",
+              "app.kubernetes.io/component": "scheduled",
               "app.kubernetes.io/created-by": "tf-test",
               "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
               "app.kubernetes.io/name": "cronjobtest",
