@@ -15,12 +15,14 @@
 #
 from toolforge_weld.kubernetes import MountOption
 
+from tjf.core.models import JobType
+
 
 def generate_labels(
     *,
     jobname: str | None,
     tool_name: str,
-    type: str | None,
+    job_type: JobType | None,
     filelog: bool = False,
     emails: str | None = None,
     version: bool = True,
@@ -35,8 +37,8 @@ def generate_labels(
     if version:
         obj["app.kubernetes.io/version"] = "2"
 
-    if type is not None:
-        obj["app.kubernetes.io/component"] = type
+    if job_type is not None:
+        obj["app.kubernetes.io/component"] = job_type
 
     if jobname is not None:
         obj["app.kubernetes.io/name"] = jobname
@@ -54,12 +56,13 @@ def generate_labels(
 
 
 def labels_selector(
-    user_name: str, job_name: str | None = None, type: str | None = None
+    user_name: str, job_name: str | None = None, job_type: JobType | None = None
 ) -> dict[str, str]:
     return generate_labels(
         jobname=job_name,
         tool_name=user_name,
-        type=type,
+        # TODO: once all jobs in k8s have the component set to the right value, start filtering by it again
+        job_type=None,
         filelog=False,
         emails=None,
         version=False,

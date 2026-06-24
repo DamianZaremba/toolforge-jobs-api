@@ -5,7 +5,7 @@
     "creationTimestamp": "2025-09-08T16:55:50Z",
     "generation": 1,
     "labels": {
-      "app.kubernetes.io/component": "jobs",
+      "app.kubernetes.io/component": "one-off",
       "app.kubernetes.io/created-by": "tf-test",
       "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
       "app.kubernetes.io/name": "testoneoff",
@@ -37,7 +37,7 @@
       "metadata": {
         "creationTimestamp": null,
         "labels": {
-          "app.kubernetes.io/component": "jobs",
+          "app.kubernetes.io/component": "one-off",
           "app.kubernetes.io/created-by": "tf-test",
           "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
           "app.kubernetes.io/name": "testoneoff",

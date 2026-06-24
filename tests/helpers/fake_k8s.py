@@ -113,7 +113,7 @@ CRONJOB_NOT_RUN_YET = {
         "creationTimestamp": "2023-04-13T14:51:55Z",
         "generation": 1,
         "labels": {
-            "app.kubernetes.io/component": "cronjobs",
+            "app.kubernetes.io/component": "scheduled",
             "app.kubernetes.io/created-by": "tf-test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "test",
@@ -140,7 +140,7 @@ CRONJOB_NOT_RUN_YET = {
                     "metadata": {
                         "creationTimestamp": None,
                         "labels": {
-                            "app.kubernetes.io/component": "cronjobs",
+                            "app.kubernetes.io/component": "scheduled",
                             "app.kubernetes.io/created-by": "tf-test",
                             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                             "app.kubernetes.io/name": "test",
@@ -194,7 +194,7 @@ CRONJOB_PREVIOUS_RUN_BUT_NO_RUNNING_JOB = {
         "creationTimestamp": "2023-04-13T14:51:55Z",
         "generation": 1,
         "labels": {
-            "app.kubernetes.io/component": "cronjobs",
+            "app.kubernetes.io/component": "scheduled",
             "app.kubernetes.io/created-by": "tf-test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "test",
@@ -221,7 +221,7 @@ CRONJOB_PREVIOUS_RUN_BUT_NO_RUNNING_JOB = {
                     "metadata": {
                         "creationTimestamp": None,
                         "labels": {
-                            "app.kubernetes.io/component": "cronjobs",
+                            "app.kubernetes.io/component": "scheduled",
                             "app.kubernetes.io/created-by": "tf-test",
                             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                             "app.kubernetes.io/name": "test",
@@ -275,7 +275,7 @@ CRONJOB_WITH_RUNNING_JOB = {
         "creationTimestamp": "2023-04-13T15:02:16Z",
         "generation": 1,
         "labels": {
-            "app.kubernetes.io/component": "cronjobs",
+            "app.kubernetes.io/component": "scheduled",
             "app.kubernetes.io/created-by": "tf-test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "test",
@@ -302,7 +302,7 @@ CRONJOB_WITH_RUNNING_JOB = {
                     "metadata": {
                         "creationTimestamp": None,
                         "labels": {
-                            "app.kubernetes.io/component": "cronjobs",
+                            "app.kubernetes.io/component": "scheduled",
                             "app.kubernetes.io/created-by": "tf-test",
                             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                             "app.kubernetes.io/name": "test",
@@ -368,7 +368,7 @@ JOB_FROM_A_CRONJOB = {
         "creationTimestamp": "2023-04-13T15:05:00Z",
         "generation": 1,
         "labels": {
-            "app.kubernetes.io/component": "cronjobs",
+            "app.kubernetes.io/component": "scheduled",
             "app.kubernetes.io/created-by": "tf-test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "test",
@@ -406,7 +406,7 @@ JOB_FROM_A_CRONJOB = {
             "metadata": {
                 "creationTimestamp": None,
                 "labels": {
-                    "app.kubernetes.io/component": "cronjobs",
+                    "app.kubernetes.io/component": "scheduled",
                     "app.kubernetes.io/created-by": "tf-test",
                     "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                     "app.kubernetes.io/name": "test",
@@ -457,7 +457,7 @@ JOB_FROM_A_CRONJOB_RESTART = {
         "creationTimestamp": "2023-04-13T15:44:26Z",
         "generation": 1,
         "labels": {
-            "app.kubernetes.io/component": "cronjobs",
+            "app.kubernetes.io/component": "scheduled",
             "app.kubernetes.io/created-by": "tf-test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "test",
@@ -491,7 +491,7 @@ JOB_FROM_A_CRONJOB_RESTART = {
             "metadata": {
                 "creationTimestamp": None,
                 "labels": {
-                    "app.kubernetes.io/component": "cronjobs",
+                    "app.kubernetes.io/component": "scheduled",
                     "app.kubernetes.io/created-by": "tf-test",
                     "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                     "app.kubernetes.io/name": "test",
@@ -544,7 +544,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_OLD_ARRAY = {
     "metadata": {
         "annotations": {"deployment.kubernetes.io/revision": "1"},
         "labels": {
-            "app.kubernetes.io/component": "deployments",
+            "app.kubernetes.io/component": "continuous",
             "app.kubernetes.io/created-by": "test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "myjob",
@@ -558,7 +558,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_OLD_ARRAY = {
     "spec": {
         "selector": {
             "matchLabels": {
-                "app.kubernetes.io/component": "deployments",
+                "app.kubernetes.io/component": "continuous",
                 "app.kubernetes.io/created-by": "test",
                 "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                 "app.kubernetes.io/name": "myjob",
@@ -570,7 +570,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_OLD_ARRAY = {
         "template": {
             "metadata": {
                 "labels": {
-                    "app.kubernetes.io/component": "deployments",
+                    "app.kubernetes.io/component": "continuous",
                     "app.kubernetes.io/created-by": "test",
                     "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                     "app.kubernetes.io/name": "myjob",
@@ -605,7 +605,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_OLD_ARRAY = {
     "metadata": {
         "annotations": {"deployment.kubernetes.io/revision": "1"},
         "labels": {
-            "app.kubernetes.io/component": "deployments",
+            "app.kubernetes.io/component": "continuous",
             "app.kubernetes.io/created-by": "test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "myjob",
@@ -620,7 +620,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_OLD_ARRAY = {
     "spec": {
         "selector": {
             "matchLabels": {
-                "app.kubernetes.io/component": "deployments",
+                "app.kubernetes.io/component": "continuous",
                 "app.kubernetes.io/created-by": "test",
                 "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                 "app.kubernetes.io/name": "myjob",
@@ -633,7 +633,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_OLD_ARRAY = {
         "template": {
             "metadata": {
                 "labels": {
-                    "app.kubernetes.io/component": "deployments",
+                    "app.kubernetes.io/component": "continuous",
                     "app.kubernetes.io/created-by": "test",
                     "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                     "app.kubernetes.io/name": "myjob",
@@ -669,7 +669,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_NEW_ARRAY = {
     "metadata": {
         "annotations": {"deployment.kubernetes.io/revision": "1"},
         "labels": {
-            "app.kubernetes.io/component": "deployments",
+            "app.kubernetes.io/component": "continuous",
             "app.kubernetes.io/created-by": "test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "myjob",
@@ -684,7 +684,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_NEW_ARRAY = {
     "spec": {
         "selector": {
             "matchLabels": {
-                "app.kubernetes.io/component": "deployments",
+                "app.kubernetes.io/component": "continuous",
                 "app.kubernetes.io/created-by": "test",
                 "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                 "app.kubernetes.io/name": "myjob",
@@ -697,7 +697,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_NEW_ARRAY = {
         "template": {
             "metadata": {
                 "labels": {
-                    "app.kubernetes.io/component": "deployments",
+                    "app.kubernetes.io/component": "continuous",
                     "app.kubernetes.io/created-by": "test",
                     "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                     "app.kubernetes.io/name": "myjob",
@@ -733,7 +733,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_V2_ARRAY = {
     "metadata": {
         "annotations": {"deployment.kubernetes.io/revision": "1"},
         "labels": {
-            "app.kubernetes.io/component": "deployments",
+            "app.kubernetes.io/component": "continuous",
             "app.kubernetes.io/created-by": "test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "myjob",
@@ -747,7 +747,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_V2_ARRAY = {
     "spec": {
         "selector": {
             "matchLabels": {
-                "app.kubernetes.io/component": "deployments",
+                "app.kubernetes.io/component": "continuous",
                 "app.kubernetes.io/created-by": "test",
                 "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                 "app.kubernetes.io/name": "myjob",
@@ -759,7 +759,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_V2_ARRAY = {
         "template": {
             "metadata": {
                 "labels": {
-                    "app.kubernetes.io/component": "deployments",
+                    "app.kubernetes.io/component": "continuous",
                     "app.kubernetes.io/created-by": "test",
                     "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                     "app.kubernetes.io/name": "myjob",
@@ -794,7 +794,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_NEW_ARRAY = {
     "metadata": {
         "annotations": {"deployment.kubernetes.io/revision": "1"},
         "labels": {
-            "app.kubernetes.io/component": "deployments",
+            "app.kubernetes.io/component": "continuous",
             "app.kubernetes.io/created-by": "test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "myjob",
@@ -810,7 +810,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_NEW_ARRAY = {
     "spec": {
         "selector": {
             "matchLabels": {
-                "app.kubernetes.io/component": "deployments",
+                "app.kubernetes.io/component": "continuous",
                 "app.kubernetes.io/created-by": "test",
                 "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                 "app.kubernetes.io/name": "myjob",
@@ -824,7 +824,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_NEW_ARRAY = {
         "template": {
             "metadata": {
                 "labels": {
-                    "app.kubernetes.io/component": "deployments",
+                    "app.kubernetes.io/component": "continuous",
                     "app.kubernetes.io/created-by": "test",
                     "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                     "app.kubernetes.io/name": "myjob",
@@ -860,7 +860,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT = {
     "metadata": {
         "annotations": {"deployment.kubernetes.io/revision": "1"},
         "labels": {
-            "app.kubernetes.io/component": "deployments",
+            "app.kubernetes.io/component": "continuous",
             "app.kubernetes.io/created-by": "test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "myjob",
@@ -876,7 +876,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT = {
     "spec": {
         "selector": {
             "matchLabels": {
-                "app.kubernetes.io/component": "deployments",
+                "app.kubernetes.io/component": "continuous",
                 "app.kubernetes.io/created-by": "test",
                 "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                 "app.kubernetes.io/name": "myjob",
@@ -890,7 +890,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT = {
         "template": {
             "metadata": {
                 "labels": {
-                    "app.kubernetes.io/component": "deployments",
+                    "app.kubernetes.io/component": "continuous",
                     "app.kubernetes.io/created-by": "test",
                     "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                     "app.kubernetes.io/name": "myjob",
@@ -926,7 +926,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT_STDERR = {
     "metadata": {
         "annotations": {"deployment.kubernetes.io/revision": "1"},
         "labels": {
-            "app.kubernetes.io/component": "deployments",
+            "app.kubernetes.io/component": "continuous",
             "app.kubernetes.io/created-by": "test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "myjob",
@@ -942,7 +942,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT_STDERR = {
     "spec": {
         "selector": {
             "matchLabels": {
-                "app.kubernetes.io/component": "deployments",
+                "app.kubernetes.io/component": "continuous",
                 "app.kubernetes.io/created-by": "test",
                 "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                 "app.kubernetes.io/name": "myjob",
@@ -956,7 +956,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT_STDERR = {
         "template": {
             "metadata": {
                 "labels": {
-                    "app.kubernetes.io/component": "deployments",
+                    "app.kubernetes.io/component": "continuous",
                     "app.kubernetes.io/created-by": "test",
                     "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
                     "app.kubernetes.io/name": "myjob",

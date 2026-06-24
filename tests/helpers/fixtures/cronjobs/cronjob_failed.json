@@ -7,7 +7,7 @@
         "namespace": "default",
         "uid": "1c8c0b2e-c6a5-4ec3-94e5-2bc0a49789ad",
         "labels": {
-            "app.kubernetes.io/component": "cronjobs",
+            "app.kubernetes.io/component": "scheduled",
             "app.kubernetes.io/created-by": "tf-test",
             "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
             "app.kubernetes.io/name": "test-failed",
