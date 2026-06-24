@@ -36,6 +36,7 @@ from ..exceptions import NotFoundInRuntime
 from .account import ToolAccount
 from .jobs import (
     K8sJobKind,
+    delete_all_jobs_from_k8s,
     delete_job_from_k8s,
     format_logs,
     get_job_for_k8s,
@@ -236,13 +237,12 @@ class K8sRuntime(BaseRuntime):
             raise get_error_from_k8s_response(error=error, job=job, spec=spec)
 
     def delete_all_jobs(self, *, tool: str) -> None:
-        """Deletes all jobs for a user."""
+        """Deletes all jobs for a tool."""
         LOGGER.debug("Deleting all jobs for tool %s", tool)
         tool_account = ToolAccount(name=tool)
-        label_selector = labels_selector(job_name=None, user_name=tool_account.name, job_type=None)
+        for job_type in JobType:
+            delete_all_jobs_from_k8s(tool_account=tool_account, job_type=job_type)
 
-        for object_type in ["cronjobs", "deployments", "jobs", "pods", "services"]:
-            tool_account.k8s_cli.delete_objects(object_type, label_selector=label_selector)
         wait_for_pods_exit(tool=tool_account)
 
     def delete_job(self, *, tool: str, job: AnyJob) -> None:

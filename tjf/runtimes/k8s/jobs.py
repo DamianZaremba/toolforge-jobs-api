@@ -721,3 +721,22 @@ def delete_job_from_k8s(
         raise TjfError(f"Unknown job type {type(job)}")
 
     return job
+
+
+def delete_all_jobs_from_k8s(
+    job_type: JobType,
+    tool_account: ToolAccount,
+) -> None:
+    match job_type:
+        case JobType.ONE_OFF:
+            kinds_to_delete = ["jobs", "pods"]
+        case JobType.SCHEDULED:
+            kinds_to_delete = ["cronjobs", "pods"]
+        case JobType.CONTINUOUS:
+            kinds_to_delete = ["deployments", "services", "pods"]
+        case _:
+            raise TjfError(f"Unknown job type {job_type}")
+
+    label_selector = labels_selector(job_name=None, user_name=tool_account.name, job_type=job_type)
+    for kind in kinds_to_delete:
+        tool_account.k8s_cli.delete_objects(kind=kind, label_selector=label_selector)
