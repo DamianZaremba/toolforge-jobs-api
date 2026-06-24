@@ -39,6 +39,7 @@ from .jobs import (
     delete_all_jobs_from_k8s,
     delete_job_from_k8s,
     format_logs,
+    get_all_k8s_objects_for_type,
     get_job_for_k8s,
     get_job_from_k8s,
 )
@@ -65,10 +66,8 @@ class K8sRuntime(BaseRuntime):
         job_list = []
         tool_account = ToolAccount(name=tool)
         for job_type in JobType:
-            kind = K8sJobKind.from_job_type(job_type).api_path_name
-            label_selector = labels_selector(user_name=tool_account.name, job_type=job_type)
-            for k8s_obj in tool_account.k8s_cli.get_objects(
-                kind=kind, label_selector=label_selector
+            for k8s_obj in get_all_k8s_objects_for_type(
+                job_type=job_type, tool_account=tool_account
             ):
                 job = get_job_from_k8s(
                     k8s_object=k8s_obj,

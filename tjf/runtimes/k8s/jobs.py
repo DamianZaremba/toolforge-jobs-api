@@ -740,3 +740,22 @@ def delete_all_jobs_from_k8s(
     label_selector = labels_selector(job_name=None, user_name=tool_account.name, job_type=job_type)
     for kind in kinds_to_delete:
         tool_account.k8s_cli.delete_objects(kind=kind, label_selector=label_selector)
+
+
+def get_all_k8s_objects_for_type(
+    job_type: JobType,
+    tool_account: ToolAccount,
+) -> list[dict[str, Any]]:
+    match job_type:
+        case JobType.ONE_OFF:
+            kind = "jobs"
+        case JobType.SCHEDULED:
+            kind = "cronjobs"
+        case JobType.CONTINUOUS:
+            kind = "deployments"
+        case _:
+            raise TjfError(f"Unknown job type {job_type}")
+
+    # TODO: eventually we might want to return more than just the basic kind, split into cases then
+    label_selector = labels_selector(user_name=tool_account.name, job_type=job_type)
+    return tool_account.k8s_cli.get_objects(kind=kind, label_selector=label_selector)
