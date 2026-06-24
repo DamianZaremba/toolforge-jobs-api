@@ -118,7 +118,7 @@ class TestGetCommandFromK8s:
                 "cmdname with-arguments 'other argument with spaces'",
                 # file generated with:
                 # toolforge jobs run --image bullseye --command "cmdname with-arguments 'other argument with spaces'" --no-filelog migrate --continuous ; kubectl get deployment -o json ; toolforge jobs flush
-                "deployment-simple-buildpack.json",
+                "deployment-simple-buildservice.json",
                 False,
                 None,
                 None,
@@ -146,7 +146,7 @@ class TestGetCommandFromK8s:
             ],
             [
                 "cmdname",
-                "deployment-simple-buildpack-noargs.json",
+                "deployment-simple-buildservice-noargs.json",
                 False,
                 None,
                 None,
