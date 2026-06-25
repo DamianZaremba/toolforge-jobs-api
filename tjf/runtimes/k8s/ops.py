@@ -20,9 +20,9 @@ import requests
 from toolforge_weld.kubernetes import parse_quantity
 
 from ...core.error import TjfValidationError
-from ...core.models import AnyJob, ScheduledJob
+from ...core.models import AnyJob, JobType, ScheduledJob
 from .account import ToolAccount
-from .jobs import get_k8s_job_from_cronjob
+from .jobs import JOB_TYPE_TO_K8S_KIND, get_k8s_job_from_cronjob
 from .k8s_errors import get_error_from_k8s_response
 from .labels import labels_selector
 
@@ -76,7 +76,9 @@ def validate_job_limits(account: ToolAccount, job: AnyJob) -> None:
 def trigger_scheduled_job(tool_account: ToolAccount, scheduled_job: ScheduledJob) -> None:
     validate_job_limits(tool_account, scheduled_job)
 
-    k8s_cronjob = tool_account.k8s_cli.get_object("cronjobs", scheduled_job.job_name)
+    k8s_cronjob = tool_account.k8s_cli.get_object(
+        JOB_TYPE_TO_K8S_KIND[JobType.SCHEDULED], scheduled_job.job_name
+    )
     k8s_job = get_k8s_job_from_cronjob(k8s_cronjob=k8s_cronjob)
     try:
         tool_account.k8s_cli.create_object(kind="jobs", spec=k8s_job)
@@ -87,17 +89,18 @@ def trigger_scheduled_job(tool_account: ToolAccount, scheduled_job: ScheduledJob
 def wait_for_pods_exit(
     tool_account: ToolAccount,
     job_name: str | None = None,
-    job_type: str | None = None,
+    job_type: JobType | None = None,
     timeout: int = 30,
 ) -> bool:
     """Wait for all pods belonging to a specific job to exit."""
     label_selector = labels_selector(
         job_name=job_name,
         tool_name=tool_account.name,
-        type=job_type,
+        job_type=job_type,
     )
 
     for _ in range(timeout * 2):
+        # TODO: this can use the get_k8s_objects_for_job_name once the delete_all function gets split
         pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=label_selector)
         if len(pods) == 0:
             return True
