@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import AsyncIterator
 
 from ..core.images import Image
-from ..core.models import AnyJob, QuotaData
+from ..core.models import AnyJob, OneOffJob, QuotaData
 from ..settings import Settings
 
 
@@ -12,7 +12,7 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_jobs(self, *, tool: str) -> list[AnyJob]:
+    def get_one_off_jobs(self, *, tool: str) -> list[OneOffJob]:
         raise NotImplementedError
 
     @abstractmethod

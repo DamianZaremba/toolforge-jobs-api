@@ -75,7 +75,10 @@ def test_refresh_job_short_status_cronjob(
 
     account = get_fake_account(fake_k8s_cli=FakeK8sCli())
     gotten_job = get_job_from_k8s(
-        cronjob, job_type=JobType.SCHEDULED, default_cpu_limit="4000m", tool="some-tool"
+        cronjob,
+        JobType.SCHEDULED,
+        default_cpu_limit="4000m",
+        tool="some-tool",
     )
     refresh_job_short_status(account, gotten_job)
     assert gotten_job.status_short
