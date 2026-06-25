@@ -15,6 +15,7 @@ from ...core.models import (
     Command,
     CommonJobStatus,
     ContinuousJobStatus,
+    JobType,
     OneOffJobStatus,
     ScheduledJobStatus,
     StatusShort,
@@ -436,7 +437,7 @@ def _get_one_off_job_status_from_conditions(job_status: dict[str, Any]) -> OneOf
 def get_one_off_job_status(tool_account: ToolAccount, k8s_job: dict[str, Any]) -> OneOffJobStatus:
     LOGGER.debug(f"k8s job object: {k8s_job}")
     selector = labels_selector(
-        job_name=k8s_job["metadata"]["name"], user_name=tool_account.name, type="jobs"
+        job_name=k8s_job["metadata"]["name"], user_name=tool_account.name, job_type=JobType.ONE_OFF
     )
     k8s_pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=selector)
     LOGGER.debug(f"k8s pod objects: {k8s_pods}")
