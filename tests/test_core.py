@@ -16,6 +16,7 @@ from tjf.core.models import (
     StatusShort,
 )
 from tjf.settings import Settings
+from tjf.storages.exceptions import NotFoundInStorage
 
 
 class GetMyCore(Protocol):
@@ -73,41 +74,6 @@ class TestCore:
 
                 assert not gotten_job
                 storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
-
-            @cases(
-                ["job_type"],
-                ["OneOff job", [JobType.ONE_OFF]],
-            )
-            def test_always_returns_one_off_from_runtime(
-                self,
-                get_my_core: GetMyCore,
-                storage_k8s_cli: MagicMock,
-                monkeypatch: pytest.MonkeyPatch,
-                job_type: JobType,
-            ):
-                my_storage_job = None
-                my_runtime_job = get_dummy_job(job_type=job_type, mount=MountOption.NONE)
-                expected_job = my_runtime_job
-                my_core = get_my_core(enable_storage=True)
-
-                mock_runtime_create_job = MagicMock(
-                    spec=my_core.runtime.create_job, return_value=my_storage_job
-                )
-                monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
-                monkeypatch.setattr(
-                    my_core.runtime, "get_job", lambda *args, **kwargs: my_storage_job
-                )
-
-                gotten_job = my_core._reconciliate_storage_and_runtime(
-                    tool_name="some-tool",
-                    runtime_job=my_runtime_job,
-                    storage_job=my_storage_job,
-                )
-
-                assert gotten_job
-                storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
-                assert gotten_job.model_dump() == expected_job.model_dump()
-                assert gotten_job.status.up_to_date
 
             @cases(
                 ["job_type"],
@@ -345,4 +311,39 @@ class TestCore:
                 storage_job=my_storage_job, runtime_job=my_runtime_job
             )
 
+            assert gotten_job.status.up_to_date
+
+    class TestGetJob:
+        @cases(
+            ["job_type"],
+            ["OneOff job", [JobType.ONE_OFF]],
+        )
+        def test_always_returns_one_off_from_runtime(
+            self,
+            get_my_core: GetMyCore,
+            storage_k8s_cli: MagicMock,
+            monkeypatch: pytest.MonkeyPatch,
+            job_type: JobType,
+        ):
+            my_runtime_job = get_dummy_job(job_type=job_type, mount=MountOption.NONE)
+            expected_job = my_runtime_job
+            my_core = get_my_core(enable_storage=True)
+
+            mock_runtime_get_job = MagicMock(
+                spec=my_core.runtime.get_job, return_value=my_runtime_job
+            )
+            mock_storage_get_job = MagicMock(
+                spec=my_core.storage.get_job, side_effct=NotFoundInStorage
+            )
+            monkeypatch.setattr(my_core.runtime, "get_job", mock_runtime_get_job)
+            monkeypatch.setattr(my_core.storage, "get_job", mock_storage_get_job)
+
+            gotten_job = my_core.get_job(
+                toolname="some-tool",
+                name=my_runtime_job.job_name,
+            )
+
+            assert gotten_job
+            storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
+            assert gotten_job.model_dump() == expected_job.model_dump()
             assert gotten_job.status.up_to_date

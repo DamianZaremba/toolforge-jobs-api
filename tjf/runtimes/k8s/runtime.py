@@ -59,25 +59,23 @@ class K8sRuntime(BaseRuntime):
         self.loki_url = settings.loki_url
         self.default_cpu_limit = settings.default_cpu_limit
 
-    def get_jobs(self, *, tool: str) -> list[AnyJob]:
+    def get_one_off_jobs(self, *, tool: str) -> list[OneOffJob]:
         job_list = []
         tool_account = ToolAccount(name=tool)
-        for job_type in JobType:
-            kind = K8sJobKind.from_job_type(job_type).api_path_name
-            label_selector = labels_selector(user_name=tool_account.name, type=kind)
-            for k8s_obj in tool_account.k8s_cli.get_objects(
-                kind=kind, label_selector=label_selector
-            ):
-                job = get_job_from_k8s(
-                    k8s_object=k8s_obj,
-                    job_type=job_type,
-                    default_cpu_limit=self.default_cpu_limit,
-                    tool=tool,
-                )
-                refresh_job_short_status(tool_account, job)
-                refresh_job_long_status(tool_account, job)
-                job.status = self._get_job_status(job=job, tool=tool)
-                job_list.append(job)
+        label_selector = labels_selector(user_name=tool_account.name, type="jobs")
+        for k8s_obj in tool_account.k8s_cli.get_objects(
+            kind="jobs", label_selector=label_selector
+        ):
+            job = get_job_from_k8s(
+                k8s_object=k8s_obj,
+                job_type=JobType.ONE_OFF,
+                default_cpu_limit=self.default_cpu_limit,
+                tool=tool,
+            )
+            refresh_job_short_status(tool_account, job)
+            refresh_job_long_status(tool_account, job)
+            job.status = get_one_off_job_status(tool_account=tool_account, k8s_job=job.k8s_object)
+            job_list.append(job)
 
         return job_list
 
@@ -304,27 +302,27 @@ class K8sRuntime(BaseRuntime):
 
     def _get_job_status(self, *, job: AnyJob, tool: str) -> AnyJobStatus:
         LOGGER.debug(f"Getting status for the job {job.job_name}, for tool {tool}")
-        user = ToolAccount(name=tool)
+        tool_account = ToolAccount(name=tool)
         k8s_type = K8sJobKind.from_job_type(job.job_type)
         selector = labels_selector(
             job_name=job.job_name,
-            user_name=user.name,
+            user_name=tool_account.name,
             type=k8s_type.api_path_name,
         )
-        k8s_pods = user.k8s_cli.get_objects(kind="pods", label_selector=selector)
+        k8s_pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=selector)
 
         job_status: AnyJobStatus
         match job.job_type:
             case JobType.ONE_OFF:
                 one_off_job_status = get_one_off_job_status(
-                    user=user, k8s_job=job.k8s_object, k8s_pods=k8s_pods
+                    tool_account=tool_account, k8s_job=job.k8s_object
                 )
                 job_status = one_off_job_status
 
             case JobType.SCHEDULED:
-                k8s_jobs = user.k8s_cli.get_objects(kind="jobs", label_selector=selector)
+                k8s_jobs = tool_account.k8s_cli.get_objects(kind="jobs", label_selector=selector)
                 scheduled_job_status = get_scheduled_job_status(
-                    user=user,
+                    tool_account=tool_account,
                     job=job,
                     k8s_cronjob=job.k8s_object,
                     k8s_jobs=k8s_jobs,

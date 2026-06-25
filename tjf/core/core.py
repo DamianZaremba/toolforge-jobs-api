@@ -230,34 +230,23 @@ class Core:
         return self.runtime.get_quotas(tool=toolname)
 
     def get_jobs(self, toolname: str) -> list[AnyJob]:
-        runtime_jobs = self.runtime.get_jobs(tool=toolname)
-        runtime_jobs_by_name = {runtime_job.job_name: runtime_job for runtime_job in runtime_jobs}
+        # Currently storage only has continuous and scheduled jobs
         storage_jobs = self.storage.get_jobs(tool_name=toolname)
-        storage_jobs_by_name = {storage_job.job_name: storage_job for storage_job in storage_jobs}
         final_jobs: dict[str, AnyJob] = {}
 
-        for existing_job in runtime_jobs + storage_jobs:
-            if existing_job.job_name in final_jobs:
-                # skip jobs that we have already processed
-                continue
-
-            runtime_job = runtime_jobs_by_name.get(existing_job.job_name, None)
-
-            # One-offs are not stored in storage
-            if runtime_job and runtime_job.job_type == JobType.ONE_OFF:
-                final_jobs[runtime_job.job_name] = runtime_job
-                continue
-
-            storage_job = storage_jobs_by_name.get(existing_job.job_name, None)
-            maybe_existing_job = self._reconciliate_storage_and_runtime(
+        for storage_job in storage_jobs:
+            runtime_job = self.runtime.get_job(job_name=storage_job.job_name, tool=toolname)
+            final_job = self._reconciliate_storage_and_runtime(
                 tool_name=toolname,
                 runtime_job=runtime_job,
                 storage_job=storage_job,
             )
-            if not maybe_existing_job:
-                continue
+            if final_job:
+                final_jobs[final_job.job_name] = final_job
 
-            final_jobs[maybe_existing_job.job_name] = maybe_existing_job
+        # One-offs are not stored in storage
+        for job in self.runtime.get_one_off_jobs(tool=toolname):
+            final_jobs[job.job_name] = job
 
         return list(final_jobs.values())
 
@@ -271,6 +260,10 @@ class Core:
         except NotFoundInRuntime:
             runtime_job = None
 
+        # One-offs are not stored in storage
+        if runtime_job and runtime_job.job_type == JobType.ONE_OFF:
+            return runtime_job
+
         try:
             storage_job = self.storage.get_job(job_name=name, tool_name=toolname)
         except NotFoundInStorage:
@@ -283,10 +276,6 @@ class Core:
     def _reconciliate_storage_and_runtime(
         self, tool_name: str, runtime_job: AnyJob | None, storage_job: AnyJob | None
     ) -> AnyJob | None:
-        # One-offs are not stored in storage
-        if runtime_job and runtime_job.job_type == JobType.ONE_OFF:
-            return runtime_job
-
         if not storage_job:
             if runtime_job:
                 LOGGER.warning(f"Found a job in runtime but not in storage: {runtime_job}")
