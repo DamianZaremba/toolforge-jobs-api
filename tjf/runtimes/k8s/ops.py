@@ -20,7 +20,7 @@ import requests
 from toolforge_weld.kubernetes import parse_quantity
 
 from ...core.error import TjfValidationError
-from ...core.models import AnyJob, ScheduledJob
+from ...core.models import AnyJob, JobType, ScheduledJob
 from .account import ToolAccount
 from .jobs import get_k8s_job_from_cronjob
 from .k8s_errors import get_error_from_k8s_response
@@ -87,14 +87,14 @@ def trigger_scheduled_job(tool_account: ToolAccount, scheduled_job: ScheduledJob
 def wait_for_pods_exit(
     tool: ToolAccount,
     job_name: str | None = None,
-    job_type: str | None = None,
+    job_type: JobType | None = None,
     timeout: int = 30,
 ) -> bool:
     """Wait for all pods belonging to a specific job to exit."""
     label_selector = labels_selector(
         job_name=job_name,
         user_name=tool.name,
-        type=job_type,
+        job_type=job_type,
     )
 
     for _ in range(timeout * 2):

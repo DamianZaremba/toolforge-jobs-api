@@ -58,6 +58,7 @@ class K8sJobKind(Enum):
     use. The value is the formal Kubernetes object kind name.
     """
 
+    # The string values are not used for anything
     CRON_JOB = "CronJob"
     JOB = "Job"
     DEPLOYMENT = "Deployment"
@@ -119,7 +120,7 @@ def _get_k8s_cronjob_object(job: ScheduledJob, default_cpu_limit: str) -> K8S_OB
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
-        type=K8sJobKind.from_job_type(job.job_type).api_path_name,
+        job_type=job.job_type,
         filelog=job.filelog,
         emails=job.emails.value,
         mount=job.mount,
@@ -163,7 +164,7 @@ def _get_common_k8s_podtemplate(*, job: AnyJob, default_cpu_limit: str) -> dict[
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
-        type=K8sJobKind.from_job_type(job_type=job.job_type).api_path_name,
+        job_type=job.job_type,
         filelog=job.filelog,
         emails=job.emails.value,
         mount=job.mount,
@@ -247,7 +248,7 @@ def _get_common_k8s_podtemplate(*, job: AnyJob, default_cpu_limit: str) -> dict[
                             jobname=job.job_name,
                             tool_name=job.tool_name,
                             version=False,
-                            type=None,
+                            job_type=None,
                         ),
                     },
                 }
@@ -346,7 +347,7 @@ def _get_k8s_deployment_object(job: ContinuousJob, default_cpu_limit: str) -> K8
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
-        type=K8sJobKind.from_job_type(job.job_type).api_path_name,
+        job_type=job.job_type,
         filelog=job.filelog,
         emails=job.emails.value,
         mount=job.mount,
@@ -380,7 +381,7 @@ def _get_k8s_deployment_object(job: ContinuousJob, default_cpu_limit: str) -> K8
                     jobname=job.job_name,
                     tool_name=job.tool_name,
                     version=False,
-                    type=None,
+                    job_type=None,
                 ),
             },
         },
@@ -393,7 +394,7 @@ def _get_k8s_job_object(job: OneOffJob, default_cpu_limit: str) -> K8S_OBJECT_TY
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
-        type=K8sJobKind.from_job_type(job.job_type).api_path_name,
+        job_type=job.job_type,
         filelog=job.filelog,
         emails=job.emails.value,
         mount=job.mount,
