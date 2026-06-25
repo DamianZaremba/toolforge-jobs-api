@@ -24,7 +24,7 @@ from tjf.core.models import OneOffJob as CoreOneOffJob
 from tjf.core.models import PortProtocol
 from tjf.core.models import ScheduledJob as CoreScheduledJob
 from tjf.core.models import ScriptHealthCheck
-from tjf.runtimes.k8s.jobs import get_job_from_k8s
+from tjf.runtimes.k8s.jobs import get_one_off_job_from_k8s_object
 
 
 def get_dummy_core_common_job(**overrides) -> CoreCommonJob:
@@ -615,9 +615,8 @@ class TestGetResolvedCoreJob:
         assert resolved.filelog_stderr is None
 
     def test_resolved_job_matches_k8s_job_unresolved_does_not(self):
-        k8s_job = get_job_from_k8s(
+        k8s_job = get_one_off_job_from_k8s_object(
             k8s_object=K8S_ONEOFF_JOB_OBJ,
-            job_type=JobType.ONE_OFF,
             default_cpu_limit="1000m",
             tool_name="some-tool",
         )

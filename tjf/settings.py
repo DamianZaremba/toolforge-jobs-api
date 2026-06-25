@@ -1,5 +1,6 @@
 import datetime
 import logging
+from typing import Any
 
 from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings
@@ -17,11 +18,11 @@ class Settings(BaseSettings):
     default_cpu_limit: str = "4000m"
 
 
-def get_settings() -> Settings:
+def get_settings(**kwargs: Any) -> Settings:
     global settings
     if not settings:
         log.info("Loading config settings from the environment...")
-        settings = Settings()
+        settings = Settings(**kwargs)
 
     return settings
 

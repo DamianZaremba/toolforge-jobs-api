@@ -64,9 +64,8 @@ class TestJobFromK8s:
                 status_long="Unknown",
             )
 
-            gotten_job = jobs.get_job_from_k8s(
+            gotten_job = jobs.get_scheduled_job_from_k8s_object(
                 k8s_object=K8S_SCHEDULED_JOB_OBJ,
-                job_type=JobType.SCHEDULED,
                 default_cpu_limit="1000m",
                 tool_name="some-tool",
             )
@@ -75,10 +74,11 @@ class TestJobFromK8s:
 
     class TestOneoffJob:
         def test_minimal_fields(self, fake_images: dict[str, Any]):
-            expected_job = get_oneoff_job_fixture_as_job(mount=MountOption.ALL)
-            gotten_job = jobs.get_job_from_k8s(
+            expected_job = get_oneoff_job_fixture_as_job(
+                mount=MountOption.ALL, status_long="Unknown"
+            )
+            gotten_job = jobs.get_one_off_job_from_k8s_object(
                 k8s_object=K8S_ONEOFF_JOB_OBJ,
-                job_type=JobType.ONE_OFF,
                 default_cpu_limit="1000m",
                 tool_name="some-tool",
             )
@@ -88,12 +88,11 @@ class TestJobFromK8s:
         def test_all_fields(self, fake_images: dict[str, Any]):
             k8s_object = patch_spec(spec=K8S_ONEOFF_JOB_OBJ, patch={"spec": {"backoffLimit": 5}})
             expected_job = get_oneoff_job_fixture_as_job(
-                retry=5, k8s_object=k8s_object, mount=MountOption.ALL
+                retry=5, k8s_object=k8s_object, mount=MountOption.ALL, status_long="Unknown"
             )
 
-            gotten_job = jobs.get_job_from_k8s(
+            gotten_job = jobs.get_one_off_job_from_k8s_object(
                 k8s_object=k8s_object,
-                job_type=JobType.ONE_OFF,
                 default_cpu_limit="1000m",
                 tool_name="some-tool",
             )
@@ -104,9 +103,8 @@ class TestJobFromK8s:
         def test_minimal_fields(self, fake_images: dict[str, Any]):
             expected_job = get_continuous_job_fixture_as_job(add_status=False, filelog=False)
 
-            gotten_job = jobs.get_job_from_k8s(
+            gotten_job = jobs.get_continuous_job_from_k8s_object(
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
-                job_type=JobType.CONTINUOUS,
                 default_cpu_limit="1000m",
                 tool_name="some-tool",
             )
@@ -116,9 +114,8 @@ class TestJobFromK8s:
         def test_all_fields(self, fake_images: dict[str, Any]):
             expected_job = get_continuous_job_fixture_as_job(add_status=False, filelog=False)
 
-            gotten_job = jobs.get_job_from_k8s(
+            gotten_job = jobs.get_continuous_job_from_k8s_object(
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
-                job_type=JobType.CONTINUOUS,
                 default_cpu_limit="1000m",
                 tool_name="some-tool",
             )

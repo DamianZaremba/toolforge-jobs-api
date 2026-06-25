@@ -74,39 +74,6 @@ class TestCore:
 
         @cases(
             ["job_type"],
-            ["OneOff job", [JobType.ONE_OFF]],
-        )
-        def test_always_returns_one_off_from_runtime(
-            self,
-            get_my_core: GetMyCore,
-            storage_k8s_cli: MagicMock,
-            monkeypatch: pytest.MonkeyPatch,
-            job_type: JobType,
-        ):
-            my_storage_job = None
-            my_runtime_job = get_dummy_job(job_type=job_type, mount=MountOption.NONE)
-            expected_job = my_runtime_job
-            my_core = get_my_core()
-
-            mock_runtime_create_job = MagicMock(
-                spec=my_core.runtime.create_job, return_value=my_storage_job
-            )
-            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
-            monkeypatch.setattr(my_core.runtime, "get_job", lambda *args, **kwargs: my_storage_job)
-
-            gotten_job = my_core._reconciliate_storage_and_runtime(
-                tool_name="some-tool",
-                runtime_job=my_runtime_job,
-                storage_job=my_storage_job,
-            )
-
-            assert gotten_job
-            storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
-            assert gotten_job.model_dump() == expected_job.model_dump()
-            assert gotten_job.status.up_to_date
-
-        @cases(
-            ["job_type"],
             ["Continuous job", [JobType.CONTINUOUS]],
             ["Scheduled job", [JobType.SCHEDULED]],
         )
@@ -131,7 +98,14 @@ class TestCore:
                 spec=my_core.runtime.create_job, return_value=my_storage_job
             )
             monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
-            monkeypatch.setattr(my_core.runtime, "get_job", lambda *args, **kwargs: my_storage_job)
+            if job_type == JobType.CONTINUOUS:
+                monkeypatch.setattr(
+                    my_core.runtime, "get_continuous_job", lambda *args, **kwargs: my_storage_job
+                )
+            elif job_type == JobType.SCHEDULED:
+                monkeypatch.setattr(
+                    my_core.runtime, "get_scheduled_job", lambda *args, **kwargs: my_storage_job
+                )
 
             gotten_job = my_core._reconciliate_storage_and_runtime(
                 tool_name="some-tool",
@@ -165,7 +139,14 @@ class TestCore:
                 spec=my_core.runtime.create_job, return_value=my_storage_job
             )
             monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
-            monkeypatch.setattr(my_core.runtime, "get_job", lambda *args, **kwargs: my_storage_job)
+            if job_type == JobType.CONTINUOUS:
+                monkeypatch.setattr(
+                    my_core.runtime, "get_continuous_job", lambda *args, **kwargs: my_storage_job
+                )
+            elif job_type == JobType.SCHEDULED:
+                monkeypatch.setattr(
+                    my_core.runtime, "get_scheduled_job", lambda *args, **kwargs: my_storage_job
+                )
 
             gotten_job = my_core._reconciliate_storage_and_runtime(
                 tool_name="some-tool",
@@ -353,4 +334,30 @@ class TestCore:
                 storage_job=my_storage_job, runtime_job=my_runtime_job
             )
 
+            assert gotten_job.status.up_to_date
+
+    class TestGetJob:
+        def test_always_returns_one_off_from_runtime(
+            self,
+            get_my_core: GetMyCore,
+            storage_k8s_cli: MagicMock,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            my_runtime_job = get_dummy_job(job_type=JobType.ONE_OFF, mount=MountOption.NONE)
+            expected_job = my_runtime_job
+            my_core = get_my_core()
+
+            mock_runtime_get_job = MagicMock(
+                spec=my_core.runtime.get_one_off_job, return_value=my_runtime_job
+            )
+            monkeypatch.setattr(my_core.runtime, "get_one_off_job", mock_runtime_get_job)
+
+            gotten_job = my_core.get_job(
+                tool_name="some-tool",
+                name=my_runtime_job.job_name,
+            )
+
+            assert gotten_job
+            storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
+            assert gotten_job.model_dump() == expected_job.model_dump()
             assert gotten_job.status.up_to_date
