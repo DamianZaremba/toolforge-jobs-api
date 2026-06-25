@@ -70,7 +70,7 @@ class K8sRuntime(BaseRuntime):
             ):
                 job = get_job_from_k8s(
                     k8s_object=k8s_obj,
-                    kind=kind,
+                    job_type=job_type,
                     default_cpu_limit=self.default_cpu_limit,
                     tool=tool,
                 )
@@ -93,7 +93,7 @@ class K8sRuntime(BaseRuntime):
             ):
                 job = get_job_from_k8s(
                     k8s_object=k8s_obj,
-                    kind=kind,
+                    job_type=job_type,
                     default_cpu_limit=self.default_cpu_limit,
                     tool=tool,
                 )
