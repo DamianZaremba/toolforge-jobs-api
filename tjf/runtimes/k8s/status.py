@@ -16,6 +16,7 @@ from ...core.models import (
     CommonJobStatus,
     ContinuousJob,
     ContinuousJobStatus,
+    JobType,
     OneOffJobStatus,
     ScheduledJob,
     ScheduledJobStatus,
@@ -23,7 +24,7 @@ from ...core.models import (
 )
 from .account import ToolAccount
 from .command import GeneratedCommand, get_command_for_k8s
-from .jobs import JOB_PROGRESS_DEADLINE_SECONDS, get_k8s_objects_by_job_name
+from .jobs import JOB_PROGRESS_DEADLINE_SECONDS, K8sKind, get_k8s_objects_by_job_name
 from .utils import (
     format_duration,
     remove_prefixes,
@@ -460,7 +461,9 @@ def get_one_off_job_status(
 ) -> OneOffJobStatus:
     LOGGER.debug(f"k8s job object: {k8s_job}")
     selector = labels_selector(
-        job_name=k8s_job["metadata"]["name"], tool_name=tool_account.name, type="jobs"
+        job_name=k8s_job["metadata"]["name"],
+        tool_name=tool_account.name,
+        job_type=JobType.ONE_OFF,
     )
     k8s_pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=selector)
     LOGGER.debug(f"k8s pod objects: {k8s_pods}")
@@ -549,8 +552,8 @@ def get_scheduled_job_status(
     k8s_jobs = get_k8s_objects_by_job_name(
         job_name=job.job_name,
         tool_account=tool_account,
-        k8s_kind="jobs",
-        k8s_component_label="cronjobs",
+        k8s_kind=K8sKind.JOBS,
+        job_type=job.job_type,
     )
     LOGGER.debug(f"k8s job objects: {k8s_jobs}")
     k8s_job = _get_latest_k8s_cronjob_job(
@@ -571,8 +574,8 @@ def get_scheduled_job_status(
         k8s_pods = get_k8s_objects_by_job_name(
             job_name=job.job_name,
             tool_account=tool_account,
-            k8s_kind="pods",
-            k8s_component_label="cronjobs",
+            k8s_kind=K8sKind.PODS,
+            job_type=job.job_type,
         )
         # Restrict pods to those belonging to the latest job only, otherwise
         # pods from older (e.g. failed) runs can contaminate the status.
@@ -718,8 +721,8 @@ def get_continuous_job_status(
     k8s_pods = get_k8s_objects_by_job_name(
         job_name=job.job_name,
         tool_account=tool_account,
-        k8s_kind="pods",
-        k8s_component_label="jobs",
+        k8s_kind=K8sKind.PODS,
+        job_type=job.job_type,
     )
     LOGGER.debug(f"k8s pod objects: {k8s_pods}")
     pod_status = _get_status_from_pods(k8s_pods)

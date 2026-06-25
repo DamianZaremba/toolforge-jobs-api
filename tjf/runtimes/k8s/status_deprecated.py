@@ -5,11 +5,19 @@ from datetime import datetime
 from logging import getLogger
 from typing import Any
 
+from tjf.runtimes.k8s.jobs import K8sKind
+
 from ...core.error import TjfError
-from ...core.models import AnyJob, Command, ContinuousJob, OneOffJob, ScheduledJob
+from ...core.models import (
+    AnyJob,
+    Command,
+    ContinuousJob,
+    JobType,
+    OneOffJob,
+    ScheduledJob,
+)
 from .account import ToolAccount
 from .command import GeneratedCommand, get_command_for_k8s
-from .jobs import K8sJobKind
 from .labels import labels_selector
 from .utils import (
     dict_get_object,
@@ -103,7 +111,9 @@ def _refresh_status_cronjob_from_restarted_cronjob(
         return None
 
     label_selector = labels_selector(
-        job_name=original_cronjob.job_name, tool_name=tool_account.name, type="cronjobs"
+        job_name=original_cronjob.job_name,
+        tool_name=tool_account.name,
+        job_type=JobType.SCHEDULED,
     )
     all_cronjob_jobs = tool_account.k8s_cli.get_objects(
         kind="jobs", label_selector=label_selector
@@ -184,7 +194,7 @@ def _refresh_status_cronjob(tool_account: ToolAccount, job: ScheduledJob) -> Non
         job.status_short = "Waiting for scheduled time"
 
     for active_job in status_dict.get("active", []):
-        job_data = tool_account.k8s_cli.get_object("jobs", active_job["name"])
+        job_data = tool_account.k8s_cli.get_object(K8sKind.JOBS, active_job["name"])
         if not job_data:
             continue
 
@@ -228,7 +238,10 @@ def _refresh_status_dp(tool_account: ToolAccount, job: ContinuousJob) -> None:
         pod_selector = labels_selector(
             job_name=job.job_name,
             tool_name=tool_account.name,
-            type=K8sJobKind.from_job_type(job.job_type).api_path_name,
+            job_type=job.job_type,
+        )
+        pods = tool_account.k8s_cli.get_objects(
+            kind="pods", label_selector=pod_selector
         )
         pods = tool_account.k8s_cli.get_objects(
             kind="pods", label_selector=pod_selector
@@ -276,7 +289,10 @@ def refresh_job_long_status(tool_account: ToolAccount, job: AnyJob) -> None:
     label_selector = labels_selector(
         job_name=job.job_name,
         tool_name=tool_account.name,
-        type=K8sJobKind.from_job_type(job.job_type).api_path_name,
+        job_type=job.job_type,
+    )
+    podlist = tool_account.k8s_cli.get_objects(
+        kind="pods", label_selector=label_selector
     )
     podlist = tool_account.k8s_cli.get_objects(
         kind="pods", label_selector=label_selector

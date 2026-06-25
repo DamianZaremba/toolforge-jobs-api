@@ -2,13 +2,12 @@ import json
 import pwd
 import time
 from copy import deepcopy
-from enum import Enum
+from enum import StrEnum
 from functools import cache
 from logging import getLogger
 from typing import Any
 
-from toolforge_weld.errors import ToolforgeError
-from toolforge_weld.kubernetes import ApiData, K8sClient, MountOption, parse_quantity
+from toolforge_weld.kubernetes import K8sClient, MountOption, parse_quantity
 from toolforge_weld.logs import LogEntry
 
 from tjf.core.images import Image
@@ -54,52 +53,12 @@ JOB_PROGRESS_DEADLINE_SECONDS = 600
 LOGGER = getLogger(__name__)
 
 
-class K8sJobKind(Enum):
-    """
-    Represents a Kubernetes object type that a jobs framework managed job can
-    use. The value is the formal Kubernetes object kind name.
-    """
-
-    CRON_JOB = "CronJob"
-    JOB = "Job"
-    DEPLOYMENT = "Deployment"
-
-    @property
-    def api_path_name(self) -> str:
-        """The name used in K8s API URLs, for example 'cronjobs'."""
-        if self == K8sJobKind.CRON_JOB:
-            return "cronjobs"
-        elif self == K8sJobKind.JOB:
-            return "jobs"
-        elif self == K8sJobKind.DEPLOYMENT:
-            return "deployments"
-        else:
-            raise Exception(f"invalid self {self}")
-
-    @property
-    def api_version(self) -> str:
-        version = K8sClient.VERSIONS[self.api_path_name]
-        # TODO: this is because the Union in toolforge_weld :-(
-        if isinstance(version, str):
-            return version
-        elif isinstance(version, ApiData):
-            return version.version
-        else:
-            raise ToolforgeError(
-                message="Unknown version class. A Toolforge admin must check toolforge-weld."
-            )
-
-    @classmethod
-    def from_job_type(cls, job_type: JobType) -> "K8sJobKind":
-        """The Kubernetes object kind used to represent jobs with this type."""
-        if job_type == JobType.ONE_OFF:
-            return cls.JOB
-        elif job_type == JobType.SCHEDULED:
-            return cls.CRON_JOB
-        elif job_type == JobType.CONTINUOUS:
-            return cls.DEPLOYMENT
-        else:
-            raise Exception(f"invalid job type {job_type}")
+class K8sKind(StrEnum):
+    JOBS = "jobs"
+    DEPLOYMENTS = "deployments"
+    CRONJOBS = "cronjobs"
+    PODS = "pods"
+    SERVICES = "services"
 
 
 def get_job_for_k8s(job: AnyJob, default_cpu_limit: str) -> K8S_OBJECT_TYPE:
@@ -123,14 +82,13 @@ def _get_k8s_cronjob_object(
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
-        type=K8sJobKind.from_job_type(job.job_type).api_path_name,
+        job_type=job.job_type,
         filelog=job.filelog,
         emails=job.emails.value,
         mount=job.mount,
     )
     obj: dict[str, Any] = {
-        "apiVersion": K8sJobKind.CRON_JOB.api_version,
-        "kind": K8sJobKind.CRON_JOB.value,
+        "apiVersion": K8sClient.VERSIONS[K8sKind.CRONJOBS],
         "metadata": {
             "name": job.job_name,
             "namespace": _get_namespace(tool_name=job.tool_name),
@@ -169,7 +127,7 @@ def _get_common_k8s_podtemplate(
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
-        type=K8sJobKind.from_job_type(job_type=job.job_type).api_path_name,
+        job_type=job.job_type,
         filelog=job.filelog,
         emails=job.emails.value,
         mount=job.mount,
@@ -258,7 +216,7 @@ def _get_common_k8s_podtemplate(
                             jobname=job.job_name,
                             tool_name=job.tool_name,
                             version=False,
-                            type=None,
+                            job_type=None,
                         ),
                     },
                 }
@@ -367,7 +325,7 @@ def _get_k8s_deployment_object(
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
-        type=K8sJobKind.from_job_type(job.job_type).api_path_name,
+        job_type=job.job_type,
         filelog=job.filelog,
         emails=job.emails.value,
         mount=job.mount,
@@ -380,8 +338,7 @@ def _get_k8s_deployment_object(
     strategy = "Recreate" if replicas == 1 else "RollingUpdate"
 
     obj = {
-        "apiVersion": K8sJobKind.DEPLOYMENT.api_version,
-        "kind": K8sJobKind.DEPLOYMENT.value,
+        "apiVersion": K8sClient.VERSIONS[K8sKind.DEPLOYMENTS],
         "metadata": {
             "name": job.job_name,
             "namespace": _get_namespace(tool_name=job.tool_name),
@@ -401,7 +358,7 @@ def _get_k8s_deployment_object(
                     jobname=job.job_name,
                     tool_name=job.tool_name,
                     version=False,
-                    type=None,
+                    job_type=None,
                 ),
             },
         },
@@ -414,14 +371,13 @@ def _get_k8s_job_object(job: OneOffJob, default_cpu_limit: str) -> K8S_OBJECT_TY
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
-        type=K8sJobKind.from_job_type(job.job_type).api_path_name,
+        job_type=job.job_type,
         filelog=job.filelog,
         emails=job.emails.value,
         mount=job.mount,
     )
     obj: dict[str, Any] = {
-        "apiVersion": K8sJobKind.JOB.api_version,
-        "kind": K8sJobKind.JOB.value,
+        "apiVersion": K8sClient.VERSIONS[K8sKind.CRONJOBS],
         "metadata": {
             "name": job.job_name,
             "namespace": _get_namespace(tool_name=job.tool_name),
@@ -460,8 +416,9 @@ def get_k8s_job_from_cronjob(k8s_cronjob: K8S_OBJECT_TYPE) -> K8S_OBJECT_TYPE:
     k8s_job["metadata"]["annotations"] = {"cronjob.kubernetes.io/instantiate": "manual"}
     k8s_job["metadata"]["ownerReferences"] = [
         {
-            "apiVersion": K8sJobKind.CRON_JOB.api_version,
-            "kind": K8sJobKind.CRON_JOB.value,
+            "apiVersion": K8sClient.VERSIONS[K8sKind.CRONJOBS],
+            # this one can't be avoided
+            "kind": "CronJob",
             "name": k8s_cronjob["metadata"]["name"],
             "uid": k8s_cronjob["metadata"]["uid"],
         }
@@ -727,11 +684,10 @@ def get_k8s_objects_by_job_name(
     job_name: str,
     tool_account: ToolAccount,
     k8s_kind: str,
-    k8s_component_label: str | None = None,
+    job_type: JobType,
 ) -> list[dict[str, Any]]:
-    k8s_component_label = k8s_component_label or k8s_kind
     label_selector = labels_selector(
-        job_name=job_name, tool_name=tool_account.name, type=k8s_component_label
+        job_name=job_name, tool_name=tool_account.name, job_type=job_type
     )
     return tool_account.k8s_cli.get_objects(
         kind=k8s_kind, label_selector=label_selector
