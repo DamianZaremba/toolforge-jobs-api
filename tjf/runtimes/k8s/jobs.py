@@ -12,6 +12,7 @@ from toolforge_weld.kubernetes import ApiData, K8sClient, MountOption, parse_qua
 from toolforge_weld.logs import LogEntry
 
 from tjf.core.images import Image
+from tjf.runtimes.k8s.account import ToolAccount
 
 from ...core.cron import CronExpression
 from ...core.error import TjfError, TjfValidationError
@@ -34,7 +35,7 @@ from ...core.models import (
 from ...core.utils import dict_get_object, format_quantity, parse_and_format_mem
 from .command import get_command_for_k8s, get_command_from_k8s
 from .healthchecks import get_healthcheck_for_k8s
-from .labels import generate_labels
+from .labels import generate_labels, labels_selector
 
 K8S_OBJECT_TYPE = dict[str, Any]
 # tell kubernetes to delete jobs this many seconds after they finish
@@ -542,7 +543,15 @@ def get_common_job_from_k8s(
     return myjob
 
 
-def get_oneoff_job_from_k8s(k8s_object: dict[str, Any], common_job: CommonJob) -> OneOffJob:
+def get_one_off_job_from_k8s_object(
+    k8s_object: dict[str, Any], default_cpu_limit: str, tool_name: str
+) -> OneOffJob:
+    common_job = get_common_job_from_k8s(
+        k8s_object=k8s_object,
+        job_type=JobType.ONE_OFF,
+        default_cpu_limit=default_cpu_limit,
+        tool_name=tool_name,
+    )
     set_common_params = common_job.model_dump(exclude_unset=True)
     podspec = dict_get_object(k8s_object, "spec")
     if not podspec:
@@ -556,7 +565,9 @@ def get_oneoff_job_from_k8s(k8s_object: dict[str, Any], common_job: CommonJob) -
     return my_job
 
 
-def get_scheduled_job_from_k8s(k8s_object: dict[str, Any], common_job: CommonJob) -> ScheduledJob:
+def get_scheduled_job_from_k8s_object(
+    k8s_object: dict[str, Any], default_cpu_limit: str, tool_name: str
+) -> ScheduledJob:
     spec = dict_get_object(k8s_object, "spec")
     if not spec:
         raise TjfError("Invalid k8s object, did not contain a spec", data={"k8s_object": object})
@@ -565,6 +576,12 @@ def get_scheduled_job_from_k8s(k8s_object: dict[str, Any], common_job: CommonJob
     if not metadata:
         raise TjfError("Invalid k8s object, did not contain metadata", data={"k8s_object": object})
 
+    common_job = get_common_job_from_k8s(
+        k8s_object=k8s_object,
+        job_type=JobType.SCHEDULED,
+        default_cpu_limit=default_cpu_limit,
+        tool_name=tool_name,
+    )
     set_common_params = common_job.model_dump(exclude_unset=True)
 
     if "annotations" in metadata:
@@ -608,8 +625,8 @@ def get_scheduled_job_from_k8s(k8s_object: dict[str, Any], common_job: CommonJob
     return my_job
 
 
-def get_continuous_job_from_k8s(
-    k8s_object: dict[str, Any], common_job: CommonJob
+def get_continuous_job_from_k8s_object(
+    k8s_object: dict[str, Any], default_cpu_limit: str, tool_name: str
 ) -> ContinuousJob:
 
     podspec = dict_get_object(k8s_object, "spec")
@@ -638,6 +655,12 @@ def get_continuous_job_from_k8s(
         path = container_spec["startupProbe"]["httpGet"]["path"]
         health_check = HttpHealthCheck(type=HealthCheckType.HTTP, path=path)
 
+    common_job = get_common_job_from_k8s(
+        k8s_object=k8s_object,
+        job_type=JobType.CONTINUOUS,
+        default_cpu_limit=default_cpu_limit,
+        tool_name=tool_name,
+    )
     set_common_params = common_job.model_dump(exclude_unset=True)
     params = {
         "job_type": JobType.CONTINUOUS,
@@ -652,24 +675,11 @@ def get_continuous_job_from_k8s(
     return my_job
 
 
-def get_job_from_k8s(
-    k8s_object: dict[str, Any],
-    job_type: JobType,
-    default_cpu_limit: str,
-    tool_name: str,
-) -> AnyJob:
-    common_job = get_common_job_from_k8s(
-        k8s_object=k8s_object,
-        job_type=job_type,
-        default_cpu_limit=default_cpu_limit,
-        tool_name=tool_name,
+def get_k8s_objects_by_job_name(
+    job_name: str, tool_account: ToolAccount, k8s_kind: str, k8s_component_label: str | None = None
+) -> list[dict[str, Any]]:
+    k8s_component_label = k8s_component_label or k8s_kind
+    label_selector = labels_selector(
+        job_name=job_name, tool_name=tool_account.name, type=k8s_component_label
     )
-    match job_type:
-        case JobType.ONE_OFF:
-            return get_oneoff_job_from_k8s(k8s_object=k8s_object, common_job=common_job)
-        case JobType.SCHEDULED:
-            return get_scheduled_job_from_k8s(k8s_object=k8s_object, common_job=common_job)
-        case JobType.CONTINUOUS:
-            return get_continuous_job_from_k8s(k8s_object=k8s_object, common_job=common_job)
-        case _:
-            raise TjfError("Unable to parse Kubernetes object", data={"object": k8s_object})
+    return tool_account.k8s_cli.get_objects(kind=k8s_kind, label_selector=label_selector)

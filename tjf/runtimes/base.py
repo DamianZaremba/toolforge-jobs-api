@@ -2,7 +2,13 @@ from abc import ABC, abstractmethod
 from typing import AsyncIterator
 
 from ..core.images import Image
-from ..core.models import AnyJob, QuotaData
+from ..core.models import (
+    AnyJob,
+    ContinuousJob,
+    OneOffJob,
+    QuotaData,
+    ScheduledJob,
+)
 from ..settings import Settings
 
 
@@ -12,11 +18,20 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_jobs(self, *, tool_name: str) -> list[AnyJob]:
+    def get_one_off_jobs(self, *, tool_name: str) -> list[OneOffJob]:
+        """This one is the only on needed so far, as the others come from storage."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_job(self, *, job_name: str, tool_name: str) -> AnyJob:
+    def get_one_off_job(self, *, job_name: str, tool_name: str) -> OneOffJob:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_scheduled_job(self, *, job_name: str, tool_name: str) -> ScheduledJob:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_continuous_job(self, *, job_name: str, tool_name: str) -> ContinuousJob:
         raise NotImplementedError
 
     # TODO: Job already has the tool name within it, maybe we don't need it as extra parameter, or inside each Job

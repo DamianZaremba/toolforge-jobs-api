@@ -5,9 +5,8 @@ from helpers.fakes import get_fake_account
 
 import tests.helpers.fake_k8s as fake_k8s
 from tests.test_utils import cases
-from tjf.core.models import JobType
 from tjf.runtimes.k8s.account import ToolAccount
-from tjf.runtimes.k8s.jobs import get_job_from_k8s
+from tjf.runtimes.k8s.jobs import get_scheduled_job_from_k8s_object
 from tjf.runtimes.k8s.status_deprecated import (
     _get_quota_error,
     refresh_job_short_status,
@@ -74,9 +73,8 @@ def test_refresh_job_short_status_cronjob(
             raise Exception("not supposed to happen")
 
     account = get_fake_account(fake_k8s_cli=FakeK8sCli())
-    gotten_job = get_job_from_k8s(
+    gotten_job = get_scheduled_job_from_k8s_object(
         cronjob,
-        JobType.SCHEDULED,
         default_cpu_limit="4000m",
         tool_name="some-tool",
     )

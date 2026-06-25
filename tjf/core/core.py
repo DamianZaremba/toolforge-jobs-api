@@ -245,34 +245,33 @@ class Core:
         return self.runtime.get_quotas(tool_name=tool_name)
 
     def get_jobs(self, tool_name: str) -> list[AnyJob]:
-        runtime_jobs = self.runtime.get_jobs(tool_name=tool_name)
-        runtime_jobs_by_name = {runtime_job.job_name: runtime_job for runtime_job in runtime_jobs}
+        # Currently storage only has continuous and scheduled jobs
         storage_jobs = self.storage.get_jobs(tool_name=tool_name)
-        storage_jobs_by_name = {storage_job.job_name: storage_job for storage_job in storage_jobs}
         final_jobs: dict[str, AnyJob] = {}
 
-        for existing_job in runtime_jobs + storage_jobs:
-            if existing_job.job_name in final_jobs:
-                # skip jobs that we have already processed
-                continue
+        for storage_job in storage_jobs:
+            if storage_job.job_type == JobType.SCHEDULED:
+                runtime_job: AnyJob = self.runtime.get_scheduled_job(
+                    job_name=storage_job.job_name, tool_name=tool_name
+                )
+            elif storage_job.job_type == JobType.CONTINUOUS:
+                runtime_job = self.runtime.get_continuous_job(
+                    job_name=storage_job.job_name, tool_name=tool_name
+                )
+            else:
+                raise TjfValidationError(f"Unknown job type {storage_job.job_type}")
 
-            runtime_job = runtime_jobs_by_name.get(existing_job.job_name, None)
-
-            # One-offs are not stored in storage
-            if runtime_job and runtime_job.job_type == JobType.ONE_OFF:
-                final_jobs[runtime_job.job_name] = runtime_job
-                continue
-
-            storage_job = storage_jobs_by_name.get(existing_job.job_name, None)
-            maybe_existing_job = self._reconciliate_storage_and_runtime(
+            final_job = self._reconciliate_storage_and_runtime(
                 tool_name=tool_name,
                 runtime_job=runtime_job,
                 storage_job=storage_job,
             )
-            if not maybe_existing_job:
-                continue
+            if final_job:
+                final_jobs[final_job.job_name] = final_job
 
-            final_jobs[maybe_existing_job.job_name] = maybe_existing_job
+        # One-offs are not stored in storage
+        for job in self.runtime.get_one_off_jobs(tool_name=tool_name):
+            final_jobs[job.job_name] = job
 
         return list(final_jobs.values())
 
@@ -282,14 +281,27 @@ class Core:
 
     def get_job(self, tool_name: str, name: str) -> AnyJob | None:
         try:
-            runtime_job = self.runtime.get_job(job_name=name, tool_name=tool_name)
-        except NotFoundInRuntime:
-            runtime_job = None
-
-        try:
             storage_job = self.storage.get_job(job_name=name, tool_name=tool_name)
         except NotFoundInStorage:
             storage_job = None
+
+        try:
+            if not storage_job:
+                return self.runtime.get_one_off_job(job_name=name, tool_name=tool_name)
+
+            if storage_job.job_type == JobType.CONTINUOUS:
+                runtime_job: AnyJob | None = self.runtime.get_continuous_job(
+                    job_name=name, tool_name=tool_name
+                )
+
+            elif storage_job.job_type == JobType.SCHEDULED:
+                runtime_job = self.runtime.get_scheduled_job(job_name=name, tool_name=tool_name)
+
+            else:
+                raise TjfValidationError(f"Unknown job of type {storage_job.job_type}")
+
+        except NotFoundInRuntime:
+            runtime_job = None
 
         return self._reconciliate_storage_and_runtime(
             tool_name=tool_name, runtime_job=runtime_job, storage_job=storage_job
@@ -298,10 +310,6 @@ class Core:
     def _reconciliate_storage_and_runtime(
         self, tool_name: str, runtime_job: AnyJob | None, storage_job: AnyJob | None
     ) -> AnyJob | None:
-        # One-offs are not stored in storage
-        if runtime_job and runtime_job.job_type == JobType.ONE_OFF:
-            return runtime_job
-
         if not storage_job:
             if runtime_job:
                 LOGGER.warning(f"Found a job in runtime but not in storage: {runtime_job}")

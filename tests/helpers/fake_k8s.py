@@ -5,6 +5,7 @@ from pathlib import Path
 from toolforge_weld.kubernetes import MountOption
 
 from tests.helpers.fakes import get_dummy_job
+from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
 from tjf.core.models import AnyJob, JobType
 
@@ -1097,14 +1098,65 @@ def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJo
         tool_name="tf-test",
     )
     optional_params = {
+        # This cpu is only valid if the default cpu limit is 1000m, otherwise this
+        # cpu will be 1.0 (will use the k8s resource limit instead of the request value)
+        "cpu": "0.1",
         "filelog": True,
         "filelog_stderr": Path("/data/project/tf-test/testoneoff.err"),
         "filelog_stdout": Path("/data/project/tf-test/testoneoff.out"),
         "k8s_object": K8S_ONEOFF_JOB_OBJ,
+        "mount": MountOption.ALL,
     }
     if add_status:
         overrides["status_short"] = "Unknown"
-        overrides["status_long"] = "Unknown"
+        overrides["status_long"] = overrides.get(
+            "status_long", "No pods were created for this job."
+        )
+        overrides["status"] = {}
+
+    return get_dummy_job(**(params | optional_params | overrides))
+
+
+def get_scheduled_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
+    """Returns a job matching the only fixture used in this suite.
+
+    Pass a custom job_name to get a non-matching job instead.
+    """
+    params = dict(
+        job_name="cronjobtest",
+        cmd="date",
+        mount=MountOption.ALL,
+        # When creating a new job, the job that comes as input only has the short_name for the image
+        image=Image(
+            short_name="python3.11",
+            type=ImageType.STANDARD,
+            state="stable",
+            host="docker-registry.tools.wmflabs.org",
+            path="toolforge-python311-sssd-web",
+            tag="latest",
+            aliases=[
+                "toolforge-python311",
+                "toolforge-python311-sssd-base",
+                "toolforge-python311-sssd-web",
+            ],
+        ),
+        job_type=JobType.SCHEDULED,
+        tool_name="tf-test",
+    )
+    params["schedule"] = CronExpression.parse(
+        value="@daily", job_name=params["job_name"], tool_name=params["tool_name"]
+    )
+    optional_params = {
+        "cpu": "0.5",
+        "filelog": True,
+        "filelog_stderr": Path("/data/project/tf-test/cronjobtest.err"),
+        "filelog_stdout": Path("/data/project/tf-test/cronjobtest.out"),
+        "k8s_object": K8S_SCHEDULED_JOB_OBJ,
+        "mount": MountOption.ALL,
+    }
+    if add_status:
+        overrides["status_short"] = "Waiting for scheduled time"
+        overrides["status_long"] = "No pods were created for this job."
         overrides["status"] = {}
 
     return get_dummy_job(**(params | optional_params | overrides))

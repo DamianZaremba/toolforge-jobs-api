@@ -8,12 +8,16 @@ from typing import Any
 from croniter import croniter  # TODO: avoid installing new lib if possible
 from dateutil import parser as date_parser
 
+from tjf.runtimes.k8s.labels import labels_selector
+
 from ...core.models import (
     AnyJob,
     Command,
     CommonJobStatus,
+    ContinuousJob,
     ContinuousJobStatus,
     OneOffJobStatus,
+    ScheduledJob,
     ScheduledJobStatus,
     StatusShort,
 )
@@ -24,7 +28,7 @@ from ...core.utils import (
 )
 from .account import ToolAccount
 from .command import GeneratedCommand, get_command_for_k8s
-from .jobs import JOB_PROGRESS_DEADLINE_SECONDS
+from .jobs import JOB_PROGRESS_DEADLINE_SECONDS, get_k8s_objects_by_job_name
 
 LOGGER = getLogger(__name__)
 
@@ -431,11 +435,22 @@ def _get_one_off_job_status_from_conditions(job_status: dict[str, Any]) -> OneOf
     return None
 
 
-def get_one_off_job_status(
+def get_one_off_job_status(tool_account: ToolAccount, k8s_job: dict[str, Any]) -> OneOffJobStatus:
+    LOGGER.debug(f"k8s job object: {k8s_job}")
+    selector = labels_selector(
+        job_name=k8s_job["metadata"]["name"], tool_name=tool_account.name, type="jobs"
+    )
+    k8s_pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=selector)
+    LOGGER.debug(f"k8s pod objects: {k8s_pods}")
+    return _get_one_off_job_status_from_k8s_job(
+        tool_account=tool_account, k8s_job=k8s_job, k8s_pods=k8s_pods
+    )
+
+
+def _get_one_off_job_status_from_k8s_job(
     tool_account: ToolAccount, k8s_job: dict[str, Any], k8s_pods: list[dict[str, Any]]
 ) -> OneOffJobStatus:
-    LOGGER.debug(f"k8s job object: {k8s_job}")
-    LOGGER.debug(f"k8s pod objects: {k8s_pods}")
+    # WARNING: this is used also for scheduled jobs
     job_status = k8s_job.get("status", {})
 
     pod_status = _get_status_from_pods(k8s_pods)
@@ -487,14 +502,10 @@ def _filter_k8s_job_pods(
 
 def get_scheduled_job_status(
     tool_account: ToolAccount,
-    job: AnyJob,
-    k8s_cronjob: dict[str, Any],
-    k8s_jobs: list[dict[str, Any]],
-    k8s_pods: list[dict[str, Any]],
+    job: ScheduledJob,
 ) -> ScheduledJobStatus:
+    k8s_cronjob = job.k8s_object
     LOGGER.debug(f"k8s cronjob object: {k8s_cronjob}")
-    LOGGER.debug(f"k8s job objects: {k8s_jobs}")
-    LOGGER.debug(f"k8s pod objects: {k8s_pods}")
 
     schedule = k8s_cronjob.get("spec", {}).get("schedule", None)
     cronjob_status = k8s_cronjob.get("status", {})
@@ -507,6 +518,13 @@ def get_scheduled_job_status(
         .replace("+00:00", "Z")
     )
 
+    k8s_jobs = get_k8s_objects_by_job_name(
+        job_name=job.job_name,
+        tool_account=tool_account,
+        k8s_kind="jobs",
+        k8s_component_label="cronjobs",
+    )
+    LOGGER.debug(f"k8s job objects: {k8s_jobs}")
     k8s_job = _get_latest_k8s_cronjob_job(job=job, k8s_cronjob=k8s_cronjob, k8s_jobs=k8s_jobs)
     # if a job is running, use it's creationTimestamp for previous_schedule,
     # else use the cronjob's lastScheduleTime which is always defined if the cronjob has ever run
@@ -518,14 +536,21 @@ def get_scheduled_job_status(
         next_schedule = cron.get_next(datetime).isoformat().replace("+00:00", "Z")
 
     if k8s_job:
+        k8s_pods = get_k8s_objects_by_job_name(
+            job_name=job.job_name,
+            tool_account=tool_account,
+            k8s_kind="pods",
+            k8s_component_label="cronjobs",
+        )
         # Restrict pods to those belonging to the latest job only, otherwise
         # pods from older (e.g. failed) runs can contaminate the status.
         k8s_pods = _filter_k8s_job_pods(k8s_job=k8s_job, k8s_pods=k8s_pods)
-        job_status = get_one_off_job_status(
+        LOGGER.debug(f"k8s pod objects: {k8s_pods}")
+        k8s_job_status = _get_one_off_job_status_from_k8s_job(
             tool_account=tool_account, k8s_job=k8s_job, k8s_pods=k8s_pods
         )
         return ScheduledJobStatus(
-            **job_status.model_dump(),
+            **k8s_job_status.model_dump(),
             previous_schedule=previous_schedule or None,
             next_schedule=next_schedule,
         )
@@ -648,13 +673,20 @@ def _get_continuous_job_status_from_deployment_status(
 
 
 def get_continuous_job_status(
-    k8s_deployment: dict[str, Any],
-    k8s_pods: list[dict[str, Any]],
+    job: ContinuousJob,
+    tool_account: ToolAccount,
 ) -> ContinuousJobStatus:
+    k8s_deployment = job.k8s_object
     LOGGER.debug(f"k8s deployment object: {k8s_deployment}")
-    LOGGER.debug(f"k8s pod objects: {k8s_pods}")
 
     deployment_status = k8s_deployment.get("status", {})
+    k8s_pods = get_k8s_objects_by_job_name(
+        job_name=job.job_name,
+        tool_account=tool_account,
+        k8s_kind="pods",
+        k8s_component_label="jobs",
+    )
+    LOGGER.debug(f"k8s pod objects: {k8s_pods}")
     pod_status = _get_status_from_pods(k8s_pods)
 
     if pod_status and pod_status.short == "running":
