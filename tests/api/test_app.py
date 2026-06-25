@@ -475,6 +475,7 @@ class TestApiUpdateJob:
                 "filelog_stdout": "/dev/null",
             }
         )
+        monkeypatch.setattr(app.core.storage, "get_job", value=lambda *args, **kwargs: dummy_job)
         monkeypatch.setattr(app.core.runtime, "get_job", value=lambda *args, **kwargs: dummy_job)
         monkeypatch.setattr(
             app.core.runtime, "diff_with_running_job", value=lambda *args, **kwargs: ""

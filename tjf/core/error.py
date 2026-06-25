@@ -51,6 +51,10 @@ class TjfImageNotFoundError(TjfValidationError):
     """Raised when an image was not found in the list of available ones."""
 
 
+class TjfJobAlreadyExistsOnRuntime(TjfError):
+    """The job already existed in runtime when creating it."""
+
+
 def tjf_error_from_weld_error(error: ToolforgeError) -> TjfError:
     error_class = TjfError
     if isinstance(error, ToolforgeUserError):

@@ -7,3 +7,7 @@ class RuntimeError(TjfError):
 
 class NotFoundInRuntime(RuntimeError):
     pass
+
+
+class AlreadyExistsInRuntime(RuntimeError):
+    pass

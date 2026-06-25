@@ -20,7 +20,7 @@ import logging
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from ..core.error import TjfValidationError
+from ..core.error import TjfJobAlreadyExistsOnRuntime, TjfValidationError
 from ..core.models import OUT_OF_SYNC_JOB_WARNING_MESSAGE
 from .auth import ensure_authenticated
 from .models import (
@@ -116,11 +116,20 @@ def api_create_job(request: Request, toolname: str, new_job: AnyNewJob) -> JobRe
         core.delete_job(job=existing_job)
         logging.debug(f"Deleted existing job: {existing_job}")
 
-    core.create_job(job=job)
+    warnings: list[str] = []
+    try:
+        core.create_job(job=job)
+    except TjfJobAlreadyExistsOnRuntime as error:
+        warnings.append(
+            "There existed already a job running, might require recreating. Happens if you modify the "
+            "job directly in k8s. Please contact the toolforge admins if you did not."
+        )
+        LOGGER.warning(f"Found a job that existed already in runtime:\nerror:{error}\njob:{job}")
+
     defined_job = get_job_for_api(job=job)
     logging.debug(f"Generated DefinedJob: {defined_job}")
 
-    return JobResponse(job=defined_job, messages=ResponseMessages())
+    return JobResponse(job=defined_job, messages=ResponseMessages(warning=warnings))
 
 
 @jobs.patch("")
