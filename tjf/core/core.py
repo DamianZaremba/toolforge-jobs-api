@@ -260,6 +260,10 @@ class Core:
         except NotFoundInRuntime:
             runtime_job = None
 
+        # One-offs are not stored in storage
+        if runtime_job and runtime_job.job_type == JobType.ONE_OFF:
+            return runtime_job
+
         try:
             storage_job = self.storage.get_job(job_name=name, tool_name=toolname)
         except NotFoundInStorage:
@@ -272,10 +276,6 @@ class Core:
     def _reconciliate_storage_and_runtime(
         self, tool_name: str, runtime_job: AnyJob | None, storage_job: AnyJob | None
     ) -> AnyJob | None:
-        # One-offs are not stored in storage
-        if runtime_job and runtime_job.job_type == JobType.ONE_OFF:
-            return runtime_job
-
         if not storage_job:
             if runtime_job:
                 LOGGER.warning(f"Found a job in runtime but not in storage: {runtime_job}")
