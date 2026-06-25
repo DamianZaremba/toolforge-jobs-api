@@ -163,6 +163,7 @@ class CommonJob(PydanticBaseModel):
     image: Image
     job_name: str
     tool_name: str
+    # TODO: this is outdated, there's no single k8s object anymore
     k8s_object: dict[str, Any] = {}
     memory: str = parse_and_format_mem(JOB_DEFAULT_MEMORY)
     cpu: str = format_quantity(parse_quantity(JOB_DEFAULT_CPU))
