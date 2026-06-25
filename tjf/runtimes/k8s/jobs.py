@@ -283,8 +283,8 @@ def _get_project() -> str:
 @cache
 def _get_tool_account_uid(tool_account_name: str) -> int:
     project = _get_project()
-    user = f"{project}.{tool_account_name}"
-    tool_account_uid = pwd.getpwnam(user).pw_uid
+    unix_user = f"{project}.{tool_account_name}"
+    tool_account_uid = pwd.getpwnam(unix_user).pw_uid
 
     return tool_account_uid
 
@@ -523,12 +523,13 @@ def get_common_job_from_k8s(
         user_command = command.user_command
 
     namespace = metadata["namespace"]
-    user = "".join(namespace.split("-", 1)[1:])
+    # TODO: maybe just using tool, as it's passed as a parameter?
+    tool_name = "".join(namespace.split("-", 1)[1:])
     params = {
         "job_name": job_name,
         "cmd": user_command,
         "k8s_object": k8s_object,
-        "tool_name": user,
+        "tool_name": tool_name,
         "image": image,
         "filelog": command.filelog,
         "filelog_stderr": command.filelog_stderr,
