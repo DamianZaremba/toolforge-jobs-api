@@ -656,7 +656,7 @@ def test_get_scheduled_job_status(
                 return []
             return [json.loads(re.sub(ISO_PATTERN, dummy_date_str, event))]
 
-    user = get_fake_account(fake_k8s_cli=FakeK8sCli())
+    tool_account = get_fake_account(fake_k8s_cli=FakeK8sCli())
 
     dummy_date_str = (
         datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -665,7 +665,7 @@ def test_get_scheduled_job_status(
     k8s_jobs_json = [json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_job))] if k8s_job else []
     k8s_pods_json = [json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_pod))] if k8s_pod else []
     gotten_status = get_scheduled_job_status(
-        tool_account=user,
+        tool_account=tool_account,
         job=job,
         k8s_cronjob=k8s_cronjob_json,
         k8s_jobs=k8s_jobs_json,
