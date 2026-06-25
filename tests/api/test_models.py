@@ -617,7 +617,7 @@ class TestGetResolvedCoreJob:
     def test_resolved_job_matches_k8s_job_unresolved_does_not(self):
         k8s_job = get_job_from_k8s(
             k8s_object=K8S_ONEOFF_JOB_OBJ,
-            kind="jobs",
+            job_type=JobType.ONE_OFF,
             default_cpu_limit="1000m",
             tool="some-tool",
         )
