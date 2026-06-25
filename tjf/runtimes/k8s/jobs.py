@@ -5,13 +5,16 @@ from copy import deepcopy
 from enum import StrEnum
 from functools import cache
 from logging import getLogger
-from typing import Any
+from typing import Any, cast
 
+import requests
 from toolforge_weld.kubernetes import K8sClient, MountOption, parse_quantity
 from toolforge_weld.logs import LogEntry
 
 from tjf.core.images import Image
+from tjf.runtimes.exceptions import AlreadyExistsInRuntime
 from tjf.runtimes.k8s.account import ToolAccount
+from tjf.runtimes.k8s.k8s_errors import K8sAlreadyExists, get_error_from_k8s_response
 
 from ...core.cron import CronExpression
 from ...core.error import TjfError, TjfValidationError
@@ -63,11 +66,11 @@ class K8sKind(StrEnum):
 
 def get_job_for_k8s(job: AnyJob, default_cpu_limit: str) -> K8S_OBJECT_TYPE:
     if isinstance(job, ScheduledJob):
-        return _get_k8s_cronjob_object(job=job, default_cpu_limit=default_cpu_limit)
+        return get_k8s_cronjob_object(job=job, default_cpu_limit=default_cpu_limit)
     elif isinstance(job, ContinuousJob):
-        return _get_k8s_deployment_object(job=job, default_cpu_limit=default_cpu_limit)
+        return get_k8s_deployment_object(job=job, default_cpu_limit=default_cpu_limit)
     elif isinstance(job, OneOffJob):
-        return _get_k8s_job_object(job=job, default_cpu_limit=default_cpu_limit)
+        return get_k8s_job_object(job=job, default_cpu_limit=default_cpu_limit)
     else:
         raise TjfError(f"Invalid job type {job.job_type}")
 
@@ -76,7 +79,7 @@ def _get_namespace(tool_name: str) -> str:
     return f"tool-{tool_name}"
 
 
-def _get_k8s_cronjob_object(
+def get_k8s_cronjob_object(
     job: ScheduledJob, default_cpu_limit: str
 ) -> K8S_OBJECT_TYPE:
     labels = generate_labels(
@@ -319,7 +322,7 @@ def _generate_container_resources(
     return container_resources
 
 
-def _get_k8s_deployment_object(
+def get_k8s_deployment_object(
     job: ContinuousJob, default_cpu_limit: str
 ) -> K8S_OBJECT_TYPE:
     labels = generate_labels(
@@ -367,7 +370,7 @@ def _get_k8s_deployment_object(
     return obj
 
 
-def _get_k8s_job_object(job: OneOffJob, default_cpu_limit: str) -> K8S_OBJECT_TYPE:
+def get_k8s_job_object(job: OneOffJob, default_cpu_limit: str) -> K8S_OBJECT_TYPE:
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
@@ -692,3 +695,19 @@ def get_k8s_objects_by_job_name(
     return tool_account.k8s_cli.get_objects(
         kind=k8s_kind, label_selector=label_selector
     )
+
+
+def create_k8s_object_for_job(
+    tool_account: ToolAccount, kind: str, spec: dict[str, Any], job: AnyJob
+) -> dict[str, Any]:
+    try:
+        k8s_object = tool_account.k8s_cli.create_object(kind=kind, spec=spec)
+    except K8sAlreadyExists as error:
+        raise AlreadyExistsInRuntime(
+            f"Object kind:{kind}, name:{spec.get('metadata', {}).get('name', 'noname')} already exists in runtime"
+        ) from error
+    except requests.exceptions.HTTPError as error:
+        raise get_error_from_k8s_response(error=error, job=job, spec=spec)
+
+    # Due to toolforge_weld not having typing hints
+    return cast(dict[str, Any], k8s_object)
