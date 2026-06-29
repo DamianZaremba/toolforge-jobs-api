@@ -1,6 +1,6 @@
 from copy import deepcopy
 from typing import Any, Callable
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 from toolforge_weld.kubernetes import MountOption
@@ -15,6 +15,7 @@ from tjf.core.error import TjfJobNotFoundError
 from tjf.core.images import Image, ImageType
 from tjf.core.models import AnyJob, ContinuousJobStatus, EmailOption
 from tjf.runtimes.exceptions import NotFoundInRuntime
+from tjf.runtimes.k8s import runtime as k8s_runtime
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.runtime import K8sRuntime
 from tjf.settings import get_settings
@@ -398,3 +399,84 @@ class TestDiffWithRunningJob:
 
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert "+++" in diff
+
+
+class TestDeleteAllJobs:
+    def test_deletes_all_job_types_and_waits_for_pods(
+        self, fake_tool_account: ToolAccount, monkeypatch: pytest.MonkeyPatch
+    ):
+        k8s_cli = MagicMock()
+        k8s_cli.get_objects.return_value = []
+        fake_tool_account.k8s_cli = k8s_cli
+        monkeypatch.setattr(k8s_runtime, "ToolAccount", lambda name: fake_tool_account)
+        my_runtime = K8sRuntime(settings=get_settings())
+
+        my_runtime.delete_all_jobs(tool="some-tool")
+
+        expected_generic_labels = {
+            "toolforge": "tool",
+            "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+            "app.kubernetes.io/created-by": "some-tool",
+        }
+        expected_continuous_job_labels = expected_generic_labels | {
+            "app.kubernetes.io/component": "deployments",
+        }
+        expected_scheduled_job_labels = expected_generic_labels | {
+            "app.kubernetes.io/component": "cronjobs",
+        }
+        expected_one_off_job_labels = expected_generic_labels | {
+            "app.kubernetes.io/component": "jobs",
+        }
+
+        k8s_cli.delete_objects.assert_has_calls(
+            [
+                call(kind="deployments", label_selector=expected_continuous_job_labels),
+                call(kind="pods", label_selector=expected_continuous_job_labels),
+                call(kind="services", label_selector=expected_continuous_job_labels),
+                call(kind="cronjobs", label_selector=expected_scheduled_job_labels),
+                call(kind="pods", label_selector=expected_scheduled_job_labels),
+                call(kind="jobs", label_selector=expected_one_off_job_labels),
+                call(kind="pods", label_selector=expected_one_off_job_labels),
+            ],
+            any_order=True,
+        )
+        # for the wait for pods
+        k8s_cli.get_objects.assert_has_calls(
+            [call(kind="pods", label_selector=expected_generic_labels)], any_order=True
+        )
+
+
+class TestDeleteJob:
+    def test_deletes_continuous_job_and_waits_for_pods(
+        self, fake_tool_account: ToolAccount, monkeypatch: pytest.MonkeyPatch
+    ):
+        k8s_cli = MagicMock()
+        k8s_cli.get_objects.return_value = []
+        fake_tool_account.k8s_cli = k8s_cli
+        monkeypatch.setattr(k8s_runtime, "ToolAccount", lambda name: fake_tool_account)
+        my_runtime = K8sRuntime(settings=get_settings())
+
+        my_job = get_continuous_job_fixture_as_job()
+
+        my_runtime.delete_job(tool="some-tool", job=my_job)
+
+        expected_continuous_job_labels = {
+            "toolforge": "tool",
+            "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+            "app.kubernetes.io/created-by": "some-tool",
+            "app.kubernetes.io/name": "migrate",
+            "app.kubernetes.io/component": "deployments",
+        }
+
+        k8s_cli.delete_objects.assert_has_calls(
+            [
+                call(kind="deployments", label_selector=expected_continuous_job_labels),
+                call(kind="pods", label_selector=expected_continuous_job_labels),
+                call(kind="services", label_selector=expected_continuous_job_labels),
+            ],
+            any_order=True,
+        )
+        # for the wait for pods
+        k8s_cli.get_objects.assert_has_calls(
+            [call(kind="pods", label_selector=expected_continuous_job_labels)], any_order=True
+        )
