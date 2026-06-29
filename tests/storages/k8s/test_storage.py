@@ -429,7 +429,7 @@ class TestStorage:
             with pytest.raises(NotFoundInStorage):
                 my_storage.delete_job(job=expected_job)
 
-    class TestDeleteAllJobs:
+    class TestDeleteJobs:
         def test_returns_the_deleted_jobs(self, storage_k8s_cli: MagicMock):
             def _fake_list_objects(
                 group: str, version: str, plural: str, namespace: str
@@ -461,10 +461,11 @@ class TestStorage:
             ]
             my_storage = storage.K8sStorage(settings=Settings(debug=True))
 
-            gotten_jobs = my_storage.delete_all_jobs(tool_name="tf-test")
+            gotten_jobs = my_storage.delete_jobs(
+                tool_name="tf-test", jobs=expected_jobs
+            )
 
             assert gotten_jobs == expected_jobs
-            assert_jobs_get_k8s_calls(storage_k8s_cli=storage_k8s_cli)
             storage_k8s_cli.delete_namespaced_custom_object.assert_any_call(
                 group="jobs-api.toolforge.org",
                 version="v1",

@@ -720,3 +720,20 @@ def create_k8s_object_for_job(
 
     # Due to toolforge_weld not having typing hints
     return cast(dict[str, Any], k8s_object)
+
+
+def delete_k8s_objects_for_job(
+    job: AnyJob, kinds: list[str], tool_account: ToolAccount
+) -> None:
+    """
+    It does not raise when the job does not exist, just silently continues (as opposed to k8s_cli.delete_object).
+    """
+    for object_type in kinds:
+        tool_account.k8s_cli.delete_objects(
+            kind=object_type,
+            label_selector=labels_selector(
+                job_name=job.job_name,
+                tool_name=tool_account.name,
+                job_type=job.job_type,
+            ),
+        )

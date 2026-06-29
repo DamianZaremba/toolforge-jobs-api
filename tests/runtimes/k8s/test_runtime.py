@@ -1,6 +1,6 @@
 from copy import deepcopy
 from typing import Any, Callable
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 import requests
@@ -29,6 +29,7 @@ from tjf.runtimes.exceptions import NotFoundInRuntime
 from tjf.runtimes.k8s import runtime as k8s_runtime
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.jobs import K8sKind, get_k8s_deployment_object
+from tjf.runtimes.k8s.labels import labels_selector
 from tjf.runtimes.k8s.runtime import K8sRuntime
 from tjf.settings import get_settings
 
@@ -1048,29 +1049,252 @@ class TestGetContinuousJob:
         )
 
 
-class TestDeleteJob:
-    def test_raises_NotFoundInRunitme_when_it_does_not_exist(
-        self,
+class TestDeleteJobs:
+    @staticmethod
+    def _assert_deletes_all_jobs_and_waits_for_pods_once(
+        jobs: list[AnyJob],
+        k8s_kinds: list[K8sKind],
+        tool_name: str,
+        monkeypatch: pytest.MonkeyPatch,
         fake_tool_account: ToolAccount,
         runtime_k8s_cli: MagicMock,
-        monkeypatch: pytest.MonkeyPatch,
     ):
-        job = get_continuous_job_fixture_as_job()
-        error = requests.HTTPError("404 Client Error: Not Found")
-        error.response = MagicMock(status_code=404, text="Not found")
-        runtime_k8s_cli.delete_object.side_effect = error
+        wait_for_pods_exit_mock = MagicMock()
+
+        fake_tool_account.name = tool_name
+        fake_tool_account.namespace = f"tool-{tool_name}"
         monkeypatch.setattr(
             k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
         )
+        monkeypatch.setattr(k8s_runtime, "wait_for_pods_exit", wait_for_pods_exit_mock)
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
 
-        with pytest.raises(NotFoundInRuntime):
+        my_runtime.delete_jobs(tool_name=tool_name, jobs=jobs)
+
+        assert runtime_k8s_cli.delete_objects.call_args_list == [
+            call(
+                kind=kind,
+                label_selector=labels_selector(
+                    job_name=job.job_name,
+                    tool_name=tool_name,
+                    job_type=job.job_type,
+                ),
+            )
+            for job in jobs
+            for kind in k8s_kinds
+        ]
+        wait_for_pods_exit_mock.assert_called_once()
+        assert wait_for_pods_exit_mock.call_args.kwargs["tool_account"].name == (
+            tool_name
+        )
+        assert "job_name" not in wait_for_pods_exit_mock.call_args.kwargs
+        assert "job_type" not in wait_for_pods_exit_mock.call_args.kwargs
+
+    class TestContinuousJob:
+        def test_deletes_all_jobs_and_waits_for_pods_once(
+            self,
+            monkeypatch: pytest.MonkeyPatch,
+            fake_tool_account: ToolAccount,
+            runtime_k8s_cli: MagicMock,
+        ):
+            tool_name = "some-tool"
+            jobs = [
+                get_continuous_job_fixture_as_job(
+                    job_name="testjob1", tool_name=tool_name
+                ),
+                get_continuous_job_fixture_as_job(
+                    job_name="testjob2", tool_name=tool_name
+                ),
+            ]
+
+            TestDeleteJobs._assert_deletes_all_jobs_and_waits_for_pods_once(
+                jobs=jobs,
+                k8s_kinds=[K8sKind.DEPLOYMENTS, K8sKind.PODS, K8sKind.SERVICES],
+                tool_name=tool_name,
+                monkeypatch=monkeypatch,
+                fake_tool_account=fake_tool_account,
+                runtime_k8s_cli=runtime_k8s_cli,
+            )
+
+    class TestScheduledJob:
+        def test_deletes_all_jobs_and_waits_for_pods_once(
+            self,
+            monkeypatch: pytest.MonkeyPatch,
+            fake_tool_account: ToolAccount,
+            runtime_k8s_cli: MagicMock,
+        ):
+            tool_name = "tf-test"
+            jobs = [
+                get_scheduled_job_fixture_as_job(
+                    job_name="testjob1", tool_name=tool_name
+                ),
+                get_scheduled_job_fixture_as_job(
+                    job_name="testjob2", tool_name=tool_name
+                ),
+            ]
+
+            TestDeleteJobs._assert_deletes_all_jobs_and_waits_for_pods_once(
+                jobs=jobs,
+                k8s_kinds=[K8sKind.CRONJOBS, K8sKind.JOBS, K8sKind.PODS],
+                tool_name=tool_name,
+                monkeypatch=monkeypatch,
+                fake_tool_account=fake_tool_account,
+                runtime_k8s_cli=runtime_k8s_cli,
+            )
+
+    class TestOneOffJob:
+        def test_deletes_all_jobs_and_waits_for_pods_once(
+            self,
+            monkeypatch: pytest.MonkeyPatch,
+            fake_tool_account: ToolAccount,
+            runtime_k8s_cli: MagicMock,
+        ):
+            tool_name = "some-tool"
+            jobs = [
+                get_oneoff_job_fixture_as_job(job_name="testjob1", tool_name=tool_name),
+                get_oneoff_job_fixture_as_job(job_name="testjob2", tool_name=tool_name),
+            ]
+
+            TestDeleteJobs._assert_deletes_all_jobs_and_waits_for_pods_once(
+                jobs=jobs,
+                k8s_kinds=[K8sKind.JOBS, K8sKind.PODS],
+                tool_name=tool_name,
+                monkeypatch=monkeypatch,
+                fake_tool_account=fake_tool_account,
+                runtime_k8s_cli=runtime_k8s_cli,
+            )
+
+
+class TestDeleteJob:
+    @cases(
+        ["job", "k8s_kinds", "wait_for_pods"],
+        [
+            "ContinuousJob, and waits for pods by default",
+            [
+                get_continuous_job_fixture_as_job(),
+                [
+                    K8sKind.DEPLOYMENTS,
+                    K8sKind.PODS,
+                    K8sKind.SERVICES,
+                ],
+                None,
+            ],
+        ],
+        [
+            "ScheduledJob, and waits for pods by default",
+            [
+                get_scheduled_job_fixture_as_job(),
+                [K8sKind.CRONJOBS, K8sKind.JOBS, K8sKind.PODS],
+                None,
+            ],
+        ],
+        [
+            "OneOffJob, and waits for pods by default",
+            [
+                get_oneoff_job_fixture_as_job(),
+                [K8sKind.JOBS, K8sKind.PODS],
+                None,
+            ],
+        ],
+        [
+            "ContinuousJob, and waits for pods when passed",
+            [
+                get_continuous_job_fixture_as_job(),
+                [
+                    K8sKind.DEPLOYMENTS,
+                    K8sKind.PODS,
+                    K8sKind.SERVICES,
+                ],
+                True,
+            ],
+        ],
+        [
+            "ScheduledJob, and waits for pods when passed",
+            [
+                get_scheduled_job_fixture_as_job(),
+                [K8sKind.CRONJOBS, K8sKind.JOBS, K8sKind.PODS],
+                True,
+            ],
+        ],
+        [
+            "OneOffJob, and waits for pods when passed",
+            [
+                get_oneoff_job_fixture_as_job(),
+                [K8sKind.JOBS, K8sKind.PODS],
+                True,
+            ],
+        ],
+        [
+            "ContinuousJob, does not wait for pods",
+            [
+                get_continuous_job_fixture_as_job(),
+                [
+                    K8sKind.DEPLOYMENTS,
+                    K8sKind.PODS,
+                    K8sKind.SERVICES,
+                ],
+                False,
+            ],
+        ],
+        [
+            "ScheduledJob, and does not wait for pods",
+            [
+                get_scheduled_job_fixture_as_job(),
+                [K8sKind.CRONJOBS, K8sKind.JOBS, K8sKind.PODS],
+                False,
+            ],
+        ],
+        [
+            "OneOffJob, and does not wait for pods",
+            [
+                get_oneoff_job_fixture_as_job(),
+                [K8sKind.JOBS, K8sKind.PODS],
+                False,
+            ],
+        ],
+    )
+    def test_deletes_all_the_k8s_objects_and_waits_for_pods(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        fake_tool_account: ToolAccount,
+        runtime_k8s_cli: MagicMock,
+        job: AnyJob,
+        k8s_kinds: list[K8sKind],
+        wait_for_pods: bool | None,
+    ):
+        wait_for_pods_exit_mock = MagicMock()
+        fake_tool_account.name = job.tool_name
+        fake_tool_account.namespace = f"tool-{job.tool_name}"
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        monkeypatch.setattr(k8s_runtime, "wait_for_pods_exit", wait_for_pods_exit_mock)
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+
+        if wait_for_pods is not None:
+            my_runtime.delete_job(job=job, wait_for_pods=wait_for_pods)
+        else:
             my_runtime.delete_job(job=job)
 
-        runtime_k8s_cli.delete_object.assert_called_once_with(
-            kind=K8sKind.DEPLOYMENTS, name=job.job_name
-        )
-        runtime_k8s_cli.delete_objects.assert_not_called()
+        delete_objects_calls = [
+            call(
+                kind=kind,
+                label_selector=labels_selector(
+                    job_name=job.job_name,
+                    tool_name=job.tool_name,
+                    job_type=job.job_type,
+                ),
+            )
+            for kind in k8s_kinds
+        ]
+
+        assert runtime_k8s_cli.delete_objects.call_args_list == delete_objects_calls
+        if wait_for_pods:
+            wait_for_pods_exit_mock.assert_called_once_with(
+                tool_account=fake_tool_account,
+                job_name=job.job_name,
+                job_type=job.job_type,
+            )
 
 
 class TestRestartJob:

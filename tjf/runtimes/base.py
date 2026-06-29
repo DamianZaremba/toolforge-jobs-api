@@ -44,11 +44,11 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def delete_all_jobs(self, *, tool_name: str) -> None:
+    def delete_jobs(self, *, tool_name: str, jobs: list[AnyJob]) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def delete_job(self, *, job: AnyJob) -> None:
+    def delete_job(self, *, job: AnyJob, wait_for_pods: bool = True) -> None:
         raise NotImplementedError
 
     @abstractmethod
