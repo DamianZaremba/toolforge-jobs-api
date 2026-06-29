@@ -8,6 +8,7 @@ from typing import Any
 from croniter import croniter  # TODO: avoid installing new lib if possible
 from dateutil import parser as date_parser
 
+from ...core.images import ImageType
 from ...core.models import (
     AnyJob,
     Command,
@@ -336,8 +337,7 @@ def _are_commands_equal(job: AnyJob, k8s_job_spec: dict[str, Any]) -> bool:
     )
     scheduled_job_generated_command = get_command_for_k8s(
         command=scheduled_job_command,
-        job_name=job.job_name,
-        tool_name=job.tool_name,
+        is_buildservice=job.image.type == ImageType.BUILDSERVICE,
     )
     return manual_k8s_job_generated_command == scheduled_job_generated_command
 

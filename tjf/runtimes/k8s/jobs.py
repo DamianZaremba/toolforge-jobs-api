@@ -195,7 +195,7 @@ def _get_common_k8s_podtemplate(*, job: AnyJob, default_cpu_limit: str) -> dict[
         )
 
     generated_command = get_command_for_k8s(
-        command=command, job_name=job.job_name, tool_name=job.tool_name
+        command=command, is_buildservice=job.image.type == ImageType.BUILDSERVICE
     )
 
     if job.image.type and job.image.type.use_standard_nfs():
