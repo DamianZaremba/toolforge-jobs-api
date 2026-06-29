@@ -77,14 +77,18 @@ def get_command_from_k8s(
     )
 
 
-def get_command_for_k8s(
-    command: Command, job_name: str, tool_name: str
-) -> GeneratedCommand:
+def get_command_for_k8s(command: Command, is_buildservice: bool) -> GeneratedCommand:
     """Generate the command array for the kubernetes object."""
-    wrapped_command = COMMAND_WRAPPER.copy()
-    command_str = ""
     filelog_stdout = str(command.filelog_stdout) if command.filelog_stdout else None
     filelog_stderr = str(command.filelog_stderr) if command.filelog_stderr else None
+
+    # If we don't need to intercept stdout/stderr to handle file based logging,
+    # then do not wrap the command in a parent shell process for buildservice images.
+    if filelog_stdout is None and filelog_stderr is None and is_buildservice:
+        return GeneratedCommand(command=shlex.split(command.user_command), args=None)
+
+    wrapped_command = COMMAND_WRAPPER.copy()
+    command_str = ""
 
     if filelog_stdout is not None:
         command_str += f"{COMMAND_STDOUT_PREFIX}{filelog_stdout};"

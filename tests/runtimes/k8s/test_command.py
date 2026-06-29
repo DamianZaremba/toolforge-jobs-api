@@ -11,17 +11,20 @@ from tjf.core.utils import resolve_filelog_path
 from tjf.runtimes.k8s import utils
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.command import (
+    COMMAND_WRAPPER,
     get_command_for_k8s,
     get_command_from_k8s,
 )
 
 
 class TestGetCommandForK8s:
+    @pytest.mark.parametrize("is_buildservice", [True, False])
     def test_execution_without_filelog_creates_nothing(
         self,
         fixtures_path: Path,
         patch_tool_account_init: Path,
         fake_tool_account: ToolAccount,
+        is_buildservice: bool,
     ):
 
         script_path = fixtures_path.parent / "gen-output" / "both.sh"
@@ -34,9 +37,15 @@ class TestGetCommandForK8s:
         )
 
         generated = get_command_for_k8s(
-            command=cmd, job_name="some-job", tool_name=fake_tool_account.name
+            command=cmd,
+            is_buildservice=is_buildservice,
         )
         assert generated.args is None
+
+        if is_buildservice:
+            assert generated.command[0 : len(COMMAND_WRAPPER)] != COMMAND_WRAPPER
+        else:
+            assert generated.command[0 : len(COMMAND_WRAPPER)] == COMMAND_WRAPPER
 
         result = subprocess.run(
             generated.command,
@@ -50,11 +59,13 @@ class TestGetCommandForK8s:
 
         assert not any(fake_tool_account.home.glob("*"))
 
+    @pytest.mark.parametrize("is_buildservice", [True, False])
     def test_execution_with_filelog_generates_files(
         self,
         fixtures_path: Path,
         patch_tool_account_init: Path,
         fake_tool_account: ToolAccount,
+        is_buildservice: bool,
     ):
 
         script_path = fixtures_path.parent / "gen-output" / "both.sh"
@@ -70,9 +81,11 @@ class TestGetCommandForK8s:
         )
 
         generated = get_command_for_k8s(
-            command=cmd, job_name="some-job", tool_name=fake_tool_account.name
+            command=cmd,
+            is_buildservice=is_buildservice,
         )
         assert generated.args is None
+        assert generated.command[0 : len(COMMAND_WRAPPER)] == COMMAND_WRAPPER
 
         result = subprocess.run(
             generated.command,

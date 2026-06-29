@@ -8,6 +8,7 @@ from typing import Any
 from tjf.runtimes.k8s.jobs import K8sKind
 
 from ...core.error import TjfError
+from ...core.images import ImageType
 from ...core.models import (
     AnyJob,
     Command,
@@ -168,8 +169,7 @@ def _refresh_status_cronjob_from_restarted_cronjob(
         )
         original_cronjob_generated_command = get_command_for_k8s(
             command=command,
-            job_name=original_cronjob.job_name,
-            tool_name=original_cronjob.tool_name,
+            is_buildservice=original_cronjob.image.type == ImageType.BUILDSERVICE,
         )
         if maybe_manual_job_generated_command != original_cronjob_generated_command:
             continue
