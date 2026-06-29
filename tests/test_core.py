@@ -19,17 +19,16 @@ from tjf.settings import Settings
 
 
 class GetMyCore(Protocol):
-    def __call__(self, enable_storage: bool) -> core.Core: ...
+    def __call__(self) -> core.Core: ...
 
 
 @pytest.fixture
 def get_my_core(storage_k8s_cli: MagicMock) -> GetMyCore:
 
-    def make_core(enable_storage: bool = False):
+    def make_core():
         settings = Settings(
             debug=True,
             skip_metrics=False,
-            enable_storage=enable_storage,
         )
         my_core = core.Core(settings=settings)
         return my_core
@@ -39,155 +38,148 @@ def get_my_core(storage_k8s_cli: MagicMock) -> GetMyCore:
 
 class TestCore:
     class TestReconciliateStorageAndRuntime:
-        class TestWithStorageEnabled:
-            def test_returns_none_when_no_jobs_exist(self, get_my_core: GetMyCore):
-                my_core = get_my_core(enable_storage=True)
-                gotten_job = my_core._reconciliate_storage_and_runtime(
-                    tool_name="some-tool",
-                    runtime_job=None,
-                    storage_job=None,
-                )
-
-                assert gotten_job is None
-
-            @cases(
-                ["job_type"],
-                ["Continuous job", [JobType.CONTINUOUS]],
-                ["Scheduled job", [JobType.SCHEDULED]],
+        def test_returns_none_when_no_jobs_exist(self, get_my_core: GetMyCore):
+            my_core = get_my_core()
+            gotten_job = my_core._reconciliate_storage_and_runtime(
+                tool_name="some-tool",
+                runtime_job=None,
+                storage_job=None,
             )
-            def test_ignores_if_only_exists_in_runtime(
-                self,
-                get_my_core: GetMyCore,
-                storage_k8s_cli: MagicMock,
-                job_type: JobType,
-            ):
-                my_storage_job = None
-                my_runtime_job = get_dummy_job(job_type=job_type, mount=MountOption.NONE)
-                my_core = get_my_core(enable_storage=True)
 
-                gotten_job = my_core._reconciliate_storage_and_runtime(
-                    tool_name="some-tool",
-                    runtime_job=my_runtime_job,
-                    storage_job=my_storage_job,
-                )
+            assert gotten_job is None
 
-                assert not gotten_job
-                storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
+        @cases(
+            ["job_type"],
+            ["Continuous job", [JobType.CONTINUOUS]],
+            ["Scheduled job", [JobType.SCHEDULED]],
+        )
+        def test_ignores_if_only_exists_in_runtime(
+            self,
+            get_my_core: GetMyCore,
+            storage_k8s_cli: MagicMock,
+            job_type: JobType,
+        ):
+            my_storage_job = None
+            my_runtime_job = get_dummy_job(job_type=job_type, mount=MountOption.NONE)
+            my_core = get_my_core()
 
-            @cases(
-                ["job_type"],
-                ["OneOff job", [JobType.ONE_OFF]],
+            gotten_job = my_core._reconciliate_storage_and_runtime(
+                tool_name="some-tool",
+                runtime_job=my_runtime_job,
+                storage_job=my_storage_job,
             )
-            def test_always_returns_one_off_from_runtime(
-                self,
-                get_my_core: GetMyCore,
-                storage_k8s_cli: MagicMock,
-                monkeypatch: pytest.MonkeyPatch,
-                job_type: JobType,
-            ):
-                my_storage_job = None
-                my_runtime_job = get_dummy_job(job_type=job_type, mount=MountOption.NONE)
-                expected_job = my_runtime_job
-                my_core = get_my_core(enable_storage=True)
 
-                mock_runtime_create_job = MagicMock(
-                    spec=my_core.runtime.create_job, return_value=my_storage_job
-                )
-                monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
-                monkeypatch.setattr(
-                    my_core.runtime, "get_job", lambda *args, **kwargs: my_storage_job
-                )
+            assert not gotten_job
+            storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
 
-                gotten_job = my_core._reconciliate_storage_and_runtime(
-                    tool_name="some-tool",
-                    runtime_job=my_runtime_job,
-                    storage_job=my_storage_job,
-                )
+        @cases(
+            ["job_type"],
+            ["OneOff job", [JobType.ONE_OFF]],
+        )
+        def test_always_returns_one_off_from_runtime(
+            self,
+            get_my_core: GetMyCore,
+            storage_k8s_cli: MagicMock,
+            monkeypatch: pytest.MonkeyPatch,
+            job_type: JobType,
+        ):
+            my_storage_job = None
+            my_runtime_job = get_dummy_job(job_type=job_type, mount=MountOption.NONE)
+            expected_job = my_runtime_job
+            my_core = get_my_core()
 
-                assert gotten_job
-                storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
-                assert gotten_job.model_dump() == expected_job.model_dump()
-                assert gotten_job.status.up_to_date
-
-            @cases(
-                ["job_type"],
-                ["Continuous job", [JobType.CONTINUOUS]],
-                ["Scheduled job", [JobType.SCHEDULED]],
+            mock_runtime_create_job = MagicMock(
+                spec=my_core.runtime.create_job, return_value=my_storage_job
             )
-            def test_returns_recreate_message_if_only_exists_in_storage(
-                self,
-                get_my_core: GetMyCore,
-                storage_k8s_cli: MagicMock,
-                runtime_k8s_cli: MagicMock,
-                monkeypatch: pytest.MonkeyPatch,
-                job_type: JobType,
-            ):
-                my_storage_job = get_dummy_job(job_type=job_type)
-                my_runtime_job = None
-                expected_job = get_dummy_job(
-                    job_type=job_type,
-                    status={"up_to_date": False},
-                )
-                expected_job.status_long = f"The running version of job '{expected_job.job_name}' is different from what was configured, please recreate or redeploy."
-                my_core = get_my_core(enable_storage=True)
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+            monkeypatch.setattr(my_core.runtime, "get_job", lambda *args, **kwargs: my_storage_job)
 
-                mock_runtime_create_job = MagicMock(
-                    spec=my_core.runtime.create_job, return_value=my_storage_job
-                )
-                monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
-                monkeypatch.setattr(
-                    my_core.runtime, "get_job", lambda *args, **kwargs: my_storage_job
-                )
-
-                gotten_job = my_core._reconciliate_storage_and_runtime(
-                    tool_name="some-tool",
-                    runtime_job=my_runtime_job,
-                    storage_job=my_storage_job,
-                )
-
-                assert gotten_job.model_dump() == expected_job.model_dump()
-                storage_k8s_cli.create_namespaced_custom_objects.assert_not_called()
-                mock_runtime_create_job.assert_not_called()
-
-            @cases(
-                ["job_type"],
-                ["Continuous job", [JobType.CONTINUOUS]],
-                ["Scheduled job", [JobType.SCHEDULED]],
+            gotten_job = my_core._reconciliate_storage_and_runtime(
+                tool_name="some-tool",
+                runtime_job=my_runtime_job,
+                storage_job=my_storage_job,
             )
-            def test_returns_storage_if_both_exist_and_set_up_to_date_false_if_different(
-                self,
-                get_my_core: GetMyCore,
-                storage_k8s_cli: MagicMock,
-                runtime_k8s_cli: MagicMock,
-                monkeypatch: pytest.MonkeyPatch,
-                job_type: JobType,
-            ):
-                my_storage_job = get_dummy_job(job_name="job-from-storage", job_type=job_type)
-                my_runtime_job = get_dummy_job(job_name="job-from-runtime", job_type=job_type)
-                expected_job = get_dummy_job(job_type=job_type, status={"up_to_date": False})
-                my_core = get_my_core(enable_storage=True)
 
-                mock_runtime_create_job = MagicMock(
-                    spec=my_core.runtime.create_job, return_value=my_storage_job
-                )
-                monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
-                monkeypatch.setattr(
-                    my_core.runtime, "get_job", lambda *args, **kwargs: my_storage_job
-                )
+            assert gotten_job
+            storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
+            assert gotten_job.model_dump() == expected_job.model_dump()
+            assert gotten_job.status.up_to_date
 
-                gotten_job = my_core._reconciliate_storage_and_runtime(
-                    tool_name="some-tool",
-                    runtime_job=my_runtime_job,
-                    storage_job=my_storage_job,
-                )
+        @cases(
+            ["job_type"],
+            ["Continuous job", [JobType.CONTINUOUS]],
+            ["Scheduled job", [JobType.SCHEDULED]],
+        )
+        def test_returns_recreate_message_if_only_exists_in_storage(
+            self,
+            get_my_core: GetMyCore,
+            storage_k8s_cli: MagicMock,
+            runtime_k8s_cli: MagicMock,
+            monkeypatch: pytest.MonkeyPatch,
+            job_type: JobType,
+        ):
+            my_storage_job = get_dummy_job(job_type=job_type)
+            my_runtime_job = None
+            expected_job = get_dummy_job(
+                job_type=job_type,
+                status={"up_to_date": False},
+            )
+            expected_job.status_long = f"The running version of job '{expected_job.job_name}' is different from what was configured, please recreate or redeploy."
+            my_core = get_my_core()
 
-                assert gotten_job.job_name == "job-from-storage"
-                assert gotten_job.status.up_to_date is False
-                assert gotten_job.model_dump(
-                    exclude=["job_name", "status_long"]
-                ) == expected_job.model_dump(exclude=["job_name", "status_long"])
-                storage_k8s_cli.create_namespaced_custom_objects.assert_not_called()
-                mock_runtime_create_job.assert_not_called()
+            mock_runtime_create_job = MagicMock(
+                spec=my_core.runtime.create_job, return_value=my_storage_job
+            )
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+            monkeypatch.setattr(my_core.runtime, "get_job", lambda *args, **kwargs: my_storage_job)
+
+            gotten_job = my_core._reconciliate_storage_and_runtime(
+                tool_name="some-tool",
+                runtime_job=my_runtime_job,
+                storage_job=my_storage_job,
+            )
+
+            assert gotten_job.model_dump() == expected_job.model_dump()
+            storage_k8s_cli.create_namespaced_custom_objects.assert_not_called()
+            mock_runtime_create_job.assert_not_called()
+
+        @cases(
+            ["job_type"],
+            ["Continuous job", [JobType.CONTINUOUS]],
+            ["Scheduled job", [JobType.SCHEDULED]],
+        )
+        def test_returns_storage_if_both_exist_and_set_up_to_date_false_if_different(
+            self,
+            get_my_core: GetMyCore,
+            storage_k8s_cli: MagicMock,
+            runtime_k8s_cli: MagicMock,
+            monkeypatch: pytest.MonkeyPatch,
+            job_type: JobType,
+        ):
+            my_storage_job = get_dummy_job(job_name="job-from-storage", job_type=job_type)
+            my_runtime_job = get_dummy_job(job_name="job-from-runtime", job_type=job_type)
+            expected_job = get_dummy_job(job_type=job_type, status={"up_to_date": False})
+            my_core = get_my_core()
+
+            mock_runtime_create_job = MagicMock(
+                spec=my_core.runtime.create_job, return_value=my_storage_job
+            )
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+            monkeypatch.setattr(my_core.runtime, "get_job", lambda *args, **kwargs: my_storage_job)
+
+            gotten_job = my_core._reconciliate_storage_and_runtime(
+                tool_name="some-tool",
+                runtime_job=my_runtime_job,
+                storage_job=my_storage_job,
+            )
+
+            assert gotten_job.job_name == "job-from-storage"
+            assert gotten_job.status.up_to_date is False
+            assert gotten_job.model_dump(
+                exclude=["job_name", "status_long"]
+            ) == expected_job.model_dump(exclude=["job_name", "status_long"])
+            storage_k8s_cli.create_namespaced_custom_objects.assert_not_called()
+            mock_runtime_create_job.assert_not_called()
 
     class TestUpdateStorageStatusWithRuntime:
         @cases(
