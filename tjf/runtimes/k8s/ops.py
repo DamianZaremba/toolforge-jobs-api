@@ -93,7 +93,7 @@ def wait_for_pods_exit(
     """Wait for all pods belonging to a specific job to exit."""
     label_selector = labels_selector(
         job_name=job_name,
-        user_name=tool.name,
+        tool_name=tool.name,
         type=job_type,
     )
 
