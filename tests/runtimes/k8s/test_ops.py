@@ -46,7 +46,7 @@ def fake_job(fake_tool_account_uid: None, fake_images: dict[str, Any]) -> AnyJob
         CRONJOB_NOT_RUN_YET,
         JobType.SCHEDULED,
         default_cpu_limit="4000m",
-        tool="some-tool",
+        tool_name="some-tool",
     )
 
 

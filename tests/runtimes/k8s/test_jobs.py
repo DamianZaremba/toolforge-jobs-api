@@ -68,7 +68,7 @@ class TestJobFromK8s:
                 k8s_object=K8S_SCHEDULED_JOB_OBJ,
                 job_type=JobType.SCHEDULED,
                 default_cpu_limit="1000m",
-                tool="some-tool",
+                tool_name="some-tool",
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
@@ -80,7 +80,7 @@ class TestJobFromK8s:
                 k8s_object=K8S_ONEOFF_JOB_OBJ,
                 job_type=JobType.ONE_OFF,
                 default_cpu_limit="1000m",
-                tool="some-tool",
+                tool_name="some-tool",
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
@@ -95,7 +95,7 @@ class TestJobFromK8s:
                 k8s_object=k8s_object,
                 job_type=JobType.ONE_OFF,
                 default_cpu_limit="1000m",
-                tool="some-tool",
+                tool_name="some-tool",
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
@@ -108,7 +108,7 @@ class TestJobFromK8s:
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
                 job_type=JobType.CONTINUOUS,
                 default_cpu_limit="1000m",
-                tool="some-tool",
+                tool_name="some-tool",
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
@@ -120,7 +120,7 @@ class TestJobFromK8s:
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
                 job_type=JobType.CONTINUOUS,
                 default_cpu_limit="1000m",
-                tool="some-tool",
+                tool_name="some-tool",
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()

@@ -105,7 +105,7 @@ class Core:
         LOGGER.debug(f"Creating job in runtime: {job}")
         recreate = False
         try:
-            self.runtime.create_job(tool=job.tool_name, job=job)
+            self.runtime.create_job(tool_name=job.tool_name, job=job)
         except K8sAlreadyExists:
             recreate = True
         except TjfError as e:
@@ -115,8 +115,8 @@ class Core:
 
         if recreate:
             try:
-                self.runtime.delete_job(tool=job.tool_name, job=job)
-                self.runtime.create_job(tool=job.tool_name, job=job)
+                self.runtime.delete_job(tool_name=job.tool_name, job=job)
+                self.runtime.create_job(tool_name=job.tool_name, job=job)
             except TjfError as e:
                 raise e
             except Exception as e:
@@ -131,7 +131,7 @@ class Core:
 
     def update_job(self, job: AnyJob) -> Tuple[bool, str]:
         # this already syncs storage and runtime (taking into account which is configured as the source of truth)
-        maybe_fresh_job = self.get_job(toolname=job.tool_name, name=job.job_name)
+        maybe_fresh_job = self.get_job(tool_name=job.tool_name, name=job.job_name)
         if not maybe_fresh_job:
             # even if it's updating, it might be that the job does not exist yet
             LOGGER.debug(f"Creating job {job.job_name}")
@@ -195,19 +195,19 @@ class Core:
             LOGGER.debug(f"Diff for job {job.job_name}: {diff}")
             if diff:
                 LOGGER.debug(f"Updating job {job.job_name}")
-                self.runtime.update_job(tool=job.tool_name, job=job)
+                self.runtime.update_job(tool_name=job.tool_name, job=job)
                 changed = True
 
         except TjfJobNotFoundError:
             LOGGER.debug(f"Creating job {job.job_name}")
-            self.runtime.create_job(job=job, tool=job.tool_name)
+            self.runtime.create_job(job=job, tool_name=job.tool_name)
             changed = True
 
         LOGGER.info(f"Job {job.job_name} changed in runtime: {changed})")
         return changed
 
     async def get_logs(
-        self, toolname: str, job_name: str, request_args: Mapping[str, str]
+        self, tool_name: str, job_name: str, request_args: Mapping[str, str]
     ) -> AsyncIterator[str]:
         lines = None
         if "lines" in request_args:
@@ -218,7 +218,7 @@ class Core:
                 raise TjfValidationError("Unable to parse lines as integer") from e
 
         logs = self.runtime.get_logs(
-            tool=toolname,
+            tool_name=tool_name,
             job_name=job_name,
             follow=request_args.get("follow", "") == "true",
             lines=lines,
@@ -236,18 +236,18 @@ class Core:
 
         return logs
 
-    def get_images(self, toolname: str) -> list[Image]:
-        return self.runtime.get_images(toolname=toolname)
+    def get_images(self, tool_name: str) -> list[Image]:
+        return self.runtime.get_images(tool_name=tool_name)
 
-    def get_quotas(self, toolname: str) -> list[QuotaData]:
+    def get_quotas(self, tool_name: str) -> list[QuotaData]:
         # TODO: we might want to keep quotas also on the storage side, though if "everything worked perfectly"
         # should not be needed
-        return self.runtime.get_quotas(tool=toolname)
+        return self.runtime.get_quotas(tool_name=tool_name)
 
-    def get_jobs(self, toolname: str) -> list[AnyJob]:
-        runtime_jobs = self.runtime.get_jobs(tool=toolname)
+    def get_jobs(self, tool_name: str) -> list[AnyJob]:
+        runtime_jobs = self.runtime.get_jobs(tool_name=tool_name)
         runtime_jobs_by_name = {runtime_job.job_name: runtime_job for runtime_job in runtime_jobs}
-        storage_jobs = self.storage.get_jobs(tool_name=toolname)
+        storage_jobs = self.storage.get_jobs(tool_name=tool_name)
         storage_jobs_by_name = {storage_job.job_name: storage_job for storage_job in storage_jobs}
         final_jobs: dict[str, AnyJob] = {}
 
@@ -265,7 +265,7 @@ class Core:
 
             storage_job = storage_jobs_by_name.get(existing_job.job_name, None)
             maybe_existing_job = self._reconciliate_storage_and_runtime(
-                tool_name=toolname,
+                tool_name=tool_name,
                 runtime_job=runtime_job,
                 storage_job=storage_job,
             )
@@ -276,23 +276,23 @@ class Core:
 
         return list(final_jobs.values())
 
-    def flush_job(self, toolname: str) -> None:
-        self.storage.delete_all_jobs(tool_name=toolname)
-        self.runtime.delete_all_jobs(tool=toolname)
+    def flush_job(self, tool_name: str) -> None:
+        self.storage.delete_all_jobs(tool_name=tool_name)
+        self.runtime.delete_all_jobs(tool_name=tool_name)
 
-    def get_job(self, toolname: str, name: str) -> AnyJob | None:
+    def get_job(self, tool_name: str, name: str) -> AnyJob | None:
         try:
-            runtime_job = self.runtime.get_job(job_name=name, tool=toolname)
+            runtime_job = self.runtime.get_job(job_name=name, tool_name=tool_name)
         except NotFoundInRuntime:
             runtime_job = None
 
         try:
-            storage_job = self.storage.get_job(job_name=name, tool_name=toolname)
+            storage_job = self.storage.get_job(job_name=name, tool_name=tool_name)
         except NotFoundInStorage:
             storage_job = None
 
         return self._reconciliate_storage_and_runtime(
-            tool_name=toolname, runtime_job=runtime_job, storage_job=storage_job
+            tool_name=tool_name, runtime_job=runtime_job, storage_job=storage_job
         )
 
     def _reconciliate_storage_and_runtime(
@@ -326,7 +326,7 @@ class Core:
             if not isinstance(job, OneOffJob):
                 raise TjfError("Unable to delete job") from error
 
-        self.runtime.delete_job(tool=job.tool_name, job=job)
+        self.runtime.delete_job(tool_name=job.tool_name, job=job)
 
     def restart_job(self, job: AnyJob) -> None:
-        self.runtime.restart_job(job=job, tool=job.tool_name)
+        self.runtime.restart_job(job=job, tool_name=job.tool_name)

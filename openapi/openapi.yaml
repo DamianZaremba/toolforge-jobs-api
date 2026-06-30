@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.11.0"
+  version: "4.11.1"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -14,12 +14,12 @@ servers:
   - url: "https://api.svc.toolsbeta.eqiad1.wikimedia.cloud:30003/jobs"
     description: "Toolforge beta internal API gateway endpoint."
 paths:
-  /v1/tool/{toolname}/images:
+  /v1/tool/{tool_name}/images:
     get:
       operationId: "images"
       description: "Returns the list of available container images that you can use to create a new job."
       parameters:
-        - name: toolname
+        - name: tool_name
           in: path
           description: "Tool name."
           required: true
@@ -36,12 +36,12 @@ paths:
           $ref: "#/components/responses/unauthorized_error"
       security:
         - key: []
-  /v1/tool/{toolname}/quotas:
+  /v1/tool/{tool_name}/quotas:
     get:
       operationId: "quotas"
       description: "Returns information on the tool account quotas in Toolforge."
       parameters:
-        - name: toolname
+        - name: tool_name
           in: path
           description: "Tool name."
           required: true
@@ -58,12 +58,12 @@ paths:
           $ref: "#/components/responses/unauthorized_error"
       security:
         - key: []
-  /v1/tool/{toolname}/jobs:
+  /v1/tool/{tool_name}/jobs:
     get:
       operationId: "list"
       description: "Returns the list of jobs defined for this Toolforge tool account."
       parameters:
-        - name: toolname
+        - name: tool_name
           in: path
           description: "Tool name."
           required: true
@@ -91,7 +91,7 @@ paths:
       operationId: "create"
       description: "Create a new job in this Toolforge tool account."
       parameters:
-        - name: toolname
+        - name: tool_name
           in: path
           description: "Tool name."
           required: true
@@ -130,7 +130,7 @@ paths:
       operationId: "update"
       description: "Updates an existing job or creates a new job for this Toolforge tool account"
       parameters:
-        - name: toolname
+        - name: tool_name
           in: path
           description: "Tool name."
           required: true
@@ -169,7 +169,7 @@ paths:
       operationId: "flush"
       description: "Stop and delete all defined jobs from this Toolforge tool account."
       parameters:
-        - name: toolname
+        - name: tool_name
           in: path
           description: "Tool name."
           required: true
@@ -186,12 +186,12 @@ paths:
           $ref: "#/components/responses/unauthorized_error"
       security:
         - key: []
-  /v1/tool/{toolname}/jobs/{id}:
+  /v1/tool/{tool_name}/jobs/{id}:
     get:
       operationId: "show"
       description: "Show information about a given job for this Toolforge tool account."
       parameters:
-        - name: toolname
+        - name: tool_name
           in: path
           description: "Tool name."
           required: true
@@ -222,7 +222,7 @@ paths:
       operationId: "delete"
       description: "Stop and delete the specified job from this Toolforge tool account."
       parameters:
-        - name: toolname
+        - name: tool_name
           in: path
           description: "Tool name."
           required: true
@@ -249,12 +249,12 @@ paths:
           $ref: "#/components/responses/not_found_error"
       security:
         - key: []
-  /v1/tool/{toolname}/jobs/{id}/logs:
+  /v1/tool/{tool_name}/jobs/{id}/logs:
     get:
       operationId: "get_logs"
       description: "Get logs for a given job in this Toolforge tool account."
       parameters:
-        - name: toolname
+        - name: tool_name
           in: path
           description: "Tool name."
           required: true
@@ -281,12 +281,12 @@ paths:
           $ref: "#/components/responses/not_found_error"
       security:
         - key: []
-  /v1/tool/{toolname}/jobs/{id}/restart:
+  /v1/tool/{tool_name}/jobs/{id}/restart:
     post:
       operationId: "restart"
       description: "Restart a given job. If the job is a cronjob, execute it right now."
       parameters:
-        - name: toolname
+        - name: tool_name
           in: path
           description: "Tool name."
           required: true

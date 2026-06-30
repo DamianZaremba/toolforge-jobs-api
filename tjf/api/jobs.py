@@ -40,7 +40,7 @@ from .utils import current_app
 
 LOGGER = logging.getLogger(__name__)
 
-jobs = APIRouter(prefix="/v1/tool/{toolname}/jobs", redirect_slashes=False)
+jobs = APIRouter(prefix="/v1/tool/{tool_name}/jobs", redirect_slashes=False)
 
 
 def _get_warnings_for_jobs_not_up_to_date(
@@ -60,7 +60,7 @@ def _get_warnings_for_jobs_not_up_to_date(
 @jobs.get("/", include_in_schema=False)
 def api_get_jobs(
     request: Request,
-    toolname: str,
+    tool_name: str,
     include_unset: bool = Query(
         True,
         description="If unset or `true`, include all the fields including those that were not passed on job creation.",
@@ -70,7 +70,7 @@ def api_get_jobs(
     # without excluding unset fields
     ensure_authenticated(request=request)
 
-    user_jobs = current_app(request).core.get_jobs(toolname=toolname)
+    user_jobs = current_app(request).core.get_jobs(tool_name=tool_name)
 
     # If the user requested all fields, we need to compute the missing fields
     # using the same logic we use during runtime creation.
@@ -100,14 +100,14 @@ def api_get_jobs(
 @jobs.post("/", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
 @jobs.put("", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
 @jobs.put("/", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
-def api_create_job(request: Request, toolname: str, new_job: AnyNewJob) -> JobResponse:
+def api_create_job(request: Request, tool_name: str, new_job: AnyNewJob) -> JobResponse:
     ensure_authenticated(request=request)
     core = current_app(request).core
     logging.debug(f"Generated NewJob: {new_job}")
-    job = new_job.to_core_job(tool_name=toolname)
+    job = new_job.to_core_job(tool_name=tool_name)
     logging.debug(f"Generated job: {job}")
 
-    existing_job = core.get_job(toolname=job.tool_name, name=job.job_name)
+    existing_job = core.get_job(tool_name=job.tool_name, name=job.job_name)
     if existing_job:
         if existing_job.status_short and existing_job.status_short.lower() != "completed":
             raise TjfValidationError(
@@ -126,13 +126,13 @@ def api_create_job(request: Request, toolname: str, new_job: AnyNewJob) -> JobRe
 
 @jobs.patch("")
 @jobs.patch("/", include_in_schema=False)
-def api_update_job(request: Request, toolname: str, new_job: AnyNewJob) -> UpdateResponse:
+def api_update_job(request: Request, tool_name: str, new_job: AnyNewJob) -> UpdateResponse:
     ensure_authenticated(request=request)
     core = current_app(request).core
     logging.debug(
         f"Generated NewJob: {new_job.__class__}:{new_job} (set fields {new_job.model_fields_set})"
     )
-    job = new_job.to_core_job(tool_name=toolname)
+    job = new_job.to_core_job(tool_name=tool_name)
     logging.debug(f"Generated CoreJob: {job} (set fields {job.model_fields_set})")
 
     job_changed, message = core.update_job(job=job)
@@ -142,10 +142,10 @@ def api_update_job(request: Request, toolname: str, new_job: AnyNewJob) -> Updat
 
 @jobs.delete("")
 @jobs.delete("/", include_in_schema=False)
-def api_flush_job(request: Request, toolname: str) -> FlushResponse:
+def api_flush_job(request: Request, tool_name: str) -> FlushResponse:
     ensure_authenticated(request=request)
 
-    current_app(request).core.flush_job(toolname=toolname)
+    current_app(request).core.flush_job(tool_name=tool_name)
     return FlushResponse(messages=ResponseMessages())
 
 
@@ -153,7 +153,7 @@ def api_flush_job(request: Request, toolname: str) -> FlushResponse:
 @jobs.get("/{name}/", include_in_schema=False)
 def api_get_job(
     request: Request,
-    toolname: str,
+    tool_name: str,
     name: str,
     include_unset: bool = Query(
         True,
@@ -164,7 +164,7 @@ def api_get_job(
     # without excluding unset fields
     ensure_authenticated(request=request)
 
-    job = current_app(request).core.get_job(name=name, toolname=toolname)
+    job = current_app(request).core.get_job(name=name, tool_name=tool_name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
@@ -192,10 +192,10 @@ def api_get_job(
 
 @jobs.delete("/{name}")
 @jobs.delete("/{name}/", include_in_schema=False)
-def api_delete_job(request: Request, toolname: str, name: str) -> DeleteResponse:
+def api_delete_job(request: Request, tool_name: str, name: str) -> DeleteResponse:
     ensure_authenticated(request=request)
 
-    job = current_app(request).core.get_job(toolname=toolname, name=name)
+    job = current_app(request).core.get_job(tool_name=tool_name, name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 
@@ -205,7 +205,7 @@ def api_delete_job(request: Request, toolname: str, name: str) -> DeleteResponse
 
 @jobs.get("/{name}/logs")
 @jobs.get("/{name}/logs/", include_in_schema=False)
-async def api_get_logs(request: Request, toolname: str, name: str) -> Response:
+async def api_get_logs(request: Request, tool_name: str, name: str) -> Response:
     ensure_authenticated(request=request)
     core = current_app(request).core
 
@@ -214,7 +214,7 @@ async def api_get_logs(request: Request, toolname: str, name: str) -> Response:
     # the hard way.)
     job_name = CommonJob.validate_job_name(name)
 
-    job = core.get_job(toolname=toolname, name=job_name)
+    job = core.get_job(tool_name=tool_name, name=job_name)
     if job and job.filelog:
         raise TjfValidationError(
             f"Job '{job_name}' has file logging enabled, which is incompatible with the logs command",
@@ -222,7 +222,7 @@ async def api_get_logs(request: Request, toolname: str, name: str) -> Response:
         )
 
     logs = await core.get_logs(
-        toolname=toolname, job_name=job_name, request_args=request.query_params
+        tool_name=tool_name, job_name=job_name, request_args=request.query_params
     )
     return StreamingResponse(
         logs,
@@ -235,10 +235,10 @@ async def api_get_logs(request: Request, toolname: str, name: str) -> Response:
 
 @jobs.post("/{name}/restart")
 @jobs.post("/{name}/restart/", include_in_schema=False)
-def api_restart_job(request: Request, toolname: str, name: str) -> RestartResponse:
+def api_restart_job(request: Request, tool_name: str, name: str) -> RestartResponse:
     ensure_authenticated(request=request)
 
-    job = current_app(request).core.get_job(toolname=toolname, name=name)
+    job = current_app(request).core.get_job(tool_name=tool_name, name=name)
     if not job:
         raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
 

@@ -15,9 +15,9 @@ def ensure_authenticated(request: Request) -> str:
     """
     The gateway already checks that the path and the tool match, we only need to check that the tool header is set.
     """
-    tool = request.headers.get(TOOL_HEADER)
+    tool_name = request.headers.get(TOOL_HEADER)
 
-    if not tool:
+    if not tool_name:
         raise ToolAuthError(f"missing '{TOOL_HEADER}' header")
 
-    return tool
+    return tool_name

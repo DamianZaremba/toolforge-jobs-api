@@ -336,7 +336,7 @@ def _match_harbor_image(
     if not project:
         return None
 
-    harbor_images = _get_harbor_images(tool=tool_name, use_harbor_cache=use_harbor_cache)
+    harbor_images = _get_harbor_images(tool_name=tool_name, use_harbor_cache=use_harbor_cache)
     for image in harbor_images:
         if host and host != image.host:
             continue
@@ -434,15 +434,15 @@ def _get_harbor_images_for_name(project: str, name: str) -> list[Image]:
     return images
 
 
-def _get_harbor_images(tool: str, use_harbor_cache: bool) -> list[Image]:
-    if use_harbor_cache and tool in HARBOR_IMAGES_CACHE:
-        cache_entry = HARBOR_IMAGES_CACHE[tool]
+def _get_harbor_images(tool_name: str, use_harbor_cache: bool) -> list[Image]:
+    if use_harbor_cache and tool_name in HARBOR_IMAGES_CACHE:
+        cache_entry = HARBOR_IMAGES_CACHE[tool_name]
         if datetime.now(tz=UTC) - cache_entry.creation_time < timedelta(seconds=5):
             return copy.deepcopy(cache_entry.images)
 
     config = _get_harbor_config()
 
-    harbor_project = _get_harbor_project(tool=tool)
+    harbor_project = _get_harbor_project(tool=tool_name)
     encoded_project = urllib.parse.quote_plus(harbor_project)
 
     try:
@@ -474,12 +474,12 @@ def _get_harbor_images(tool: str, use_harbor_cache: bool) -> list[Image]:
         name = repository["name"][len(harbor_project) + 1 :]
         images.extend(_get_harbor_images_for_name(project=harbor_project, name=name))
 
-    HARBOR_IMAGES_CACHE[tool] = CacheEntry(images=images, creation_time=datetime.now(tz=UTC))
+    HARBOR_IMAGES_CACHE[tool_name] = CacheEntry(images=images, creation_time=datetime.now(tz=UTC))
     return copy.deepcopy(images)
 
 
-def get_images(tool: str, use_harbor_cache: bool = True) -> list[Image]:
+def get_images(tool_name: str, use_harbor_cache: bool = True) -> list[Image]:
     # TODO: eventually replace with a call to builds-api, so we don't need to interact with harbor or image-config
     return _get_prebuilt_images() + _get_harbor_images(
-        tool=tool, use_harbor_cache=use_harbor_cache
+        tool_name=tool_name, use_harbor_cache=use_harbor_cache
     )

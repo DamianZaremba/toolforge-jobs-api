@@ -12,33 +12,33 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_jobs(self, *, tool: str) -> list[AnyJob]:
+    def get_jobs(self, *, tool_name: str) -> list[AnyJob]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_job(self, *, job_name: str, tool: str) -> AnyJob:
+    def get_job(self, *, job_name: str, tool_name: str) -> AnyJob:
         raise NotImplementedError
 
     # TODO: Job already has the tool name within it, maybe we don't need it as extra parameter, or inside each Job
     @abstractmethod
-    def create_job(self, *, job: AnyJob, tool: str) -> None:
+    def create_job(self, *, job: AnyJob, tool_name: str) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def restart_job(self, *, job: AnyJob, tool: str) -> None:
+    def restart_job(self, *, job: AnyJob, tool_name: str) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def delete_all_jobs(self, *, tool: str) -> None:
+    def delete_all_jobs(self, *, tool_name: str) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def delete_job(self, *, tool: str, job: AnyJob) -> None:
+    def delete_job(self, *, tool_name: str, job: AnyJob) -> None:
         raise NotImplementedError
 
     @abstractmethod
     def get_logs(
-        self, *, tool: str, job_name: str, follow: bool, lines: int | None = None
+        self, *, tool_name: str, job_name: str, follow: bool, lines: int | None = None
     ) -> AsyncIterator[str]:
         raise NotImplementedError
 
@@ -56,9 +56,9 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_quotas(self, *, tool: str) -> list[QuotaData]:
+    def get_quotas(self, *, tool_name: str) -> list[QuotaData]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_images(self, toolname: str) -> list[Image]:
+    def get_images(self, tool_name: str) -> list[Image]:
         raise NotImplementedError

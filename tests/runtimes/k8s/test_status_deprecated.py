@@ -78,7 +78,7 @@ def test_refresh_job_short_status_cronjob(
         cronjob,
         JobType.SCHEDULED,
         default_cpu_limit="4000m",
-        tool="some-tool",
+        tool_name="some-tool",
     )
     refresh_job_short_status(account, gotten_job)
     assert gotten_job.status_short

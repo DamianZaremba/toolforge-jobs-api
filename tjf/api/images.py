@@ -27,7 +27,7 @@ from .utils import current_app
 
 LOGGER = logging.getLogger(__name__)
 
-images = APIRouter(prefix="/v1/tool/{toolname}/images", redirect_slashes=False)
+images = APIRouter(prefix="/v1/tool/{tool_name}/images", redirect_slashes=False)
 
 
 @images.get("", response_model=ImageListResponse, response_model_exclude_unset=True)
@@ -37,10 +37,10 @@ images = APIRouter(prefix="/v1/tool/{toolname}/images", redirect_slashes=False)
     response_model_exclude_unset=True,
     include_in_schema=False,
 )
-def api_get_images(request: Request, toolname: str) -> ImageListResponse:
+def api_get_images(request: Request, tool_name: str) -> ImageListResponse:
     ensure_authenticated(request=request)
 
-    images_data = current_app(request).core.get_images(toolname=toolname)
+    images_data = current_app(request).core.get_images(tool_name=tool_name)
     return ImageListResponse(
         images=[Image.from_image_data(image_data) for image_data in images_data],
         messages=ResponseMessages(),

@@ -85,7 +85,7 @@ def trigger_scheduled_job(tool_account: ToolAccount, scheduled_job: ScheduledJob
 
 
 def wait_for_pods_exit(
-    tool: ToolAccount,
+    tool_account: ToolAccount,
     job_name: str | None = None,
     job_type: str | None = None,
     timeout: int = 30,
@@ -93,12 +93,12 @@ def wait_for_pods_exit(
     """Wait for all pods belonging to a specific job to exit."""
     label_selector = labels_selector(
         job_name=job_name,
-        tool_name=tool.name,
+        tool_name=tool_account.name,
         type=job_type,
     )
 
     for _ in range(timeout * 2):
-        pods = tool.k8s_cli.get_objects(kind="pods", label_selector=label_selector)
+        pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=label_selector)
         if len(pods) == 0:
             return True
         time.sleep(0.5)
