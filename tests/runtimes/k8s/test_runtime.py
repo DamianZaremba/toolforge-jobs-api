@@ -44,7 +44,7 @@ class TestGetJob:
         my_runtime = K8sRuntime(settings=get_settings())
 
         with pytest.raises(NotFoundInRuntime):
-            my_runtime.get_job(job_name="idontexist", tool="idontexisteither")
+            my_runtime.get_job(job_name="idontexist", tool_name="idontexisteither")
 
     @cases(
         "patch, expected_job",
@@ -295,7 +295,7 @@ class TestGetJob:
         )
 
         gotten_job = my_runtime.get_job(
-            job_name=expected_job.job_name, tool=expected_job.tool_name
+            job_name=expected_job.job_name, tool_name=expected_job.tool_name
         )
         assert gotten_job
         assert gotten_job.model_dump() == expected_job.model_dump()

@@ -9,7 +9,7 @@ from tjf.core.images import (
 
 def test_available_images_len(fake_images):
     """Basic test to check if the get_images returns available_images."""
-    assert len(get_images(tool="some-tool")) > 1
+    assert len(get_images(tool_name="some-tool")) > 1
 
 
 IMAGE_NAME_TESTS = [

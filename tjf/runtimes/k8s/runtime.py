@@ -59,9 +59,9 @@ class K8sRuntime(BaseRuntime):
         self.loki_url = settings.loki_url
         self.default_cpu_limit = settings.default_cpu_limit
 
-    def get_jobs(self, *, tool: str) -> list[AnyJob]:
+    def get_jobs(self, *, tool_name: str) -> list[AnyJob]:
         job_list = []
-        tool_account = ToolAccount(name=tool)
+        tool_account = ToolAccount(name=tool_name)
         for job_type in JobType:
             kind = K8sJobKind.from_job_type(job_type).api_path_name
             label_selector = labels_selector(tool_name=tool_account.name, type=kind)
@@ -72,17 +72,17 @@ class K8sRuntime(BaseRuntime):
                     k8s_object=k8s_obj,
                     job_type=job_type,
                     default_cpu_limit=self.default_cpu_limit,
-                    tool=tool,
+                    tool_name=tool_name,
                 )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
-                job.status = self._get_job_status(job=job, tool=tool)
+                job.status = self._get_job_status(job=job, tool_name=tool_name)
                 job_list.append(job)
 
         return job_list
 
-    def get_job(self, *, job_name: str, tool: str) -> AnyJob:
-        tool_account = ToolAccount(name=tool)
+    def get_job(self, *, job_name: str, tool_name: str) -> AnyJob:
+        tool_account = ToolAccount(name=tool_name)
         for job_type in JobType:
             kind = K8sJobKind.from_job_type(job_type).api_path_name
             label_selector = labels_selector(
@@ -95,17 +95,17 @@ class K8sRuntime(BaseRuntime):
                     k8s_object=k8s_obj,
                     job_type=job_type,
                     default_cpu_limit=self.default_cpu_limit,
-                    tool=tool,
+                    tool_name=tool_name,
                 )
                 refresh_job_short_status(tool_account, job)
                 refresh_job_long_status(tool_account, job)
-                job.status = self._get_job_status(job=job, tool=tool)
+                job.status = self._get_job_status(job=job, tool_name=tool_name)
                 return job
 
-        raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool}.")
+        raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool_name}.")
 
-    def restart_job(self, *, job: AnyJob, tool: str) -> None:
-        tool_account = ToolAccount(name=tool)
+    def restart_job(self, *, job: AnyJob, tool_name: str) -> None:
+        tool_account = ToolAccount(name=tool_name)
         k8s_type = K8sJobKind.from_job_type(job.job_type)
         label_selector = labels_selector(
             job_name=job.job_name, tool_name=tool_account.name, type=k8s_type.api_path_name
@@ -117,7 +117,7 @@ class K8sRuntime(BaseRuntime):
             tool_account.k8s_cli.delete_objects("pods", label_selector=label_selector)
 
             wait_for_pods_exit(
-                tool=tool_account, job_name=job.job_name, job_type=k8s_type.api_path_name
+                tool_account=tool_account, job_name=job.job_name, job_type=k8s_type.api_path_name
             )
 
             trigger_scheduled_job(tool_account, job)
@@ -137,7 +137,7 @@ class K8sRuntime(BaseRuntime):
         else:
             raise TjfError(f"Unable to restart unknown job type: {job}")
 
-    def update_job(self, *, job: AnyJob, tool: str) -> None:
+    def update_job(self, *, job: AnyJob, tool_name: str) -> None:
         if isinstance(job, (ContinuousJob, ScheduledJob)):
             # Update the Deployment/CronJob object spec, if this differs from the current spec,
             # then Kubernetes will detect that and cycle all related pods, ensuring the pods are
@@ -145,7 +145,7 @@ class K8sRuntime(BaseRuntime):
             #
             # Note: This will only cycle/restart the pods if something in the template spec (hash)
             # has changed, to explicitly restart the `restart_job` function should be used.
-            tool_account = ToolAccount(name=tool)
+            tool_account = ToolAccount(name=tool_name)
             validate_job_limits(tool_account, job)
 
             # Note: no guard by .port as in create_job, as this function will delete if there is no port specified
@@ -164,15 +164,15 @@ class K8sRuntime(BaseRuntime):
                     raise get_error_from_k8s_response(error=error, job=job, spec=spec)
 
                 LOGGER.warning(
-                    f"Failed to patch k8s object, falling back to delete/create for {job.job_name} in {tool}: {error}"
+                    f"Failed to patch k8s object, falling back to delete/create for {job.job_name} in {tool_name}: {error}"
                 )
             else:
                 # Patch was successful
                 return
 
         # Delete and re-create the objects
-        self.delete_job(tool=tool, job=job)
-        self.create_job(tool=tool, job=job)
+        self.delete_job(tool_name=tool_name, job=job)
+        self.create_job(tool_name=tool_name, job=job)
 
     def _create_or_delete_service(self, job: ContinuousJob) -> None:
         tool_account = ToolAccount(name=job.tool_name)
@@ -211,8 +211,8 @@ class K8sRuntime(BaseRuntime):
         LOGGER.debug(f"Got k8s spec: {spec}")
         return spec
 
-    def create_job(self, *, job: AnyJob, tool: str) -> None:
-        tool_account = ToolAccount(name=tool)
+    def create_job(self, *, job: AnyJob, tool_name: str) -> None:
+        tool_account = ToolAccount(name=tool_name)
         validate_job_limits(tool_account, job)
 
         if isinstance(job, ContinuousJob) and job.port:
@@ -237,24 +237,24 @@ class K8sRuntime(BaseRuntime):
         refresh_job_short_status(tool_account, job)
         refresh_job_long_status(tool_account, job)
         try:
-            job.status = self._get_job_status(job=job, tool=tool)
+            job.status = self._get_job_status(job=job, tool_name=tool_name)
         except requests.exceptions.HTTPError as error:
             raise get_error_from_k8s_response(error=error, job=job, spec=spec)
 
-    def delete_all_jobs(self, *, tool: str) -> None:
+    def delete_all_jobs(self, *, tool_name: str) -> None:
         """Deletes all jobs for a user."""
-        LOGGER.debug("Deleting all jobs for tool %s", tool)
-        tool_account = ToolAccount(name=tool)
+        LOGGER.debug("Deleting all jobs for tool %s", tool_name)
+        tool_account = ToolAccount(name=tool_name)
         label_selector = labels_selector(job_name=None, tool_name=tool_account.name, type=None)
 
         for object_type in ["cronjobs", "deployments", "jobs", "pods", "services"]:
             tool_account.k8s_cli.delete_objects(object_type, label_selector=label_selector)
-        wait_for_pods_exit(tool=tool_account)
+        wait_for_pods_exit(tool_account=tool_account)
 
-    def delete_job(self, *, tool: str, job: AnyJob) -> None:
+    def delete_job(self, *, tool_name: str, job: AnyJob) -> None:
         """Deletes a specified job."""
-        LOGGER.debug("Deleting job %s for tool %s", job.job_name, tool)
-        tool_account = ToolAccount(name=tool)
+        LOGGER.debug("Deleting job %s for tool %s", job.job_name, tool_name)
+        tool_account = ToolAccount(name=tool_name)
         kind = K8sJobKind.from_job_type(job.job_type).api_path_name
         tool_account.k8s_cli.delete_object(kind=kind, name=job.job_name)
         for object_type in ["pods", "services"]:
@@ -264,7 +264,7 @@ class K8sRuntime(BaseRuntime):
                     job_name=job.job_name, tool_name=tool_account.name, type=kind
                 ),
             )
-        wait_for_pods_exit(tool=tool_account, job_name=job.job_name, job_type=kind)
+        wait_for_pods_exit(tool_account=tool_account, job_name=job.job_name, job_type=kind)
 
     def diff_with_running_job(self, *, job: AnyJob) -> str:
         """
@@ -273,7 +273,7 @@ class K8sRuntime(BaseRuntime):
         LOGGER.debug("Checking for diff in job %s for tool %s", job.job_name, job.tool_name)
 
         try:
-            current_job = self.get_job(job_name=job.job_name, tool=job.tool_name)
+            current_job = self.get_job(job_name=job.job_name, tool_name=job.tool_name)
         except NotFoundInRuntime as error:
             LOGGER.debug(f"No current job found for job {job.job_name} for tool {job.tool_name}")
             raise TjfJobNotFoundError(
@@ -304,9 +304,9 @@ class K8sRuntime(BaseRuntime):
         )
         return "".join([line for line in list(diff) if line is not None])
 
-    def _get_job_status(self, *, job: AnyJob, tool: str) -> AnyJobStatus:
-        LOGGER.debug(f"Getting status for the job {job.job_name}, for tool {tool}")
-        user = ToolAccount(name=tool)
+    def _get_job_status(self, *, job: AnyJob, tool_name: str) -> AnyJobStatus:
+        LOGGER.debug(f"Getting status for the job {job.job_name}, for tool {tool_name}")
+        user = ToolAccount(name=tool_name)
         k8s_type = K8sJobKind.from_job_type(job.job_type)
         selector = labels_selector(
             job_name=job.job_name,
@@ -347,8 +347,8 @@ class K8sRuntime(BaseRuntime):
         LOGGER.debug(f"job status: {job_status}")
         return job_status
 
-    def get_quotas(self, *, tool: str) -> list[QuotaData]:
-        tool_account = ToolAccount(name=tool)
+    def get_quotas(self, *, tool_name: str) -> list[QuotaData]:
+        tool_account = ToolAccount(name=tool_name)
         resource_quota = tool_account.k8s_cli.get_object("resourcequotas", tool_account.namespace)
         limit_range = tool_account.k8s_cli.get_object("limitranges", tool_account.namespace)
 
@@ -418,9 +418,9 @@ class K8sRuntime(BaseRuntime):
         ]
 
     async def get_logs(
-        self, *, tool: str, job_name: str, follow: bool, lines: int | None = None
+        self, *, tool_name: str, job_name: str, follow: bool, lines: int | None = None
     ) -> AsyncIterator[str]:
-        tool_account = ToolAccount(name=tool)
+        tool_account = ToolAccount(name=tool_name)
 
         if not self.loki_url:
             raise TjfError("No Loki URL specified, unable to query logs")
@@ -431,8 +431,8 @@ class K8sRuntime(BaseRuntime):
         async for log in source.query(selector=selector, follow=follow, lines=lines):
             yield format_logs(log)
 
-    def get_images(self, toolname: str) -> list[Image]:
-        images = get_images(tool=toolname)
+    def get_images(self, tool_name: str) -> list[Image]:
+        images = get_images(tool_name=tool_name)
         images = [
             image
             for image in sorted(images, key=lambda image: image.short_name)

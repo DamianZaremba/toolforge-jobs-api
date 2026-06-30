@@ -619,7 +619,7 @@ class TestGetResolvedCoreJob:
             k8s_object=K8S_ONEOFF_JOB_OBJ,
             job_type=JobType.ONE_OFF,
             default_cpu_limit="1000m",
-            tool="some-tool",
+            tool_name="some-tool",
         )
         unresolved = CoreOneOffJob(
             cmd=k8s_job.cmd,

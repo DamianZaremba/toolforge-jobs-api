@@ -461,7 +461,7 @@ def get_common_job_from_k8s(
     k8s_object: dict[str, Any],
     job_type: JobType,
     default_cpu_limit: str,
-    tool: str,
+    tool_name: str,
 ) -> CommonJob:
     # TODO: why not just index the dict directly instead of dict_get_object?
     spec = dict_get_object(k8s_object, "spec")
@@ -488,7 +488,7 @@ def get_common_job_from_k8s(
     imageurl = podspec["template"]["spec"]["containers"][0]["image"]
     image = Image.from_short_name_or_url(
         url_or_name=imageurl,
-        tool_name=tool,
+        tool_name=tool_name,
     )
     resources = podspec["template"]["spec"]["containers"][0].get("resources", {})
     resources_limits = resources.get("limits", {})
@@ -656,13 +656,13 @@ def get_job_from_k8s(
     k8s_object: dict[str, Any],
     job_type: JobType,
     default_cpu_limit: str,
-    tool: str,
+    tool_name: str,
 ) -> AnyJob:
     common_job = get_common_job_from_k8s(
         k8s_object=k8s_object,
         job_type=job_type,
         default_cpu_limit=default_cpu_limit,
-        tool=tool,
+        tool_name=tool_name,
     )
     match job_type:
         case JobType.ONE_OFF:
