@@ -64,7 +64,7 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool)
         for job_type in JobType:
             kind = K8sJobKind.from_job_type(job_type).api_path_name
-            label_selector = labels_selector(user_name=tool_account.name, type=kind)
+            label_selector = labels_selector(tool_name=tool_account.name, type=kind)
             for k8s_obj in tool_account.k8s_cli.get_objects(
                 kind=kind, label_selector=label_selector
             ):
@@ -86,7 +86,7 @@ class K8sRuntime(BaseRuntime):
         for job_type in JobType:
             kind = K8sJobKind.from_job_type(job_type).api_path_name
             label_selector = labels_selector(
-                job_name=job_name, user_name=tool_account.name, type=kind
+                job_name=job_name, tool_name=tool_account.name, type=kind
             )
             for k8s_obj in tool_account.k8s_cli.get_objects(
                 kind=kind, label_selector=label_selector
@@ -105,30 +105,32 @@ class K8sRuntime(BaseRuntime):
         raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool}.")
 
     def restart_job(self, *, job: AnyJob, tool: str) -> None:
-        user = ToolAccount(name=tool)
+        tool_account = ToolAccount(name=tool)
         k8s_type = K8sJobKind.from_job_type(job.job_type)
         label_selector = labels_selector(
-            job_name=job.job_name, user_name=user.name, type=k8s_type.api_path_name
+            job_name=job.job_name, tool_name=tool_account.name, type=k8s_type.api_path_name
         )
 
         if isinstance(job, ScheduledJob):
             # Delete currently running jobs to avoid duplication
-            user.k8s_cli.delete_objects("jobs", label_selector=label_selector)
-            user.k8s_cli.delete_objects("pods", label_selector=label_selector)
+            tool_account.k8s_cli.delete_objects("jobs", label_selector=label_selector)
+            tool_account.k8s_cli.delete_objects("pods", label_selector=label_selector)
 
-            wait_for_pods_exit(tool=user, job_name=job.job_name, job_type=k8s_type.api_path_name)
+            wait_for_pods_exit(
+                tool=tool_account, job_name=job.job_name, job_type=k8s_type.api_path_name
+            )
 
-            trigger_scheduled_job(user, job)
+            trigger_scheduled_job(tool_account, job)
 
         elif isinstance(job, ContinuousJob):
             # Update the Deployment spec and let Kubernetes cycle the pods, this ensures a graceful restart
-            k8s_obj = user.k8s_cli.get_object("deployments", job.job_name)
+            k8s_obj = tool_account.k8s_cli.get_object("deployments", job.job_name)
             if "annotations" not in k8s_obj["spec"]["template"]["metadata"]:
                 k8s_obj["spec"]["template"]["metadata"]["annotations"] = {}
             k8s_obj["spec"]["template"]["metadata"]["annotations"] |= {
                 "app.kubernetes.io/restartedAt": datetime.now(timezone.utc).isoformat()
             }
-            user.k8s_cli.replace_object("deployments", k8s_obj)
+            tool_account.k8s_cli.replace_object("deployments", k8s_obj)
 
         elif isinstance(job, OneOffJob):
             raise TjfValidationError("Unable to restart a single job")
@@ -184,7 +186,7 @@ class K8sRuntime(BaseRuntime):
             tool_account.k8s_cli.delete_objects(
                 kind=obj_kind,
                 label_selector=labels_selector(
-                    job_name=job.job_name, user_name=tool_account.name, type=obj_kind
+                    job_name=job.job_name, tool_name=tool_account.name, type=obj_kind
                 ),
             )
         return None
@@ -243,7 +245,7 @@ class K8sRuntime(BaseRuntime):
         """Deletes all jobs for a user."""
         LOGGER.debug("Deleting all jobs for tool %s", tool)
         tool_account = ToolAccount(name=tool)
-        label_selector = labels_selector(job_name=None, user_name=tool_account.name, type=None)
+        label_selector = labels_selector(job_name=None, tool_name=tool_account.name, type=None)
 
         for object_type in ["cronjobs", "deployments", "jobs", "pods", "services"]:
             tool_account.k8s_cli.delete_objects(object_type, label_selector=label_selector)
@@ -259,7 +261,7 @@ class K8sRuntime(BaseRuntime):
             tool_account.k8s_cli.delete_objects(
                 kind=object_type,
                 label_selector=labels_selector(
-                    job_name=job.job_name, user_name=tool_account.name, type=kind
+                    job_name=job.job_name, tool_name=tool_account.name, type=kind
                 ),
             )
         wait_for_pods_exit(tool=tool_account, job_name=job.job_name, job_type=kind)
@@ -308,7 +310,7 @@ class K8sRuntime(BaseRuntime):
         k8s_type = K8sJobKind.from_job_type(job.job_type)
         selector = labels_selector(
             job_name=job.job_name,
-            user_name=user.name,
+            tool_name=user.name,
             type=k8s_type.api_path_name,
         )
         k8s_pods = user.k8s_cli.get_objects(kind="pods", label_selector=selector)
@@ -317,14 +319,14 @@ class K8sRuntime(BaseRuntime):
         match job.job_type:
             case JobType.ONE_OFF:
                 one_off_job_status = get_one_off_job_status(
-                    user=user, k8s_job=job.k8s_object, k8s_pods=k8s_pods
+                    tool_account=user, k8s_job=job.k8s_object, k8s_pods=k8s_pods
                 )
                 job_status = one_off_job_status
 
             case JobType.SCHEDULED:
                 k8s_jobs = user.k8s_cli.get_objects(kind="jobs", label_selector=selector)
                 scheduled_job_status = get_scheduled_job_status(
-                    user=user,
+                    tool_account=user,
                     job=job,
                     k8s_cronjob=job.k8s_object,
                     k8s_jobs=k8s_jobs,

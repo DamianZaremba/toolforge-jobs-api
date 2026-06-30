@@ -35,7 +35,7 @@ def _get_quota_error(message: str) -> str:
 
 
 def _get_job_object_status(
-    user: ToolAccount, job: dict[str, Any], for_complete: bool = False
+    tool_account: ToolAccount, job: dict[str, Any], for_complete: bool = False
 ) -> str | None:
     if not job:
         return None
@@ -70,7 +70,7 @@ def _get_job_object_status(
 
     LOGGER.debug("Got uid %s for job, getting events", job_uid)
 
-    events = user.k8s_cli.get_objects(
+    events = tool_account.k8s_cli.get_objects(
         kind="events", field_selector=f"involvedObject.uid={job_uid}"
     )
     for event in sorted(events, key=lambda event: event["lastTimestamp"], reverse=True):
@@ -89,7 +89,7 @@ def _get_job_object_status(
 
 
 def _refresh_status_cronjob_from_restarted_cronjob(
-    user: ToolAccount, original_cronjob: ScheduledJob
+    tool_account: ToolAccount, original_cronjob: ScheduledJob
 ) -> str | None:
     """This function scans all job resources that may or may not be manually defined to see if
     it may be related to the original_cronjob."""
@@ -102,9 +102,9 @@ def _refresh_status_cronjob_from_restarted_cronjob(
         return None
 
     label_selector = labels_selector(
-        job_name=original_cronjob.job_name, user_name=user.name, type="cronjobs"
+        job_name=original_cronjob.job_name, tool_name=tool_account.name, type="cronjobs"
     )
-    all_cronjob_jobs = user.k8s_cli.get_objects(kind="jobs", label_selector=label_selector)
+    all_cronjob_jobs = tool_account.k8s_cli.get_objects(kind="jobs", label_selector=label_selector)
     for maybe_manual_job_data in all_cronjob_jobs:
         metadata = maybe_manual_job_data.get("metadata", None)
         if not metadata:
@@ -162,14 +162,14 @@ def _refresh_status_cronjob_from_restarted_cronjob(
             continue
 
         # finally, everything matches, we are certain this job was manually created from the cronjob
-        job_status = _get_job_object_status(user, maybe_manual_job_data)
+        job_status = _get_job_object_status(tool_account, maybe_manual_job_data)
         if job_status:
             return job_status
 
     return None
 
 
-def _refresh_status_cronjob(user: ToolAccount, job: ScheduledJob) -> None:
+def _refresh_status_cronjob(tool_account: ToolAccount, job: ScheduledJob) -> None:
     status_dict = dict_get_object(job.k8s_object, "status")
     if status_dict is None:
         return None
@@ -181,23 +181,23 @@ def _refresh_status_cronjob(user: ToolAccount, job: ScheduledJob) -> None:
         job.status_short = "Waiting for scheduled time"
 
     for active_job in status_dict.get("active", []):
-        job_data = user.k8s_cli.get_object("jobs", active_job["name"])
+        job_data = tool_account.k8s_cli.get_object("jobs", active_job["name"])
         if not job_data:
             continue
 
-        job_status = _get_job_object_status(user, job_data)
+        job_status = _get_job_object_status(tool_account, job_data)
         if job_status:
             job.status_short = job_status
             # we found something! that's enough
             return
 
     # if we didn't find anything yet, try searching for manually restarted cronjobs
-    job_status = _refresh_status_cronjob_from_restarted_cronjob(user, original_cronjob=job)
+    job_status = _refresh_status_cronjob_from_restarted_cronjob(tool_account, original_cronjob=job)
     if job_status:
         job.status_short = job_status
 
 
-def _refresh_status_dp(user: ToolAccount, job: ContinuousJob) -> None:
+def _refresh_status_dp(tool_account: ToolAccount, job: ContinuousJob) -> None:
     status_dict = dict_get_object(job.k8s_object, "status")
     if status_dict is None:
         return
@@ -222,10 +222,10 @@ def _refresh_status_dp(user: ToolAccount, job: ContinuousJob) -> None:
     if job.status_short == "Not running":
         pod_selector = labels_selector(
             job_name=job.job_name,
-            user_name=user.name,
+            tool_name=tool_account.name,
             type=K8sJobKind.from_job_type(job.job_type).api_path_name,
         )
-        pods = user.k8s_cli.get_objects(kind="pods", label_selector=pod_selector)
+        pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=pod_selector)
 
         for pod in pods:
             if "containerStatuses" not in pod["status"]:
@@ -245,32 +245,32 @@ def _refresh_status_dp(user: ToolAccount, job: ContinuousJob) -> None:
                     job.status_short = "Specified command fails to run"
 
 
-def _refresh_status_job(user: ToolAccount, job: OneOffJob) -> None:
-    job_status = _get_job_object_status(user, job.k8s_object, for_complete=True)
+def _refresh_status_job(tool_account: ToolAccount, job: OneOffJob) -> None:
+    job_status = _get_job_object_status(tool_account, job.k8s_object, for_complete=True)
     if job_status:
         job.status_short = job_status
     else:
         job.status_short = "Unknown"
 
 
-def refresh_job_short_status(user: ToolAccount, job: AnyJob) -> None:
+def refresh_job_short_status(tool_account: ToolAccount, job: AnyJob) -> None:
     if isinstance(job, ScheduledJob):
-        _refresh_status_cronjob(user, job)
+        _refresh_status_cronjob(tool_account, job)
     elif isinstance(job, ContinuousJob):
-        _refresh_status_dp(user, job)
+        _refresh_status_dp(tool_account, job)
     elif isinstance(job, OneOffJob):
-        _refresh_status_job(user, job)
+        _refresh_status_job(tool_account, job)
     else:
         raise TjfError(f"Unable to refresh status for unknown job type: {job}")
 
 
-def refresh_job_long_status(user: ToolAccount, job: AnyJob) -> None:
+def refresh_job_long_status(tool_account: ToolAccount, job: AnyJob) -> None:
     label_selector = labels_selector(
         job_name=job.job_name,
-        user_name=user.name,
+        tool_name=tool_account.name,
         type=K8sJobKind.from_job_type(job.job_type).api_path_name,
     )
-    podlist = user.k8s_cli.get_objects(kind="pods", label_selector=label_selector)
+    podlist = tool_account.k8s_cli.get_objects(kind="pods", label_selector=label_selector)
 
     if len(podlist) == 0:
         job.status_long = "No pods were created for this job."

@@ -266,7 +266,7 @@ def _get_status_from_pods(pods: list[dict[str, Any]]) -> CommonJobStatus | None:
 
 
 def _get_one_off_job_status_from_out_of_quota_event(
-    user: ToolAccount, k8s_job: dict[str, Any]
+    tool_account: ToolAccount, k8s_job: dict[str, Any]
 ) -> OneOffJobStatus | None:
     """
     Detect out-of-quota failures via Kubernetes Events for k8s jobs.
@@ -287,7 +287,7 @@ def _get_one_off_job_status_from_out_of_quota_event(
         )
 
     LOGGER.debug("Got uid %s for job, getting events", k8s_job_uid)
-    events = user.k8s_cli.get_objects(
+    events = tool_account.k8s_cli.get_objects(
         kind="events", field_selector=f"involvedObject.uid={k8s_job_uid}"
     )
     for event in sorted(events, key=lambda event: event["lastTimestamp"], reverse=True):
@@ -432,7 +432,7 @@ def _get_one_off_job_status_from_conditions(job_status: dict[str, Any]) -> OneOf
 
 
 def get_one_off_job_status(
-    user: ToolAccount, k8s_job: dict[str, Any], k8s_pods: list[dict[str, Any]]
+    tool_account: ToolAccount, k8s_job: dict[str, Any], k8s_pods: list[dict[str, Any]]
 ) -> OneOffJobStatus:
     LOGGER.debug(f"k8s job object: {k8s_job}")
     LOGGER.debug(f"k8s pod objects: {k8s_pods}")
@@ -459,7 +459,7 @@ def get_one_off_job_status(
         )
 
     if not active and not ready:
-        status_from_event = _get_one_off_job_status_from_out_of_quota_event(user, k8s_job)
+        status_from_event = _get_one_off_job_status_from_out_of_quota_event(tool_account, k8s_job)
         if status_from_event:
             return status_from_event
 
@@ -486,7 +486,7 @@ def _filter_k8s_job_pods(
 
 
 def get_scheduled_job_status(
-    user: ToolAccount,
+    tool_account: ToolAccount,
     job: AnyJob,
     k8s_cronjob: dict[str, Any],
     k8s_jobs: list[dict[str, Any]],
@@ -521,7 +521,9 @@ def get_scheduled_job_status(
         # Restrict pods to those belonging to the latest job only, otherwise
         # pods from older (e.g. failed) runs can contaminate the status.
         k8s_pods = _filter_k8s_job_pods(k8s_job=k8s_job, k8s_pods=k8s_pods)
-        job_status = get_one_off_job_status(user=user, k8s_job=k8s_job, k8s_pods=k8s_pods)
+        job_status = get_one_off_job_status(
+            tool_account=tool_account, k8s_job=k8s_job, k8s_pods=k8s_pods
+        )
         return ScheduledJobStatus(
             **job_status.model_dump(),
             previous_schedule=previous_schedule or None,

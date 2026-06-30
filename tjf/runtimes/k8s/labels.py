@@ -54,11 +54,11 @@ def generate_labels(
 
 
 def labels_selector(
-    user_name: str, job_name: str | None = None, type: str | None = None
+    tool_name: str, job_name: str | None = None, type: str | None = None
 ) -> dict[str, str]:
     return generate_labels(
         jobname=job_name,
-        tool_name=user_name,
+        tool_name=tool_name,
         type=type,
         filelog=False,
         emails=None,
