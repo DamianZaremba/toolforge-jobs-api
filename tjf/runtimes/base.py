@@ -36,11 +36,11 @@ class BaseRuntime(ABC):
 
     # TODO: Job already has the tool name within it, maybe we don't need it as extra parameter, or inside each Job
     @abstractmethod
-    def create_job(self, *, job: AnyJob, tool_name: str) -> None:
+    def create_job(self, *, job: AnyJob) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def restart_job(self, *, job: AnyJob, tool_name: str) -> None:
+    def restart_job(self, *, job: AnyJob) -> None:
         raise NotImplementedError
 
     @abstractmethod
@@ -48,7 +48,7 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def delete_job(self, *, tool_name: str, job: AnyJob) -> None:
+    def delete_job(self, *, job: AnyJob) -> None:
         raise NotImplementedError
 
     @abstractmethod

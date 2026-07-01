@@ -197,8 +197,8 @@ class K8sRuntime(BaseRuntime):
 
         raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool_name}.")
 
-    def restart_job(self, *, job: AnyJob, tool_name: str) -> None:
-        tool_account = ToolAccount(name=tool_name)
+    def restart_job(self, *, job: AnyJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
         label_selector = labels_selector(
             job_name=job.job_name,
             tool_name=tool_account.name,
@@ -237,7 +237,7 @@ class K8sRuntime(BaseRuntime):
         else:
             raise TjfError(f"Unable to restart unknown job type: {job}")
 
-    def update_job(self, *, job: AnyJob, tool_name: str) -> None:
+    def update_job(self, *, job: AnyJob) -> None:
         if isinstance(job, (ContinuousJob, ScheduledJob)):
             # Update the Deployment/CronJob object spec, if this differs from the current spec,
             # then Kubernetes will detect that and cycle all related pods, ensuring the pods are
@@ -245,7 +245,7 @@ class K8sRuntime(BaseRuntime):
             #
             # Note: This will only cycle/restart the pods if something in the template spec (hash)
             # has changed, to explicitly restart the `restart_job` function should be used.
-            tool_account = ToolAccount(name=tool_name)
+            tool_account = ToolAccount(name=job.tool_name)
             validate_job_limits(tool_account, job)
 
             # Note: no guard by .port as in create_job, as this function will delete if there is no port specified
@@ -264,15 +264,15 @@ class K8sRuntime(BaseRuntime):
                     raise get_error_from_k8s_response(error=error, job=job, spec=spec)
 
                 LOGGER.warning(
-                    f"Failed to patch k8s object, falling back to delete/create for {job.job_name} in {tool_name}: {error}"
+                    f"Failed to patch k8s object, falling back to delete/create for {job.job_name} in {job.tool_name}: {error}"
                 )
             else:
                 # Patch was successful
                 return
 
         # Delete and re-create the objects
-        self.delete_job(tool_name=tool_name, job=job)
-        self.create_job(tool_name=tool_name, job=job)
+        self.delete_job(job=job)
+        self.create_job(job=job)
 
     def _create_or_delete_service(self, job: ContinuousJob) -> None:
         tool_account = ToolAccount(name=job.tool_name)
@@ -314,8 +314,8 @@ class K8sRuntime(BaseRuntime):
         LOGGER.debug(f"Got k8s spec: {spec}")
         return spec
 
-    def create_job(self, *, job: AnyJob, tool_name: str) -> None:
-        tool_account = ToolAccount(name=tool_name)
+    def create_job(self, *, job: AnyJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
         validate_job_limits(tool_account, job)
 
         if isinstance(job, ContinuousJob) and job.port:
@@ -374,16 +374,16 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool_name)
         label_selector = labels_selector(tool_name=tool_account.name)
 
-        for object_type in ["cronjobs", "deployments", "jobs", "pods", "services"]:
+        for object_type in K8sKind:
             tool_account.k8s_cli.delete_objects(
                 object_type, label_selector=label_selector
             )
         wait_for_pods_exit(tool_account=tool_account)
 
-    def delete_job(self, *, tool_name: str, job: AnyJob) -> None:
+    def delete_job(self, *, job: AnyJob) -> None:
         """Deletes a specified job."""
-        LOGGER.debug("Deleting job %s for tool %s", job.job_name, tool_name)
-        tool_account = ToolAccount(name=tool_name)
+        LOGGER.debug("Deleting job %s for tool %s", job.job_name, job.tool_name)
+        tool_account = ToolAccount(name=job.tool_name)
         # TODO: this will go away when we split it
         match job.job_type:
             case JobType.SCHEDULED:

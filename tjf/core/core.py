@@ -105,7 +105,7 @@ class Core:
         LOGGER.debug(f"Creating job in runtime: {job}")
         recreate = False
         try:
-            self.runtime.create_job(tool_name=job.tool_name, job=job)
+            self.runtime.create_job(job=job)
         except K8sAlreadyExists:
             recreate = True
         except TjfError as e:
@@ -115,8 +115,8 @@ class Core:
 
         if recreate:
             try:
-                self.runtime.delete_job(tool_name=job.tool_name, job=job)
-                self.runtime.create_job(tool_name=job.tool_name, job=job)
+                self.runtime.delete_job(job=job)
+                self.runtime.create_job(job=job)
             except TjfError as e:
                 raise e
             except Exception as e:
@@ -193,11 +193,11 @@ class Core:
     def _update_job_in_runtime(self, job: AnyJob) -> None:
         try:
             LOGGER.debug(f"Updating job {job.job_name}")
-            self.runtime.update_job(tool_name=job.tool_name, job=job)
+            self.runtime.update_job(job=job)
 
         except TjfJobNotFoundError:
             LOGGER.debug(f"Creating job {job.job_name}")
-            self.runtime.create_job(job=job, tool_name=job.tool_name)
+            self.runtime.create_job(job=job)
 
         LOGGER.info(f"Job {job.job_name} updated in runtime")
 
@@ -257,7 +257,6 @@ class Core:
                 raise TjfValidationError(f"Unknown job type {storage_job.job_type}")
 
             final_job = self._reconciliate_storage_and_runtime(
-                tool_name=tool_name,
                 runtime_job=runtime_job,
                 storage_job=storage_job,
             )
@@ -301,22 +300,22 @@ class Core:
             runtime_job = None
 
         return self._reconciliate_storage_and_runtime(
-            tool_name=tool_name, runtime_job=runtime_job, storage_job=storage_job
+            runtime_job=runtime_job, storage_job=storage_job
         )
 
     def _reconciliate_storage_and_runtime(
-        self, tool_name: str, runtime_job: AnyJob | None, storage_job: AnyJob | None
+        self, runtime_job: AnyJob | None, storage_job: AnyJob | None
     ) -> AnyJob | None:
         if not storage_job:
             if runtime_job:
                 LOGGER.warning(
                     f"Found a job in runtime but not in storage: {runtime_job}"
                 )
-                ONLY_IN_RUNTIME_COUNTER.labels(tool_name=tool_name).inc()
+                ONLY_IN_RUNTIME_COUNTER.labels(tool_name=runtime_job.tool_name).inc()
             return None
 
         if not runtime_job:
-            ONLY_IN_STORAGE_COUNTER.labels(tool_name=tool_name).inc()
+            ONLY_IN_STORAGE_COUNTER.labels(tool_name=storage_job.tool_name).inc()
             LOGGER.warning(f"Found a job in storage but not in runtime: {storage_job}")
 
         storage_job = _update_storage_job_status_from_runtime(
@@ -333,7 +332,7 @@ class Core:
             if not isinstance(job, OneOffJob):
                 raise TjfError("Unable to delete job") from error
 
-        self.runtime.delete_job(tool_name=job.tool_name, job=job)
+        self.runtime.delete_job(job=job)
 
     def restart_job(self, job: AnyJob) -> None:
-        self.runtime.restart_job(job=job, tool_name=job.tool_name)
+        self.runtime.restart_job(job=job)
