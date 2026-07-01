@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from difflib import unified_diff
 from http import HTTPStatus
 from logging import getLogger
 from typing import Any, AsyncIterator
@@ -10,12 +9,10 @@ from toolforge_weld.kubernetes import parse_quantity
 from ...core.error import (
     TjfError,
     TjfImageNotFoundError,
-    TjfJobNotFoundError,
     TjfValidationError,
 )
 from ...core.images import (
     Image,
-    ImageType,
     get_images,
 )
 from ...core.models import (
@@ -409,64 +406,6 @@ class K8sRuntime(BaseRuntime):
         wait_for_pods_exit(
             tool_account=tool_account, job_name=job.job_name, job_type=job.job_type
         )
-
-    def diff_with_running_job(self, *, job: AnyJob) -> str:
-        """
-        Check for differences between job and running job
-        """
-        LOGGER.debug(
-            "Checking for diff in job %s for tool %s", job.job_name, job.tool_name
-        )
-
-        try:
-            if isinstance(job, ContinuousJob):
-                current_job: AnyJob = self.get_continuous_job(
-                    job_name=job.job_name, tool_name=job.tool_name
-                )
-            elif isinstance(job, ScheduledJob):
-                current_job = self.get_scheduled_job(
-                    job_name=job.job_name, tool_name=job.tool_name
-                )
-            elif isinstance(job, OneOffJob):
-                current_job = self.get_one_off_job(
-                    job_name=job.job_name, tool_name=job.tool_name
-                )
-            else:
-                raise TjfValidationError(f"Unknown job type {job.job_type}")
-        except NotFoundInRuntime as error:
-            LOGGER.debug(
-                f"No current job found for job {job.job_name} for tool {job.tool_name}"
-            )
-            raise TjfJobNotFoundError(
-                f"Unable to find job {job.job_name} for tool {job.tool_name}"
-            ) from error
-
-        # TODO: remove once we store the original command
-        # Note: the incoming job does not have an image type, so we get it from the existing job
-        if (
-            job.cmd.startswith("launcher ")
-            and current_job.image.type == ImageType.BUILDSERVICE
-        ):
-            job.cmd = job.cmd.split(" ", 1)[-1]
-
-        clean_current_job = current_job.model_dump_json(
-            exclude={"k8s_object", "status_short", "status_long", "status"}, indent=4
-        )
-
-        clean_new_job = job.model_dump_json(
-            exclude={"k8s_object", "status_short", "status_long", "status"}, indent=4
-        )
-        LOGGER.debug(f"Got new job:\n{clean_new_job}")
-        LOGGER.debug(f"Got current job:\n{clean_current_job}")
-        jobs_same = clean_new_job == clean_current_job
-        LOGGER.debug(f"Got job == current_job:\n{jobs_same}")
-
-        diff = unified_diff(
-            clean_current_job.splitlines(keepends=True),
-            clean_new_job.splitlines(keepends=True),
-            lineterm="",
-        )
-        return "".join([line for line in list(diff) if line is not None])
 
     def get_quotas(self, *, tool_name: str) -> list[QuotaData]:
         tool_account = ToolAccount(name=tool_name)
