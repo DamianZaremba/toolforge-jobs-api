@@ -6,7 +6,14 @@ from logging import getLogger
 from typing import Any
 
 from ...core.error import TjfError
-from ...core.models import AnyJob, Command, ContinuousJob, OneOffJob, ScheduledJob
+from ...core.models import (
+    AnyJob,
+    Command,
+    ContinuousJob,
+    JobType,
+    OneOffJob,
+    ScheduledJob,
+)
 from ...core.utils import (
     KUBERNETES_DATE_FORMAT,
     dict_get_object,
@@ -15,7 +22,6 @@ from ...core.utils import (
 )
 from .account import ToolAccount
 from .command import GeneratedCommand, get_command_for_k8s
-from .jobs import K8sJobKind
 from .labels import labels_selector
 
 LOGGER = getLogger(__name__)
@@ -102,7 +108,7 @@ def _refresh_status_cronjob_from_restarted_cronjob(
         return None
 
     label_selector = labels_selector(
-        job_name=original_cronjob.job_name, tool_name=tool_account.name, type="cronjobs"
+        job_name=original_cronjob.job_name, tool_name=tool_account.name, job_type=JobType.SCHEDULED
     )
     all_cronjob_jobs = tool_account.k8s_cli.get_objects(kind="jobs", label_selector=label_selector)
     for maybe_manual_job_data in all_cronjob_jobs:
@@ -223,7 +229,7 @@ def _refresh_status_dp(tool_account: ToolAccount, job: ContinuousJob) -> None:
         pod_selector = labels_selector(
             job_name=job.job_name,
             tool_name=tool_account.name,
-            type=K8sJobKind.from_job_type(job.job_type).api_path_name,
+            job_type=job.job_type,
         )
         pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=pod_selector)
 
@@ -268,7 +274,7 @@ def refresh_job_long_status(tool_account: ToolAccount, job: AnyJob) -> None:
     label_selector = labels_selector(
         job_name=job.job_name,
         tool_name=tool_account.name,
-        type=K8sJobKind.from_job_type(job.job_type).api_path_name,
+        job_type=job.job_type,
     )
     podlist = tool_account.k8s_cli.get_objects(kind="pods", label_selector=label_selector)
 

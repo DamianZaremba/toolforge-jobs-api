@@ -15,17 +15,32 @@
 #
 from toolforge_weld.kubernetes import MountOption
 
+from tjf.core.models import JobType
+
+# This is the string we use in the component label to filter out all objects related to a given job_type
+# TODO: instead of using a k8s resource name, use the current job type itself, ex. "continuous-job", it's less confusing
+JOB_TYPE_TO_K8S_COMPONENT_LABEL = {
+    JobType.ONE_OFF: "jobs",
+    JobType.SCHEDULED: "cronjobs",
+    JobType.CONTINUOUS: "deployments",
+}
+
 
 def generate_labels(
     *,
     jobname: str | None,
     tool_name: str,
-    type: str | None,
+    job_type: JobType | None,
     filelog: bool = False,
     emails: str | None = None,
     version: bool = True,
     mount: MountOption | None = None,
 ) -> dict[str, str]:
+    component = None
+    # doing JobTypeToK8sComponent.get(job_type, None) would not fail if we have an invalid job_type
+    if job_type:
+        component = JOB_TYPE_TO_K8S_COMPONENT_LABEL[job_type]
+
     obj = {
         "toolforge": "tool",
         "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
@@ -35,8 +50,8 @@ def generate_labels(
     if version:
         obj["app.kubernetes.io/version"] = "2"
 
-    if type is not None:
-        obj["app.kubernetes.io/component"] = type
+    if component is not None:
+        obj["app.kubernetes.io/component"] = component
 
     if jobname is not None:
         obj["app.kubernetes.io/name"] = jobname
@@ -54,12 +69,12 @@ def generate_labels(
 
 
 def labels_selector(
-    tool_name: str, job_name: str | None = None, type: str | None = None
+    tool_name: str, job_name: str | None = None, job_type: JobType | None = None
 ) -> dict[str, str]:
     return generate_labels(
         jobname=job_name,
         tool_name=tool_name,
-        type=type,
+        job_type=job_type,
         filelog=False,
         emails=None,
         version=False,

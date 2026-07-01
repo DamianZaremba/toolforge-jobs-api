@@ -16,6 +16,7 @@ from ...core.models import (
     CommonJobStatus,
     ContinuousJob,
     ContinuousJobStatus,
+    JobType,
     OneOffJobStatus,
     ScheduledJob,
     ScheduledJobStatus,
@@ -438,7 +439,7 @@ def _get_one_off_job_status_from_conditions(job_status: dict[str, Any]) -> OneOf
 def get_one_off_job_status(tool_account: ToolAccount, k8s_job: dict[str, Any]) -> OneOffJobStatus:
     LOGGER.debug(f"k8s job object: {k8s_job}")
     selector = labels_selector(
-        job_name=k8s_job["metadata"]["name"], tool_name=tool_account.name, type="jobs"
+        job_name=k8s_job["metadata"]["name"], tool_name=tool_account.name, job_type=JobType.ONE_OFF
     )
     k8s_pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=selector)
     LOGGER.debug(f"k8s pod objects: {k8s_pods}")
@@ -522,7 +523,7 @@ def get_scheduled_job_status(
         job_name=job.job_name,
         tool_account=tool_account,
         k8s_kind="jobs",
-        k8s_component_label="cronjobs",
+        job_type=job.job_type,
     )
     LOGGER.debug(f"k8s job objects: {k8s_jobs}")
     k8s_job = _get_latest_k8s_cronjob_job(job=job, k8s_cronjob=k8s_cronjob, k8s_jobs=k8s_jobs)
@@ -540,7 +541,7 @@ def get_scheduled_job_status(
             job_name=job.job_name,
             tool_account=tool_account,
             k8s_kind="pods",
-            k8s_component_label="cronjobs",
+            job_type=job.job_type,
         )
         # Restrict pods to those belonging to the latest job only, otherwise
         # pods from older (e.g. failed) runs can contaminate the status.
@@ -684,7 +685,7 @@ def get_continuous_job_status(
         job_name=job.job_name,
         tool_account=tool_account,
         k8s_kind="pods",
-        k8s_component_label="jobs",
+        job_type=job.job_type,
     )
     LOGGER.debug(f"k8s pod objects: {k8s_pods}")
     pod_status = _get_status_from_pods(k8s_pods)
