@@ -28,6 +28,9 @@ node12:
     - toolforge-node12-sssd-base
     - toolforge-node12-sssd-web
   state: deprecated
+  webservice-defaults:
+    command: ["/usr/bin/webservice-runner", "--type", "nodejs"]
+    port: 8000
   variants:
     jobs-framework:
       image: docker-registry.tools.wmflabs.org/toolforge-node12-sssd-base
@@ -41,6 +44,9 @@ node16:
     - toolforge-node16-sssd-base
     - toolforge-node16-sssd-web
   state: stable
+  webservice-defaults:
+    command: ["/usr/bin/webservice-runner", "--type", "nodejs"]
+    port: 8000
   variants:
     jobs-framework:
       image: docker-registry.tools.wmflabs.org/toolforge-node16-sssd-base
@@ -53,6 +59,9 @@ php8.4:
     - toolforge-php84
     - toolforge-php84-sssd-base
     - toolforge-php84-sssd-web
+  webservice-defaults:
+    command: ["/usr/bin/webservice-runner", "--type", "lighttpd"]
+    port: 8000
   variants:
     jobs-framework:
       image: docker-registry.svc.toolforge.org/toolforge-php84-sssd-base
@@ -69,6 +78,9 @@ php7.3:
     - toolforge-php73-sssd-base
     - toolforge-php73-sssd-web
   state: deprecated
+  webservice-defaults:
+    command: ["/usr/bin/webservice-runner", "--type", "lighttpd"]
+    port: 8000
   variants:
     jobs-framework:
       image: docker-registry.tools.wmflabs.org/toolforge-php73-sssd-base
@@ -82,6 +94,9 @@ php7.4:
     - toolforge-php74-sssd-base
     - toolforge-php74-sssd-web
   state: stable
+  webservice-defaults:
+    command: ["/usr/bin/webservice-runner", "--type", "lighttpd"]
+    port: 8000
   variants:
     jobs-framework:
       image: docker-registry.tools.wmflabs.org/toolforge-php74-sssd-base
@@ -95,6 +110,9 @@ python3.11:
     - toolforge-python311
     - toolforge-python311-sssd-base
     - toolforge-python311-sssd-web
+  webservice-defaults:
+    command: ["/usr/bin/webservice-runner", "--type", "uwsgi-python"]
+    port: 8000
   variants:
     jobs-framework:
       image: docker-registry.tools.wmflabs.org/toolforge-python311-sssd-base
@@ -102,6 +120,27 @@ python3.11:
       image: docker-registry.tools.wmflabs.org/toolforge-python311-sssd-web
       extra:
         wstype: python
+
+jdk17:
+  image: docker-registry.tools.wmflabs.org/toolforge-jdk17-sssd-web
+  state: stable
+  aliases:
+    - tf-jdk17
+  webservice-defaults:
+    command: ["/usr/bin/webservice-runner", "--type", "generic"]
+    port: 8000
+    memory: "1Gi"
+  variants:
+    jobs-framework:
+      image: docker-registry.tools.wmflabs.org/toolforge-jdk17-sssd-web
+      extra:
+        wstype: generic
+        resources: jdk
+    webservice:
+      image: docker-registry.tools.wmflabs.org/toolforge-jdk17-sssd-web
+      extra:
+        wstype: generic
+        resources: jdk
 """
 
 FAKE_K8S_HOST = "k8s.example.org"
@@ -1047,6 +1086,10 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
                 "toolforge-python311-sssd-base",
                 "toolforge-python311-sssd-web",
             ],
+            webservice_defaults={
+                "command": ["/usr/bin/webservice-runner", "--type", "uwsgi-python"],
+                "port": 8000,
+            },
         ),
         job_type=JobType.CONTINUOUS,
         tool_name="some-tool",
@@ -1092,6 +1135,10 @@ def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJo
                 "toolforge-python311-sssd-base",
                 "toolforge-python311-sssd-web",
             ],
+            webservice_defaults={
+                "command": ["/usr/bin/webservice-runner", "--type", "uwsgi-python"],
+                "port": 8000,
+            },
         ),
         job_type=JobType.ONE_OFF,
         tool_name="tf-test",
