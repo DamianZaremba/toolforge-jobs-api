@@ -10,6 +10,7 @@ from tests.helpers.fake_k8s import (
     get_continuous_job_fixture_as_job,
     get_oneoff_job_fixture_as_job,
 )
+from tests.helpers.fakes import get_fake_account
 from tests.test_utils import cases, patch_spec
 from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
@@ -24,6 +25,8 @@ from tjf.core.models import (
 )
 from tjf.core.utils import format_quantity, parse_quantity
 from tjf.runtimes.k8s import jobs
+
+test_user = get_fake_account(name="some-tool")
 
 
 class TestJobFromK8s:
@@ -68,7 +71,7 @@ class TestJobFromK8s:
                 k8s_object=K8S_SCHEDULED_JOB_OBJ,
                 job_type=JobType.SCHEDULED,
                 default_cpu_limit="1000m",
-                tool="some-tool",
+                user=test_user,
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
@@ -80,7 +83,7 @@ class TestJobFromK8s:
                 k8s_object=K8S_ONEOFF_JOB_OBJ,
                 job_type=JobType.ONE_OFF,
                 default_cpu_limit="1000m",
-                tool="some-tool",
+                user=test_user,
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
@@ -95,7 +98,7 @@ class TestJobFromK8s:
                 k8s_object=k8s_object,
                 job_type=JobType.ONE_OFF,
                 default_cpu_limit="1000m",
-                tool="some-tool",
+                user=test_user,
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
@@ -108,7 +111,7 @@ class TestJobFromK8s:
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
                 job_type=JobType.CONTINUOUS,
                 default_cpu_limit="1000m",
-                tool="some-tool",
+                user=test_user,
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()
@@ -120,7 +123,7 @@ class TestJobFromK8s:
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
                 job_type=JobType.CONTINUOUS,
                 default_cpu_limit="1000m",
-                tool="some-tool",
+                user=test_user,
             )
 
             assert gotten_job.model_dump() == expected_job.model_dump()

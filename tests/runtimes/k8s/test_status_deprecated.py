@@ -73,12 +73,12 @@ def test_refresh_job_short_status_cronjob(
                 return job
             raise Exception("not supposed to happen")
 
-    account = get_fake_account(fake_k8s_cli=FakeK8sCli())
+    account = get_fake_account(fake_k8s_cli=FakeK8sCli(), name="some-tool")
     gotten_job = get_job_from_k8s(
         cronjob,
         JobType.SCHEDULED,
         default_cpu_limit="4000m",
-        tool="some-tool",
+        user=account,
     )
     refresh_job_short_status(account, gotten_job)
     assert gotten_job.status_short
