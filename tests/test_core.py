@@ -41,7 +41,6 @@ class TestCore:
         def test_returns_none_when_no_jobs_exist(self, get_my_core: GetMyCore):
             my_core = get_my_core()
             gotten_job = my_core._reconciliate_storage_and_runtime(
-                tool_name="some-tool",
                 runtime_job=None,
                 storage_job=None,
             )
@@ -64,7 +63,6 @@ class TestCore:
             my_core = get_my_core()
 
             gotten_job = my_core._reconciliate_storage_and_runtime(
-                tool_name="some-tool",
                 runtime_job=my_runtime_job,
                 storage_job=my_storage_job,
             )
@@ -108,7 +106,6 @@ class TestCore:
                 )
 
             gotten_job = my_core._reconciliate_storage_and_runtime(
-                tool_name="some-tool",
                 runtime_job=my_runtime_job,
                 storage_job=my_storage_job,
             )
@@ -149,7 +146,6 @@ class TestCore:
                 )
 
             gotten_job = my_core._reconciliate_storage_and_runtime(
-                tool_name="some-tool",
                 runtime_job=my_runtime_job,
                 storage_job=my_storage_job,
             )
