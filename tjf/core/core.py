@@ -145,8 +145,11 @@ class Core:
         LOGGER.debug(f"Updating job in storage {job.job_name}")
         changed_in_storage = self._update_job_in_storage(existing_job=maybe_fresh_job, new_job=job)
 
-        LOGGER.debug(f"Updating job in runtime {job.job_name}")
-        changed_in_runtime = self._update_job_in_runtime(job=resolved_job)
+        changed_in_runtime = False
+        if not maybe_fresh_job.status.up_to_date:
+            LOGGER.debug(f"Updating job in runtime {job.job_name}")
+            self._update_job_in_runtime(storage_job=resolved_job)
+            changed_in_runtime = True
 
         message = f"Job {job.job_name} "
         if changed_in_runtime and changed_in_storage:
@@ -185,26 +188,16 @@ class Core:
 
         return True
 
-    def _update_job_in_runtime(self, job: AnyJob) -> bool:
-        changed = False
-
+    def _update_job_in_runtime(self, storage_job: AnyJob) -> None:
         try:
-            # TODO: instead of using diff_with_running_job, move to compare bare jobs
-            #       directly (should not be very hard now that we have split models)
-            diff = self.runtime.diff_with_running_job(job=job)
-            LOGGER.debug(f"Diff for job {job.job_name}: {diff}")
-            if diff:
-                LOGGER.debug(f"Updating job {job.job_name}")
-                self.runtime.update_job(tool_name=job.tool_name, job=job)
-                changed = True
+            LOGGER.debug(f"Updating job {storage_job.job_name}")
+            self.runtime.update_job(tool_name=storage_job.tool_name, job=storage_job)
 
         except TjfJobNotFoundError:
-            LOGGER.debug(f"Creating job {job.job_name}")
-            self.runtime.create_job(job=job, tool_name=job.tool_name)
-            changed = True
+            LOGGER.debug(f"Creating job {storage_job.job_name}")
+            self.runtime.create_job(job=storage_job, tool_name=storage_job.tool_name)
 
-        LOGGER.info(f"Job {job.job_name} changed in runtime: {changed})")
-        return changed
+        LOGGER.info(f"Job {storage_job.job_name} updated in runtime.)")
 
     async def get_logs(
         self, tool_name: str, job_name: str, request_args: Mapping[str, str]

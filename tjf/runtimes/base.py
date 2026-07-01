@@ -58,19 +58,6 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def diff_with_running_job(self, *, job: AnyJob) -> str | None:
-        """
-        Compare job with the one in the runtime and return the diff.
-        This is done here instead of the business side because:
-        - It Makes job comparison logic less brittle (
-           since it by-passes the business logic job implementation
-           and directly compares the runtime implementation of a job
-          )
-        - It can be re-used for other purposes other than update_job
-        """
-        raise NotImplementedError
-
-    @abstractmethod
     def get_quotas(self, *, tool_name: str) -> list[QuotaData]:
         raise NotImplementedError
 

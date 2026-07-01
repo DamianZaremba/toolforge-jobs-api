@@ -24,6 +24,7 @@ from tjf.core.cron import CronExpression
 from tjf.core.error import TjfClientError, TjfError
 from tjf.core.models import (
     AnyJob,
+    ContinuousJobStatus,
     HealthCheckType,
     JobType,
     ScriptHealthCheck,
@@ -479,9 +480,6 @@ class TestApiUpdateJob:
         monkeypatch.setattr(
             app.core.runtime, "get_continuous_job", value=lambda *args, **kwargs: dummy_job
         )
-        monkeypatch.setattr(
-            app.core.runtime, "diff_with_running_job", value=lambda *args, **kwargs: ""
-        )
 
         new_job = NewContinuousJob.model_validate(
             {
@@ -514,9 +512,12 @@ class TestApiUpdateJob:
         fake_images: dict[str, Any],
     ) -> None:
         dummy_job = get_dummy_job()
-        monkeypatch.setattr(app.core, "get_job", value=lambda *args, **kwargs: dummy_job)
         monkeypatch.setattr(
-            app.core.runtime, "diff_with_running_job", value=lambda *args, **kwargs: "some changes"
+            app.core,
+            "get_job",
+            value=lambda *args, **kwargs: dummy_job.model_copy(
+                update={"status": ContinuousJobStatus(up_to_date=False)}
+            ),
         )
         monkeypatch.setattr(app.core.runtime, "update_job", value=lambda *args, **kwargs: None)
 
@@ -552,9 +553,6 @@ class TestApiUpdateJob:
         dummy_job = get_dummy_job()
         different_dummy_job = get_dummy_job(cmd="different job")
         monkeypatch.setattr(app.core, "get_job", value=lambda *args, **kwargs: different_dummy_job)
-        monkeypatch.setattr(
-            app.core.runtime, "diff_with_running_job", value=lambda *args, **kwargs: ""
-        )
 
         new_job = NewContinuousJob.model_validate(
             {
