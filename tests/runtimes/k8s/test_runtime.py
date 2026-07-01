@@ -1,6 +1,6 @@
 from copy import deepcopy
 from typing import Any, Callable
-from unittest.mock import MagicMock
+from unittest.mock import ANY, MagicMock
 
 import pytest
 from toolforge_weld.kubernetes import MountOption
@@ -14,13 +14,21 @@ from tests.helpers.fake_k8s import (
     get_oneoff_job_fixture_as_job,
     get_scheduled_job_fixture_as_job,
 )
+from tests.helpers.fakes import get_dummy_job
 from tests.test_utils import cases, patch_spec
 from tjf.core.cron import CronExpression
-from tjf.core.error import TjfJobNotFoundError
+from tjf.core.error import TjfImageNotFoundError, TjfJobNotFoundError
 from tjf.core.images import Image, ImageType
-from tjf.core.models import AnyJob, ContinuousJobStatus, EmailOption, ScheduledJobStatus
+from tjf.core.models import (
+    AnyJob,
+    ContinuousJobStatus,
+    EmailOption,
+    JobType,
+    ScheduledJobStatus,
+)
 from tjf.runtimes.exceptions import NotFoundInRuntime
-from tjf.runtimes.k8s import runtime as k8s_runtime
+from tjf.runtimes.k8s import jobs as k8s_jobs_mod
+from tjf.runtimes.k8s import runtime as k8s_runtime_mod
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.runtime import K8sRuntime
 from tjf.settings import get_settings
@@ -282,7 +290,7 @@ class TestGetOneOffJob:
         )
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
         monkeypatch.setattr(
-            k8s_runtime,
+            k8s_runtime_mod,
             "get_one_off_job_status",
             lambda *args, **kwargs: ScheduledJobStatus(),
         )
@@ -604,7 +612,7 @@ class TestGetScheduledJob:
         )
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
         monkeypatch.setattr(
-            k8s_runtime,
+            k8s_runtime_mod,
             "get_scheduled_job_status",
             lambda *args, **kwargs: ScheduledJobStatus(),
         )
@@ -869,7 +877,7 @@ class TestGetContinuousJob:
         )
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
         monkeypatch.setattr(
-            k8s_runtime,
+            k8s_runtime_mod,
             "get_continuous_job_status",
             lambda *args, **kwargs: ContinuousJobStatus(),
         )
@@ -978,3 +986,89 @@ class TestDiffWithRunningJob:
 
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert "+++" in diff
+
+
+class TestCreateJob:
+    @cases(
+        "job_type",
+        ["Continuous job", JobType.CONTINUOUS],
+        ["Scheduled job", JobType.CONTINUOUS],
+        ["One-off job", JobType.CONTINUOUS],
+    )
+    def test_raises_if_image_does_not_exist(self, job_type):
+        my_job = get_dummy_job(
+            job_type=job_type,
+            image=Image(
+                short_name="test/image", exists=False, host="harbor.local", path="/some/path"
+            ),
+        )
+        my_runtime = K8sRuntime(settings=get_settings())
+
+        with pytest.raises(TjfImageNotFoundError):
+            my_runtime.create_job(job=my_job)
+
+    def test_for_scheduled_job_creates_cronjob(
+        self, monkeypatch: pytest.MonkeyPatch, fake_tool_account: ToolAccount
+    ):
+        my_job = get_dummy_job(job_type=JobType.SCHEDULED)
+        k8s_cli = MagicMock()
+        fake_tool_account.k8s_cli = k8s_cli
+        monkeypatch.setattr(k8s_runtime_mod, "ToolAccount", lambda name: fake_tool_account)
+        monkeypatch.setattr(k8s_jobs_mod, "_get_tool_account_uid", lambda *args, **kwargs: "12345")
+        my_runtime = K8sRuntime(settings=get_settings())
+
+        my_runtime.create_job(job=my_job)
+
+        # spec is tested in the ops tests
+        k8s_cli.create_object.assert_called_once_with(kind="cronjobs", spec=ANY)
+
+    def test_for_one_off_job_creates_job(
+        self, monkeypatch: pytest.MonkeyPatch, fake_tool_account: ToolAccount
+    ):
+        my_job = get_dummy_job(job_type=JobType.ONE_OFF)
+        k8s_cli = MagicMock()
+        fake_tool_account.k8s_cli = k8s_cli
+        monkeypatch.setattr(k8s_runtime_mod, "ToolAccount", lambda name: fake_tool_account)
+        monkeypatch.setattr(k8s_jobs_mod, "_get_tool_account_uid", lambda *args, **kwargs: "12345")
+        my_runtime = K8sRuntime(settings=get_settings())
+
+        my_runtime.create_job(job=my_job)
+
+        # spec is tested in the ops tests
+        k8s_cli.create_object.assert_called_once_with(kind="jobs", spec=ANY)
+
+    class TestContinuousJob:
+        def test_creates_deployment_without_service_if_no_port(
+            self, monkeypatch: pytest.MonkeyPatch, fake_tool_account: ToolAccount
+        ):
+            my_job = get_dummy_job(job_type=JobType.CONTINUOUS)
+            k8s_cli = MagicMock()
+            fake_tool_account.k8s_cli = k8s_cli
+            monkeypatch.setattr(k8s_runtime_mod, "ToolAccount", lambda name: fake_tool_account)
+            monkeypatch.setattr(
+                k8s_jobs_mod, "_get_tool_account_uid", lambda *args, **kwargs: "12345"
+            )
+            my_runtime = K8sRuntime(settings=get_settings())
+
+            my_runtime.create_job(job=my_job)
+
+            # spec is tested in the ops tests
+            k8s_cli.create_object.assert_called_once_with(kind="deployments", spec=ANY)
+
+        def test_creates_deployment_and_replaces_service_if_port(
+            self, monkeypatch: pytest.MonkeyPatch, fake_tool_account: ToolAccount
+        ):
+            my_job = get_dummy_job(job_type=JobType.CONTINUOUS, port=1234)
+            k8s_cli = MagicMock()
+            fake_tool_account.k8s_cli = k8s_cli
+            monkeypatch.setattr(k8s_runtime_mod, "ToolAccount", lambda name: fake_tool_account)
+            monkeypatch.setattr(
+                k8s_jobs_mod, "_get_tool_account_uid", lambda *args, **kwargs: "12345"
+            )
+            my_runtime = K8sRuntime(settings=get_settings())
+
+            my_runtime.create_job(job=my_job)
+
+            # spec is tested in the ops tests
+            k8s_cli.create_object.assert_called_once_with(kind="deployments", spec=ANY)
+            k8s_cli.replace_object.assert_called_once_with(kind="services", spec=ANY)
