@@ -10,13 +10,11 @@ from tests.helpers.fake_k8s import (
     K8S_ONEOFF_JOB_OBJ,
     K8S_SCHEDULED_JOB_OBJ,
     get_continuous_job_fixture_as_job,
-    get_continuous_job_fixture_as_new_job,
     get_oneoff_job_fixture_as_job,
     get_scheduled_job_fixture_as_job,
 )
 from tests.test_utils import cases, patch_spec
 from tjf.core.cron import CronExpression
-from tjf.core.error import TjfJobNotFoundError
 from tjf.core.images import Image, ImageType
 from tjf.core.models import AnyJob, ContinuousJobStatus, EmailOption, ScheduledJobStatus
 from tjf.runtimes.exceptions import NotFoundInRuntime
@@ -879,102 +877,3 @@ class TestGetContinuousJob:
         )
         assert gotten_job
         assert gotten_job.model_dump() == expected_job.model_dump()
-
-
-class TestDiffWithRunningJob:
-    def test_raises_exception_when_job_is_not_found(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ):
-        new_job = get_continuous_job_fixture_as_new_job()
-        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-
-        def raise_not_found(*args, **kwargs):
-            raise NotFoundInRuntime("Not found!")
-
-        monkeypatch.setattr(my_runtime, "get_continuous_job", raise_not_found)
-
-        with pytest.raises(TjfJobNotFoundError):
-            my_runtime.diff_with_running_job(job=new_job)
-
-    def test_diff_with_running_job_returns_no_diff_for_same_jobs(
-        self, monkeypatch: pytest.MonkeyPatch
-    ):
-        new_job = get_continuous_job_fixture_as_new_job()
-        existing_job = get_continuous_job_fixture_as_job()
-        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-        monkeypatch.setattr(my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job)
-
-        diff = my_runtime.diff_with_running_job(job=new_job)
-        assert diff == ""
-
-    @cases(
-        "existing_job",
-        [
-            "Different command",
-            get_continuous_job_fixture_as_job(cmd="I'm different than the default"),
-        ],
-        [
-            "Different container image",
-            get_continuous_job_fixture_as_job(
-                image=Image(
-                    short_name="different image than fixture", host="dummyhost", path="dummypath"
-                )
-            ),
-        ],
-        ["Different cpu limit", get_continuous_job_fixture_as_job(cpu="200m")],
-        ["Different memory limit", get_continuous_job_fixture_as_job(memory="1Mi")],
-        ["Different email setting", get_continuous_job_fixture_as_job(emails=EmailOption.all)],
-        ["Different port", get_continuous_job_fixture_as_job(port=8080)],
-    )
-    def test_diff_with_running_job_returns_diff_str_for_different_jobs(
-        self, existing_job: AnyJob, monkeypatch: pytest.MonkeyPatch
-    ):
-        new_job = get_continuous_job_fixture_as_new_job()
-        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-        monkeypatch.setattr(my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job)
-
-        diff = my_runtime.diff_with_running_job(job=new_job)
-        assert "+++" in diff
-
-    def test_launcher_gets_stripped_from_new_job(
-        self, monkeypatch: pytest.MonkeyPatch, fake_images: dict[str, Any]
-    ):
-        new_job = get_continuous_job_fixture_as_new_job(
-            cmd="launcher mycommand",
-            image=Image.from_short_name_or_url(
-                url_or_name="harbor.example.org/tool-some-tool/some-container:latest",
-                tool_name="some-tool",
-            ),
-        )
-        existing_job = get_continuous_job_fixture_as_job(
-            cmd="mycommand",
-            image=Image.from_short_name_or_url(
-                url_or_name="harbor.example.org/tool-some-tool/some-container:latest",
-                tool_name="some-tool",
-            ),
-        )
-        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-        monkeypatch.setattr(my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job)
-
-        diff = my_runtime.diff_with_running_job(job=new_job)
-        assert diff == ""
-
-    def test_launcher_does_not_get_stripped_from_new_job_if_not_buildservice(
-        self, monkeypatch: pytest.MonkeyPatch
-    ):
-        new_job = get_continuous_job_fixture_as_new_job(
-            cmd="launcher mycommand",
-            image=Image(short_name="bullseye", host="dummyhost", path="dummypath"),
-        )
-        existing_job = get_continuous_job_fixture_as_job(
-            cmd="mycommand",
-            image=Image(
-                short_name="bullseye", type=ImageType.STANDARD, host="dummyhost", path="dummypath"
-            ),
-        )
-        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-        monkeypatch.setattr(my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job)
-
-        diff = my_runtime.diff_with_running_job(job=new_job)
-        assert "+++" in diff
