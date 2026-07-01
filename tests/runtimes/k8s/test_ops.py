@@ -34,7 +34,7 @@ from tjf.runtimes.k8s.jobs import (
     JOB_DEFAULT_CPU,
     JOB_DEFAULT_MEMORY,
     get_job_for_k8s,
-    get_job_from_k8s,
+    get_scheduled_job_from_k8s_object,
 )
 from tjf.runtimes.k8s.k8s_errors import K8sAlreadyExists, K8sError, K8sOutOfQuota
 from tjf.runtimes.k8s.ops import get_error_from_k8s_response, validate_job_limits
@@ -42,9 +42,8 @@ from tjf.runtimes.k8s.ops import get_error_from_k8s_response, validate_job_limit
 
 @pytest.fixture
 def fake_job(fake_tool_account_uid: None, fake_images: dict[str, Any]) -> AnyJob:
-    return get_job_from_k8s(
+    return get_scheduled_job_from_k8s_object(
         CRONJOB_NOT_RUN_YET,
-        JobType.SCHEDULED,
         default_cpu_limit="4000m",
         tool_name="some-tool",
     )

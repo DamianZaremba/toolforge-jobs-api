@@ -20,7 +20,6 @@ from ...core.images import (
 )
 from ...core.models import (
     AnyJob,
-    AnyJobStatus,
     ContinuousJob,
     JobType,
     OneOffJob,
@@ -37,8 +36,11 @@ from .account import ToolAccount
 from .jobs import (
     K8sJobKind,
     format_logs,
+    get_continuous_job_from_k8s_object,
     get_job_for_k8s,
-    get_job_from_k8s,
+    get_k8s_objects_by_job_name,
+    get_one_off_job_from_k8s_object,
+    get_scheduled_job_from_k8s_object,
 )
 from .k8s_errors import K8sAlreadyExists, get_error_from_k8s_response
 from .labels import labels_selector
@@ -59,48 +61,79 @@ class K8sRuntime(BaseRuntime):
         self.loki_url = settings.loki_url
         self.default_cpu_limit = settings.default_cpu_limit
 
-    def get_jobs(self, *, tool_name: str) -> list[AnyJob]:
+    def get_one_off_jobs(self, *, tool_name: str) -> list[OneOffJob]:
         job_list = []
         tool_account = ToolAccount(name=tool_name)
-        for job_type in JobType:
-            kind = K8sJobKind.from_job_type(job_type).api_path_name
-            label_selector = labels_selector(tool_name=tool_account.name, type=kind)
-            for k8s_obj in tool_account.k8s_cli.get_objects(
-                kind=kind, label_selector=label_selector
-            ):
-                job = get_job_from_k8s(
-                    k8s_object=k8s_obj,
-                    job_type=job_type,
-                    default_cpu_limit=self.default_cpu_limit,
-                    tool_name=tool_name,
-                )
-                refresh_job_short_status(tool_account, job)
-                refresh_job_long_status(tool_account, job)
-                job.status = self._get_job_status(job=job, tool_name=tool_name)
-                job_list.append(job)
+        label_selector = labels_selector(tool_name=tool_account.name, type="jobs")
+        for k8s_object in tool_account.k8s_cli.get_objects(
+            kind="jobs", label_selector=label_selector
+        ):
+            one_off_job = get_one_off_job_from_k8s_object(
+                k8s_object=k8s_object,
+                default_cpu_limit=self.default_cpu_limit,
+                tool_name=tool_name,
+            )
+            refresh_job_short_status(tool_account, one_off_job)
+            refresh_job_long_status(tool_account, one_off_job)
+            one_off_job.status = get_one_off_job_status(
+                tool_account=tool_account, k8s_job=one_off_job.k8s_object
+            )
+            job_list.append(one_off_job)
 
         return job_list
 
-    def get_job(self, *, job_name: str, tool_name: str) -> AnyJob:
+    def get_one_off_job(self, *, job_name: str, tool_name: str) -> OneOffJob:
         tool_account = ToolAccount(name=tool_name)
-        for job_type in JobType:
-            kind = K8sJobKind.from_job_type(job_type).api_path_name
-            label_selector = labels_selector(
-                job_name=job_name, tool_name=tool_account.name, type=kind
+        for k8s_obj in get_k8s_objects_by_job_name(
+            job_name=job_name, tool_account=tool_account, k8s_kind="jobs"
+        ):
+            one_off_job = get_one_off_job_from_k8s_object(
+                k8s_object=k8s_obj,
+                default_cpu_limit=self.default_cpu_limit,
+                tool_name=tool_name,
             )
-            for k8s_obj in tool_account.k8s_cli.get_objects(
-                kind=kind, label_selector=label_selector
-            ):
-                job = get_job_from_k8s(
-                    k8s_object=k8s_obj,
-                    job_type=job_type,
-                    default_cpu_limit=self.default_cpu_limit,
-                    tool_name=tool_name,
-                )
-                refresh_job_short_status(tool_account, job)
-                refresh_job_long_status(tool_account, job)
-                job.status = self._get_job_status(job=job, tool_name=tool_name)
-                return job
+            refresh_job_short_status(tool_account, one_off_job)
+            refresh_job_long_status(tool_account, one_off_job)
+            one_off_job.status = get_one_off_job_status(
+                tool_account=tool_account, k8s_job=one_off_job.k8s_object
+            )
+            return one_off_job
+
+        raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool_name}.")
+
+    def get_scheduled_job(self, *, job_name: str, tool_name: str) -> ScheduledJob:
+        tool_account = ToolAccount(name=tool_name)
+        for k8s_obj in get_k8s_objects_by_job_name(
+            job_name=job_name, tool_account=tool_account, k8s_kind="cronjobs"
+        ):
+            scheduled_job = get_scheduled_job_from_k8s_object(
+                k8s_object=k8s_obj,
+                default_cpu_limit=self.default_cpu_limit,
+                tool_name=tool_name,
+            )
+            refresh_job_short_status(tool_account, scheduled_job)
+            refresh_job_long_status(tool_account, scheduled_job)
+            scheduled_job.status = get_scheduled_job_status(
+                job=scheduled_job, tool_account=tool_account
+            )
+            return scheduled_job
+
+        raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool_name}.")
+
+    def get_continuous_job(self, *, job_name: str, tool_name: str) -> ContinuousJob:
+        tool_account = ToolAccount(name=tool_name)
+        for k8s_obj in get_k8s_objects_by_job_name(
+            job_name=job_name, tool_account=tool_account, k8s_kind="deployments"
+        ):
+            job = get_continuous_job_from_k8s_object(
+                k8s_object=k8s_obj,
+                default_cpu_limit=self.default_cpu_limit,
+                tool_name=tool_name,
+            )
+            refresh_job_short_status(tool_account, job)
+            refresh_job_long_status(tool_account, job)
+            job.status = get_continuous_job_status(job=job, tool_account=tool_account)
+            return job
 
         raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool_name}.")
 
@@ -237,7 +270,22 @@ class K8sRuntime(BaseRuntime):
         refresh_job_short_status(tool_account, job)
         refresh_job_long_status(tool_account, job)
         try:
-            job.status = self._get_job_status(job=job, tool_name=tool_name)
+            match job.job_type:
+                case JobType.ONE_OFF:
+                    job.status = get_one_off_job_status(
+                        tool_account=tool_account, k8s_job=job.k8s_object
+                    )
+
+                case JobType.SCHEDULED:
+                    job.status = get_scheduled_job_status(job=job, tool_account=tool_account)
+
+                case JobType.CONTINUOUS:
+                    job.status = get_continuous_job_status(job=job, tool_account=tool_account)
+                case _:
+                    raise TjfError(
+                        f"Unable to get status for job {job.job_name} with unknown type: {job.job_type}"
+                    )
+
         except requests.exceptions.HTTPError as error:
             raise get_error_from_k8s_response(error=error, job=job, spec=spec)
 
@@ -273,7 +321,18 @@ class K8sRuntime(BaseRuntime):
         LOGGER.debug("Checking for diff in job %s for tool %s", job.job_name, job.tool_name)
 
         try:
-            current_job = self.get_job(job_name=job.job_name, tool_name=job.tool_name)
+            if isinstance(job, ContinuousJob):
+                current_job: AnyJob = self.get_continuous_job(
+                    job_name=job.job_name, tool_name=job.tool_name
+                )
+            elif isinstance(job, ScheduledJob):
+                current_job = self.get_scheduled_job(
+                    job_name=job.job_name, tool_name=job.tool_name
+                )
+            elif isinstance(job, OneOffJob):
+                current_job = self.get_one_off_job(job_name=job.job_name, tool_name=job.tool_name)
+            else:
+                raise TjfValidationError(f"Unknown job type {job.job_type}")
         except NotFoundInRuntime as error:
             LOGGER.debug(f"No current job found for job {job.job_name} for tool {job.tool_name}")
             raise TjfJobNotFoundError(
@@ -303,49 +362,6 @@ class K8sRuntime(BaseRuntime):
             lineterm="",
         )
         return "".join([line for line in list(diff) if line is not None])
-
-    def _get_job_status(self, *, job: AnyJob, tool_name: str) -> AnyJobStatus:
-        LOGGER.debug(f"Getting status for the job {job.job_name}, for tool {tool_name}")
-        user = ToolAccount(name=tool_name)
-        k8s_type = K8sJobKind.from_job_type(job.job_type)
-        selector = labels_selector(
-            job_name=job.job_name,
-            tool_name=user.name,
-            type=k8s_type.api_path_name,
-        )
-        k8s_pods = user.k8s_cli.get_objects(kind="pods", label_selector=selector)
-
-        job_status: AnyJobStatus
-        match job.job_type:
-            case JobType.ONE_OFF:
-                one_off_job_status = get_one_off_job_status(
-                    tool_account=user, k8s_job=job.k8s_object, k8s_pods=k8s_pods
-                )
-                job_status = one_off_job_status
-
-            case JobType.SCHEDULED:
-                k8s_jobs = user.k8s_cli.get_objects(kind="jobs", label_selector=selector)
-                scheduled_job_status = get_scheduled_job_status(
-                    tool_account=user,
-                    job=job,
-                    k8s_cronjob=job.k8s_object,
-                    k8s_jobs=k8s_jobs,
-                    k8s_pods=k8s_pods,
-                )
-                job_status = scheduled_job_status
-
-            case JobType.CONTINUOUS:
-                continuous_job_status = get_continuous_job_status(
-                    k8s_deployment=job.k8s_object, k8s_pods=k8s_pods
-                )
-                job_status = continuous_job_status
-
-            case _:
-                raise TjfError(
-                    f"Unable to get status for job {job.job_name} with unknown type: {job.job_type}"
-                )
-        LOGGER.debug(f"job status: {job_status}")
-        return job_status
 
     def get_quotas(self, *, tool_name: str) -> list[QuotaData]:
         tool_account = ToolAccount(name=tool_name)

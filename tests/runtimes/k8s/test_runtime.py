@@ -7,14 +7,20 @@ from toolforge_weld.kubernetes import MountOption
 
 from tests.helpers.fake_k8s import (
     K8S_CONTINUOUS_JOB_OBJ,
+    K8S_ONEOFF_JOB_OBJ,
+    K8S_SCHEDULED_JOB_OBJ,
     get_continuous_job_fixture_as_job,
     get_continuous_job_fixture_as_new_job,
+    get_oneoff_job_fixture_as_job,
+    get_scheduled_job_fixture_as_job,
 )
 from tests.test_utils import cases, patch_spec
+from tjf.core.cron import CronExpression
 from tjf.core.error import TjfJobNotFoundError
 from tjf.core.images import Image, ImageType
-from tjf.core.models import AnyJob, ContinuousJobStatus, EmailOption
+from tjf.core.models import AnyJob, ContinuousJobStatus, EmailOption, ScheduledJobStatus
 from tjf.runtimes.exceptions import NotFoundInRuntime
+from tjf.runtimes.k8s import runtime as k8s_runtime
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.runtime import K8sRuntime
 from tjf.settings import get_settings
@@ -36,15 +42,589 @@ def patch_tool_account_k8s_cli(
     monkeymodule.setattr(ToolAccount, "__init__", __init__)
 
 
-class TestGetJob:
+class TestGetOneOffJob:
     def test_raises_when_no_job_found(self, monkeymodule: pytest.MonkeyPatch):
         patch_tool_account_k8s_cli(
             monkeymodule=monkeymodule, get_objects_mock=lambda *args, **kwargs: []
         )
-        my_runtime = K8sRuntime(settings=get_settings())
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
 
         with pytest.raises(NotFoundInRuntime):
-            my_runtime.get_job(job_name="idontexist", tool_name="idontexisteither")
+            my_runtime.get_one_off_job(job_name="idontexist", tool_name="idontexisteither")
+
+    @cases(
+        "patch, expected_job",
+        [
+            "We get the same as the fixture",
+            [None, get_oneoff_job_fixture_as_job()],
+        ],
+        [
+            "Ignores metadata.creationTimestamp",
+            [
+                {"metadata": {"creationTimestamp": "2021-09-01T00:00:00Z"}},
+                get_oneoff_job_fixture_as_job(),
+            ],
+        ],
+        [
+            "Ignores metadata.resourceVersion",
+            [
+                {"metadata": {"resourceVersion": "123456"}},
+                get_oneoff_job_fixture_as_job(),
+            ],
+        ],
+        [
+            "Ignores metadata.selfLink",
+            [
+                {"metadata": {"selfLink": "self-link"}},
+                get_oneoff_job_fixture_as_job(),
+            ],
+        ],
+        [
+            "Ignores metadata.uid",
+            [{"metadata": {"uid": "123456"}}, get_oneoff_job_fixture_as_job()],
+        ],
+        [
+            "Ignores metadata.generation",
+            [{"metadata": {"generation": 10}}, get_oneoff_job_fixture_as_job()],
+        ],
+        [
+            "Ignores metadata.managedFields",
+            [
+                {"metadata": {"managedFields": []}},
+                get_oneoff_job_fixture_as_job(),
+            ],
+        ],
+        [
+            "Ignores metadata.finalizers",
+            [{"metadata": {"finalizers": []}}, get_oneoff_job_fixture_as_job()],
+        ],
+        [
+            "Ignores metadata.ownerReferences",
+            [
+                {"metadata": {"ownerReferences": []}},
+                get_oneoff_job_fixture_as_job(),
+            ],
+        ],
+        [
+            "Ignores metadata.annotations",
+            [{"metadata": {"annotations": {}}}, get_oneoff_job_fixture_as_job()],
+        ],
+        [
+            "Ignores prefix launcher in the command when buildservice image",
+            [
+                {
+                    "spec": {
+                        "template": {
+                            "spec": {
+                                "containers": [
+                                    K8S_ONEOFF_JOB_OBJ["spec"]["template"]["spec"]["containers"][0]
+                                    | {
+                                        "command": ["launcher"]
+                                        + K8S_ONEOFF_JOB_OBJ["spec"]["template"]["spec"][
+                                            "containers"
+                                        ][0]["command"],
+                                        "image": "harbor.example.org/tool-some-tool/some-container:latest",
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                },
+                get_oneoff_job_fixture_as_job(
+                    image=Image(
+                        short_name="tool-some-tool/some-container:latest",
+                        host="harbor.example.org",
+                        path="tool-some-tool/some-container",
+                        tag="latest",
+                        aliases=[
+                            "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
+                        ],
+                        type=ImageType.BUILDSERVICE,
+                        state="stable",
+                    ),
+                ),
+            ],
+        ],
+        [
+            "pickup filelogs if there",
+            [
+                {
+                    "spec": {
+                        "template": {
+                            "spec": {
+                                "args": [],
+                                "containers": [
+                                    {
+                                        "command": [
+                                            "/bin/sh",
+                                            "-c",
+                                            "--",
+                                            "exec 1>>/data/project/tf-test/testoneoff.out;exec 2>>/data/project/tf-test/testoneoff.err;date",
+                                        ]
+                                    }
+                                ],
+                            }
+                        }
+                    },
+                },
+                get_oneoff_job_fixture_as_job(filelog=True),
+            ],
+        ],
+        [
+            "Picks up a different command",
+            [
+                {
+                    "spec": {
+                        "template": {
+                            "spec": {
+                                "containers": [
+                                    {
+                                        "command": [
+                                            "/bin/sh",
+                                            "-c",
+                                            "--",
+                                            "exec 1>>/data/project/tf-test/testoneoff.out;exec 2>>/data/project/tf-test/testoneoff.err;test-command with-arguments 'other argument with spaces'",
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                get_oneoff_job_fixture_as_job(
+                    cmd="test-command with-arguments 'other argument with spaces'",
+                ),
+            ],
+        ],
+        [
+            "Picks up a different image",
+            [
+                {
+                    "spec": {
+                        "template": {
+                            "spec": {
+                                "containers": [
+                                    {
+                                        "image": "harbor.example.org/tool-some-tool/some-container:latest"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                get_oneoff_job_fixture_as_job(
+                    image=Image(
+                        short_name="tool-some-tool/some-container:latest",
+                        host="harbor.example.org",
+                        path="tool-some-tool/some-container",
+                        tag="latest",
+                        type=ImageType.BUILDSERVICE,
+                        aliases=[
+                            "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
+                        ],
+                        state="stable",
+                    ),
+                    mount=MountOption.ALL,
+                ),
+            ],
+        ],
+        [
+            "Picks up cpu limit",
+            [
+                {
+                    "spec": {
+                        "template": {
+                            "spec": {"containers": [{"resources": {"limits": {"cpu": "2"}}}]}
+                        }
+                    }
+                },
+                get_oneoff_job_fixture_as_job(cpu="2"),
+            ],
+        ],
+        [
+            "Picks up memory limit",
+            [
+                {
+                    "spec": {
+                        "template": {
+                            "spec": {"containers": [{"resources": {"limits": {"memory": "1Gi"}}}]}
+                        }
+                    }
+                },
+                get_oneoff_job_fixture_as_job(memory="1Gi"),
+            ],
+        ],
+        [
+            "Picks up email setting",
+            [
+                {"metadata": {"labels": {"jobs.toolforge.org/emails": "all"}}},
+                get_oneoff_job_fixture_as_job(emails=EmailOption.all),
+            ],
+        ],
+    )
+    def test_matches_expected_job(
+        self,
+        patch: dict[str, Any] | None,
+        expected_job: AnyJob,
+        fake_images: dict[str, Any],
+        monkeymodule: pytest.MonkeyPatch,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        applied_spec = patch_spec(K8S_ONEOFF_JOB_OBJ, patch)
+        # Hard to pass in the `cases` definition
+        expected_job.k8s_object = applied_spec
+
+        patch_tool_account_k8s_cli(
+            monkeymodule=monkeymodule,
+            get_objects_mock=lambda *args, kind, **kwargs: (
+                [deepcopy(applied_spec)] if kind == "jobs" else []
+            ),
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        monkeypatch.setattr(
+            k8s_runtime,
+            "get_one_off_job_status",
+            lambda *args, **kwargs: ScheduledJobStatus(),
+        )
+
+        gotten_job = my_runtime.get_one_off_job(
+            job_name=expected_job.job_name, tool_name=expected_job.tool_name
+        )
+        assert gotten_job
+        assert gotten_job.status_short.startswith("Running for")
+        # As we get here something like "Running <duration that changes>" we reset to the value that comes
+        # from the mock after checking partially
+        gotten_job.status_short = "Unknown"
+        assert gotten_job.model_dump() == expected_job.model_dump()
+
+
+class TestGetScheduledJob:
+    def test_raises_when_no_job_found(self, monkeymodule: pytest.MonkeyPatch):
+        patch_tool_account_k8s_cli(
+            monkeymodule=monkeymodule, get_objects_mock=lambda *args, **kwargs: []
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+
+        with pytest.raises(NotFoundInRuntime):
+            my_runtime.get_scheduled_job(job_name="idontexist", tool_name="idontexisteither")
+
+    @cases(
+        "patch, expected_job",
+        [
+            "We get the same as the fixture",
+            [None, get_scheduled_job_fixture_as_job()],
+        ],
+        [
+            "Ignores metadata.creationTimestamp",
+            [
+                {"metadata": {"creationTimestamp": "2021-09-01T00:00:00Z"}},
+                get_scheduled_job_fixture_as_job(),
+            ],
+        ],
+        [
+            "Ignores metadata.resourceVersion",
+            [
+                {"metadata": {"resourceVersion": "123456"}},
+                get_scheduled_job_fixture_as_job(),
+            ],
+        ],
+        [
+            "Ignores metadata.selfLink",
+            [
+                {"metadata": {"selfLink": "self-link"}},
+                get_scheduled_job_fixture_as_job(),
+            ],
+        ],
+        [
+            "Ignores metadata.uid",
+            [{"metadata": {"uid": "123456"}}, get_scheduled_job_fixture_as_job()],
+        ],
+        [
+            "Ignores metadata.generation",
+            [{"metadata": {"generation": 10}}, get_scheduled_job_fixture_as_job()],
+        ],
+        [
+            "Ignores metadata.managedFields",
+            [
+                {"metadata": {"managedFields": []}},
+                get_scheduled_job_fixture_as_job(),
+            ],
+        ],
+        [
+            "Ignores metadata.finalizers",
+            [{"metadata": {"finalizers": []}}, get_scheduled_job_fixture_as_job()],
+        ],
+        [
+            "Ignores metadata.ownerReferences",
+            [
+                {"metadata": {"ownerReferences": []}},
+                get_scheduled_job_fixture_as_job(),
+            ],
+        ],
+        [
+            "Ignores metadata.annotations",
+            [{"metadata": {"annotations": {}}}, get_scheduled_job_fixture_as_job()],
+        ],
+        [
+            "Ignores prefix launcher in the command when buildservice image",
+            [
+                {
+                    "metadata": {
+                        "labels": {
+                            "jobs.toolforge.org/filelog": "no",
+                            "toolforge.org/mount-storage": "none",
+                        }
+                    },
+                    "spec": {
+                        "jobTemplate": {
+                            "spec": {
+                                "template": {
+                                    "spec": {
+                                        "containers": [
+                                            K8S_SCHEDULED_JOB_OBJ["spec"]["jobTemplate"]["spec"][
+                                                "template"
+                                            ]["spec"]["containers"][0]
+                                            | {
+                                                # patch_spec only replaces elements of a list, it does not replace
+                                                # the whole list, so we need to supply as many elements as the original
+                                                # list had
+                                                "command": [
+                                                    "launcher",
+                                                    "some",
+                                                    "command",
+                                                    "with",
+                                                    "many",
+                                                    "arguments",
+                                                ],
+                                                "image": "harbor.example.org/tool-some-tool/some-container:latest",
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                },
+                get_scheduled_job_fixture_as_job(
+                    image=Image(
+                        short_name="tool-some-tool/some-container:latest",
+                        host="harbor.example.org",
+                        path="tool-some-tool/some-container",
+                        tag="latest",
+                        aliases=[
+                            "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
+                        ],
+                        type=ImageType.BUILDSERVICE,
+                        state="stable",
+                    ),
+                    cmd="some command with many arguments",
+                    mount=MountOption.NONE,
+                    filelog=False,
+                    filelog_stderr=None,
+                    filelog_stdout=None,
+                ),
+            ],
+        ],
+        [
+            "pickup filelogs if there",
+            [
+                {
+                    "spec": {
+                        "jobTemplate": {
+                            "spec": {
+                                "template": {
+                                    "spec": {
+                                        "args": [],
+                                        "containers": [
+                                            {
+                                                "command": [
+                                                    "/bin/sh",
+                                                    "-c",
+                                                    "--",
+                                                    "exec 1>>/data/project/tf-test/cronjobtest.out;exec 2>>/data/project/tf-test/cronjobtest.err;date",
+                                                ]
+                                            }
+                                        ],
+                                    }
+                                }
+                            }
+                        },
+                    },
+                },
+                get_scheduled_job_fixture_as_job(filelog=True),
+            ],
+        ],
+        [
+            "Picks up a different command",
+            [
+                {
+                    "spec": {
+                        "jobTemplate": {
+                            "spec": {
+                                "template": {
+                                    "spec": {
+                                        "containers": [
+                                            {
+                                                "command": [
+                                                    "/bin/sh",
+                                                    "-c",
+                                                    "--",
+                                                    "exec 1>>/data/project/tf-test/cronjobtest.out;exec 2>>/data/project/tf-test/cronjobtest.err;test-command with-arguments 'other argument with spaces'",
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                get_scheduled_job_fixture_as_job(
+                    cmd="test-command with-arguments 'other argument with spaces'",
+                ),
+            ],
+        ],
+        [
+            "Picks up a different image",
+            [
+                {
+                    "spec": {
+                        "jobTemplate": {
+                            "spec": {
+                                "template": {
+                                    "spec": {
+                                        "containers": [
+                                            {
+                                                "image": "harbor.example.org/tool-some-tool/some-container:latest"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                get_scheduled_job_fixture_as_job(
+                    image=Image(
+                        short_name="tool-some-tool/some-container:latest",
+                        host="harbor.example.org",
+                        path="tool-some-tool/some-container",
+                        tag="latest",
+                        type=ImageType.BUILDSERVICE,
+                        aliases=[
+                            "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
+                        ],
+                        state="stable",
+                    ),
+                    mount=MountOption.ALL,
+                ),
+            ],
+        ],
+        [
+            "Picks up cpu limit",
+            [
+                {
+                    "spec": {
+                        "jobTemplate": {
+                            "spec": {
+                                "template": {
+                                    "spec": {
+                                        "containers": [{"resources": {"limits": {"cpu": "1"}}}]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                get_scheduled_job_fixture_as_job(cpu="1"),
+            ],
+        ],
+        [
+            "Picks up memory limit",
+            [
+                {
+                    "spec": {
+                        "jobTemplate": {
+                            "spec": {
+                                "template": {
+                                    "spec": {
+                                        "containers": [
+                                            {"resources": {"limits": {"memory": "1Gi"}}}
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                get_scheduled_job_fixture_as_job(memory="1Gi"),
+            ],
+        ],
+        [
+            "Picks up email setting",
+            [
+                {"metadata": {"labels": {"jobs.toolforge.org/emails": "all"}}},
+                get_scheduled_job_fixture_as_job(emails=EmailOption.all),
+            ],
+        ],
+        [
+            "Picks up schedule change",
+            [
+                {
+                    "metadata": {
+                        "annotations": {"jobs.toolforge.org/cron-expression": "1 2 3 4 5"}
+                    },
+                    "spec": {"schedule": "1 2 3 4 5"},
+                },
+                get_scheduled_job_fixture_as_job(
+                    schedule=CronExpression.parse(
+                        value="1 2 3 4 5", tool_name="", job_name="cronjobtest"
+                    ),
+                ),
+            ],
+        ],
+    )
+    def test_matches_expected_job(
+        self,
+        patch: dict[str, Any] | None,
+        expected_job: AnyJob,
+        fake_images: dict[str, Any],
+        monkeymodule: pytest.MonkeyPatch,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        applied_spec = patch_spec(K8S_SCHEDULED_JOB_OBJ, patch)
+        # Hard to pass in the `cases` definition
+        expected_job.k8s_object = applied_spec
+
+        patch_tool_account_k8s_cli(
+            monkeymodule=monkeymodule,
+            get_objects_mock=lambda *args, kind, **kwargs: (
+                [deepcopy(applied_spec)] if kind == "cronjobs" else []
+            ),
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        monkeypatch.setattr(
+            k8s_runtime,
+            "get_scheduled_job_status",
+            lambda *args, **kwargs: ScheduledJobStatus(),
+        )
+
+        gotten_job = my_runtime.get_scheduled_job(
+            job_name=expected_job.job_name, tool_name=expected_job.tool_name
+        )
+        assert gotten_job
+        assert gotten_job.model_dump() == expected_job.model_dump()
+
+
+class TestGetContinuousJob:
+    def test_raises_when_no_job_found(self, monkeymodule: pytest.MonkeyPatch):
+        patch_tool_account_k8s_cli(
+            monkeymodule=monkeymodule, get_objects_mock=lambda *args, **kwargs: []
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+
+        with pytest.raises(NotFoundInRuntime):
+            my_runtime.get_continuous_job(job_name="idontexist", tool_name="idontexisteither")
 
     @cases(
         "patch, expected_job",
@@ -228,11 +808,11 @@ class TestGetJob:
                 {
                     "spec": {
                         "template": {
-                            "spec": {"containers": [{"resources": {"limits": {"cpu": "1"}}}]}
+                            "spec": {"containers": [{"resources": {"limits": {"cpu": "2"}}}]}
                         }
                     }
                 },
-                get_continuous_job_fixture_as_job(cpu="1", filelog=False),
+                get_continuous_job_fixture_as_job(cpu="2", filelog=False),
             ],
         ],
         [
@@ -287,14 +867,14 @@ class TestGetJob:
                 [deepcopy(applied_spec)] if kind == "deployments" else []
             ),
         )
-        my_runtime = K8sRuntime(settings=get_settings())
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
         monkeypatch.setattr(
-            my_runtime,
-            "_get_job_status",
+            k8s_runtime,
+            "get_continuous_job_status",
             lambda *args, **kwargs: ContinuousJobStatus(),
         )
 
-        gotten_job = my_runtime.get_job(
+        gotten_job = my_runtime.get_continuous_job(
             job_name=expected_job.job_name, tool_name=expected_job.tool_name
         )
         assert gotten_job
@@ -307,12 +887,12 @@ class TestDiffWithRunningJob:
         monkeypatch: pytest.MonkeyPatch,
     ):
         new_job = get_continuous_job_fixture_as_new_job()
-        my_runtime = K8sRuntime(settings=get_settings())
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
 
         def raise_not_found(*args, **kwargs):
             raise NotFoundInRuntime("Not found!")
 
-        monkeypatch.setattr(my_runtime, "get_job", raise_not_found)
+        monkeypatch.setattr(my_runtime, "get_continuous_job", raise_not_found)
 
         with pytest.raises(TjfJobNotFoundError):
             my_runtime.diff_with_running_job(job=new_job)
@@ -322,8 +902,8 @@ class TestDiffWithRunningJob:
     ):
         new_job = get_continuous_job_fixture_as_new_job()
         existing_job = get_continuous_job_fixture_as_job()
-        my_runtime = K8sRuntime(settings=get_settings())
-        monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        monkeypatch.setattr(my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job)
 
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert diff == ""
@@ -351,8 +931,8 @@ class TestDiffWithRunningJob:
         self, existing_job: AnyJob, monkeypatch: pytest.MonkeyPatch
     ):
         new_job = get_continuous_job_fixture_as_new_job()
-        my_runtime = K8sRuntime(settings=get_settings())
-        monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        monkeypatch.setattr(my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job)
 
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert "+++" in diff
@@ -374,8 +954,8 @@ class TestDiffWithRunningJob:
                 tool_name="some-tool",
             ),
         )
-        my_runtime = K8sRuntime(settings=get_settings())
-        monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        monkeypatch.setattr(my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job)
 
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert diff == ""
@@ -393,8 +973,8 @@ class TestDiffWithRunningJob:
                 short_name="bullseye", type=ImageType.STANDARD, host="dummyhost", path="dummypath"
             ),
         )
-        my_runtime = K8sRuntime(settings=get_settings())
-        monkeypatch.setattr(my_runtime, "get_job", lambda *args, **kwargs: existing_job)
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        monkeypatch.setattr(my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job)
 
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert "+++" in diff

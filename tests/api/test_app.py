@@ -476,7 +476,9 @@ class TestApiUpdateJob:
             }
         )
         monkeypatch.setattr(app.core.storage, "get_job", value=lambda *args, **kwargs: dummy_job)
-        monkeypatch.setattr(app.core.runtime, "get_job", value=lambda *args, **kwargs: dummy_job)
+        monkeypatch.setattr(
+            app.core.runtime, "get_continuous_job", value=lambda *args, **kwargs: dummy_job
+        )
         monkeypatch.setattr(
             app.core.runtime, "diff_with_running_job", value=lambda *args, **kwargs: ""
         )
@@ -594,7 +596,7 @@ class TestApiUpdateJob:
         monkeypatch.setattr(
             app.core.storage, "create_job", value=lambda *args, **kwargs: dummy_job
         )
-        monkeypatch.setattr(app.core.runtime, "get_job", value=raise_not_found)
+        monkeypatch.setattr(app.core.runtime, "get_one_off_job", value=raise_not_found)
         monkeypatch.setattr(
             app.core.runtime, "create_job", value=lambda *args, **kwargs: dummy_job
         )

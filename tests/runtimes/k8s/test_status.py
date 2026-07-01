@@ -1,8 +1,9 @@
 import json
 import re
 from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock
 
-from helpers.fakes import get_fake_account
+from helpers.fakes import get_dummy_job, get_fake_account
 
 import tests.helpers.fake_k8s as fake_k8s
 from tests.test_utils import cases
@@ -16,6 +17,7 @@ from tjf.core.models import (
     ScheduledJob,
     ScheduledJobStatus,
 )
+from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.status import (
     _get_quota_error,
     get_continuous_job_status,
@@ -231,7 +233,12 @@ def test_get_one_off_job_status(
     event: str | None,
 ):
     class FakeK8sCli:
-        def get_objects(self, *args, **kwargs):
+        def get_objects(self, *args, kind, **kwargs):
+            if kind == "pods":
+                return (
+                    [json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_pod))] if k8s_pod else []
+                )
+
             if not event:
                 return []
             return [json.loads(re.sub(ISO_PATTERN, dummy_date_str, event))]
@@ -242,10 +249,7 @@ def test_get_one_off_job_status(
         datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     )
     k8s_job_json = json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_job))
-    k8s_pods_json = [json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_pod))] if k8s_pod else []
-    gotten_status = get_one_off_job_status(
-        tool_account=tool_account, k8s_job=k8s_job_json, k8s_pods=k8s_pods_json
-    )
+    gotten_status = get_one_off_job_status(tool_account=tool_account, k8s_job=k8s_job_json)
 
     assert expected_status.short == gotten_status.short
     assert expected_status.duration == gotten_status.duration
@@ -647,14 +651,9 @@ def test_get_scheduled_job_status(
     k8s_pod: str | None,
     expected_status: ScheduledJobStatus,
     event: str | None,
+    fake_tool_account: ToolAccount,
+    runtime_k8s_cli: MagicMock,
 ):
-    class FakeK8sCli:
-        def get_objects(self, *args, **kwargs):
-            if not event:
-                return []
-            return [json.loads(re.sub(ISO_PATTERN, dummy_date_str, event))]
-
-    tool_account = get_fake_account(fake_k8s_cli=FakeK8sCli())
 
     dummy_date_str = (
         datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -662,12 +661,15 @@ def test_get_scheduled_job_status(
     k8s_cronjob_json = json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_cronjob))
     k8s_jobs_json = [json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_job))] if k8s_job else []
     k8s_pods_json = [json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_pod))] if k8s_pod else []
+    runtime_k8s_cli.get_objects.side_effect = [
+        k8s_jobs_json,
+        k8s_pods_json,
+        [json.loads(re.sub(ISO_PATTERN, dummy_date_str, event))] if event else [],
+    ]
+    job.k8s_object = k8s_cronjob_json
     gotten_status = get_scheduled_job_status(
-        tool_account=tool_account,
+        tool_account=fake_tool_account,
         job=job,
-        k8s_cronjob=k8s_cronjob_json,
-        k8s_jobs=k8s_jobs_json,
-        k8s_pods=k8s_pods_json,
     )
 
     assert expected_status.short == gotten_status.short
@@ -783,15 +785,19 @@ def test_get_continuous_job_status(
     k8s_deployment: str,
     k8s_pod: str | None,
     expected_status: ContinuousJobStatus,
+    fake_tool_account: ToolAccount,
+    runtime_k8s_cli: MagicMock,
 ):
     dummy_date_str = (
         datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     )
     k8s_deployment_json = json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_deployment))
+    my_job = get_dummy_job(job_type=JobType.CONTINUOUS, k8s_object=k8s_deployment_json)
+
     k8s_pods_json = [json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_pod))] if k8s_pod else []
-    gotten_status = get_continuous_job_status(
-        k8s_deployment=k8s_deployment_json, k8s_pods=k8s_pods_json
-    )
+    runtime_k8s_cli.get_objects.return_value = k8s_pods_json
+
+    gotten_status = get_continuous_job_status(job=my_job, tool_account=fake_tool_account)
 
     assert expected_status.short == gotten_status.short
     assert expected_status.duration == gotten_status.duration
@@ -801,15 +807,20 @@ def test_get_continuous_job_status(
         assert message in gotten_status.messages
 
 
-def test_k8s_deployment_fails_if_no_ready_replicas_for_long():
+def test_k8s_deployment_fails_if_no_ready_replicas_for_long(
+    fake_tool_account: ToolAccount,
+    runtime_k8s_cli: MagicMock,
+):
     dummy_date_str = (
         (datetime.now(timezone.utc) - timedelta(minutes=15))
         .isoformat(timespec="seconds")
         .replace("+00:00", "Z")
     )
     k8s_deployment_json = json.loads(re.sub(ISO_PATTERN, dummy_date_str, DEPLOYMENT_FAILED))
+    my_job = get_dummy_job(job_type=JobType.CONTINUOUS, k8s_object=k8s_deployment_json)
     expected_status = ContinuousJobStatus(short="failed", duration="5m", up_to_date=True)
-    gotten_status = get_continuous_job_status(k8s_deployment=k8s_deployment_json, k8s_pods=[])
+
+    gotten_status = get_continuous_job_status(job=my_job, tool_account=fake_tool_account)
 
     assert expected_status.short == gotten_status.short
     assert expected_status.duration == gotten_status.duration
