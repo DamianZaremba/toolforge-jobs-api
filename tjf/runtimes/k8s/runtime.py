@@ -104,6 +104,39 @@ class K8sRuntime(BaseRuntime):
 
         raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool}.")
 
+    def get_replicas(self, *, job: AnyJob, tool: str) -> list[dict[str, Any]]:
+        tool_account = ToolAccount(name=tool)
+        k8s_type = K8sJobKind.from_job_type(job.job_type)
+        selector = labels_selector(
+            job_name=job.job_name,
+            tool_name=tool_account.name,
+            type=k8s_type.api_path_name,
+        )
+
+        pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=selector)
+
+        sorted_pods = sorted(
+            pods,
+            key=lambda p: p.get("metadata", {}).get("creationTimestamp", ""),
+        )
+
+        replicas = []
+        for idx, pod in enumerate(sorted_pods, start=1):
+            metadata = pod.get("metadata", {})
+            status = pod.get("status", {})
+            phase = status.get("phase", "Unknown")
+
+            replicas.append(
+                {
+                    "index": idx,
+                    "status": phase,
+                    "pod_name": metadata.get("name", ""),
+                    "created_at": metadata.get("creationTimestamp", ""),
+                }
+            )
+
+        return replicas
+
     def restart_job(self, *, job: AnyJob, tool: str) -> None:
         tool_account = ToolAccount(name=tool)
         k8s_type = K8sJobKind.from_job_type(job.job_type)
@@ -112,7 +145,6 @@ class K8sRuntime(BaseRuntime):
         )
 
         if isinstance(job, ScheduledJob):
-            # Delete currently running jobs to avoid duplication
             tool_account.k8s_cli.delete_objects("jobs", label_selector=label_selector)
             tool_account.k8s_cli.delete_objects("pods", label_selector=label_selector)
 
@@ -123,7 +155,6 @@ class K8sRuntime(BaseRuntime):
             trigger_scheduled_job(tool_account, job)
 
         elif isinstance(job, ContinuousJob):
-            # Update the Deployment spec and let Kubernetes cycle the pods, this ensures a graceful restart
             k8s_obj = tool_account.k8s_cli.get_object("deployments", job.job_name)
             if "annotations" not in k8s_obj["spec"]["template"]["metadata"]:
                 k8s_obj["spec"]["template"]["metadata"]["annotations"] = {}

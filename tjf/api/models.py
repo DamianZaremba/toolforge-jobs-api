@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from logging import getLogger
 from pathlib import Path
@@ -475,6 +476,18 @@ class UpdateResponse(BaseModel):
 
 class FlushResponse(BaseModel):
     messages: ResponseMessages
+
+
+class ReplicaInfo(BaseModel):
+    index: int
+    status: str
+    pod_name: str
+    created_at: datetime
+
+
+class ReplicasListResponse(BaseModel):
+    job: str
+    replicas: list[ReplicaInfo]
 
 
 class HealthResponse(BaseModel):

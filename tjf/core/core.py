@@ -16,7 +16,7 @@
 #
 import logging
 from collections.abc import Mapping
-from typing import AsyncIterator, Tuple
+from typing import Any, AsyncIterator, Tuple
 
 from pydantic.main import IncEx
 from toolforge_weld.utils import apeek
@@ -330,3 +330,6 @@ class Core:
 
     def restart_job(self, job: AnyJob) -> None:
         self.runtime.restart_job(job=job, tool=job.tool_name)
+
+    def get_replicas(self, *, job: AnyJob, tool: str) -> list[dict[str, Any]]:
+        return self.runtime.get_replicas(job=job, tool=tool)

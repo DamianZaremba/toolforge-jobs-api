@@ -51,6 +51,30 @@ class TjfImageNotFoundError(TjfValidationError):
     """Raised when an image was not found in the list of available ones."""
 
 
+class TjfExecError(TjfError):
+    """Base class for exec-related errors."""
+
+    http_status_code = 500
+
+
+class TjfReplicaNotFoundError(TjfValidationError):
+    """Raised when a specified replica doesn't exist."""
+
+    http_status_code = 404
+
+
+class TjfPodNotRunningError(TjfExecError):
+    """Raised when trying to exec into a non-running pod."""
+
+    http_status_code = 400
+
+
+class TjfContainerNotFoundError(TjfExecError):
+    """Raised when the specified container doesn't exist."""
+
+    http_status_code = 404
+
+
 def tjf_error_from_weld_error(error: ToolforgeError) -> TjfError:
     error_class = TjfError
     if isinstance(error, ToolforgeUserError):

@@ -17,12 +17,14 @@
 import http
 import logging
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, WebSocket
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from ..core.error import TjfValidationError
 from ..core.models import OUT_OF_SYNC_JOB_WARNING_MESSAGE
-from .auth import ensure_authenticated
+from ..runtimes.k8s.exec import K8sExecProxy
+from ..runtimes.k8s.jobs import JOB_CONTAINER_NAME
+from .auth import ensure_authenticated, ensure_authenticated_websocket
 from .models import (
     AnyDefinedJob,
     AnyNewJob,
@@ -31,6 +33,8 @@ from .models import (
     FlushResponse,
     JobListResponse,
     JobResponse,
+    ReplicaInfo,
+    ReplicasListResponse,
     ResponseMessages,
     RestartResponse,
     UpdateResponse,
@@ -245,3 +249,80 @@ def api_restart_job(request: Request, toolname: str, name: str) -> RestartRespon
     current_app(request).core.restart_job(job=job)
 
     return RestartResponse(messages=ResponseMessages())
+
+
+@jobs.get("/{name}/replicas")
+@jobs.get("/{name}/replicas/", include_in_schema=False)
+def api_get_replicas(request: Request, toolname: str, name: str):
+    ensure_authenticated(request=request)
+
+    job = current_app(request).core.get_job(toolname=toolname, name=name)
+    if not job:
+        raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
+
+    replicas = current_app(request).core.get_replicas(job=job, tool=toolname)
+
+    return ReplicasListResponse(
+        job=name,
+        replicas=[
+            ReplicaInfo(
+                index=r["index"],
+                status=r["status"],
+                pod_name=r["pod_name"],
+                created_at=r["created_at"],
+            )
+            for r in replicas
+        ],
+    )
+
+
+@jobs.websocket("/{name}/replicas/{replica_index:int}/exec")
+async def api_exec_websocket(
+    websocket: WebSocket,
+    toolname: str,
+    name: str,
+    replica_index: int,
+    container: str | None = None,
+):
+    await websocket.accept(subprotocol="v4.channel.k8s.io")
+    await ensure_authenticated_websocket(websocket=websocket, toolname=toolname)
+
+    # Resolve replica index to actual pod name
+    app = current_app(websocket)  # type: ignore[arg-type]
+    job = app.core.get_job(toolname=toolname, name=name)
+    if not job:
+        await websocket.close(code=4000, reason=f"Job '{name}' not found")
+        return
+
+    replicas = app.core.get_replicas(job=job, tool=toolname)
+
+    pod_info = None
+    for r in replicas:
+        if r["index"] == replica_index:
+            pod_info = r
+            break
+
+    if not pod_info:
+        await websocket.close(code=4000, reason=f"Replica {replica_index} not found")
+        return
+
+    if pod_info["status"] != "Running":
+        await websocket.close(code=4001, reason=f"Replica {replica_index} is not running")
+        return
+
+    container_name = container or JOB_CONTAINER_NAME
+
+    try:
+        # Create proxy and forward connections
+        proxy = K8sExecProxy(
+            toolname=toolname,
+            pod_name=pod_info["pod_name"],
+            container_name=container_name,
+        )
+        await proxy.proxy(websocket=websocket)
+    except Exception as e:
+        LOGGER.exception("Exec endpoint error for %s/%s: %s", toolname, name, e)
+        try:
+            await websocket.close(code=4000, reason=str(e))
+        except Exception:
+            pass
