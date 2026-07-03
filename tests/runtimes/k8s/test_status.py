@@ -3,6 +3,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
+from freezegun import freeze_time
 from helpers.fakes import get_dummy_job, get_fake_account
 
 import tests.helpers.fake_k8s as fake_k8s
@@ -277,9 +278,10 @@ def test_get_one_off_job_status(
         datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     )
     k8s_job_json = json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_job))
-    gotten_status = get_one_off_job_status(
-        tool_account=tool_account, k8s_job=k8s_job_json
-    )
+    with freeze_time(dummy_date_str):
+        gotten_status = get_one_off_job_status(
+            tool_account=tool_account, k8s_job=k8s_job_json
+        )
 
     assert expected_status.short == gotten_status.short
     assert expected_status.duration == gotten_status.duration
