@@ -56,6 +56,10 @@ JOB_DEFAULT_REPLICAS = 1
 OUT_OF_SYNC_JOB_WARNING_MESSAGE = "The running version of job '{job_name}' is different from what was configured, please recreate or redeploy."
 JOB_DEFAULT_PORT = 8000
 
+# We use this to tell runtime to set cmd=[], so k8s falls back to using
+# image entrypoint.
+ENTRYPOINT_COMMAND = "__ENTRYPOINT__"
+
 
 class BaseModel(PydanticBaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -197,6 +201,12 @@ class CommonJob(PydanticBaseModel):
             )
         if self.filelog and "mount" in self.model_fields_set and self.mount != MountOption.ALL:
             raise ValueError("File logging is only available with --mount=all")
+
+        if self.cmd == ENTRYPOINT_COMMAND and self.image.type != ImageType.BUILDSERVICE:
+            raise ValueError(f"'{self.cmd}' is only supported for build service images")
+
+        if self.cmd == ENTRYPOINT_COMMAND and self.filelog:
+            raise ValueError(f"File logging is not supported when the command is '{self.cmd}'")
 
         LOGGER.debug(f"Validated common job, {self} (with set fields {self.model_fields_set})")
         return self

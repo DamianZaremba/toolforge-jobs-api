@@ -7,7 +7,7 @@ import pytest
 import tjf.core.utils as utils
 from tests.helpers import fake_k8s
 from tjf.core.error import TjfError
-from tjf.core.models import Command
+from tjf.core.models import ENTRYPOINT_COMMAND, Command
 from tjf.core.utils import resolve_filelog_path
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.command import (
@@ -80,6 +80,24 @@ class TestGetCommandForK8s:
 
         assert stderr_file.exists()
         assert stderr_file.read_text() == "it is just an example\n"
+
+    def test_entrypoint_cmd_emits_no_k8s_command_or_args(
+        self,
+        fake_tool_account: ToolAccount,
+    ):
+        cmd = Command(
+            user_command=ENTRYPOINT_COMMAND,
+            filelog=False,
+            filelog_stdout=None,
+            filelog_stderr=None,
+        )
+
+        generated = get_command_for_k8s(
+            command=cmd, job_name="some-job", tool_name=fake_tool_account.name
+        )
+
+        assert generated.command == []
+        assert generated.args is None
 
 
 class TestGetCommandFromK8s:
@@ -185,6 +203,17 @@ class TestGetCommandFromK8s:
         assert command.filelog == filelog
         assert command.filelog_stdout == filelog_stdout
         assert command.filelog_stderr == filelog_stderr
+
+    def test_empty_k8s_command_reconstructs_entrypoint_command(self) -> None:
+        command = get_command_from_k8s(
+            k8s_metadata={"name": "some-job", "labels": {}},
+            k8s_command=[],
+            k8s_arguments=[],
+        )
+        assert command.user_command == ENTRYPOINT_COMMAND
+        assert command.filelog is False
+        assert command.filelog_stdout is None
+        assert command.filelog_stderr is None
 
 
 class TestResolveFilelogPath:

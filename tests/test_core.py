@@ -9,6 +9,7 @@ from tests.test_utils import cases
 from tjf.core import core
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
+    ENTRYPOINT_COMMAND,
     AnyJobStatus,
     ContinuousJobStatus,
     JobType,
@@ -353,4 +354,16 @@ class TestCore:
                 storage_job=my_storage_job, runtime_job=my_runtime_job
             )
 
+            assert gotten_job.status.up_to_date
+
+        def test_runtime_buildservice_job_with_entrypoint_command_is_up_to_date(
+            self,
+        ):
+            my_storage_job = get_dummy_job(job_name="my-job", cmd=ENTRYPOINT_COMMAND)
+            my_runtime_job = my_storage_job.model_copy(update={"cmd": ENTRYPOINT_COMMAND})
+            gotten_job = core._update_storage_job_status_from_runtime(
+                storage_job=my_storage_job, runtime_job=my_runtime_job
+            )
+
+            assert my_runtime_job.cmd == ENTRYPOINT_COMMAND
             assert gotten_job.status.up_to_date

@@ -18,6 +18,7 @@ from tjf.api.models import (
 )
 from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
+from tjf.core.models import ENTRYPOINT_COMMAND
 from tjf.core.models import CommonJob as CoreCommonJob
 from tjf.core.models import ContinuousJob as CoreContinuousJob
 from tjf.core.models import EmailOption, HealthCheckType, JobType
@@ -637,3 +638,30 @@ class TestGetResolvedCoreJob:
         assert k8s_job.model_dump(exclude=["k8s_object"]) != unresolved.model_dump(
             exclude=["k8s_object"]
         )
+
+
+class TestEntrypointCommand:
+    def test_buildservice_entrypoint_command_without_filelog_is_valid(self, fake_images):
+        job = get_dummy_core_common_job(
+            cmd=ENTRYPOINT_COMMAND,
+            image=Image.from_short_name_or_url(
+                url_or_name="tool-some-tool/some-container:latest", tool_name="some-tool"
+            ),
+        )
+        assert job.cmd == ENTRYPOINT_COMMAND
+        assert job.filelog is False
+
+    def test_buildservice_entrypoint_with_filelog_is_rejected(self, fake_images):
+        with pytest.raises(ValueError, match="File logging is not supported"):
+            get_dummy_core_common_job(
+                cmd=ENTRYPOINT_COMMAND,
+                image=Image.from_short_name_or_url(
+                    url_or_name="tool-some-tool/some-container:latest", tool_name="some-tool"
+                ),
+                filelog=True,
+                mount=MountOption.ALL,
+            )
+
+    def test_entrypoint_on_standard_image_is_rejected(self, fake_images):
+        with pytest.raises(ValueError, match="only supported for build service images"):
+            get_dummy_core_common_job(cmd=ENTRYPOINT_COMMAND)

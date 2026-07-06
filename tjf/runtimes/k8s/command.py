@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ...core.models import Command
+from ...core.models import ENTRYPOINT_COMMAND, Command
 
 COMMAND_WRAPPER = ["/bin/sh", "-c", "--"]
 COMMAND_STDOUT_PREFIX = "exec 1>>"
@@ -24,6 +24,14 @@ def get_command_from_k8s(
     labels = k8s_metadata["labels"]
 
     filelog = labels.get("jobs.toolforge.org/filelog", "no") == "yes"
+
+    if not k8s_command:
+        return Command(
+            user_command=ENTRYPOINT_COMMAND,
+            filelog=filelog,
+            filelog_stdout=None,
+            filelog_stderr=None,
+        )
 
     job_version = int(labels.get("app.kubernetes.io/version", "1"))
 
@@ -76,6 +84,10 @@ def get_command_from_k8s(
 
 def get_command_for_k8s(command: Command, job_name: str, tool_name: str) -> GeneratedCommand:
     """Generate the command array for the kubernetes object."""
+    if command.user_command == ENTRYPOINT_COMMAND:
+        # make Kubernetes falls through to the image ENTRYPOINT by not setting command
+        return GeneratedCommand(command=[], args=None)
+
     wrapped_command = COMMAND_WRAPPER.copy()
     command_str = ""
     filelog_stdout = str(command.filelog_stdout) if command.filelog_stdout else None

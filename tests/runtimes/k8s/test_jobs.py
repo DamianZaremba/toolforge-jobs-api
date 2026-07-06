@@ -15,6 +15,7 @@ from tests.test_utils import cases, patch_spec
 from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
+    ENTRYPOINT_COMMAND,
     EmailOption,
     HttpHealthCheck,
     JobType,
@@ -427,6 +428,27 @@ class TestGetJobForK8s:
                                 "app.kubernetes.io/name": "my-dummy-job",
                             }
                         }
+                    ),
+                ],
+            ],
+            [
+                "Test k8s command and args not set if buildservice ENTRYPOINT command set for job",
+                [
+                    {
+                        "cmd": ENTRYPOINT_COMMAND,
+                        "image": Image(
+                            short_name="tool-some-tool/some-container:latest",
+                            host="harbor.example.org",
+                            path="tool-some-tool/some-container",
+                            tag="latest",
+                            type=ImageType.BUILDSERVICE,
+                        ),
+                        "mount": MountOption.NONE,
+                    },
+                    lambda k8s_obj: (
+                        k8s_obj["spec"]["template"]["spec"]["containers"][0].get("command") == []
+                        and k8s_obj["spec"]["template"]["spec"]["containers"][0].get("args")
+                        is None
                     ),
                 ],
             ],

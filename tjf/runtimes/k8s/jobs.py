@@ -17,6 +17,7 @@ from ...core.cron import CronExpression
 from ...core.error import TjfError, TjfValidationError
 from ...core.images import ImageType
 from ...core.models import (
+    ENTRYPOINT_COMMAND,
     JOB_DEFAULT_CPU,
     JOB_DEFAULT_MEMORY,
     AnyJob,
@@ -180,7 +181,11 @@ def _get_common_k8s_podtemplate(*, job: AnyJob, default_cpu_limit: str) -> dict[
     if job.image.type is None:
         raise TjfValidationError(f"Unexpected job without image type: {job}")
 
-    if job.image.type == ImageType.BUILDSERVICE and not job.cmd.startswith("launcher "):
+    if (
+        job.image.type == ImageType.BUILDSERVICE
+        and job.cmd != ENTRYPOINT_COMMAND
+        and not job.cmd.startswith("launcher ")
+    ):
         LOGGER.debug(f"Found a buildservice image without launcher, prefixing the command: {job}")
         # this allows using either a procfile entry point or any command as command
         # for a buildservice-based job
@@ -191,9 +196,7 @@ def _get_common_k8s_podtemplate(*, job: AnyJob, default_cpu_limit: str) -> dict[
             filelog_stderr=job.filelog_stderr,
         )
     else:
-        LOGGER.debug(
-            f"Found a non-buildservice image, or command already starting with launcher, skipping prefix: {job}"
-        )
+        LOGGER.debug(f"Skipping launcher prefix for command: {job}")
 
     generated_command = get_command_for_k8s(
         command=command, job_name=job.job_name, tool_name=job.tool_name
@@ -504,7 +507,7 @@ def get_common_job_from_k8s(
     else:
         cpu = cpu_limit
 
-    k8s_command = podspec["template"]["spec"]["containers"][0]["command"]
+    k8s_command = podspec["template"]["spec"]["containers"][0].get("command", [])
     k8s_arguments = podspec["template"]["spec"]["containers"][0].get("args", [])
     try:
         command = get_command_from_k8s(
