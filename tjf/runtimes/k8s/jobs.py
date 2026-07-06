@@ -237,20 +237,24 @@ def _get_deployment_k8s_podtemplate(
     probes = get_healthcheck_for_k8s(
         health_check=job.health_check, port=job.port, port_protocol=job.port_protocol
     )
+
+    podtemplate = _get_common_k8s_podtemplate(
+        job=job, default_cpu_limit=default_cpu_limit
+    )
     ports = {}
+    env = podtemplate["spec"]["containers"][0]["env"]
     if job.port:
         ports = {
             "ports": [
                 {"containerPort": job.port, "protocol": job.port_protocol.upper()}
             ]
         }
+        env = [*env, {"name": "PORT", "value": str(job.port)}]
 
-    podtemplate = _get_common_k8s_podtemplate(
-        job=job, default_cpu_limit=default_cpu_limit
-    )
     podtemplate["spec"]["restartPolicy"] = "Always"
     podtemplate["spec"]["containers"][0].update(probes)
     podtemplate["spec"]["containers"][0].update(ports)
+    podtemplate["spec"]["containers"][0]["env"] = env
     return podtemplate
 
 
