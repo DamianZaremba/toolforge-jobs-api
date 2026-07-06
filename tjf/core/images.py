@@ -166,7 +166,9 @@ class Image(BaseModel):
             digest=digest,
         )
         if matched_buildservice_image:
-            LOGGER.debug(f"Returning matching buildservice image: {matched_buildservice_image}")
+            LOGGER.debug(
+                f"Returning matching buildservice image: {matched_buildservice_image}"
+            )
             return matched_buildservice_image
 
         matched_prebuilt_image = _match_prebuilt_image(
@@ -336,7 +338,9 @@ def _match_harbor_image(
     if not project:
         return None
 
-    harbor_images = _get_harbor_images(tool_name=tool_name, use_harbor_cache=use_harbor_cache)
+    harbor_images = _get_harbor_images(
+        tool_name=tool_name, use_harbor_cache=use_harbor_cache
+    )
     for image in harbor_images:
         if host and host != image.host:
             continue
@@ -368,7 +372,9 @@ def _match_prebuilt_image(
     path: str,
 ) -> Image | None:
 
-    if project or digest:  # Prebuilt images don't use Harbor project prefixes or digests for now
+    if (
+        project or digest
+    ):  # Prebuilt images don't use Harbor project prefixes or digests for now
         return None
 
     prebuilt_images = _get_prebuilt_images()
@@ -405,7 +411,9 @@ def _get_harbor_images_for_name(project: str, name: str) -> list[Image]:
         )
         response.raise_for_status()
     except requests.exceptions.HTTPError:
-        LOGGER.warning("Failed to load Harbor tags for %s/%s", project, name, exc_info=True)
+        LOGGER.warning(
+            "Failed to load Harbor tags for %s/%s", project, name, exc_info=True
+        )
         return []
 
     images: list[Image] = []
@@ -464,7 +472,9 @@ def _get_harbor_images(tool_name: str, use_harbor_cache: bool) -> list[Image]:
             # You seem to get a 401 when the project does not exist for whatever reason
             # don't log those, they are usually typos
             LOGGER.warning(
-                "Failed to load Harbor images for project %s", harbor_project, exc_info=True
+                "Failed to load Harbor images for project %s",
+                harbor_project,
+                exc_info=True,
             )
         return []
 
@@ -474,7 +484,9 @@ def _get_harbor_images(tool_name: str, use_harbor_cache: bool) -> list[Image]:
         name = repository["name"][len(harbor_project) + 1 :]
         images.extend(_get_harbor_images_for_name(project=harbor_project, name=name))
 
-    HARBOR_IMAGES_CACHE[tool_name] = CacheEntry(images=images, creation_time=datetime.now(tz=UTC))
+    HARBOR_IMAGES_CACHE[tool_name] = CacheEntry(
+        images=images, creation_time=datetime.now(tz=UTC)
+    )
     return copy.deepcopy(images)
 
 

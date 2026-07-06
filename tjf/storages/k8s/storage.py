@@ -47,7 +47,9 @@ def _job_to_k8s_crd(*, job: AnyJob) -> dict[str, Any]:
         "apiVersion": f"{API_GROUP}/{API_VERSION}",
         "metadata": {"name": job.job_name},
         "spec": job.model_dump(
-            mode="json", exclude_unset=True, exclude={"status_short", "status_long", "status"}
+            mode="json",
+            exclude_unset=True,
+            exclude={"status_short", "status_long", "status"},
         ),
     }
     return k8s_dict
@@ -92,7 +94,9 @@ class K8sStorage(BaseStorage):
             LOGGER.exception(
                 f"Attempted to to get jobs for tool:{tool_name} in namespace:{namespace}"
             )
-            custom_error = get_storage_error(error=error, action="loading jobs", spec={})
+            custom_error = get_storage_error(
+                error=error, action="loading jobs", spec={}
+            )
             if isinstance(custom_error, NotFoundInStorage):
                 raise StorageError(
                     f"Unable to find the CRDs type {job_class}, are they deployed?"
@@ -112,7 +116,9 @@ class K8sStorage(BaseStorage):
         maybe_job = next((job for job in all_jobs if job.job_name == job_name), None)
 
         if not maybe_job:
-            raise NotFoundInStorage(f"No job with name '{job_name}' found for tool {tool_name}")
+            raise NotFoundInStorage(
+                f"No job with name '{job_name}' found for tool {tool_name}"
+            )
 
         return maybe_job
 
@@ -166,7 +172,9 @@ class K8sStorage(BaseStorage):
             )
         except kubernetes.client.ApiException as error:
             raise get_storage_error(
-                error=error, spec={"name": job.job_name}, action=f"delete job {job.job_name}"
+                error=error,
+                spec={"name": job.job_name},
+                action=f"delete job {job.job_name}",
             )
 
         return job

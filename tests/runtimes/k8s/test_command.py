@@ -18,7 +18,10 @@ from tjf.runtimes.k8s.command import (
 
 class TestGetCommandForK8s:
     def test_execution_without_filelog_creates_nothing(
-        self, fixtures_path: Path, patch_tool_account_init: Path, fake_tool_account: ToolAccount
+        self,
+        fixtures_path: Path,
+        patch_tool_account_init: Path,
+        fake_tool_account: ToolAccount,
     ):
 
         script_path = fixtures_path.parent / "gen-output" / "both.sh"
@@ -36,7 +39,10 @@ class TestGetCommandForK8s:
         assert generated.args is None
 
         result = subprocess.run(
-            generated.command, capture_output=True, text=True, cwd=fake_tool_account.home
+            generated.command,
+            capture_output=True,
+            text=True,
+            cwd=fake_tool_account.home,
         )
 
         assert result.stdout == "this text has no meaningful content nofilelog,\n"
@@ -69,14 +75,20 @@ class TestGetCommandForK8s:
         assert generated.args is None
 
         result = subprocess.run(
-            generated.command, capture_output=True, text=True, cwd=fake_tool_account.home
+            generated.command,
+            capture_output=True,
+            text=True,
+            cwd=fake_tool_account.home,
         )
 
         assert result.stdout == ""
         assert result.stderr == ""
 
         assert stdout_file.exists()
-        assert stdout_file.read_text() == "this text has no meaningful content yesfilelog,\n"
+        assert (
+            stdout_file.read_text()
+            == "this text has no meaningful content yesfilelog,\n"
+        )
 
         assert stderr_file.exists()
         assert stderr_file.read_text() == "it is just an example\n"
@@ -177,7 +189,9 @@ class TestGetCommandFromK8s:
         k8s_arguments = spec["template"]["spec"]["containers"][0].get("args", [])
 
         command = get_command_from_k8s(
-            k8s_metadata=k8s_metadata, k8s_command=k8s_command, k8s_arguments=k8s_arguments
+            k8s_metadata=k8s_metadata,
+            k8s_command=k8s_command,
+            k8s_arguments=k8s_arguments,
         )
 
         assert command
@@ -198,4 +212,7 @@ class TestResolveFilelogPath:
         ],
     )
     def test_happy_path(self, param: Path | None, expected: Path) -> None:
-        assert resolve_filelog_path(param, Path("/data/project/foo"), Path("default")) == expected
+        assert (
+            resolve_filelog_path(param, Path("/data/project/foo"), Path("default"))
+            == expected
+        )

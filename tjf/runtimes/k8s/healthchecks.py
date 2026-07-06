@@ -82,7 +82,9 @@ def _get_http_healthcheck_for_k8s(
     }
 
 
-def _get_tcp_healthcheck_for_k8s(port: int | None, port_protocol: PortProtocol) -> dict[str, Any]:
+def _get_tcp_healthcheck_for_k8s(
+    port: int | None, port_protocol: PortProtocol
+) -> dict[str, Any]:
     if not port or port_protocol != PortProtocol.TCP:
         return {}
 

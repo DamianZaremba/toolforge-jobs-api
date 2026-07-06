@@ -29,10 +29,15 @@ quotas = APIRouter(prefix="/v1/tool/{tool_name}/quotas", redirect_slashes=False)
 
 @quotas.get("", response_model=QuotaResponse, response_model_exclude_unset=True)
 @quotas.get(
-    "/", response_model=QuotaResponse, response_model_exclude_unset=True, include_in_schema=False
+    "/",
+    response_model=QuotaResponse,
+    response_model_exclude_unset=True,
+    include_in_schema=False,
 )
 def api_get_quota(request: Request, tool_name: str) -> QuotaResponse:
     ensure_authenticated(request=request)
     quota_data = current_app(request).core.get_quotas(tool_name=tool_name)
 
-    return QuotaResponse(quota=Quota.from_quota_data(quota_data), messages=ResponseMessages())
+    return QuotaResponse(
+        quota=Quota.from_quota_data(quota_data), messages=ResponseMessages()
+    )

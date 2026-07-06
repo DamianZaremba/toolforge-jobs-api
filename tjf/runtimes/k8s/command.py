@@ -29,7 +29,10 @@ def get_command_from_k8s(
 
     command_spec = k8s_command[-1]
     command_new_format = (
-        labels.get("jobs.toolforge.org/command-new-format", ("no" if job_version == 1 else "yes"))
+        labels.get(
+            "jobs.toolforge.org/command-new-format",
+            ("no" if job_version == 1 else "yes"),
+        )
         == "yes"
     )
 
@@ -74,7 +77,9 @@ def get_command_from_k8s(
     )
 
 
-def get_command_for_k8s(command: Command, job_name: str, tool_name: str) -> GeneratedCommand:
+def get_command_for_k8s(
+    command: Command, job_name: str, tool_name: str
+) -> GeneratedCommand:
     """Generate the command array for the kubernetes object."""
     wrapped_command = COMMAND_WRAPPER.copy()
     command_str = ""

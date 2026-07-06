@@ -51,7 +51,12 @@ class TestJobFromK8s:
                 job_name="cronjobtest",
                 tool_name="tf-test",
                 schedule=CronExpression(
-                    text="@daily", minute="13", hour="13", day="*", month="*", day_of_week="*"
+                    text="@daily",
+                    minute="13",
+                    hour="13",
+                    day="*",
+                    month="*",
+                    day_of_week="*",
                 ),
                 k8s_object=K8S_SCHEDULED_JOB_OBJ,
                 retry=0,
@@ -86,9 +91,14 @@ class TestJobFromK8s:
             assert gotten_job.model_dump() == expected_job.model_dump()
 
         def test_all_fields(self, fake_images: dict[str, Any]):
-            k8s_object = patch_spec(spec=K8S_ONEOFF_JOB_OBJ, patch={"spec": {"backoffLimit": 5}})
+            k8s_object = patch_spec(
+                spec=K8S_ONEOFF_JOB_OBJ, patch={"spec": {"backoffLimit": 5}}
+            )
             expected_job = get_oneoff_job_fixture_as_job(
-                retry=5, k8s_object=k8s_object, mount=MountOption.ALL, status_long="Unknown"
+                retry=5,
+                k8s_object=k8s_object,
+                mount=MountOption.ALL,
+                status_long="Unknown",
             )
 
             gotten_job = jobs.get_one_off_job_from_k8s_object(
@@ -101,7 +111,9 @@ class TestJobFromK8s:
 
     class TestContinuousJob:
         def test_minimal_fields(self, fake_images: dict[str, Any]):
-            expected_job = get_continuous_job_fixture_as_job(add_status=False, filelog=False)
+            expected_job = get_continuous_job_fixture_as_job(
+                add_status=False, filelog=False
+            )
 
             gotten_job = jobs.get_continuous_job_from_k8s_object(
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
@@ -112,7 +124,9 @@ class TestJobFromK8s:
             assert gotten_job.model_dump() == expected_job.model_dump()
 
         def test_all_fields(self, fake_images: dict[str, Any]):
-            expected_job = get_continuous_job_fixture_as_job(add_status=False, filelog=False)
+            expected_job = get_continuous_job_fixture_as_job(
+                add_status=False, filelog=False
+            )
 
             gotten_job = jobs.get_continuous_job_from_k8s_object(
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
@@ -132,11 +146,15 @@ class TestGetJobForK8s:
                 "Test restartPolicy is set to Always",
                 [
                     {},
-                    lambda k8s_obj: k8s_obj["spec"]["template"]["spec"]["restartPolicy"]
-                    == "Always",
+                    lambda k8s_obj: (
+                        k8s_obj["spec"]["template"]["spec"]["restartPolicy"] == "Always"
+                    ),
                 ],
             ],
-            ["Test replicas default is 1", [{}, lambda k8s_obj: k8s_obj["spec"]["replicas"] == 1]],
+            [
+                "Test replicas default is 1",
+                [{}, lambda k8s_obj: k8s_obj["spec"]["replicas"] == 1],
+            ],
             [
                 "Test replicas set to 2",
                 [{"replicas": 2}, lambda k8s_obj: k8s_obj["spec"]["replicas"] == 2],
@@ -154,8 +172,10 @@ class TestGetJobForK8s:
                             type=ImageType.BUILDSERVICE,
                         ),
                     },
-                    lambda k8s_obj: k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
-                    == "none",
+                    lambda k8s_obj: (
+                        k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
+                        == "none"
+                    ),
                 ],
             ],
             [
@@ -171,8 +191,10 @@ class TestGetJobForK8s:
                             type=ImageType.BUILDSERVICE,
                         ),
                     },
-                    lambda k8s_obj: k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
-                    == "all",
+                    lambda k8s_obj: (
+                        k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
+                        == "all"
+                    ),
                 ],
             ],
             [
@@ -189,8 +211,10 @@ class TestGetJobForK8s:
                             state="stable",
                         ),
                     },
-                    lambda k8s_obj: k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
-                    == "all",
+                    lambda k8s_obj: (
+                        k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
+                        == "all"
+                    ),
                 ],
             ],
             [
@@ -204,9 +228,12 @@ class TestGetJobForK8s:
                     },
                     # TODO: maybe make this check less flaky
                     lambda k8s_obj: (
-                        k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"] == "all"
+                        k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
+                        == "all"
                         and "exec 1>>/data/project/some-tool/migrate.out;exec 2>>/data/project/some-tool/migrate.err;"
-                        in k8s_obj["spec"]["template"]["spec"]["containers"][0]["command"][3]
+                        in k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "command"
+                        ][3]
                     ),
                 ],
             ],
@@ -221,9 +248,12 @@ class TestGetJobForK8s:
                     },
                     # TODO: maybe make this check less flaky
                     lambda k8s_obj: (
-                        k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"] == "all"
+                        k8s_obj["metadata"]["labels"]["toolforge.org/mount-storage"]
+                        == "all"
                         and "exec 1>>/custom/stdout.out;exec 2>>/custom/stderr.err;"
-                        in k8s_obj["spec"]["template"]["spec"]["containers"][0]["command"][3]
+                        in k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "command"
+                        ][3]
                     ),
                 ],
             ],
@@ -232,21 +262,21 @@ class TestGetJobForK8s:
                 [
                     {"port": 12345},
                     lambda k8s_obj: (
-                        k8s_obj["spec"]["template"]["spec"]["containers"][0]["ports"][0][
-                            "containerPort"
-                        ]
+                        k8s_obj["spec"]["template"]["spec"]["containers"][0]["ports"][
+                            0
+                        ]["containerPort"]
                         == 12345
-                        and k8s_obj["spec"]["template"]["spec"]["containers"][0]["ports"][0][
-                            "protocol"
-                        ]
+                        and k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "ports"
+                        ][0]["protocol"]
                         == PortProtocol.TCP.value.upper()
-                        and k8s_obj["spec"]["template"]["spec"]["containers"][0]["startupProbe"][
-                            "tcpSocket"
-                        ]["port"]
+                        and k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "startupProbe"
+                        ]["tcpSocket"]["port"]
                         == 12345
-                        and k8s_obj["spec"]["template"]["spec"]["containers"][0]["livenessProbe"][
-                            "tcpSocket"
-                        ]["port"]
+                        and k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "livenessProbe"
+                        ]["tcpSocket"]["port"]
                         == 12345
                     ),
                 ],
@@ -256,13 +286,13 @@ class TestGetJobForK8s:
                 [
                     {"port": 12345, "port_protocol": PortProtocol.UDP},
                     lambda k8s_obj: (
-                        k8s_obj["spec"]["template"]["spec"]["containers"][0]["ports"][0][
-                            "containerPort"
-                        ]
+                        k8s_obj["spec"]["template"]["spec"]["containers"][0]["ports"][
+                            0
+                        ]["containerPort"]
                         == 12345
-                        and k8s_obj["spec"]["template"]["spec"]["containers"][0]["ports"][0][
-                            "protocol"
-                        ]
+                        and k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "ports"
+                        ][0]["protocol"]
                         == PortProtocol.UDP.value.upper()
                         and "startupProbe"
                         not in k8s_obj["spec"]["template"]["spec"]["containers"][0]
@@ -274,27 +304,30 @@ class TestGetJobForK8s:
             [
                 "Test port with http health-check sets http probes and port",
                 [
-                    {"port": 12345, "health_check": HttpHealthCheck(path="/healthz", type="http")},
+                    {
+                        "port": 12345,
+                        "health_check": HttpHealthCheck(path="/healthz", type="http"),
+                    },
                     lambda k8s_obj: (
-                        k8s_obj["spec"]["template"]["spec"]["containers"][0]["ports"][0][
-                            "containerPort"
-                        ]
+                        k8s_obj["spec"]["template"]["spec"]["containers"][0]["ports"][
+                            0
+                        ]["containerPort"]
                         == 12345
-                        and k8s_obj["spec"]["template"]["spec"]["containers"][0]["startupProbe"][
-                            "httpGet"
-                        ]["port"]
+                        and k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "startupProbe"
+                        ]["httpGet"]["port"]
                         == 12345
-                        and k8s_obj["spec"]["template"]["spec"]["containers"][0]["livenessProbe"][
-                            "httpGet"
-                        ]["port"]
+                        and k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "livenessProbe"
+                        ]["httpGet"]["port"]
                         == 12345
-                        and k8s_obj["spec"]["template"]["spec"]["containers"][0]["startupProbe"][
-                            "httpGet"
-                        ]["path"]
+                        and k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "startupProbe"
+                        ]["httpGet"]["path"]
                         == "/healthz"
-                        and k8s_obj["spec"]["template"]["spec"]["containers"][0]["livenessProbe"][
-                            "httpGet"
-                        ]["path"]
+                        and k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "livenessProbe"
+                        ]["httpGet"]["path"]
                         == "/healthz"
                     ),
                 ],
@@ -304,20 +337,22 @@ class TestGetJobForK8s:
                 [
                     {
                         "port": 12345,
-                        "health_check": ScriptHealthCheck(script="dummy-command", type="script"),
+                        "health_check": ScriptHealthCheck(
+                            script="dummy-command", type="script"
+                        ),
                     },
                     lambda k8s_obj: (
-                        k8s_obj["spec"]["template"]["spec"]["containers"][0]["ports"][0][
-                            "containerPort"
-                        ]
+                        k8s_obj["spec"]["template"]["spec"]["containers"][0]["ports"][
+                            0
+                        ]["containerPort"]
                         == 12345
-                        and k8s_obj["spec"]["template"]["spec"]["containers"][0]["startupProbe"][
-                            "exec"
-                        ]["command"]
+                        and k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "startupProbe"
+                        ]["exec"]["command"]
                         == ["/bin/sh", "-c", "dummy-command"]
-                        and k8s_obj["spec"]["template"]["spec"]["containers"][0]["livenessProbe"][
-                            "exec"
-                        ]["command"]
+                        and k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "livenessProbe"
+                        ]["exec"]["command"]
                         == ["/bin/sh", "-c", "dummy-command"]
                     ),
                 ],
@@ -327,7 +362,8 @@ class TestGetJobForK8s:
                 [
                     {},
                     lambda k8s_obj: (
-                        k8s_obj["metadata"]["labels"]["jobs.toolforge.org/emails"] == "none"
+                        k8s_obj["metadata"]["labels"]["jobs.toolforge.org/emails"]
+                        == "none"
                     ),
                 ],
             ],
@@ -336,7 +372,8 @@ class TestGetJobForK8s:
                 [
                     {"emails": EmailOption.none},
                     lambda k8s_obj: (
-                        k8s_obj["metadata"]["labels"]["jobs.toolforge.org/emails"] == "none"
+                        k8s_obj["metadata"]["labels"]["jobs.toolforge.org/emails"]
+                        == "none"
                     ),
                 ],
             ],
@@ -345,7 +382,8 @@ class TestGetJobForK8s:
                 [
                     {"emails": EmailOption.onfailure},
                     lambda k8s_obj: (
-                        k8s_obj["metadata"]["labels"]["jobs.toolforge.org/emails"] == "onfailure"
+                        k8s_obj["metadata"]["labels"]["jobs.toolforge.org/emails"]
+                        == "onfailure"
                     ),
                 ],
             ],
@@ -354,7 +392,8 @@ class TestGetJobForK8s:
                 [
                     {"emails": EmailOption.all},
                     lambda k8s_obj: (
-                        k8s_obj["metadata"]["labels"]["jobs.toolforge.org/emails"] == "all"
+                        k8s_obj["metadata"]["labels"]["jobs.toolforge.org/emails"]
+                        == "all"
                     ),
                 ],
             ],
@@ -363,7 +402,8 @@ class TestGetJobForK8s:
                 [
                     {"emails": EmailOption.onfinish},
                     lambda k8s_obj: (
-                        k8s_obj["metadata"]["labels"]["jobs.toolforge.org/emails"] == "onfinish"
+                        k8s_obj["metadata"]["labels"]["jobs.toolforge.org/emails"]
+                        == "onfinish"
                     ),
                 ],
             ],
@@ -372,13 +412,16 @@ class TestGetJobForK8s:
                 [
                     {"job_name": "my-dummy-job"},
                     lambda k8s_obj: (
-                        k8s_obj["metadata"]["labels"]["app.kubernetes.io/name"] == "my-dummy-job"
+                        k8s_obj["metadata"]["labels"]["app.kubernetes.io/name"]
+                        == "my-dummy-job"
                         and k8s_obj["metadata"]["name"] == "my-dummy-job"
                         and k8s_obj["spec"]["template"]["metadata"]["labels"][
                             "app.kubernetes.io/name"
                         ]
                         == "my-dummy-job"
-                        and k8s_obj["spec"]["selector"]["matchLabels"]["app.kubernetes.io/name"]
+                        and k8s_obj["spec"]["selector"]["matchLabels"][
+                            "app.kubernetes.io/name"
+                        ]
                         == "my-dummy-job"
                     ),
                 ],
@@ -433,7 +476,9 @@ class TestGetJobForK8s:
             match: Callable[[dict[str, Any]], bool],
         ):
             my_job = get_continuous_job_fixture_as_job(add_status=False, **input_params)
-            monkeypatch.setattr(jobs, "_get_tool_account_uid", lambda *args, **kwargs: "12345")
+            monkeypatch.setattr(
+                jobs, "_get_tool_account_uid", lambda *args, **kwargs: "12345"
+            )
 
             gotten_k8s_obj = jobs.get_job_for_k8s(job=my_job, default_cpu_limit="1000m")
 

@@ -109,9 +109,13 @@ def api_create_job(request: Request, tool_name: str, new_job: AnyNewJob) -> JobR
 
     existing_job = core.get_job(tool_name=job.tool_name, name=job.job_name)
     if existing_job:
-        if existing_job.status_short and existing_job.status_short.lower() != "completed":
+        if (
+            existing_job.status_short
+            and existing_job.status_short.lower() != "completed"
+        ):
             raise TjfValidationError(
-                f"A job with the name {job.job_name} already exists", http_status_code=409
+                f"A job with the name {job.job_name} already exists",
+                http_status_code=409,
             )
         core.delete_job(job=existing_job)
         logging.debug(f"Deleted existing job: {existing_job}")
@@ -126,7 +130,9 @@ def api_create_job(request: Request, tool_name: str, new_job: AnyNewJob) -> JobR
 
 @jobs.patch("")
 @jobs.patch("/", include_in_schema=False)
-def api_update_job(request: Request, tool_name: str, new_job: AnyNewJob) -> UpdateResponse:
+def api_update_job(
+    request: Request, tool_name: str, new_job: AnyNewJob
+) -> UpdateResponse:
     ensure_authenticated(request=request)
     core = current_app(request).core
     logging.debug(
@@ -185,7 +191,9 @@ def api_get_job(
         return response
     else:
         # FastAPI will not re-wrap the response if it's actually a fastapi.Response subclass
-        response = JSONResponse(content=response.model_dump(exclude_unset=True, mode="json"))  # type: ignore
+        response = JSONResponse(
+            content=response.model_dump(exclude_unset=True, mode="json")
+        )  # type: ignore
         LOGGER.debug(f"Wrapping object in JSONResponse: {response}")
         return response
 

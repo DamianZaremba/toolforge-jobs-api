@@ -38,7 +38,9 @@ def _parse_stream(result: dict[str, Any]) -> Iterator[LogEntry]:
 class LokiSource:
     # https://grafana.com/docs/loki/latest/reference/loki-http-api
 
-    def __init__(self, base_url: AnyHttpUrl, tenant: str, *, entry_limit: int = 5000) -> None:
+    def __init__(
+        self, base_url: AnyHttpUrl, tenant: str, *, entry_limit: int = 5000
+    ) -> None:
         self.base_url = base_url
         # This is in theory customizable in the Loki config so we make it a variable,
         # but in practice our deployment does not customize it as of time of writing.

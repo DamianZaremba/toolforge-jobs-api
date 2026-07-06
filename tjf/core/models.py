@@ -41,7 +41,9 @@ LOGGER = logging.getLogger(__name__)
 # This is a restriction by Kubernetes:
 # a lowercase RFC 1123 subdomain must consist of lower case alphanumeric
 # characters, '-' or '.', and must start and end with an alphanumeric character
-JOBNAME_PATTERN = re.compile("^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
+JOBNAME_PATTERN = re.compile(
+    "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+)
 
 # Cron jobs have a hard limit of 52 characters.
 # Jobs have a hard limit of 63 characters.
@@ -183,7 +185,9 @@ class CommonJob(PydanticBaseModel):
 
     @model_validator(mode="after")
     def validate_common_job(self) -> Self:
-        LOGGER.debug(f"Validating common job: {self} (set fields {self.model_fields_set})")
+        LOGGER.debug(
+            f"Validating common job: {self} (set fields {self.model_fields_set})"
+        )
         # we rely on the image having set the type even if we have not yet verified it's a valid one
         # (see the model validation)
         if (
@@ -194,10 +198,16 @@ class CommonJob(PydanticBaseModel):
             raise ValueError(
                 f"Mount type {self.mount.value} is only supported for build service images"
             )
-        if self.filelog and "mount" in self.model_fields_set and self.mount != MountOption.ALL:
+        if (
+            self.filelog
+            and "mount" in self.model_fields_set
+            and self.mount != MountOption.ALL
+        ):
             raise ValueError("File logging is only available with --mount=all")
 
-        LOGGER.debug(f"Validated common job, {self} (with set fields {self.model_fields_set})")
+        LOGGER.debug(
+            f"Validated common job, {self} (with set fields {self.model_fields_set})"
+        )
         return self
 
     def get_resolved_core_job(self) -> Self:

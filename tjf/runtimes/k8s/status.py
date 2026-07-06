@@ -55,7 +55,9 @@ def _get_duration(start_time: str | None) -> str:
         start_time_obj = datetime.now(timezone.utc)
     # TODO: The format of the string returned by format_duration ("24d24h59m45s") has terrible UX.
     # Maybe use something else or refactor format_duration?
-    return format_duration(int((datetime.now(timezone.utc) - start_time_obj).total_seconds()))
+    return format_duration(
+        int((datetime.now(timezone.utc) - start_time_obj).total_seconds())
+    )
 
 
 def _get_highest_priority_status(
@@ -143,7 +145,9 @@ def _extract_container_statuses(
                 aggregated_statuses["running"].append(
                     CommonJobStatus(
                         short=StatusShort.RUNNING,
-                        duration=_get_duration(start_time=state["running"].get("startedAt", None)),
+                        duration=_get_duration(
+                            start_time=state["running"].get("startedAt", None)
+                        ),
                         up_to_date=True,
                     )
                 )
@@ -172,7 +176,9 @@ def _extract_container_statuses(
                 restart_count = container_status.get("restartCount", 0)
                 messages = [f"restarted ({restart_count})"]
                 if container_status.get("lastState", {}).get("terminated", None):
-                    exit_code = container_status["lastState"]["terminated"].get("exitCode", 0)
+                    exit_code = container_status["lastState"]["terminated"].get(
+                        "exitCode", 0
+                    )
                     messages = [f"restarted ({restart_count})", f"exitcode {exit_code}"]
 
                 aggregated_statuses["restarted"].append(
@@ -311,7 +317,9 @@ def _get_one_off_job_status_from_out_of_quota_event(
     return None
 
 
-def _get_automatically_triggered_job(k8s_job_spec: dict[str, Any]) -> dict[str, Any] | None:
+def _get_automatically_triggered_job(
+    k8s_job_spec: dict[str, Any],
+) -> dict[str, Any] | None:
     instantiate = (
         k8s_job_spec.get("metadata", {})
         .get("annotations", {})
@@ -394,10 +402,14 @@ def _get_latest_k8s_cronjob_job(
     auto_job: dict[str, Any] | None = None
     manual_job: dict[str, Any] | None = None
     cronjob_uid = k8s_cronjob.get("metadata", {}).get("uid", None)
-    if not cronjob_uid:  # not sure why a cronjob should not have uid, but that's not good
+    if (
+        not cronjob_uid
+    ):  # not sure why a cronjob should not have uid, but that's not good
         return None
 
-    k8s_jobs = sorted(k8s_jobs, key=lambda j: j["metadata"]["creationTimestamp"], reverse=True)
+    k8s_jobs = sorted(
+        k8s_jobs, key=lambda j: j["metadata"]["creationTimestamp"], reverse=True
+    )
     for k8s_job_spec in k8s_jobs:
         if not auto_job:
             auto_job = _get_automatically_triggered_job(k8s_job_spec=k8s_job_spec)
@@ -414,7 +426,9 @@ def _get_latest_k8s_cronjob_job(
         auto_job.get("metadata", {}).get("creationTimestamp", "") if auto_job else ""
     )
     manual_job_creation_timestamp = (
-        manual_job.get("metadata", {}).get("creationTimestamp", "") if manual_job else ""
+        manual_job.get("metadata", {}).get("creationTimestamp", "")
+        if manual_job
+        else ""
     )
     if auto_job_creation_timestamp > manual_job_creation_timestamp:
         return auto_job
@@ -422,20 +436,28 @@ def _get_latest_k8s_cronjob_job(
     return manual_job
 
 
-def _get_one_off_job_status_from_conditions(job_status: dict[str, Any]) -> OneOffJobStatus | None:
+def _get_one_off_job_status_from_conditions(
+    job_status: dict[str, Any],
+) -> OneOffJobStatus | None:
     for condition in job_status.get("conditions", []):
         duration = _get_duration(start_time=condition.get("lastTransitionTime", None))
 
         if condition.get("type") == "Complete" and condition.get("status") == "True":
-            return OneOffJobStatus(short=StatusShort.SUCCEEDED, duration=duration, up_to_date=True)
+            return OneOffJobStatus(
+                short=StatusShort.SUCCEEDED, duration=duration, up_to_date=True
+            )
 
         if condition.get("type") == "Failed" and condition.get("status") == "True":
-            return OneOffJobStatus(short=StatusShort.FAILED, duration=duration, up_to_date=True)
+            return OneOffJobStatus(
+                short=StatusShort.FAILED, duration=duration, up_to_date=True
+            )
 
     return None
 
 
-def get_one_off_job_status(tool_account: ToolAccount, k8s_job: dict[str, Any]) -> OneOffJobStatus:
+def get_one_off_job_status(
+    tool_account: ToolAccount, k8s_job: dict[str, Any]
+) -> OneOffJobStatus:
     LOGGER.debug(f"k8s job object: {k8s_job}")
     selector = labels_selector(
         job_name=k8s_job["metadata"]["name"], tool_name=tool_account.name, type="jobs"
@@ -459,7 +481,9 @@ def _get_one_off_job_status_from_k8s_job(
     if pod_status and pod_status.short != "unknown":
         return OneOffJobStatus(**pod_status.model_dump())
 
-    LOGGER.debug(f"inconclusive status gotten '{pod_status}', performing further processing...")
+    LOGGER.debug(
+        f"inconclusive status gotten '{pod_status}', performing further processing..."
+    )
     status_from_conditions = _get_one_off_job_status_from_conditions(job_status)
     if status_from_conditions:
         return status_from_conditions
@@ -474,7 +498,9 @@ def _get_one_off_job_status_from_k8s_job(
         )
 
     if not active and not ready:
-        status_from_event = _get_one_off_job_status_from_out_of_quota_event(tool_account, k8s_job)
+        status_from_event = _get_one_off_job_status_from_out_of_quota_event(
+            tool_account, k8s_job
+        )
         if status_from_event:
             return status_from_event
 
@@ -496,7 +522,9 @@ def _filter_k8s_job_pods(
     if not job_name:
         return k8s_pods
     return [
-        p for p in k8s_pods if p.get("metadata", {}).get("labels", {}).get("job-name") == job_name
+        p
+        for p in k8s_pods
+        if p.get("metadata", {}).get("labels", {}).get("job-name") == job_name
     ]
 
 
@@ -525,10 +553,14 @@ def get_scheduled_job_status(
         k8s_component_label="cronjobs",
     )
     LOGGER.debug(f"k8s job objects: {k8s_jobs}")
-    k8s_job = _get_latest_k8s_cronjob_job(job=job, k8s_cronjob=k8s_cronjob, k8s_jobs=k8s_jobs)
+    k8s_job = _get_latest_k8s_cronjob_job(
+        job=job, k8s_cronjob=k8s_cronjob, k8s_jobs=k8s_jobs
+    )
     # if a job is running, use it's creationTimestamp for previous_schedule,
     # else use the cronjob's lastScheduleTime which is always defined if the cronjob has ever run
-    previous_schedule = k8s_job and k8s_job.get("metadata", {}).get("creationTimestamp", "")
+    previous_schedule = k8s_job and k8s_job.get("metadata", {}).get(
+        "creationTimestamp", ""
+    )
     previous_schedule = previous_schedule or cronjob_status.get("lastScheduleTime", "")
     if previous_schedule:
         base_time = date_parser.isoparse(previous_schedule).replace(tzinfo=timezone.utc)
@@ -600,7 +632,9 @@ def _get_continuous_job_status_from_out_of_quota_events(
             return ContinuousJobStatus(
                 short=StatusShort.FAILED,
                 messages=[f"Unable to start, {quota_error}"],
-                duration=_get_duration(start_time=condition.get("lastTransitionTime", None)),
+                duration=_get_duration(
+                    start_time=condition.get("lastTransitionTime", None)
+                ),
                 up_to_date=True,
             )
     return None
@@ -616,10 +650,13 @@ def _get_continuous_job_status_from_deployment_status(
     ready_replicas = deployment_status.get("readyReplicas", 0)
     unavailable_replicas = deployment_status.get("unavailableReplicas", 0)
 
-    deployment_restart_time_obj = restarted_at and datetime.strptime(
-        restarted_at,
-        "%Y-%m-%dT%H:%M:%S.%f%z",  # can't use KUBERNETES_DATE_FORMAT here because of the format
-    ).replace(tzinfo=timezone.utc)
+    deployment_restart_time_obj = (
+        restarted_at
+        and datetime.strptime(
+            restarted_at,
+            "%Y-%m-%dT%H:%M:%S.%f%z",  # can't use KUBERNETES_DATE_FORMAT here because of the format
+        ).replace(tzinfo=timezone.utc)
+    )
     deployment_start_time_obj = datetime.strptime(
         k8s_deployment["metadata"]["creationTimestamp"], KUBERNETES_DATE_FORMAT
     ).replace(tzinfo=timezone.utc)
@@ -654,7 +691,8 @@ def _get_continuous_job_status_from_deployment_status(
             messages=pod_status.messages if pod_status else [],
             # no pod_status so use either restarted_at or creationTimestamp as best guess, which one is available.
             duration=_get_duration(
-                start_time=restarted_at or k8s_deployment["metadata"]["creationTimestamp"]
+                start_time=restarted_at
+                or k8s_deployment["metadata"]["creationTimestamp"]
             ),
             up_to_date=True,
         )
@@ -664,7 +702,8 @@ def _get_continuous_job_status_from_deployment_status(
             short=StatusShort.RUNNING,
             # no pod_status so use either restarted_at or creationTimestamp as best guess, which one is available.
             duration=_get_duration(
-                start_time=restarted_at or k8s_deployment["metadata"]["creationTimestamp"]
+                start_time=restarted_at
+                or k8s_deployment["metadata"]["creationTimestamp"]
             ),
             up_to_date=True,
         )
@@ -692,7 +731,9 @@ def get_continuous_job_status(
     if pod_status and pod_status.short == "running":
         return ContinuousJobStatus(**pod_status.model_dump())
 
-    LOGGER.debug(f"inconclusive status gotten '{pod_status}', performing further processing...")
+    LOGGER.debug(
+        f"inconclusive status gotten '{pod_status}', performing further processing..."
+    )
     deployment_conditions = sorted(
         deployment_status.get("conditions", []),
         key=lambda c: c.get("lastTransitionTime", None),

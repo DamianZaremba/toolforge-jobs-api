@@ -16,7 +16,9 @@ LOGGER = logging.getLogger(__name__)
 
 def _polish_pydantic_error_message(pydantic_message: str) -> str:
     return "\n".join(
-        line for line in pydantic_message.splitlines() if "For further information" not in line
+        line
+        for line in pydantic_message.splitlines()
+        if "For further information" not in line
     )
 
 

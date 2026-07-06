@@ -397,10 +397,14 @@ IMAGE_NAME_TESTS = [
 def test_from_short_name_or_url_happy_path(fake_images, provided_name, expected_image):
     full_url = expected_image.to_full_url()
     expected_image_json = expected_image.model_dump(exclude_unset=True)
-    gotten_image = Image.from_short_name_or_url(url_or_name=provided_name, tool_name="some-tool")
+    gotten_image = Image.from_short_name_or_url(
+        url_or_name=provided_name, tool_name="some-tool"
+    )
     assert expected_image_json == gotten_image.model_dump(exclude_unset=True)
 
-    gotten_image = Image.from_short_name_or_url(url_or_name=full_url, tool_name="some-tool")
+    gotten_image = Image.from_short_name_or_url(
+        url_or_name=full_url, tool_name="some-tool"
+    )
     assert expected_image_json == gotten_image.model_dump(exclude_unset=True)
 
 

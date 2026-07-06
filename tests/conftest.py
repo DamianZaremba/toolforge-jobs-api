@@ -122,7 +122,9 @@ def fake_harbor_content(
                 (fixtures_path / "harbor" / "artifact-list-some-tool.json").read_text()
             ),
             "repository-list": json.loads(
-                (fixtures_path / "harbor" / "repository-list-some-tool.json").read_text()
+                (
+                    fixtures_path / "harbor" / "repository-list-some-tool.json"
+                ).read_text()
             ),
         },
     }
@@ -187,7 +189,9 @@ def storage_k8s_cli(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 
 
 @pytest.fixture
-def runtime_k8s_cli(fake_tool_account: ToolAccount, monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+def runtime_k8s_cli(
+    fake_tool_account: ToolAccount, monkeypatch: pytest.MonkeyPatch
+) -> MagicMock:
     k8s_mock = MagicMock(spec=fake_tool_account.k8s_cli)
     monkeypatch.setattr(fake_tool_account, "k8s_cli", k8s_mock)
     return k8s_mock
@@ -196,7 +200,9 @@ def runtime_k8s_cli(fake_tool_account: ToolAccount, monkeypatch: pytest.MonkeyPa
 @pytest.fixture
 def app(storage_k8s_cli: MagicMock) -> Generator[JobsApi, None, None]:
     settings = Settings(
-        debug=True, skip_metrics=False, images_config_refresh_interval=timedelta(hours=0)
+        debug=True,
+        skip_metrics=False,
+        images_config_refresh_interval=timedelta(hours=0),
     )
     app = create_app(settings=settings)
     yield app

@@ -15,16 +15,22 @@ from ..core.images import Image as ImageData
 from ..core.models import (
     JOBNAME_MAX_LENGTH,
     JOBNAME_PATTERN,
+    BaseModel,
+    ContinuousJobStatus,
+    EmailOption,
+    HttpHealthCheck,
+    JobType,
+    OneOffJobStatus,
+    PortProtocol,
+    Quota,
+    ScheduledJobStatus,
+    ScriptHealthCheck,
 )
 from ..core.models import AnyJob as AnyCoreJob
-from ..core.models import BaseModel
 from ..core.models import CommonJob as CoreCommonJob
 from ..core.models import ContinuousJob as CoreContinuousJob
-from ..core.models import ContinuousJobStatus, EmailOption, HttpHealthCheck, JobType
 from ..core.models import OneOffJob as CoreOneOffJob
-from ..core.models import OneOffJobStatus, PortProtocol, Quota
 from ..core.models import ScheduledJob as CoreScheduledJob
-from ..core.models import ScheduledJobStatus, ScriptHealthCheck
 
 LOGGER = getLogger(__name__)
 
@@ -125,7 +131,9 @@ class CommonJob(BaseModel):
 
 class NewOneOffJob(CommonJob, BaseModel):
     job_type: Literal[JobType.ONE_OFF] = CoreOneOffJob.model_fields["job_type"].default
-    retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields["retry"].default
+    retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields[
+        "retry"
+    ].default
     continuous: Literal[False] = False
 
     @model_validator(mode="after")
@@ -156,9 +164,15 @@ class NewOneOffJob(CommonJob, BaseModel):
 
 class NewScheduledJob(CommonJob, BaseModel):
     schedule: str
-    job_type: Literal[JobType.SCHEDULED] = CoreScheduledJob.model_fields["job_type"].default
-    retry: Annotated[int, Field(ge=0, le=5)] = CoreScheduledJob.model_fields["retry"].default
-    timeout: Annotated[int, Field(ge=0)] | None = CoreScheduledJob.model_fields["timeout"].default
+    job_type: Literal[JobType.SCHEDULED] = CoreScheduledJob.model_fields[
+        "job_type"
+    ].default
+    retry: Annotated[int, Field(ge=0, le=5)] = CoreScheduledJob.model_fields[
+        "retry"
+    ].default
+    timeout: Annotated[int, Field(ge=0)] | None = CoreScheduledJob.model_fields[
+        "timeout"
+    ].default
     continuous: Literal[False] = False
 
     @model_validator(mode="after")
@@ -190,7 +204,9 @@ class NewScheduledJob(CommonJob, BaseModel):
                 tool_name=tool_name,
             )
         except CronParsingError as e:
-            raise TjfValidationError(f'Unable to parse cron expression "{schedule}"') from e
+            raise TjfValidationError(
+                f'Unable to parse cron expression "{schedule}"'
+            ) from e
 
         all_fields = {**set_fields, **common_core_fields, "schedule": schedule_obj}
         my_job = CoreScheduledJob.model_validate(all_fields)
@@ -199,10 +215,14 @@ class NewScheduledJob(CommonJob, BaseModel):
 
 
 class NewContinuousJob(CommonJob, BaseModel):
-    job_type: Literal[JobType.CONTINUOUS] = CoreContinuousJob.model_fields["job_type"].default
+    job_type: Literal[JobType.CONTINUOUS] = CoreContinuousJob.model_fields[
+        "job_type"
+    ].default
     # TODO: remove when all clients have migrate to job_type field
     continuous: Literal[True] = True
-    replicas: int = Field(default=CoreContinuousJob.model_fields["replicas"].default, ge=0)
+    replicas: int = Field(
+        default=CoreContinuousJob.model_fields["replicas"].default, ge=0
+    )
     port: Annotated[int, Field(ge=1, le=65535)] | None = CoreContinuousJob.model_fields[
         "port"
     ].default
@@ -254,7 +274,9 @@ class DefinedCommonJob(CommonJob):
 
     @classmethod
     def from_core_job(cls, core_job: AnyCoreJob) -> "DefinedCommonJob":
-        common_params = CommonJob.from_core_job(core_job=core_job).model_dump(exclude_unset=True)
+        common_params = CommonJob.from_core_job(core_job=core_job).model_dump(
+            exclude_unset=True
+        )
         set_core_params = core_job.model_dump(exclude_unset=True)
         image_state = set_core_params.pop("image")["state"]
 
@@ -282,13 +304,17 @@ class DefinedCommonJob(CommonJob):
 
 class DefinedOneOffJob(DefinedCommonJob, BaseModel):
     job_type: Literal[JobType.ONE_OFF] = CoreOneOffJob.model_fields["job_type"].default
-    retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields["retry"].default
+    retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields[
+        "retry"
+    ].default
     status: OneOffJobStatus = CoreOneOffJob.model_fields["status"].default
 
     @classmethod
     def from_core_job(cls, core_job: AnyCoreJob) -> "DefinedOneOffJob":
         if not isinstance(core_job, CoreOneOffJob):
-            raise TjfValidationError("DefinedOneOffJob can only be created from a CoreOneOffJob")
+            raise TjfValidationError(
+                "DefinedOneOffJob can only be created from a CoreOneOffJob"
+            )
 
         defined_common_job = DefinedCommonJob.from_core_job(core_job=core_job)
         common_params = defined_common_job.model_dump(exclude_unset=True)
@@ -317,9 +343,15 @@ class DefinedOneOffJob(DefinedCommonJob, BaseModel):
 
 
 class DefinedScheduledJob(DefinedCommonJob, BaseModel):
-    job_type: Literal[JobType.SCHEDULED] = CoreScheduledJob.model_fields["job_type"].default
-    timeout: Annotated[int, Field(ge=0)] = CoreScheduledJob.model_fields["timeout"].default
-    retry: Annotated[int, Field(ge=0, le=5)] = CoreScheduledJob.model_fields["retry"].default
+    job_type: Literal[JobType.SCHEDULED] = CoreScheduledJob.model_fields[
+        "job_type"
+    ].default
+    timeout: Annotated[int, Field(ge=0)] = CoreScheduledJob.model_fields[
+        "timeout"
+    ].default
+    retry: Annotated[int, Field(ge=0, le=5)] = CoreScheduledJob.model_fields[
+        "retry"
+    ].default
     schedule: str
     schedule_actual: str | None = None
     status: ScheduledJobStatus = CoreScheduledJob.model_fields["status"].default
@@ -353,7 +385,13 @@ class DefinedScheduledJob(DefinedCommonJob, BaseModel):
 
         my_job = cls.model_validate(params)
         # remove fields that should be skipped when excluding_unset
-        for field in ["status_short", "status_long", "status", "image_state", "schedule_actual"]:
+        for field in [
+            "status_short",
+            "status_long",
+            "status",
+            "image_state",
+            "schedule_actual",
+        ]:
             if field in my_job.model_fields_set:
                 my_job.model_fields_set.remove(field)
 
@@ -363,7 +401,9 @@ class DefinedScheduledJob(DefinedCommonJob, BaseModel):
 
 
 class DefinedContinuousJob(DefinedCommonJob, BaseModel):
-    job_type: Literal[JobType.CONTINUOUS] = CoreContinuousJob.model_fields["job_type"].default
+    job_type: Literal[JobType.CONTINUOUS] = CoreContinuousJob.model_fields[
+        "job_type"
+    ].default
     # TODO: remove when all clients have migrated to job_type field
     continuous: Literal[True] = True
     replicas: Annotated[int, Field(ge=0)] | None = CoreContinuousJob.model_fields[
@@ -372,7 +412,9 @@ class DefinedContinuousJob(DefinedCommonJob, BaseModel):
     port: Annotated[int, Field(ge=1, le=65535)] | None = CoreContinuousJob.model_fields[
         "port"
     ].default
-    port_protocol: PortProtocol = CoreContinuousJob.model_fields["port_protocol"].default
+    port_protocol: PortProtocol = CoreContinuousJob.model_fields[
+        "port_protocol"
+    ].default
     health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
         default=CoreContinuousJob.model_fields["health_check"].default,
         discriminator="health_check_type",

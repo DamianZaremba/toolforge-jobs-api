@@ -43,8 +43,15 @@ def patch_spec(spec: dict[str, Any], patch: dict[str, Any] | None) -> dict[str, 
     for key, value in patch.items():
         if key in spec and isinstance(spec[key], dict) and isinstance(value, dict):
             spec[key] = patch_spec(spec[key], value)
-        elif key in spec and isinstance(spec[key], list) and value and isinstance(value, list):
-            for index, (orig_elem, patch_elem) in enumerate(zip(spec[key], value, strict=False)):
+        elif (
+            key in spec
+            and isinstance(spec[key], list)
+            and value
+            and isinstance(value, list)
+        ):
+            for index, (orig_elem, patch_elem) in enumerate(
+                zip(spec[key], value, strict=False)
+            ):
                 if isinstance(orig_elem, dict) and isinstance(patch_elem, dict):
                     spec[key][index] = patch_spec(orig_elem, patch_elem)
                 else:

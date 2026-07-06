@@ -19,7 +19,9 @@ def get_fake_harbor_config() -> HarborConfig:
     return HarborConfig(host=FAKE_HARBOR_HOST)
 
 
-def get_fake_account(fake_k8s_cli: Any | None = None, name: str = "tf-test") -> ToolAccount:
+def get_fake_account(
+    fake_k8s_cli: Any | None = None, name: str = "tf-test"
+) -> ToolAccount:
 
     class FakeToolAccount(ToolAccount):
         namespace = f"tool-{name}"
@@ -57,7 +59,9 @@ def get_dummy_job(**overrides) -> AnyJob:
             params["schedule"] = params.get(
                 "schedule",
                 CronExpression.parse(
-                    value="* * * * *", job_name=params["job_name"], tool_name=params["tool_name"]
+                    value="* * * * *",
+                    job_name=params["job_name"],
+                    tool_name=params["tool_name"],
                 ),
             )
             return ScheduledJob.model_validate(params)

@@ -143,7 +143,9 @@ class Core:
         resolved_job = job.get_resolved_core_job()
 
         LOGGER.debug(f"Updating job in storage {job.job_name}")
-        changed_in_storage = self._update_job_in_storage(existing_job=maybe_fresh_job, new_job=job)
+        changed_in_storage = self._update_job_in_storage(
+            existing_job=maybe_fresh_job, new_job=job
+        )
 
         LOGGER.debug(f"Updating job in runtime {job.job_name}")
         changed_in_runtime = self._update_job_in_runtime(job=resolved_job)
@@ -295,7 +297,9 @@ class Core:
                 )
 
             elif storage_job.job_type == JobType.SCHEDULED:
-                runtime_job = self.runtime.get_scheduled_job(job_name=name, tool_name=tool_name)
+                runtime_job = self.runtime.get_scheduled_job(
+                    job_name=name, tool_name=tool_name
+                )
 
             else:
                 raise TjfValidationError(f"Unknown job of type {storage_job.job_type}")
@@ -312,7 +316,9 @@ class Core:
     ) -> AnyJob | None:
         if not storage_job:
             if runtime_job:
-                LOGGER.warning(f"Found a job in runtime but not in storage: {runtime_job}")
+                LOGGER.warning(
+                    f"Found a job in runtime but not in storage: {runtime_job}"
+                )
                 ONLY_IN_RUNTIME_COUNTER.labels(tool_name=tool_name).inc()
             return None
 

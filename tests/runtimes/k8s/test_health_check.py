@@ -58,7 +58,9 @@ class TestGetHealthcheckForK8s:
         }
 
         dummy_job = get_dummy_job(
-            health_check=HttpHealthCheck(health_check_type=HealthCheckType.HTTP, path="/healthz"),
+            health_check=HttpHealthCheck(
+                health_check_type=HealthCheckType.HTTP, path="/healthz"
+            ),
             port=8080,
         )
         gotten_k8s_object = get_healthcheck_for_k8s(

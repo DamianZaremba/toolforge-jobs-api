@@ -38,7 +38,9 @@ def dict_get_object(dict_in: dict[T, U], kind: T) -> U | None:
 
 
 # copied & adapted from https://github.com/kubernetes-client/python/pull/2216/files#diff-7070f0b8e347e5b2bd6a5fcb5ff69ed300853c94d610e984e09f831d028d644b
-def format_quantity(quantity_value: Decimal, suffix: str = "", quantize: str = "") -> str:
+def format_quantity(
+    quantity_value: Decimal, suffix: str = "", quantize: str = ""
+) -> str:
     """
     Takes a value and produces a string value in kubernetes' canonical quantity form,
     like "200Mi".Users can specify an additional parameter to quantize the output.
@@ -88,7 +90,9 @@ def format_quantity(quantity_value: Decimal, suffix: str = "", quantize: str = "
 
 
 def parse_and_format_mem(mem: str) -> str:
-    return format_quantity(quantity_value=parse_quantity(mem), suffix="Gi", quantize="0.000")
+    return format_quantity(
+        quantity_value=parse_quantity(mem), suffix="Gi", quantize="0.000"
+    )
 
 
 def format_duration(seconds: int) -> str:

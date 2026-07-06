@@ -19,18 +19,24 @@ from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
 from tjf.core.models import CommonJob as CoreCommonJob
 from tjf.core.models import ContinuousJob as CoreContinuousJob
-from tjf.core.models import EmailOption, HealthCheckType, JobType
+from tjf.core.models import (
+    EmailOption,
+    HealthCheckType,
+    JobType,
+    PortProtocol,
+    ScriptHealthCheck,
+)
 from tjf.core.models import OneOffJob as CoreOneOffJob
-from tjf.core.models import PortProtocol
 from tjf.core.models import ScheduledJob as CoreScheduledJob
-from tjf.core.models import ScriptHealthCheck
 from tjf.runtimes.k8s.jobs import get_one_off_job_from_k8s_object
 
 
 def get_dummy_core_common_job(**overrides) -> CoreCommonJob:
     params = dict(
         cmd="dummy-command",
-        image=Image.from_short_name_or_url(url_or_name="python3.11", tool_name="some-tool"),
+        image=Image.from_short_name_or_url(
+            url_or_name="python3.11", tool_name="some-tool"
+        ),
         job_name="dummy-job-name",
         tool_name="some-tool",
     )
@@ -64,7 +70,9 @@ def get_dummy_defined_common_job(**overrides) -> DefinedCommonJob:
 def get_dummy_core_oneoff_job(**overrides) -> CoreOneOffJob:
     params = {
         "cmd": "dummy-command",
-        "image": Image.from_short_name_or_url(url_or_name="python3.11", tool_name="some-tool"),
+        "image": Image.from_short_name_or_url(
+            url_or_name="python3.11", tool_name="some-tool"
+        ),
         "job_name": "dummy-job-name",
         "tool_name": "some-tool",
     }
@@ -99,7 +107,9 @@ def get_dummy_defined_oneoff_job(**overrides) -> DefinedOneOffJob:
 def get_dummy_core_scheduled_job(**overrides) -> CoreScheduledJob:
     params = dict(
         cmd="dummy-command",
-        image=Image.from_short_name_or_url(url_or_name="python3.11", tool_name="some-tool"),
+        image=Image.from_short_name_or_url(
+            url_or_name="python3.11", tool_name="some-tool"
+        ),
         job_name="dummy-job-name",
         tool_name="some-tool",
         schedule=CronExpression.parse(
@@ -142,7 +152,9 @@ def get_dummy_defined_scheduled_job(**overrides) -> DefinedScheduledJob:
 def get_dummy_core_continuous_job(**overrides) -> CoreContinuousJob:
     params = dict(
         cmd="dummy-command",
-        image=Image.from_short_name_or_url(url_or_name="python3.11", tool_name="some-tool"),
+        image=Image.from_short_name_or_url(
+            url_or_name="python3.11", tool_name="some-tool"
+        ),
         job_name="dummy-job-name",
         tool_name="some-tool",
     )
@@ -188,9 +200,9 @@ class TestCommonJob:
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
-        assert gotten_core_job.model_dump(exclude_unset=True) == expected_core_job.model_dump(
+        assert gotten_core_job.model_dump(
             exclude_unset=True
-        )
+        ) == expected_core_job.model_dump(exclude_unset=True)
 
     def test_to_job_returns_expected_value_when_including_unset(self):
         my_job = get_dummy_common_job()
@@ -198,9 +210,9 @@ class TestCommonJob:
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
-        assert gotten_core_job.model_dump(exclude_unset=False) == expected_core_job.model_dump(
+        assert gotten_core_job.model_dump(
             exclude_unset=False
-        )
+        ) == expected_core_job.model_dump(exclude_unset=False)
 
     def test_to_job_returns_expected_value_when_setting_all_fields(self):
         # similar as before, but leaving for consistency and in case we add fields to it
@@ -234,9 +246,9 @@ class TestNewOneOffJob:
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
-        assert gotten_core_job.model_dump(exclude_unset=True) == expected_core_job.model_dump(
+        assert gotten_core_job.model_dump(
             exclude_unset=True
-        )
+        ) == expected_core_job.model_dump(exclude_unset=True)
 
     def test_to_job_returns_expected_value_when_including_unset(self):
         my_job = get_dummy_new_oneoff_job()
@@ -244,9 +256,9 @@ class TestNewOneOffJob:
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
-        assert gotten_core_job.model_dump(exclude_unset=False) == expected_core_job.model_dump(
+        assert gotten_core_job.model_dump(
             exclude_unset=False
-        )
+        ) == expected_core_job.model_dump(exclude_unset=False)
 
     def test_to_job_returns_expected_value_when_setting_all_fields(self):
         # similar as before, but leaving for consistency and in case we add fields to it
@@ -265,9 +277,9 @@ class TestNewScheduledJob:
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
-        assert gotten_core_job.model_dump(exclude_unset=True) == expected_core_job.model_dump(
+        assert gotten_core_job.model_dump(
             exclude_unset=True
-        )
+        ) == expected_core_job.model_dump(exclude_unset=True)
 
     def test_to_job_returns_expected_value_when_including_unset(self):
         my_job = get_dummy_new_scheduled_job()
@@ -275,9 +287,9 @@ class TestNewScheduledJob:
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
-        assert gotten_core_job.model_dump(exclude_unset=False) == expected_core_job.model_dump(
+        assert gotten_core_job.model_dump(
             exclude_unset=False
-        )
+        ) == expected_core_job.model_dump(exclude_unset=False)
 
     def test_to_job_returns_expected_value_when_setting_all_fields(self):
         my_job = get_dummy_new_scheduled_job(timeout=120)
@@ -295,9 +307,9 @@ class TestNewContinuousJob:
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
-        assert gotten_core_job.model_dump(exclude_unset=True) == expected_core_job.model_dump(
+        assert gotten_core_job.model_dump(
             exclude_unset=True
-        )
+        ) == expected_core_job.model_dump(exclude_unset=True)
 
     def test_to_job_returns_expected_value_when_including_unset(self):
         my_job = get_dummy_new_continuous_job()
@@ -305,9 +317,9 @@ class TestNewContinuousJob:
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
-        assert gotten_core_job.model_dump(exclude_unset=False) == expected_core_job.model_dump(
+        assert gotten_core_job.model_dump(
             exclude_unset=False
-        )
+        ) == expected_core_job.model_dump(exclude_unset=False)
 
     def test_to_job_returns_expected_value_when_all_fields_set(self):
         my_job = get_dummy_new_continuous_job(
@@ -323,9 +335,9 @@ class TestNewContinuousJob:
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
-        assert gotten_core_job.model_dump(exclude_unset=False) == expected_core_job.model_dump(
+        assert gotten_core_job.model_dump(
             exclude_unset=False
-        )
+        ) == expected_core_job.model_dump(exclude_unset=False)
 
 
 class TestDefinedCommonJob:
@@ -377,7 +389,9 @@ class TestDefinedCommonJob:
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
         core_job = get_dummy_core_common_job(
-            image=Image.from_short_name_or_url(url_or_name="python3.11", tool_name="some-tool"),
+            image=Image.from_short_name_or_url(
+                url_or_name="python3.11", tool_name="some-tool"
+            ),
             status_short="dummy status short",
             status_long="dummy status long",
             filelog=True,
@@ -548,7 +562,9 @@ class TestDefinedContinuousJob:
             replicas=2,
             port=8080,
             port_protocol=PortProtocol.UDP,
-            health_check=ScriptHealthCheck(script="dummy-script", type=HealthCheckType.SCRIPT),
+            health_check=ScriptHealthCheck(
+                script="dummy-script", type=HealthCheckType.SCRIPT
+            ),
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
@@ -557,7 +573,9 @@ class TestDefinedContinuousJob:
             replicas=2,
             port=8080,
             port_protocol=PortProtocol.UDP,
-            health_check=ScriptHealthCheck(script="dummy-script", type=HealthCheckType.SCRIPT),
+            health_check=ScriptHealthCheck(
+                script="dummy-script", type=HealthCheckType.SCRIPT
+            ),
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
@@ -574,8 +592,12 @@ class TestGetResolvedCoreJob:
         resolved = job.get_resolved_core_job()
         assert resolved.mount == MountOption.ALL
         assert resolved.filelog is True
-        assert resolved.filelog_stdout == Path("/data/project/some-tool/dummy-job-name.out")
-        assert resolved.filelog_stderr == Path("/data/project/some-tool/dummy-job-name.err")
+        assert resolved.filelog_stdout == Path(
+            "/data/project/some-tool/dummy-job-name.out"
+        )
+        assert resolved.filelog_stderr == Path(
+            "/data/project/some-tool/dummy-job-name.err"
+        )
 
     def test_common_job_resolves_mount_and_filelog_for_buildservice_image(self):
         job = get_dummy_core_common_job(

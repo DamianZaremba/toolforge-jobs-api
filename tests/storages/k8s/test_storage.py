@@ -146,8 +146,9 @@ def assert_jobs_get_k8s_calls(storage_k8s_cli: MagicMock):
 
 class TestStorage:
     class TestGetJobs:
-
-        def test_returns_empty_list_when_theres_no_jobs(self, storage_k8s_cli: MagicMock) -> None:
+        def test_returns_empty_list_when_theres_no_jobs(
+            self, storage_k8s_cli: MagicMock
+        ) -> None:
             storage_k8s_cli.list_namespaced_custom_object.return_value = {
                 "apiVersion": "v1",
                 "items": [],
@@ -162,12 +163,18 @@ class TestStorage:
             assert_jobs_get_k8s_calls(storage_k8s_cli=storage_k8s_cli)
 
         def test_returns_single_job(self, storage_k8s_cli: MagicMock) -> None:
-            def _fake_list_objects(group: str, version: str, plural: str, namespace: str):
+            def _fake_list_objects(
+                group: str, version: str, plural: str, namespace: str
+            ):
                 if plural == "continuous-jobs":
-                    return get_k8s_jobs_response(items=[get_k8s_continuous_job(name="testcont1")])
+                    return get_k8s_jobs_response(
+                        items=[get_k8s_continuous_job(name="testcont1")]
+                    )
                 return get_k8s_jobs_response()
 
-            storage_k8s_cli.list_namespaced_custom_object.side_effect = _fake_list_objects
+            storage_k8s_cli.list_namespaced_custom_object.side_effect = (
+                _fake_list_objects
+            )
             my_storage = storage.K8sStorage(settings=Settings(debug=True))
 
             gotten_jobs = my_storage.get_jobs(tool_name="tf-test")
@@ -176,7 +183,9 @@ class TestStorage:
             assert_jobs_get_k8s_calls(storage_k8s_cli=storage_k8s_cli)
 
         def test_returns_multiple_jobs(self, storage_k8s_cli: MagicMock) -> None:
-            def _fake_list_objects(group: str, version: str, plural: str, namespace: str):
+            def _fake_list_objects(
+                group: str, version: str, plural: str, namespace: str
+            ):
                 if plural == "continuous-jobs":
                     return get_k8s_jobs_response(
                         items=[
@@ -192,7 +201,9 @@ class TestStorage:
                     )
                 return get_k8s_jobs_response()
 
-            storage_k8s_cli.list_namespaced_custom_object.side_effect = _fake_list_objects
+            storage_k8s_cli.list_namespaced_custom_object.side_effect = (
+                _fake_list_objects
+            )
             my_storage = storage.K8sStorage(settings=Settings(debug=True))
 
             gotten_jobs = my_storage.get_jobs(tool_name="tf-test")
@@ -224,7 +235,9 @@ class TestStorage:
         def test_finds_scheduled_job_by_name_when_many_exist(
             self, storage_k8s_cli: MagicMock
         ) -> None:
-            def _fake_list_objects(group: str, version: str, plural: str, namespace: str):
+            def _fake_list_objects(
+                group: str, version: str, plural: str, namespace: str
+            ):
                 if plural == "continuous-jobs":
                     return get_k8s_jobs_response(
                         items=[
@@ -241,7 +254,9 @@ class TestStorage:
                     )
                 return get_k8s_jobs_response()
 
-            storage_k8s_cli.list_namespaced_custom_object.side_effect = _fake_list_objects
+            storage_k8s_cli.list_namespaced_custom_object.side_effect = (
+                _fake_list_objects
+            )
             my_storage = storage.K8sStorage(settings=Settings(debug=True))
             expected_job = get_scheduled_job(name="testsched2")
 
@@ -253,7 +268,9 @@ class TestStorage:
         def test_finds_continuous_job_by_name_when_many_exist(
             self, storage_k8s_cli: MagicMock
         ) -> None:
-            def _fake_list_objects(group: str, version: str, plural: str, namespace: str):
+            def _fake_list_objects(
+                group: str, version: str, plural: str, namespace: str
+            ):
                 if plural == "continuous-jobs":
                     return get_k8s_jobs_response(
                         items=[
@@ -270,7 +287,9 @@ class TestStorage:
                     )
                 return get_k8s_jobs_response()
 
-            storage_k8s_cli.list_namespaced_custom_object.side_effect = _fake_list_objects
+            storage_k8s_cli.list_namespaced_custom_object.side_effect = (
+                _fake_list_objects
+            )
             my_storage = storage.K8sStorage(settings=Settings(debug=True))
             expected_job = get_continuous_job(name="testcont2")
 
@@ -280,7 +299,9 @@ class TestStorage:
             assert_jobs_get_k8s_calls(storage_k8s_cli=storage_k8s_cli)
 
     class TestCreateJob:
-        def test_creates_continuous_job_with_only_set_values(self, storage_k8s_cli: MagicMock):
+        def test_creates_continuous_job_with_only_set_values(
+            self, storage_k8s_cli: MagicMock
+        ):
             my_storage = storage.K8sStorage(settings=Settings(debug=True))
             expected_job = get_continuous_job(name="testcont2")
 
@@ -312,7 +333,9 @@ class TestStorage:
                 },
             )
 
-        def test_creates_scheduled_job_with_only_set_values(self, storage_k8s_cli: MagicMock):
+        def test_creates_scheduled_job_with_only_set_values(
+            self, storage_k8s_cli: MagicMock
+        ):
             my_storage = storage.K8sStorage(settings=Settings(debug=True))
             expected_job = get_scheduled_job(name="testsched2")
 
@@ -352,7 +375,9 @@ class TestStorage:
                 },
             )
 
-        def test_bubbles_up_conflict_as_AlreadyExistsInStorage(self, storage_k8s_cli: MagicMock):
+        def test_bubbles_up_conflict_as_AlreadyExistsInStorage(
+            self, storage_k8s_cli: MagicMock
+        ):
             my_storage = storage.K8sStorage(settings=Settings(debug=True))
             storage_k8s_cli.create_namespaced_custom_object.side_effect = (
                 kubernetes.client.ApiException(status=status.HTTP_409_CONFLICT)
@@ -363,7 +388,9 @@ class TestStorage:
 
             storage_k8s_cli.create_namespaced_custom_object.assert_called_once()
 
-        def test_bubbles_up_not_found_as_NotFoundInStorage(self, storage_k8s_cli: MagicMock):
+        def test_bubbles_up_not_found_as_NotFoundInStorage(
+            self, storage_k8s_cli: MagicMock
+        ):
             my_storage = storage.K8sStorage(settings=Settings(debug=True))
             storage_k8s_cli.create_namespaced_custom_object.side_effect = (
                 kubernetes.client.ApiException(status=status.HTTP_404_NOT_FOUND)
@@ -390,7 +417,9 @@ class TestStorage:
                 name="testcont2",
             )
 
-        def test_raises_NotFoundInStorage_if_job_not_found(self, storage_k8s_cli: MagicMock):
+        def test_raises_NotFoundInStorage_if_job_not_found(
+            self, storage_k8s_cli: MagicMock
+        ):
             my_storage = storage.K8sStorage(settings=Settings(debug=True))
             expected_job = get_continuous_job(name="testcont2")
             storage_k8s_cli.delete_namespaced_custom_object.side_effect = (
@@ -402,7 +431,9 @@ class TestStorage:
 
     class TestDeleteAllJobs:
         def test_returns_the_deleted_jobs(self, storage_k8s_cli: MagicMock):
-            def _fake_list_objects(group: str, version: str, plural: str, namespace: str):
+            def _fake_list_objects(
+                group: str, version: str, plural: str, namespace: str
+            ):
                 if plural == "continuous-jobs":
                     return get_k8s_jobs_response(
                         items=[
@@ -419,7 +450,9 @@ class TestStorage:
                     )
                 return get_k8s_jobs_response()
 
-            storage_k8s_cli.list_namespaced_custom_object.side_effect = _fake_list_objects
+            storage_k8s_cli.list_namespaced_custom_object.side_effect = (
+                _fake_list_objects
+            )
             expected_jobs = [
                 get_continuous_job(name="testcont1"),
                 get_continuous_job(name="testcont2"),

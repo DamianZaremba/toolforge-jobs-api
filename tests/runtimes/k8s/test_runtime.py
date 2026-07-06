@@ -50,7 +50,9 @@ class TestGetOneOffJob:
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
 
         with pytest.raises(NotFoundInRuntime):
-            my_runtime.get_one_off_job(job_name="idontexist", tool_name="idontexisteither")
+            my_runtime.get_one_off_job(
+                job_name="idontexist", tool_name="idontexisteither"
+            )
 
     @cases(
         "patch, expected_job",
@@ -117,12 +119,14 @@ class TestGetOneOffJob:
                         "template": {
                             "spec": {
                                 "containers": [
-                                    K8S_ONEOFF_JOB_OBJ["spec"]["template"]["spec"]["containers"][0]
+                                    K8S_ONEOFF_JOB_OBJ["spec"]["template"]["spec"][
+                                        "containers"
+                                    ][0]
                                     | {
                                         "command": ["launcher"]
-                                        + K8S_ONEOFF_JOB_OBJ["spec"]["template"]["spec"][
-                                            "containers"
-                                        ][0]["command"],
+                                        + K8S_ONEOFF_JOB_OBJ["spec"]["template"][
+                                            "spec"
+                                        ]["containers"][0]["command"],
                                         "image": "harbor.example.org/tool-some-tool/some-container:latest",
                                     }
                                 ]
@@ -234,7 +238,9 @@ class TestGetOneOffJob:
                 {
                     "spec": {
                         "template": {
-                            "spec": {"containers": [{"resources": {"limits": {"cpu": "2"}}}]}
+                            "spec": {
+                                "containers": [{"resources": {"limits": {"cpu": "2"}}}]
+                            }
                         }
                     }
                 },
@@ -247,7 +253,11 @@ class TestGetOneOffJob:
                 {
                     "spec": {
                         "template": {
-                            "spec": {"containers": [{"resources": {"limits": {"memory": "1Gi"}}}]}
+                            "spec": {
+                                "containers": [
+                                    {"resources": {"limits": {"memory": "1Gi"}}}
+                                ]
+                            }
                         }
                     }
                 },
@@ -306,7 +316,9 @@ class TestGetScheduledJob:
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
 
         with pytest.raises(NotFoundInRuntime):
-            my_runtime.get_scheduled_job(job_name="idontexist", tool_name="idontexisteither")
+            my_runtime.get_scheduled_job(
+                job_name="idontexist", tool_name="idontexisteither"
+            )
 
     @cases(
         "patch, expected_job",
@@ -381,9 +393,11 @@ class TestGetScheduledJob:
                                 "template": {
                                     "spec": {
                                         "containers": [
-                                            K8S_SCHEDULED_JOB_OBJ["spec"]["jobTemplate"]["spec"][
-                                                "template"
-                                            ]["spec"]["containers"][0]
+                                            K8S_SCHEDULED_JOB_OBJ["spec"][
+                                                "jobTemplate"
+                                            ]["spec"]["template"]["spec"]["containers"][
+                                                0
+                                            ]
                                             | {
                                                 # patch_spec only replaces elements of a list, it does not replace
                                                 # the whole list, so we need to supply as many elements as the original
@@ -529,7 +543,9 @@ class TestGetScheduledJob:
                             "spec": {
                                 "template": {
                                     "spec": {
-                                        "containers": [{"resources": {"limits": {"cpu": "1"}}}]
+                                        "containers": [
+                                            {"resources": {"limits": {"cpu": "1"}}}
+                                        ]
                                     }
                                 }
                             }
@@ -572,7 +588,9 @@ class TestGetScheduledJob:
             [
                 {
                     "metadata": {
-                        "annotations": {"jobs.toolforge.org/cron-expression": "1 2 3 4 5"}
+                        "annotations": {
+                            "jobs.toolforge.org/cron-expression": "1 2 3 4 5"
+                        }
                     },
                     "spec": {"schedule": "1 2 3 4 5"},
                 },
@@ -624,7 +642,9 @@ class TestGetContinuousJob:
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
 
         with pytest.raises(NotFoundInRuntime):
-            my_runtime.get_continuous_job(job_name="idontexist", tool_name="idontexisteither")
+            my_runtime.get_continuous_job(
+                job_name="idontexist", tool_name="idontexisteither"
+            )
 
     @cases(
         "patch, expected_job",
@@ -655,11 +675,17 @@ class TestGetContinuousJob:
         ],
         [
             "Ignores metadata.uid",
-            [{"metadata": {"uid": "123456"}}, get_continuous_job_fixture_as_job(filelog=False)],
+            [
+                {"metadata": {"uid": "123456"}},
+                get_continuous_job_fixture_as_job(filelog=False),
+            ],
         ],
         [
             "Ignores metadata.generation",
-            [{"metadata": {"generation": 10}}, get_continuous_job_fixture_as_job(filelog=False)],
+            [
+                {"metadata": {"generation": 10}},
+                get_continuous_job_fixture_as_job(filelog=False),
+            ],
         ],
         [
             "Ignores metadata.managedFields",
@@ -670,7 +696,10 @@ class TestGetContinuousJob:
         ],
         [
             "Ignores metadata.finalizers",
-            [{"metadata": {"finalizers": []}}, get_continuous_job_fixture_as_job(filelog=False)],
+            [
+                {"metadata": {"finalizers": []}},
+                get_continuous_job_fixture_as_job(filelog=False),
+            ],
         ],
         [
             "Ignores metadata.ownerReferences",
@@ -681,7 +710,10 @@ class TestGetContinuousJob:
         ],
         [
             "Ignores metadata.annotations",
-            [{"metadata": {"annotations": {}}}, get_continuous_job_fixture_as_job(filelog=False)],
+            [
+                {"metadata": {"annotations": {}}},
+                get_continuous_job_fixture_as_job(filelog=False),
+            ],
         ],
         [
             "Ignores prefix launcher in the command when buildservice image",
@@ -696,9 +728,9 @@ class TestGetContinuousJob:
                                     ][0]
                                     | {
                                         "command": ["launcher"]
-                                        + K8S_CONTINUOUS_JOB_OBJ["spec"]["template"]["spec"][
-                                            "containers"
-                                        ][0]["command"],
+                                        + K8S_CONTINUOUS_JOB_OBJ["spec"]["template"][
+                                            "spec"
+                                        ]["containers"][0]["command"],
                                         "image": "harbor.example.org/tool-some-tool/some-container:latest",
                                     }
                                 ]
@@ -762,7 +794,13 @@ class TestGetContinuousJob:
         [
             "Picks up a different command",
             [
-                {"spec": {"template": {"spec": {"containers": [{"command": ["test-command"]}]}}}},
+                {
+                    "spec": {
+                        "template": {
+                            "spec": {"containers": [{"command": ["test-command"]}]}
+                        }
+                    }
+                },
                 get_continuous_job_fixture_as_job(
                     cmd="test-command with-arguments 'other argument with spaces'",
                     filelog=False,
@@ -808,7 +846,9 @@ class TestGetContinuousJob:
                 {
                     "spec": {
                         "template": {
-                            "spec": {"containers": [{"resources": {"limits": {"cpu": "2"}}}]}
+                            "spec": {
+                                "containers": [{"resources": {"limits": {"cpu": "2"}}}]
+                            }
                         }
                     }
                 },
@@ -821,7 +861,11 @@ class TestGetContinuousJob:
                 {
                     "spec": {
                         "template": {
-                            "spec": {"containers": [{"resources": {"limits": {"memory": "1Gi"}}}]}
+                            "spec": {
+                                "containers": [
+                                    {"resources": {"limits": {"memory": "1Gi"}}}
+                                ]
+                            }
                         }
                     }
                 },
@@ -832,7 +876,9 @@ class TestGetContinuousJob:
             "Picks up email setting",
             [
                 {"metadata": {"labels": {"jobs.toolforge.org/emails": "all"}}},
-                get_continuous_job_fixture_as_job(emails=EmailOption.all, filelog=False),
+                get_continuous_job_fixture_as_job(
+                    emails=EmailOption.all, filelog=False
+                ),
             ],
         ],
         [
@@ -841,7 +887,9 @@ class TestGetContinuousJob:
                 {
                     "spec": {
                         "template": {
-                            "spec": {"containers": [{"ports": [{"containerPort": 8080}]}]}
+                            "spec": {
+                                "containers": [{"ports": [{"containerPort": 8080}]}]
+                            }
                         }
                     }
                 },
@@ -903,7 +951,9 @@ class TestDiffWithRunningJob:
         new_job = get_continuous_job_fixture_as_new_job()
         existing_job = get_continuous_job_fixture_as_job()
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-        monkeypatch.setattr(my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job)
+        monkeypatch.setattr(
+            my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job
+        )
 
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert diff == ""
@@ -918,13 +968,18 @@ class TestDiffWithRunningJob:
             "Different container image",
             get_continuous_job_fixture_as_job(
                 image=Image(
-                    short_name="different image than fixture", host="dummyhost", path="dummypath"
+                    short_name="different image than fixture",
+                    host="dummyhost",
+                    path="dummypath",
                 )
             ),
         ],
         ["Different cpu limit", get_continuous_job_fixture_as_job(cpu="200m")],
         ["Different memory limit", get_continuous_job_fixture_as_job(memory="1Mi")],
-        ["Different email setting", get_continuous_job_fixture_as_job(emails=EmailOption.all)],
+        [
+            "Different email setting",
+            get_continuous_job_fixture_as_job(emails=EmailOption.all),
+        ],
         ["Different port", get_continuous_job_fixture_as_job(port=8080)],
     )
     def test_diff_with_running_job_returns_diff_str_for_different_jobs(
@@ -932,7 +987,9 @@ class TestDiffWithRunningJob:
     ):
         new_job = get_continuous_job_fixture_as_new_job()
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-        monkeypatch.setattr(my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job)
+        monkeypatch.setattr(
+            my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job
+        )
 
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert "+++" in diff
@@ -955,7 +1012,9 @@ class TestDiffWithRunningJob:
             ),
         )
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-        monkeypatch.setattr(my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job)
+        monkeypatch.setattr(
+            my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job
+        )
 
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert diff == ""
@@ -970,11 +1029,16 @@ class TestDiffWithRunningJob:
         existing_job = get_continuous_job_fixture_as_job(
             cmd="mycommand",
             image=Image(
-                short_name="bullseye", type=ImageType.STANDARD, host="dummyhost", path="dummypath"
+                short_name="bullseye",
+                type=ImageType.STANDARD,
+                host="dummyhost",
+                path="dummypath",
             ),
         )
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-        monkeypatch.setattr(my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job)
+        monkeypatch.setattr(
+            my_runtime, "get_continuous_job", lambda *args, **kwargs: existing_job
+        )
 
         diff = my_runtime.diff_with_running_job(job=new_job)
         assert "+++" in diff

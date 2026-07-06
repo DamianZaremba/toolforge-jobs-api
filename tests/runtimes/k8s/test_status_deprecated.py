@@ -26,7 +26,11 @@ def test_get_quota_error():
     ],
     [
         "Restarted cronjob not scheduled yet",
-        [fake_k8s.CRONJOB_NOT_RUN_YET, fake_k8s.JOB_FROM_A_CRONJOB_RESTART, "Running for "],
+        [
+            fake_k8s.CRONJOB_NOT_RUN_YET,
+            fake_k8s.JOB_FROM_A_CRONJOB_RESTART,
+            "Running for ",
+        ],
     ],
     [
         "Restarted cronjob already running",
@@ -38,11 +42,19 @@ def test_get_quota_error():
     ],
     [
         "New cronjob already running",
-        [fake_k8s.CRONJOB_WITH_RUNNING_JOB, fake_k8s.JOB_FROM_A_CRONJOB, "Running for "],
+        [
+            fake_k8s.CRONJOB_WITH_RUNNING_JOB,
+            fake_k8s.JOB_FROM_A_CRONJOB,
+            "Running for ",
+        ],
     ],
     [
         "Finished cronjob with job finished",
-        [fake_k8s.CRONJOB_WITH_RUNNING_JOB, {}, "Last schedule time: 2023-04-13T15:05:00Z"],
+        [
+            fake_k8s.CRONJOB_WITH_RUNNING_JOB,
+            {},
+            "Last schedule time: 2023-04-13T15:05:00Z",
+        ],
     ],
     [
         "Finished cronjob without job",

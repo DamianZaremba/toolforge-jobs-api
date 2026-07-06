@@ -100,11 +100,15 @@ class TestCore:
             monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
             if job_type == JobType.CONTINUOUS:
                 monkeypatch.setattr(
-                    my_core.runtime, "get_continuous_job", lambda *args, **kwargs: my_storage_job
+                    my_core.runtime,
+                    "get_continuous_job",
+                    lambda *args, **kwargs: my_storage_job,
                 )
             elif job_type == JobType.SCHEDULED:
                 monkeypatch.setattr(
-                    my_core.runtime, "get_scheduled_job", lambda *args, **kwargs: my_storage_job
+                    my_core.runtime,
+                    "get_scheduled_job",
+                    lambda *args, **kwargs: my_storage_job,
                 )
 
             gotten_job = my_core._reconciliate_storage_and_runtime(
@@ -130,9 +134,15 @@ class TestCore:
             monkeypatch: pytest.MonkeyPatch,
             job_type: JobType,
         ):
-            my_storage_job = get_dummy_job(job_name="job-from-storage", job_type=job_type)
-            my_runtime_job = get_dummy_job(job_name="job-from-runtime", job_type=job_type)
-            expected_job = get_dummy_job(job_type=job_type, status={"up_to_date": False})
+            my_storage_job = get_dummy_job(
+                job_name="job-from-storage", job_type=job_type
+            )
+            my_runtime_job = get_dummy_job(
+                job_name="job-from-runtime", job_type=job_type
+            )
+            expected_job = get_dummy_job(
+                job_type=job_type, status={"up_to_date": False}
+            )
             my_core = get_my_core()
 
             mock_runtime_create_job = MagicMock(
@@ -141,11 +151,15 @@ class TestCore:
             monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
             if job_type == JobType.CONTINUOUS:
                 monkeypatch.setattr(
-                    my_core.runtime, "get_continuous_job", lambda *args, **kwargs: my_storage_job
+                    my_core.runtime,
+                    "get_continuous_job",
+                    lambda *args, **kwargs: my_storage_job,
                 )
             elif job_type == JobType.SCHEDULED:
                 monkeypatch.setattr(
-                    my_core.runtime, "get_scheduled_job", lambda *args, **kwargs: my_storage_job
+                    my_core.runtime,
+                    "get_scheduled_job",
+                    lambda *args, **kwargs: my_storage_job,
                 )
 
             gotten_job = my_core._reconciliate_storage_and_runtime(
@@ -172,7 +186,9 @@ class TestCore:
             self,
             job_type: JobType,
         ):
-            my_storage_job = get_dummy_job(job_name="job-from-storage", job_type=job_type)
+            my_storage_job = get_dummy_job(
+                job_name="job-from-storage", job_type=job_type
+            )
             my_runtime_job = None
             gotten_job = core._update_storage_job_status_from_runtime(
                 storage_job=my_storage_job, runtime_job=my_runtime_job
@@ -328,7 +344,9 @@ class TestCore:
         def test_runtime_buildservice_job_with_trimmed_launcher_matches_storage_job_with_explicit_launcher(
             self,
         ):
-            my_storage_job = get_dummy_job(job_name="my-job", cmd="launcher some command")
+            my_storage_job = get_dummy_job(
+                job_name="my-job", cmd="launcher some command"
+            )
             my_runtime_job = my_storage_job.model_copy(update={"cmd": "some command"})
             gotten_job = core._update_storage_job_status_from_runtime(
                 storage_job=my_storage_job, runtime_job=my_runtime_job
@@ -343,14 +361,18 @@ class TestCore:
             storage_k8s_cli: MagicMock,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            my_runtime_job = get_dummy_job(job_type=JobType.ONE_OFF, mount=MountOption.NONE)
+            my_runtime_job = get_dummy_job(
+                job_type=JobType.ONE_OFF, mount=MountOption.NONE
+            )
             expected_job = my_runtime_job
             my_core = get_my_core()
 
             mock_runtime_get_job = MagicMock(
                 spec=my_core.runtime.get_one_off_job, return_value=my_runtime_job
             )
-            monkeypatch.setattr(my_core.runtime, "get_one_off_job", mock_runtime_get_job)
+            monkeypatch.setattr(
+                my_core.runtime, "get_one_off_job", mock_runtime_get_job
+            )
 
             gotten_job = my_core.get_job(
                 tool_name="some-tool",

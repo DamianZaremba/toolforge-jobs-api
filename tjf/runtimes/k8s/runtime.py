@@ -141,7 +141,9 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool_name)
         k8s_type = K8sJobKind.from_job_type(job.job_type)
         label_selector = labels_selector(
-            job_name=job.job_name, tool_name=tool_account.name, type=k8s_type.api_path_name
+            job_name=job.job_name,
+            tool_name=tool_account.name,
+            type=k8s_type.api_path_name,
         )
 
         if isinstance(job, ScheduledJob):
@@ -150,7 +152,9 @@ class K8sRuntime(BaseRuntime):
             tool_account.k8s_cli.delete_objects("pods", label_selector=label_selector)
 
             wait_for_pods_exit(
-                tool_account=tool_account, job_name=job.job_name, job_type=k8s_type.api_path_name
+                tool_account=tool_account,
+                job_name=job.job_name,
+                job_type=k8s_type.api_path_name,
             )
 
             trigger_scheduled_job(tool_account, job)
@@ -213,7 +217,9 @@ class K8sRuntime(BaseRuntime):
             self._create_service(job)
         else:
             LOGGER.debug(
-                "Deleting services related to %s for tool %s", job.job_name, tool_account.name
+                "Deleting services related to %s for tool %s",
+                job.job_name,
+                tool_account.name,
             )
             obj_kind = "services"
             tool_account.k8s_cli.delete_objects(
@@ -277,10 +283,14 @@ class K8sRuntime(BaseRuntime):
                     )
 
                 case JobType.SCHEDULED:
-                    job.status = get_scheduled_job_status(job=job, tool_account=tool_account)
+                    job.status = get_scheduled_job_status(
+                        job=job, tool_account=tool_account
+                    )
 
                 case JobType.CONTINUOUS:
-                    job.status = get_continuous_job_status(job=job, tool_account=tool_account)
+                    job.status = get_continuous_job_status(
+                        job=job, tool_account=tool_account
+                    )
                 case _:
                     raise TjfError(
                         f"Unable to get status for job {job.job_name} with unknown type: {job.job_type}"
@@ -293,10 +303,14 @@ class K8sRuntime(BaseRuntime):
         """Deletes all jobs for a user."""
         LOGGER.debug("Deleting all jobs for tool %s", tool_name)
         tool_account = ToolAccount(name=tool_name)
-        label_selector = labels_selector(job_name=None, tool_name=tool_account.name, type=None)
+        label_selector = labels_selector(
+            job_name=None, tool_name=tool_account.name, type=None
+        )
 
         for object_type in ["cronjobs", "deployments", "jobs", "pods", "services"]:
-            tool_account.k8s_cli.delete_objects(object_type, label_selector=label_selector)
+            tool_account.k8s_cli.delete_objects(
+                object_type, label_selector=label_selector
+            )
         wait_for_pods_exit(tool_account=tool_account)
 
     def delete_job(self, *, tool_name: str, job: AnyJob) -> None:
@@ -312,13 +326,17 @@ class K8sRuntime(BaseRuntime):
                     job_name=job.job_name, tool_name=tool_account.name, type=kind
                 ),
             )
-        wait_for_pods_exit(tool_account=tool_account, job_name=job.job_name, job_type=kind)
+        wait_for_pods_exit(
+            tool_account=tool_account, job_name=job.job_name, job_type=kind
+        )
 
     def diff_with_running_job(self, *, job: AnyJob) -> str:
         """
         Check for differences between job and running job
         """
-        LOGGER.debug("Checking for diff in job %s for tool %s", job.job_name, job.tool_name)
+        LOGGER.debug(
+            "Checking for diff in job %s for tool %s", job.job_name, job.tool_name
+        )
 
         try:
             if isinstance(job, ContinuousJob):
@@ -330,18 +348,25 @@ class K8sRuntime(BaseRuntime):
                     job_name=job.job_name, tool_name=job.tool_name
                 )
             elif isinstance(job, OneOffJob):
-                current_job = self.get_one_off_job(job_name=job.job_name, tool_name=job.tool_name)
+                current_job = self.get_one_off_job(
+                    job_name=job.job_name, tool_name=job.tool_name
+                )
             else:
                 raise TjfValidationError(f"Unknown job type {job.job_type}")
         except NotFoundInRuntime as error:
-            LOGGER.debug(f"No current job found for job {job.job_name} for tool {job.tool_name}")
+            LOGGER.debug(
+                f"No current job found for job {job.job_name} for tool {job.tool_name}"
+            )
             raise TjfJobNotFoundError(
                 f"Unable to find job {job.job_name} for tool {job.tool_name}"
             ) from error
 
         # TODO: remove once we store the original command
         # Note: the incoming job does not have an image type, so we get it from the existing job
-        if job.cmd.startswith("launcher ") and current_job.image.type == ImageType.BUILDSERVICE:
+        if (
+            job.cmd.startswith("launcher ")
+            and current_job.image.type == ImageType.BUILDSERVICE
+        ):
             job.cmd = job.cmd.split(" ", 1)[-1]
 
         clean_current_job = current_job.model_dump_json(
@@ -365,14 +390,20 @@ class K8sRuntime(BaseRuntime):
 
     def get_quotas(self, *, tool_name: str) -> list[QuotaData]:
         tool_account = ToolAccount(name=tool_name)
-        resource_quota = tool_account.k8s_cli.get_object("resourcequotas", tool_account.namespace)
-        limit_range = tool_account.k8s_cli.get_object("limitranges", tool_account.namespace)
+        resource_quota = tool_account.k8s_cli.get_object(
+            "resourcequotas", tool_account.namespace
+        )
+        limit_range = tool_account.k8s_cli.get_object(
+            "limitranges", tool_account.namespace
+        )
 
         if not resource_quota or not limit_range:
             raise TjfError("Unable to load quota information for this tool")
 
         container_limit = next(
-            limit for limit in limit_range["spec"]["limits"] if limit["type"] == "Container"
+            limit
+            for limit in limit_range["spec"]["limits"]
+            if limit["type"] == "Container"
         )
 
         return [
@@ -395,17 +426,25 @@ class K8sRuntime(BaseRuntime):
                 category=QuotaCategoryType.RUNNING_JOBS,
                 name="CPU",
                 limit=format_quantity(
-                    quantity_value=parse_quantity(resource_quota["status"]["hard"]["limits.cpu"])
+                    quantity_value=parse_quantity(
+                        resource_quota["status"]["hard"]["limits.cpu"]
+                    )
                 ),
                 used=format_quantity(
-                    quantity_value=parse_quantity(resource_quota["status"]["used"]["limits.cpu"])
+                    quantity_value=parse_quantity(
+                        resource_quota["status"]["used"]["limits.cpu"]
+                    )
                 ),
             ),
             QuotaData(
                 category=QuotaCategoryType.RUNNING_JOBS,
                 name="Memory",
-                limit=parse_and_format_mem(mem=resource_quota["status"]["hard"]["limits.memory"]),
-                used=parse_and_format_mem(mem=resource_quota["status"]["used"]["limits.memory"]),
+                limit=parse_and_format_mem(
+                    mem=resource_quota["status"]["hard"]["limits.memory"]
+                ),
+                used=parse_and_format_mem(
+                    mem=resource_quota["status"]["used"]["limits.memory"]
+                ),
             ),
             QuotaData(
                 category=QuotaCategoryType.PER_JOB_LIMITS,

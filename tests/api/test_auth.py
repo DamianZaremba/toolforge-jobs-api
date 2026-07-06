@@ -12,7 +12,9 @@ class TestEnsureAuthenticated:
             request=Request(
                 {
                     "type": "http",
-                    "headers": [(TOOL_HEADER.encode("utf-8"), expected_tool.encode("utf-8"))],
+                    "headers": [
+                        (TOOL_HEADER.encode("utf-8"), expected_tool.encode("utf-8"))
+                    ],
                 }
             )
         )

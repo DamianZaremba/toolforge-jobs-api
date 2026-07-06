@@ -142,7 +142,9 @@ class TestJobsEndpoint:
         [
             [
                 JobType.CONTINUOUS,
-                get_dummy_job(job_name="job1", tool_name="some-tool", job_type=JobType.CONTINUOUS),
+                get_dummy_job(
+                    job_name="job1", tool_name="some-tool", job_type=JobType.CONTINUOUS
+                ),
             ],
             [
                 JobType.SCHEDULED,
@@ -181,7 +183,9 @@ class TestJobsEndpoint:
         )
 
         gotten_response = client.get(
-            "/v1/tool/some-tool/jobs/", headers=fake_auth_headers, params={"include_unset": False}
+            "/v1/tool/some-tool/jobs/",
+            headers=fake_auth_headers,
+            params={"include_unset": False},
         )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
@@ -205,7 +209,8 @@ class TestJobsEndpoint:
     ) -> None:
         expected_names = ["job1", "job2"]
         dummy_jobs = [
-            get_dummy_job(job_name=name, tool_name="some-tool") for name in expected_names
+            get_dummy_job(job_name=name, tool_name="some-tool")
+            for name in expected_names
         ]
         monkeypatch.setattr(
             app.core,
@@ -213,7 +218,9 @@ class TestJobsEndpoint:
             value=lambda *args, **kwargs: dummy_jobs,
         )
 
-        gotten_response = client.get("/v1/tool/some-tool/jobs/", headers=fake_auth_headers)
+        gotten_response = client.get(
+            "/v1/tool/some-tool/jobs/", headers=fake_auth_headers
+        )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
 
@@ -239,12 +246,17 @@ class TestJobsEndpoint:
             "get_jobs",
             value=lambda *args, **kwargs: [dummy_job],
         )
-        gotten_response = client.get("/v1/tool/some-tool/jobs/", headers=fake_auth_headers)
+        gotten_response = client.get(
+            "/v1/tool/some-tool/jobs/", headers=fake_auth_headers
+        )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         response_json = gotten_response.json()
         assert response_json is not None, "Response JSON is None"
-        assert response_json["jobs"][0]["health_check"] == expected_health_check.model_dump()
+        assert (
+            response_json["jobs"][0]["health_check"]
+            == expected_health_check.model_dump()
+        )
 
     def test_with_port_works(
         self,
@@ -261,7 +273,9 @@ class TestJobsEndpoint:
             value=lambda *args, **kwargs: [dummy_job],
         )
 
-        gotten_response = client.get("/v1/tool/some-tool/jobs/", headers=fake_auth_headers)
+        gotten_response = client.get(
+            "/v1/tool/some-tool/jobs/", headers=fake_auth_headers
+        )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         response_json = gotten_response.json()
@@ -283,7 +297,9 @@ class TestJobsEndpoint:
             "get_jobs",
             value=lambda *args, **kwargs: [dummy_job],
         )
-        gotten_response = client.get("/v1/tool/some-tool/jobs/", headers=fake_auth_headers)
+        gotten_response = client.get(
+            "/v1/tool/some-tool/jobs/", headers=fake_auth_headers
+        )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         response_json = gotten_response.json()
@@ -309,14 +325,19 @@ class TestJobsEndpoint:
             jobs=[get_job_for_api(dummy_job)], messages=ResponseMessages()
         )
         gotten_response = client.get(
-            "/v1/tool/some-tool/jobs/", headers=fake_auth_headers, params={"include_unset": False}
+            "/v1/tool/some-tool/jobs/",
+            headers=fake_auth_headers,
+            params={"include_unset": False},
         )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         response_json = gotten_response.json()
 
         assert response_json is not None, "Response JSON is None"
-        assert expected_response.model_dump(exclude_unset=True, mode="json") == response_json
+        assert (
+            expected_response.model_dump(exclude_unset=True, mode="json")
+            == response_json
+        )
 
     def test_without_include_unset_returns_all_fields(
         self,
@@ -335,14 +356,19 @@ class TestJobsEndpoint:
             jobs=[get_job_for_api(dummy_job)], messages=ResponseMessages()
         )
         gotten_response = client.get(
-            "/v1/tool/some-tool/jobs/", headers=fake_auth_headers, params={"include_unset": False}
+            "/v1/tool/some-tool/jobs/",
+            headers=fake_auth_headers,
+            params={"include_unset": False},
         )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         response_json = gotten_response.json()
 
         assert response_json is not None, "Response JSON is None"
-        assert expected_response.model_dump(exclude_unset=True, mode="json") == response_json
+        assert (
+            expected_response.model_dump(exclude_unset=True, mode="json")
+            == response_json
+        )
 
     def test_get_warning_message_if_job_is_not_up_to_date(
         self,
@@ -358,7 +384,9 @@ class TestJobsEndpoint:
             "get_jobs",
             value=lambda *args, **kwargs: [dummy_job],
         )
-        gotten_response = client.get("/v1/tool/some-tool/jobs/", headers=fake_auth_headers)
+        gotten_response = client.get(
+            "/v1/tool/some-tool/jobs/", headers=fake_auth_headers
+        )
 
         assert gotten_response.status_code == http.HTTPStatus.OK
         response_json = gotten_response.json()
@@ -394,7 +422,10 @@ class TestApiGetJob:
         response_json = gotten_response.json()
 
         assert response_json is not None, "Response JSON is None"
-        assert expected_response.model_dump(exclude_unset=True, mode="json") == response_json
+        assert (
+            expected_response.model_dump(exclude_unset=True, mode="json")
+            == response_json
+        )
 
     def test_skips_unset_fields_for_scheduled_job(
         self,
@@ -429,7 +460,10 @@ class TestApiGetJob:
         response_json = gotten_response.json()
 
         assert response_json is not None, "Response JSON is None"
-        assert expected_response.model_dump(exclude_unset=True, mode="json") == response_json
+        assert (
+            expected_response.model_dump(exclude_unset=True, mode="json")
+            == response_json
+        )
 
     def test_keeps_unset_fields_if_no_params_passed(
         self,
@@ -455,7 +489,10 @@ class TestApiGetJob:
         response_json = gotten_response.json()
 
         assert response_json is not None, "Response JSON is None"
-        assert expected_response.model_dump(exclude_unset=False, mode="json") == response_json
+        assert (
+            expected_response.model_dump(exclude_unset=False, mode="json")
+            == response_json
+        )
 
 
 class TestApiUpdateJob:
@@ -475,9 +512,13 @@ class TestApiUpdateJob:
                 "filelog_stdout": "/dev/null",
             }
         )
-        monkeypatch.setattr(app.core.storage, "get_job", value=lambda *args, **kwargs: dummy_job)
         monkeypatch.setattr(
-            app.core.runtime, "get_continuous_job", value=lambda *args, **kwargs: dummy_job
+            app.core.storage, "get_job", value=lambda *args, **kwargs: dummy_job
+        )
+        monkeypatch.setattr(
+            app.core.runtime,
+            "get_continuous_job",
+            value=lambda *args, **kwargs: dummy_job,
         )
         monkeypatch.setattr(
             app.core.runtime, "diff_with_running_job", value=lambda *args, **kwargs: ""
@@ -495,7 +536,9 @@ class TestApiUpdateJob:
 
         expected_response = UpdateResponse(
             job_changed=False,
-            messages=ResponseMessages(info=["Job silly-job-name is already up to date"]),
+            messages=ResponseMessages(
+                info=["Job silly-job-name is already up to date"]
+            ),
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
@@ -503,7 +546,9 @@ class TestApiUpdateJob:
             headers=fake_auth_headers,
         )
 
-        assert UpdateResponse.model_validate(actual_response.json()) == expected_response
+        assert (
+            UpdateResponse.model_validate(actual_response.json()) == expected_response
+        )
 
     def test_job_with_changes_in_runtime_only(
         self,
@@ -514,11 +559,17 @@ class TestApiUpdateJob:
         fake_images: dict[str, Any],
     ) -> None:
         dummy_job = get_dummy_job()
-        monkeypatch.setattr(app.core, "get_job", value=lambda *args, **kwargs: dummy_job)
         monkeypatch.setattr(
-            app.core.runtime, "diff_with_running_job", value=lambda *args, **kwargs: "some changes"
+            app.core, "get_job", value=lambda *args, **kwargs: dummy_job
         )
-        monkeypatch.setattr(app.core.runtime, "update_job", value=lambda *args, **kwargs: None)
+        monkeypatch.setattr(
+            app.core.runtime,
+            "diff_with_running_job",
+            value=lambda *args, **kwargs: "some changes",
+        )
+        monkeypatch.setattr(
+            app.core.runtime, "update_job", value=lambda *args, **kwargs: None
+        )
 
         new_job = NewContinuousJob.model_validate(
             {
@@ -531,7 +582,9 @@ class TestApiUpdateJob:
 
         expected_response = UpdateResponse(
             job_changed=True,
-            messages=ResponseMessages(info=["Job silly-job-name was updated in runtime only"]),
+            messages=ResponseMessages(
+                info=["Job silly-job-name was updated in runtime only"]
+            ),
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
@@ -539,7 +592,9 @@ class TestApiUpdateJob:
             headers=fake_auth_headers,
         )
 
-        assert UpdateResponse.model_validate(actual_response.json()) == expected_response
+        assert (
+            UpdateResponse.model_validate(actual_response.json()) == expected_response
+        )
 
     def test_job_with_changes_in_storage_only(
         self,
@@ -551,7 +606,9 @@ class TestApiUpdateJob:
     ) -> None:
         dummy_job = get_dummy_job()
         different_dummy_job = get_dummy_job(cmd="different job")
-        monkeypatch.setattr(app.core, "get_job", value=lambda *args, **kwargs: different_dummy_job)
+        monkeypatch.setattr(
+            app.core, "get_job", value=lambda *args, **kwargs: different_dummy_job
+        )
         monkeypatch.setattr(
             app.core.runtime, "diff_with_running_job", value=lambda *args, **kwargs: ""
         )
@@ -566,7 +623,9 @@ class TestApiUpdateJob:
 
         expected_response = UpdateResponse(
             job_changed=True,
-            messages=ResponseMessages(info=["Job silly-job-name was updated in storage only"]),
+            messages=ResponseMessages(
+                info=["Job silly-job-name was updated in storage only"]
+            ),
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
@@ -574,7 +633,9 @@ class TestApiUpdateJob:
             headers=fake_auth_headers,
         )
 
-        assert UpdateResponse.model_validate(actual_response.json()) == expected_response
+        assert (
+            UpdateResponse.model_validate(actual_response.json()) == expected_response
+        )
 
     def test_missing_job_in_storage_and_runtime(
         self,
@@ -612,7 +673,9 @@ class TestApiUpdateJob:
 
         expected_response = UpdateResponse(
             job_changed=True,
-            messages=ResponseMessages(info=["Job silly-job-name created in storage and runtime"]),
+            messages=ResponseMessages(
+                info=["Job silly-job-name created in storage and runtime"]
+            ),
         )
         actual_response = client.patch(
             "/v1/tool/some-tool/jobs/",
@@ -620,4 +683,6 @@ class TestApiUpdateJob:
             headers=fake_auth_headers,
         )
 
-        assert UpdateResponse.model_validate(actual_response.json()) == expected_response
+        assert (
+            UpdateResponse.model_validate(actual_response.json()) == expected_response
+        )

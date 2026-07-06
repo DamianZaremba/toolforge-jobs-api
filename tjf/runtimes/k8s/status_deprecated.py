@@ -104,7 +104,9 @@ def _refresh_status_cronjob_from_restarted_cronjob(
     label_selector = labels_selector(
         job_name=original_cronjob.job_name, tool_name=tool_account.name, type="cronjobs"
     )
-    all_cronjob_jobs = tool_account.k8s_cli.get_objects(kind="jobs", label_selector=label_selector)
+    all_cronjob_jobs = tool_account.k8s_cli.get_objects(
+        kind="jobs", label_selector=label_selector
+    )
     for maybe_manual_job_data in all_cronjob_jobs:
         metadata = maybe_manual_job_data.get("metadata", None)
         if not metadata:
@@ -192,7 +194,9 @@ def _refresh_status_cronjob(tool_account: ToolAccount, job: ScheduledJob) -> Non
             return
 
     # if we didn't find anything yet, try searching for manually restarted cronjobs
-    job_status = _refresh_status_cronjob_from_restarted_cronjob(tool_account, original_cronjob=job)
+    job_status = _refresh_status_cronjob_from_restarted_cronjob(
+        tool_account, original_cronjob=job
+    )
     if job_status:
         job.status_short = job_status
 
@@ -225,7 +229,9 @@ def _refresh_status_dp(tool_account: ToolAccount, job: ContinuousJob) -> None:
             tool_name=tool_account.name,
             type=K8sJobKind.from_job_type(job.job_type).api_path_name,
         )
-        pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=pod_selector)
+        pods = tool_account.k8s_cli.get_objects(
+            kind="pods", label_selector=pod_selector
+        )
 
         for pod in pods:
             if "containerStatuses" not in pod["status"]:
@@ -237,7 +243,8 @@ def _refresh_status_dp(tool_account: ToolAccount, job: ContinuousJob) -> None:
 
                 if (
                     "waiting" in container_status["state"]
-                    and container_status["state"]["waiting"]["reason"] == "CrashLoopBackOff"
+                    and container_status["state"]["waiting"]["reason"]
+                    == "CrashLoopBackOff"
                 ) or (
                     "terminated" in container_status["state"]
                     and container_status["state"]["terminated"]["reason"] == "Error"
@@ -270,7 +277,9 @@ def refresh_job_long_status(tool_account: ToolAccount, job: AnyJob) -> None:
         tool_name=tool_account.name,
         type=K8sJobKind.from_job_type(job.job_type).api_path_name,
     )
-    podlist = tool_account.k8s_cli.get_objects(kind="pods", label_selector=label_selector)
+    podlist = tool_account.k8s_cli.get_objects(
+        kind="pods", label_selector=label_selector
+    )
 
     if len(podlist) == 0:
         job.status_long = "No pods were created for this job."

@@ -401,7 +401,9 @@ JOB_FROM_A_CRONJOB = {
         "completionMode": "NonIndexed",
         "completions": 1,
         "parallelism": 1,
-        "selector": {"matchLabels": {"controller-uid": "68936ba6-ae9b-4a7c-a614-54f200bc460a"}},
+        "selector": {
+            "matchLabels": {"controller-uid": "68936ba6-ae9b-4a7c-a614-54f200bc460a"}
+        },
         "suspend": False,
         "template": {
             "metadata": {
@@ -486,7 +488,9 @@ JOB_FROM_A_CRONJOB_RESTART = {
         "completionMode": "NonIndexed",
         "completions": 1,
         "parallelism": 1,
-        "selector": {"matchLabels": {"controller-uid": "6c197474-ec58-4fd1-88cb-f1c8a93ce14d"}},
+        "selector": {
+            "matchLabels": {"controller-uid": "6c197474-ec58-4fd1-88cb-f1c8a93ce14d"}
+        },
         "suspend": False,
         "template": {
             "metadata": {
@@ -1024,8 +1028,12 @@ LIMIT_RANGE_OBJECT = {
 K8S_CONTINUOUS_JOB_OBJ = json.loads(
     (FIXTURES_PATH / "deployments" / "deployment-simple-buildservice.json").read_text()
 )
-K8S_SCHEDULED_JOB_OBJ = json.loads((FIXTURES_PATH / "cronjobs" / "daily_cronjob.json").read_text())
-K8S_ONEOFF_JOB_OBJ = json.loads((FIXTURES_PATH / "jobs" / "job-simple-prebuilt.json").read_text())
+K8S_SCHEDULED_JOB_OBJ = json.loads(
+    (FIXTURES_PATH / "cronjobs" / "daily_cronjob.json").read_text()
+)
+K8S_ONEOFF_JOB_OBJ = json.loads(
+    (FIXTURES_PATH / "jobs" / "job-simple-prebuilt.json").read_text()
+)
 
 
 def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:

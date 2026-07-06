@@ -63,7 +63,9 @@ def account_with_limit_range():
 def _create_fake_http_error(
     requests_mock: RequestsMockMocker, status_code: int, body
 ) -> HTTPError:
-    requests_mock.get(f"https://{FAKE_K8S_HOST}/make-error", status_code=status_code, json=body)
+    requests_mock.get(
+        f"https://{FAKE_K8S_HOST}/make-error", status_code=status_code, json=body
+    )
     try:
         requests.get(f"https://{FAKE_K8S_HOST}/make-error").raise_for_status()
     except HTTPError as error:
@@ -123,7 +125,9 @@ class TestCreateErrorFromK8sResponse:
         requests_mock: RequestsMockMocker,
         fixtures_path: Path,
     ):
-        response_data = json.loads((fixtures_path / "errors" / "quota.json").read_text())
+        response_data = json.loads(
+            (fixtures_path / "errors" / "quota.json").read_text()
+        )
         error = get_error_from_k8s_response(
             error=_create_fake_http_error(requests_mock, 403, response_data),
             job=fake_job,
@@ -149,7 +153,9 @@ class TestCreateErrorFromK8sResponse:
         requests_mock: RequestsMockMocker,
         fixtures_path: Path,
     ):
-        response_data = json.loads((fixtures_path / "errors" / "already-exists.json").read_text())
+        response_data = json.loads(
+            (fixtures_path / "errors" / "already-exists.json").read_text()
+        )
         error = get_error_from_k8s_response(
             error=_create_fake_http_error(requests_mock, 409, response_data),
             job=fake_job,
@@ -157,7 +163,9 @@ class TestCreateErrorFromK8sResponse:
         )
 
         assert isinstance(error, K8sAlreadyExists)
-        assert error.args == ("A k8s object with the same name exists already in the runtime",)
+        assert error.args == (
+            "A k8s object with the same name exists already in the runtime",
+        )
         assert error.data == {
             "k8s_object": get_job_for_k8s(fake_job, default_cpu_limit="4000m"),
             "k8s_error": {

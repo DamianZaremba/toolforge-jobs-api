@@ -28,7 +28,9 @@ from .labels import labels_selector
 
 
 def validate_job_limits(account: ToolAccount, job: AnyJob) -> None:
-    limits = account.k8s_cli.get_object("limitranges", name=account.namespace)["spec"]["limits"]
+    limits = account.k8s_cli.get_object("limitranges", name=account.namespace)["spec"][
+        "limits"
+    ]
 
     for limit in limits:
         if limit["type"] != "Container":
@@ -73,7 +75,9 @@ def validate_job_limits(account: ToolAccount, job: AnyJob) -> None:
                     )
 
 
-def trigger_scheduled_job(tool_account: ToolAccount, scheduled_job: ScheduledJob) -> None:
+def trigger_scheduled_job(
+    tool_account: ToolAccount, scheduled_job: ScheduledJob
+) -> None:
     validate_job_limits(tool_account, scheduled_job)
 
     k8s_cronjob = tool_account.k8s_cli.get_object("cronjobs", scheduled_job.job_name)
@@ -98,7 +102,9 @@ def wait_for_pods_exit(
     )
 
     for _ in range(timeout * 2):
-        pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=label_selector)
+        pods = tool_account.k8s_cli.get_objects(
+            kind="pods", label_selector=label_selector
+        )
         if len(pods) == 0:
             return True
         time.sleep(0.5)

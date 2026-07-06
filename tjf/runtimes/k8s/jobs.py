@@ -116,7 +116,9 @@ def _get_namespace(tool_name: str) -> str:
     return f"tool-{tool_name}"
 
 
-def _get_k8s_cronjob_object(job: ScheduledJob, default_cpu_limit: str) -> K8S_OBJECT_TYPE:
+def _get_k8s_cronjob_object(
+    job: ScheduledJob, default_cpu_limit: str
+) -> K8S_OBJECT_TYPE:
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
@@ -160,7 +162,9 @@ def _get_k8s_cronjob_object(job: ScheduledJob, default_cpu_limit: str) -> K8S_OB
     return obj
 
 
-def _get_common_k8s_podtemplate(*, job: AnyJob, default_cpu_limit: str) -> dict[str, Any]:
+def _get_common_k8s_podtemplate(
+    *, job: AnyJob, default_cpu_limit: str
+) -> dict[str, Any]:
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
@@ -181,7 +185,9 @@ def _get_common_k8s_podtemplate(*, job: AnyJob, default_cpu_limit: str) -> dict[
         raise TjfValidationError(f"Unexpected job without image type: {job}")
 
     if job.image.type == ImageType.BUILDSERVICE and not job.cmd.startswith("launcher "):
-        LOGGER.debug(f"Found a buildservice image without launcher, prefixing the command: {job}")
+        LOGGER.debug(
+            f"Found a buildservice image without launcher, prefixing the command: {job}"
+        )
         # this allows using either a procfile entry point or any command as command
         # for a buildservice-based job
         command = Command(
@@ -211,7 +217,10 @@ def _get_common_k8s_podtemplate(*, job: AnyJob, default_cpu_limit: str) -> dict[
             }
         ]
 
-    if job.image.type != ImageType.BUILDSERVICE and not job.mount.supports_non_buildservice:
+    if (
+        job.image.type != ImageType.BUILDSERVICE
+        and not job.mount.supports_non_buildservice
+    ):
         raise TjfValidationError(
             f"Mount type {job.mount.value} is only supported for build service images"
         )
@@ -265,9 +274,15 @@ def _get_deployment_k8s_podtemplate(
     )
     ports = {}
     if job.port:
-        ports = {"ports": [{"containerPort": job.port, "protocol": job.port_protocol.upper()}]}
+        ports = {
+            "ports": [
+                {"containerPort": job.port, "protocol": job.port_protocol.upper()}
+            ]
+        }
 
-    podtemplate = _get_common_k8s_podtemplate(job=job, default_cpu_limit=default_cpu_limit)
+    podtemplate = _get_common_k8s_podtemplate(
+        job=job, default_cpu_limit=default_cpu_limit
+    )
     podtemplate["spec"]["restartPolicy"] = "Always"
     podtemplate["spec"]["containers"][0].update(probes)
     podtemplate["spec"]["containers"][0].update(ports)
@@ -320,7 +335,9 @@ def _generate_container_security_context(tool_name: str) -> dict[str, Any]:
     }
 
 
-def _generate_container_resources(job: AnyJob, default_cpu_limit: str) -> dict[str, Any]:
+def _generate_container_resources(
+    job: AnyJob, default_cpu_limit: str
+) -> dict[str, Any]:
     container_resources: dict[str, Any] = {"requests": {}, "limits": {}}
 
     dec_mem = parse_quantity(job.memory)
@@ -343,7 +360,9 @@ def _generate_container_resources(job: AnyJob, default_cpu_limit: str) -> dict[s
     return container_resources
 
 
-def _get_k8s_deployment_object(job: ContinuousJob, default_cpu_limit: str) -> K8S_OBJECT_TYPE:
+def _get_k8s_deployment_object(
+    job: ContinuousJob, default_cpu_limit: str
+) -> K8S_OBJECT_TYPE:
     labels = generate_labels(
         jobname=job.job_name,
         tool_name=job.tool_name,
@@ -408,7 +427,9 @@ def _get_k8s_job_object(job: OneOffJob, default_cpu_limit: str) -> K8S_OBJECT_TY
             "labels": labels,
         },
         "spec": {
-            "template": _get_common_k8s_podtemplate(job=job, default_cpu_limit=default_cpu_limit),
+            "template": _get_common_k8s_podtemplate(
+                job=job, default_cpu_limit=default_cpu_limit
+            ),
             "ttlSecondsAfterFinished": JOB_TTLAFTERFINISHED,
             "backoffLimit": job.retry,
         },
@@ -425,12 +446,16 @@ def get_k8s_job_from_cronjob(k8s_cronjob: K8S_OBJECT_TYPE) -> K8S_OBJECT_TYPE:
     k8s_job: dict[str, Any] = {"metadata": {}}
 
     # Set an unique name
-    k8s_job["metadata"]["name"] = f"{k8s_cronjob['metadata']['name']}-{int(time.time())}"
+    k8s_job["metadata"]["name"] = (
+        f"{k8s_cronjob['metadata']['name']}-{int(time.time())}"
+    )
     k8s_job["metadata"]["namespace"] = k8s_cronjob["metadata"]["namespace"]
     k8s_job["metadata"]["annotations"] = deepcopy(
         k8s_cronjob["spec"]["jobTemplate"].get("annotations", {})
     )
-    k8s_job["metadata"]["labels"] = deepcopy(k8s_cronjob["spec"]["jobTemplate"].get("labels", {}))
+    k8s_job["metadata"]["labels"] = deepcopy(
+        k8s_cronjob["spec"]["jobTemplate"].get("labels", {})
+    )
     k8s_job["metadata"]["annotations"] = {"cronjob.kubernetes.io/instantiate": "manual"}
     k8s_job["metadata"]["ownerReferences"] = [
         {
@@ -468,13 +493,15 @@ def get_common_job_from_k8s(
     spec = dict_get_object(k8s_object, "spec")
     if not spec:
         raise TjfError(
-            "Invalid k8s object, did not contain a spec", data={"k8s_object": k8s_object}
+            "Invalid k8s object, did not contain a spec",
+            data={"k8s_object": k8s_object},
         )
 
     metadata = dict_get_object(k8s_object, "metadata")
     if not metadata:
         raise TjfError(
-            "Invalid k8s object, did not contain metadata", data={"k8s_object": k8s_object}
+            "Invalid k8s object, did not contain metadata",
+            data={"k8s_object": k8s_object},
         )
 
     podspec = spec
@@ -485,7 +512,9 @@ def get_common_job_from_k8s(
     emails = EmailOption(
         metadata["labels"].get("jobs.toolforge.org/emails", EmailOption.none.value)
     )
-    mount = MountOption(metadata["labels"].get("toolforge.org/mount-storage", MountOption.NONE))
+    mount = MountOption(
+        metadata["labels"].get("toolforge.org/mount-storage", MountOption.NONE)
+    )
     imageurl = podspec["template"]["spec"]["containers"][0]["image"]
     image = Image.from_short_name_or_url(
         url_or_name=imageurl,
@@ -498,7 +527,8 @@ def get_common_job_from_k8s(
     cpu_limit = resources_limits.get("cpu", default_cpu_limit)
     cpu_request = resources_requests.get("cpu", CommonJob.model_fields["cpu"].default)
     if parse_quantity(cpu_limit) == parse_quantity(default_cpu_limit) and (
-        parse_quantity(cpu_request) == parse_quantity(CommonJob.model_fields["cpu"].default)
+        parse_quantity(cpu_request)
+        == parse_quantity(CommonJob.model_fields["cpu"].default)
     ):
         cpu = CommonJob.model_fields["cpu"].default
     else:
@@ -517,7 +547,9 @@ def get_common_job_from_k8s(
         raise
 
     # TODO: remove once we store the user command in storage, as we will not need to generate from k8s
-    if image.type == ImageType.BUILDSERVICE and command.user_command.startswith("launcher "):
+    if image.type == ImageType.BUILDSERVICE and command.user_command.startswith(
+        "launcher "
+    ):
         user_command = command.user_command.split(" ", 1)[-1]
     else:
         user_command = command.user_command
@@ -556,7 +588,8 @@ def get_one_off_job_from_k8s_object(
     podspec = dict_get_object(k8s_object, "spec")
     if not podspec:
         raise TjfError(
-            "Invalid k8s object, did not contain a spec", data={"k8s_object": k8s_object}
+            "Invalid k8s object, did not contain a spec",
+            data={"k8s_object": k8s_object},
         )
     retry = podspec.get("backoffLimit", 0)
     params = {"job_type": JobType.ONE_OFF, "retry": retry, **set_common_params}
@@ -570,11 +603,15 @@ def get_scheduled_job_from_k8s_object(
 ) -> ScheduledJob:
     spec = dict_get_object(k8s_object, "spec")
     if not spec:
-        raise TjfError("Invalid k8s object, did not contain a spec", data={"k8s_object": object})
+        raise TjfError(
+            "Invalid k8s object, did not contain a spec", data={"k8s_object": object}
+        )
 
     metadata = dict_get_object(k8s_object, "metadata")
     if not metadata:
-        raise TjfError("Invalid k8s object, did not contain metadata", data={"k8s_object": object})
+        raise TjfError(
+            "Invalid k8s object, did not contain metadata", data={"k8s_object": object}
+        )
 
     common_job = get_common_job_from_k8s(
         k8s_object=k8s_object,
@@ -599,11 +636,15 @@ def get_scheduled_job_from_k8s_object(
     # TODO: cleanup when T359649 is resolved.
     actual_schedule = str(
         CronExpression.parse(
-            value=spec["schedule"], job_name=common_job.job_name, tool_name=common_job.tool_name
+            value=spec["schedule"],
+            job_name=common_job.job_name,
+            tool_name=common_job.tool_name,
         )
     )
     configured_schedule = CronExpression.parse(
-        value=configured_schedule_str, job_name=common_job.job_name, tool_name=common_job.tool_name
+        value=configured_schedule_str,
+        job_name=common_job.job_name,
+        tool_name=common_job.tool_name,
     ).text
 
     schedule = CronExpression.from_runtime(
@@ -611,7 +652,9 @@ def get_scheduled_job_from_k8s_object(
         configured=configured_schedule,
     )
 
-    timeout = spec.get("jobTemplate", {}).get("spec", {}).get("activeDeadlineSeconds", 0)
+    timeout = (
+        spec.get("jobTemplate", {}).get("spec", {}).get("activeDeadlineSeconds", 0)
+    )
     retry = spec.get("jobTemplate", {}).get("spec", {}).get("backoffLimit", 0)
     params = {
         "job_type": JobType.SCHEDULED,
@@ -631,10 +674,14 @@ def get_continuous_job_from_k8s_object(
 
     podspec = dict_get_object(k8s_object, "spec")
     if not podspec:
-        raise TjfError("Invalid k8s object, did not contain spec", data={"k8s_object": object})
+        raise TjfError(
+            "Invalid k8s object, did not contain spec", data={"k8s_object": object}
+        )
 
     container_port = podspec["template"]["spec"]["containers"][0].get("ports", [{}])[0]
-    port = container_port.get("containerPort", ContinuousJob.model_fields["port"].default)
+    port = container_port.get(
+        "containerPort", ContinuousJob.model_fields["port"].default
+    )
 
     port_protocol = container_port.get(
         "protocol", ContinuousJob.model_fields["port_protocol"].default.value
@@ -644,9 +691,9 @@ def get_continuous_job_from_k8s_object(
 
     replicas = podspec.get("replicas", ContinuousJob.model_fields["replicas"].default)
 
-    health_check: ScriptHealthCheck | HttpHealthCheck | None = ContinuousJob.model_fields[
-        "health_check"
-    ].default
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = (
+        ContinuousJob.model_fields["health_check"].default
+    )
     container_spec = podspec["template"]["spec"]["containers"][0]
     if container_spec.get("startupProbe", {}).get("exec", None):
         script = container_spec["startupProbe"]["exec"]["command"][2]
@@ -676,10 +723,15 @@ def get_continuous_job_from_k8s_object(
 
 
 def get_k8s_objects_by_job_name(
-    job_name: str, tool_account: ToolAccount, k8s_kind: str, k8s_component_label: str | None = None
+    job_name: str,
+    tool_account: ToolAccount,
+    k8s_kind: str,
+    k8s_component_label: str | None = None,
 ) -> list[dict[str, Any]]:
     k8s_component_label = k8s_component_label or k8s_kind
     label_selector = labels_selector(
         job_name=job_name, tool_name=tool_account.name, type=k8s_component_label
     )
-    return tool_account.k8s_cli.get_objects(kind=k8s_kind, label_selector=label_selector)
+    return tool_account.k8s_cli.get_objects(
+        kind=k8s_kind, label_selector=label_selector
+    )

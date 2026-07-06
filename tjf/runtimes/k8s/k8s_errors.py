@@ -95,5 +95,6 @@ def get_error_from_k8s_response(
         )
 
     return K8sError(
-        "Failed to create a job, likely an internal bug in the jobs framework.", data=error_data
+        "Failed to create a job, likely an internal bug in the jobs framework.",
+        data=error_data,
     )
