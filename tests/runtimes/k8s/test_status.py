@@ -92,7 +92,7 @@ DEPLOYMENT_INITIALIZING = (
     fake_k8s.FIXTURES_PATH / "deployments" / "deployment_pending_initializing.json"
 ).read_text()
 DEPLOYMENT_RESTARTING = (
-    fake_k8s.FIXTURES_PATH / "deployments" / "deployment_pending_restarting.json"
+    fake_k8s.FIXTURES_PATH / "deployments" / "deployment_restarting.json"
 ).read_text()
 DEPLOYMENT_SCHEDULING = (
     fake_k8s.FIXTURES_PATH / "deployments" / "deployment_pending_scheduling.json"

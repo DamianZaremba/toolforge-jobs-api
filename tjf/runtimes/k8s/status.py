@@ -650,13 +650,9 @@ def _get_continuous_job_status_from_deployment_status(
     ready_replicas = deployment_status.get("readyReplicas", 0)
     unavailable_replicas = deployment_status.get("unavailableReplicas", 0)
 
-    deployment_restart_time_obj = (
-        restarted_at
-        and datetime.strptime(
-            restarted_at,
-            "%Y-%m-%dT%H:%M:%S.%f%z",  # can't use KUBERNETES_DATE_FORMAT here because of the format
-        ).replace(tzinfo=timezone.utc)
-    )
+    deployment_restart_time_obj = restarted_at and datetime.strptime(
+        restarted_at, KUBERNETES_DATE_FORMAT
+    ).replace(tzinfo=timezone.utc)
     deployment_start_time_obj = datetime.strptime(
         k8s_deployment["metadata"]["creationTimestamp"], KUBERNETES_DATE_FORMAT
     ).replace(tzinfo=timezone.utc)
@@ -751,6 +747,16 @@ def get_continuous_job_status(
         .get("metadata", {})
         .get("annotations", {})
         .get("app.kubernetes.io/restartedAt", "")
+    )
+    deployment_restart_time_obj = (
+        restarted_at
+        and datetime.strptime(
+            restarted_at,
+            "%Y-%m-%dT%H:%M:%S.%f%z",  # can't use KUBERNETES_DATE_FORMAT here because of the format
+        ).replace(tzinfo=timezone.utc)
+    )
+    restarted_at = restarted_at and deployment_restart_time_obj.strftime(
+        KUBERNETES_DATE_FORMAT
     )
     status_from_deployment = _get_continuous_job_status_from_deployment_status(
         k8s_deployment=k8s_deployment,

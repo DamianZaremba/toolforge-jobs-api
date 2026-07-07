@@ -1,0 +1,151 @@
+{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "annotations": {
+      "deployment.kubernetes.io/revision": "3"
+    },
+    "creationTimestamp": "2026-06-24T07:14:25Z",
+    "generation": 3,
+    "labels": {
+      "app.kubernetes.io/component": "deployments",
+      "app.kubernetes.io/created-by": "sample-complex-app",
+      "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+      "app.kubernetes.io/name": "backend-worker",
+      "app.kubernetes.io/version": "2",
+      "jobs.toolforge.org/emails": "none",
+      "toolforge": "tool",
+      "toolforge.org/mount-storage": "none"
+    },
+    "name": "backend-worker",
+    "namespace": "tool-sample-complex-app",
+    "resourceVersion": "1087396815",
+    "uid": "9df84fe0-d948-4ba5-8d7f-d18989ed8a05"
+  },
+  "spec": {
+    "progressDeadlineSeconds": 600,
+    "replicas": 1,
+    "revisionHistoryLimit": 10,
+    "selector": {
+      "matchLabels": {
+        "app.kubernetes.io/created-by": "sample-complex-app",
+        "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+        "app.kubernetes.io/name": "backend-worker",
+        "toolforge": "tool"
+      }
+    },
+    "strategy": {
+      "type": "Recreate"
+    },
+    "template": {
+      "metadata": {
+        "annotations": {
+          "app.kubernetes.io/restartedAt": "2026-07-06T12:22:10.584791+00:00"
+        },
+        "creationTimestamp": null,
+        "labels": {
+          "app.kubernetes.io/component": "deployments",
+          "app.kubernetes.io/created-by": "sample-complex-app",
+          "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+          "app.kubernetes.io/name": "backend-worker",
+          "app.kubernetes.io/version": "2",
+          "jobs.toolforge.org/emails": "none",
+          "toolforge": "tool",
+          "toolforge.org/mount-storage": "none"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "command": ["/bin/sh", "-c", "--", "launcher worker"],
+            "env": [
+              {
+                "name": "NO_HOME",
+                "value": "a buildservice pod does not need a home env"
+              }
+            ],
+            "image": "toolsbeta-harbor.wmcloud.org/tool-sample-complex-app/backend-api:latest@sha256:0445cf17794bccde0760476b9e49fd1318572a75c7a9d4dc2bcf2411bfef3d4d",
+            "imagePullPolicy": "Always",
+            "name": "job",
+            "resources": {
+              "limits": {
+                "cpu": "500m",
+                "memory": "512Mi"
+              },
+              "requests": {
+                "cpu": "500m",
+                "memory": "512Mi"
+              }
+            },
+            "securityContext": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": ["ALL"]
+              },
+              "privileged": false,
+              "readOnlyRootFilesystem": false,
+              "runAsGroup": 56298,
+              "runAsNonRoot": true,
+              "runAsUser": 56298
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File"
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {
+          "fsGroup": 56298,
+          "runAsGroup": 56298,
+          "runAsNonRoot": true,
+          "runAsUser": 56298,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "terminationGracePeriodSeconds": 15,
+        "topologySpreadConstraints": [
+          {
+            "labelSelector": {
+              "matchLabels": {
+                "app.kubernetes.io/created-by": "sample-complex-app",
+                "app.kubernetes.io/managed-by": "toolforge-jobs-framework",
+                "app.kubernetes.io/name": "backend-worker",
+                "toolforge": "tool"
+              }
+            },
+            "maxSkew": 1,
+            "topologyKey": "kubernetes.io/hostname",
+            "whenUnsatisfiable": "ScheduleAnyway"
+          }
+        ]
+      }
+    }
+  },
+  "status": {
+    "availableReplicas": 1,
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-06-24T07:14:25Z",
+        "lastUpdateTime": "2026-07-06T12:22:28Z",
+        "message": "ReplicaSet \"backend-worker-6854b556c8\" has successfully progressed.",
+        "reason": "NewReplicaSetAvailable",
+        "status": "True",
+        "type": "Progressing"
+      },
+      {
+        "lastTransitionTime": "2026-07-07T09:38:11Z",
+        "lastUpdateTime": "2026-07-07T09:38:11Z",
+        "message": "Deployment has minimum availability.",
+        "reason": "MinimumReplicasAvailable",
+        "status": "True",
+        "type": "Available"
+      }
+    ],
+    "observedGeneration": 3,
+    "readyReplicas": 1,
+    "replicas": 1,
+    "updatedReplicas": 1
+  }
+}
