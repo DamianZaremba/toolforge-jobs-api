@@ -18,7 +18,14 @@ from tests.utils import cases, patch_spec
 from tjf.core.cron import CronExpression
 from tjf.core.error import TjfJobNotFoundError
 from tjf.core.images import Image, ImageType
-from tjf.core.models import AnyJob, ContinuousJobStatus, EmailOption, ScheduledJobStatus
+from tjf.core.models import (
+    AnyJob,
+    ContinuousJobStatus,
+    EmailOption,
+    OneOffJobStatus,
+    ScheduledJobStatus,
+    StatusShort,
+)
 from tjf.runtimes.exceptions import NotFoundInRuntime
 from tjf.runtimes.k8s import runtime as k8s_runtime
 from tjf.runtimes.k8s.account import ToolAccount
@@ -163,7 +170,7 @@ class TestGetOneOffJob:
                                             "/bin/sh",
                                             "-c",
                                             "--",
-                                            "exec 1>>/data/project/tf-test/testoneoff.out;exec 2>>/data/project/tf-test/testoneoff.err;date",
+                                            "exec 1>>/data/project/some-tool/testoneoff.out;exec 2>>/data/project/some-tool/testoneoff.err;date",
                                         ]
                                     }
                                 ],
@@ -187,7 +194,7 @@ class TestGetOneOffJob:
                                             "/bin/sh",
                                             "-c",
                                             "--",
-                                            "exec 1>>/data/project/tf-test/testoneoff.out;exec 2>>/data/project/tf-test/testoneoff.err;test-command with-arguments 'other argument with spaces'",
+                                            "exec 1>>/data/project/some-tool/testoneoff.out;exec 2>>/data/project/some-tool/testoneoff.err;test-command with-arguments 'other argument with spaces'",
                                         ]
                                     }
                                 ]
@@ -306,6 +313,42 @@ class TestGetOneOffJob:
         # from the mock after checking partially
         gotten_job.status_short = "Unknown"
         assert gotten_job.model_dump() == expected_job.model_dump()
+
+    def test_returns_unknown_status_on_k8s_exception(
+        self,
+        fake_images: dict[str, Any],
+        monkeymodule: pytest.MonkeyPatch,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        def get_one_off_job_status_raising(*args, kind, **kwargs):
+            raise Exception("Something happened!")
+
+        patch_tool_account_k8s_cli(
+            monkeymodule=monkeymodule,
+            get_objects_mock=lambda *args, kind, **kwargs: (
+                [K8S_ONEOFF_JOB_OBJ] if kind == "jobs" else []
+            ),
+        )
+        expected_job = get_oneoff_job_fixture_as_job(
+            status=OneOffJobStatus(
+                short=StatusShort.UNKNOWN, messages=["Failed retrieving status"]
+            ),
+            status_short="Toolforge error",
+            status_long="Failed retrieving status",
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        monkeypatch.setattr(
+            k8s_runtime, "get_one_off_job_status", get_one_off_job_status_raising
+        )
+
+        gotten_job = my_runtime.get_one_off_job(
+            job_name=expected_job.job_name, tool_name=expected_job.tool_name
+        )
+
+        assert gotten_job
+        assert gotten_job.model_dump(exclude=["k8s_object"]) == expected_job.model_dump(
+            exclude=["k8s_object"]
+        )
 
 
 class TestGetScheduledJob:
@@ -633,6 +676,42 @@ class TestGetScheduledJob:
         assert gotten_job
         assert gotten_job.model_dump() == expected_job.model_dump()
 
+    def test_returns_unknown_status_on_k8s_exception(
+        self,
+        fake_images: dict[str, Any],
+        monkeymodule: pytest.MonkeyPatch,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        def get_scheduled_job_status_raising(*args, kind, **kwargs):
+            raise Exception("Something happened!")
+
+        patch_tool_account_k8s_cli(
+            monkeymodule=monkeymodule,
+            get_objects_mock=lambda *args, kind, **kwargs: (
+                [K8S_SCHEDULED_JOB_OBJ] if kind == "cronjobs" else []
+            ),
+        )
+        expected_job = get_scheduled_job_fixture_as_job(
+            status=ScheduledJobStatus(
+                short=StatusShort.UNKNOWN, messages=["Failed retrieving status"]
+            ),
+            status_short="Toolforge error",
+            status_long="Failed retrieving status",
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        monkeypatch.setattr(
+            k8s_runtime, "get_scheduled_job_status", get_scheduled_job_status_raising
+        )
+
+        gotten_job = my_runtime.get_scheduled_job(
+            job_name=expected_job.job_name, tool_name=expected_job.tool_name
+        )
+
+        assert gotten_job
+        assert gotten_job.model_dump(exclude=["k8s_object"]) == expected_job.model_dump(
+            exclude=["k8s_object"]
+        )
+
 
 class TestGetContinuousJob:
     def test_raises_when_no_job_found(self, monkeymodule: pytest.MonkeyPatch):
@@ -927,6 +1006,42 @@ class TestGetContinuousJob:
         )
         assert gotten_job
         assert gotten_job.model_dump() == expected_job.model_dump()
+
+    def test_returns_unknown_status_on_k8s_exception(
+        self,
+        fake_images: dict[str, Any],
+        monkeymodule: pytest.MonkeyPatch,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        def get_continuous_job_status_raising(*args, kind, **kwargs):
+            raise Exception("Something happened!")
+
+        patch_tool_account_k8s_cli(
+            monkeymodule=monkeymodule,
+            get_objects_mock=lambda *args, kind, **kwargs: (
+                [K8S_CONTINUOUS_JOB_OBJ] if kind == "deployments" else []
+            ),
+        )
+        expected_job = get_continuous_job_fixture_as_job(
+            status=ContinuousJobStatus(
+                short=StatusShort.UNKNOWN, messages=["Failed retrieving status"]
+            ),
+            status_short="Toolforge error",
+            status_long="Failed retrieving status",
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        monkeypatch.setattr(
+            k8s_runtime, "get_continuous_job_status", get_continuous_job_status_raising
+        )
+
+        gotten_job = my_runtime.get_continuous_job(
+            job_name=expected_job.job_name, tool_name=expected_job.tool_name
+        )
+
+        assert gotten_job
+        assert gotten_job.model_dump(exclude=["k8s_object"]) == expected_job.model_dump(
+            exclude=["k8s_object"]
+        )
 
 
 class TestDiffWithRunningJob:

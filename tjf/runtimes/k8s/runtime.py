@@ -21,11 +21,15 @@ from ...core.images import (
 from ...core.models import (
     AnyJob,
     ContinuousJob,
+    ContinuousJobStatus,
     JobType,
     OneOffJob,
+    OneOffJobStatus,
     QuotaCategoryType,
     QuotaData,
     ScheduledJob,
+    ScheduledJobStatus,
+    StatusShort,
 )
 from ...core.utils import format_quantity, parse_and_format_mem
 from ...loki_logs import LokiSource
@@ -73,11 +77,21 @@ class K8sRuntime(BaseRuntime):
                 default_cpu_limit=self.default_cpu_limit,
                 tool_name=tool_name,
             )
-            refresh_job_short_status(tool_account, one_off_job)
-            refresh_job_long_status(tool_account, one_off_job)
-            one_off_job.status = get_one_off_job_status(
-                tool_account=tool_account, k8s_job=one_off_job.k8s_object
-            )
+            try:
+                refresh_job_short_status(tool_account, one_off_job)
+                refresh_job_long_status(tool_account, one_off_job)
+                one_off_job.status = get_one_off_job_status(
+                    tool_account=tool_account, k8s_job=one_off_job.k8s_object
+                )
+            except Exception as error:
+                LOGGER.exception(
+                    f"Exception trying to get the status for {one_off_job}: {error}"
+                )
+                one_off_job.status_long = "Failed retrieving status"
+                one_off_job.status_short = "Toolforge error"
+                one_off_job.status = OneOffJobStatus(
+                    short=StatusShort.UNKNOWN, messages=[one_off_job.status_long]
+                )
             job_list.append(one_off_job)
 
         return job_list
@@ -92,11 +106,23 @@ class K8sRuntime(BaseRuntime):
                 default_cpu_limit=self.default_cpu_limit,
                 tool_name=tool_name,
             )
-            refresh_job_short_status(tool_account, one_off_job)
-            refresh_job_long_status(tool_account, one_off_job)
-            one_off_job.status = get_one_off_job_status(
-                tool_account=tool_account, k8s_job=one_off_job.k8s_object
-            )
+            # TODO: we can probably push the try-except to the status gathering function once we deprecate the
+            # short/long statuses
+            try:
+                refresh_job_short_status(tool_account, one_off_job)
+                refresh_job_long_status(tool_account, one_off_job)
+                one_off_job.status = get_one_off_job_status(
+                    tool_account=tool_account, k8s_job=one_off_job.k8s_object
+                )
+            except Exception as error:
+                LOGGER.exception(
+                    f"Exception trying to get the status for {one_off_job}: {error}"
+                )
+                one_off_job.status_long = "Failed retrieving status"
+                one_off_job.status_short = "Toolforge error"
+                one_off_job.status = OneOffJobStatus(
+                    short=StatusShort.UNKNOWN, messages=[one_off_job.status_long]
+                )
             return one_off_job
 
         raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool_name}.")
@@ -111,11 +137,23 @@ class K8sRuntime(BaseRuntime):
                 default_cpu_limit=self.default_cpu_limit,
                 tool_name=tool_name,
             )
-            refresh_job_short_status(tool_account, scheduled_job)
-            refresh_job_long_status(tool_account, scheduled_job)
-            scheduled_job.status = get_scheduled_job_status(
-                job=scheduled_job, tool_account=tool_account
-            )
+            # TODO: we can probably push the try-except to the status gathering function once we deprecate the
+            # short/long statuses
+            try:
+                refresh_job_short_status(tool_account, scheduled_job)
+                refresh_job_long_status(tool_account, scheduled_job)
+                scheduled_job.status = get_scheduled_job_status(
+                    job=scheduled_job, tool_account=tool_account
+                )
+            except Exception as error:
+                LOGGER.exception(
+                    f"Exception trying to get the status for {scheduled_job}: {error}"
+                )
+                scheduled_job.status_long = "Failed retrieving status"
+                scheduled_job.status_short = "Toolforge error"
+                scheduled_job.status = ScheduledJobStatus(
+                    short=StatusShort.UNKNOWN, messages=[scheduled_job.status_long]
+                )
             return scheduled_job
 
         raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool_name}.")
@@ -130,9 +168,23 @@ class K8sRuntime(BaseRuntime):
                 default_cpu_limit=self.default_cpu_limit,
                 tool_name=tool_name,
             )
-            refresh_job_short_status(tool_account, job)
-            refresh_job_long_status(tool_account, job)
-            job.status = get_continuous_job_status(job=job, tool_account=tool_account)
+            # TODO: we can probably push the try-except to the status gathering function once we deprecate the
+            # short/long statuses
+            try:
+                refresh_job_short_status(tool_account, job)
+                refresh_job_long_status(tool_account, job)
+                job.status = get_continuous_job_status(
+                    job=job, tool_account=tool_account
+                )
+            except Exception as error:
+                LOGGER.exception(
+                    f"Exception trying to get the status for {job}: {error}"
+                )
+                job.status_long = "Failed retrieving status"
+                job.status_short = "Toolforge error"
+                job.status = ContinuousJobStatus(
+                    short=StatusShort.UNKNOWN, messages=[job.status_long]
+                )
             return job
 
         raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool_name}.")

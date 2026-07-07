@@ -1063,9 +1063,11 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
         mount=MountOption.ALL,
     )
     if add_status:
-        overrides["status_short"] = "Not running"
-        overrides["status_long"] = "No pods were created for this job."
-        overrides["status"] = {}
+        overrides["status_short"] = overrides.get("status_short", "Not running")
+        overrides["status_long"] = overrides.get(
+            "status_long", "No pods were created for this job."
+        )
+        overrides["status"] = overrides.get("status", {})
 
     job = get_dummy_job(**(params | overrides))
     return job
@@ -1103,24 +1105,24 @@ def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJo
             ],
         ),
         job_type=JobType.ONE_OFF,
-        tool_name="tf-test",
+        tool_name="some-tool",
     )
     optional_params = {
         # This cpu is only valid if the default cpu limit is 1000m, otherwise this
         # cpu will be 1.0 (will use the k8s resource limit instead of the request value)
         "cpu": "0.1",
         "filelog": True,
-        "filelog_stderr": Path("/data/project/tf-test/testoneoff.err"),
-        "filelog_stdout": Path("/data/project/tf-test/testoneoff.out"),
+        "filelog_stderr": Path("/data/project/some-tool/testoneoff.err"),
+        "filelog_stdout": Path("/data/project/some-tool/testoneoff.out"),
         "k8s_object": K8S_ONEOFF_JOB_OBJ,
         "mount": MountOption.ALL,
     }
     if add_status:
-        overrides["status_short"] = "Unknown"
+        overrides["status_short"] = overrides.get("status_short", "Unknown")
         overrides["status_long"] = overrides.get(
             "status_long", "No pods were created for this job."
         )
-        overrides["status"] = {}
+        overrides["status"] = overrides.get("status", {})
 
     return get_dummy_job(**(params | optional_params | overrides))
 
@@ -1163,8 +1165,12 @@ def get_scheduled_job_fixture_as_job(add_status: bool = True, **overrides) -> An
         "mount": MountOption.ALL,
     }
     if add_status:
-        overrides["status_short"] = "Waiting for scheduled time"
-        overrides["status_long"] = "No pods were created for this job."
-        overrides["status"] = {}
+        overrides["status_short"] = overrides.get(
+            "status_short", "Waiting for scheduled time"
+        )
+        overrides["status_long"] = overrides.get(
+            "status_long", "No pods were created for this job."
+        )
+        overrides["status"] = overrides.get("status", {})
 
     return get_dummy_job(**(params | optional_params | overrides))
