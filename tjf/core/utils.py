@@ -16,25 +16,15 @@
 
 from decimal import Decimal
 from pathlib import Path
-from typing import Set, TypeVar
 
 from toolforge_weld.kubernetes import VALID_KUBE_QUANT_SUFFIXES, parse_quantity
 
 USER_AGENT = "jobs-api"
 
-KUBERNETES_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
-
-T = TypeVar("T")
-U = TypeVar("U")
-
-
-def dict_get_object(dict_in: dict[T, U], kind: T) -> U | None:
-    for o in dict_in:
-        if o == kind:
-            return dict_in[o]
-
-    return None
+def get_tool_home(name: str) -> Path:
+    # TODO: fetch this from LDAP instead?
+    return Path(f"/data/project/{name}")
 
 
 # copied & adapted from https://github.com/kubernetes-client/python/pull/2216/files#diff-7070f0b8e347e5b2bd6a5fcb5ff69ed300853c94d610e984e09f831d028d644b
@@ -93,35 +83,6 @@ def parse_and_format_mem(mem: str) -> str:
     return format_quantity(
         quantity_value=parse_quantity(mem), suffix="Gi", quantize="0.000"
     )
-
-
-def format_duration(seconds: int) -> str:
-    m, s = divmod(seconds, 60)
-    h, m = divmod(m, 60)
-    d, h = divmod(h, 24)
-
-    value = ""
-    if d > 0:
-        value += f"{d}d"
-    if h > 0:
-        value += f"{h}h"
-    if m > 0:
-        value += f"{m}m"
-    if (s > 0 and d == 0) or value == "":
-        value += f"{s}s"
-    return value
-
-
-def remove_prefixes(text: str, prefixes: Set[str]) -> str:
-    for prefix in prefixes:
-        if text.startswith(prefix):
-            text = text[len(prefix) :]
-    return text
-
-
-def get_tool_home(name: str) -> Path:
-    # TODO: fetch this from LDAP instead?
-    return Path(f"/data/project/{name}")
 
 
 def resolve_filelog_path(path: Path | None, home: Path, default: Path) -> Path:

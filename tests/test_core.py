@@ -5,7 +5,7 @@ import pytest
 from helpers.fakes import get_dummy_job
 from toolforge_weld.kubernetes import MountOption
 
-from tests.test_utils import cases
+from tests.utils import cases
 from tjf.core import core
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (

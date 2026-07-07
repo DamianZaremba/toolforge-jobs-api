@@ -7,17 +7,18 @@ from typing import Any
 
 from ...core.error import TjfError
 from ...core.models import AnyJob, Command, ContinuousJob, OneOffJob, ScheduledJob
-from ...core.utils import (
-    KUBERNETES_DATE_FORMAT,
-    dict_get_object,
-    format_duration,
-    remove_prefixes,
-)
 from .account import ToolAccount
 from .command import GeneratedCommand, get_command_for_k8s
 from .jobs import K8sJobKind
 from .labels import labels_selector
+from .utils import (
+    dict_get_object,
+    format_duration,
+    remove_prefixes,
+)
 
+# Will be deleted soon, better keep a copy here
+KUBERNETES_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 LOGGER = getLogger(__name__)
 
 

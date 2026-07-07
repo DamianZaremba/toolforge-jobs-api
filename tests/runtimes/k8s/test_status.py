@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 from helpers.fakes import get_dummy_job, get_fake_account
 
 import tests.helpers.fake_k8s as fake_k8s
-from tests.test_utils import cases
+from tests.utils import cases
 from tjf.core.images import Image
 from tjf.core.models import (
     ContinuousJobStatus,

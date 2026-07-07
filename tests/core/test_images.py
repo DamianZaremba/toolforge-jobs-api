@@ -1,5 +1,5 @@
 from tests.helpers.fakes import FAKE_HARBOR_HOST
-from tests.test_utils import cases
+from tests.utils import cases
 from tjf.core.images import (
     Image,
     ImageType,

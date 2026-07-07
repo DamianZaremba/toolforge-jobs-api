@@ -21,16 +21,16 @@ from ...core.models import (
     ScheduledJobStatus,
     StatusShort,
 )
-from ...core.utils import (
-    KUBERNETES_DATE_FORMAT,
-    format_duration,
-    remove_prefixes,
-)
 from .account import ToolAccount
 from .command import GeneratedCommand, get_command_for_k8s
 from .jobs import JOB_PROGRESS_DEADLINE_SECONDS, get_k8s_objects_by_job_name
+from .utils import (
+    format_duration,
+    remove_prefixes,
+)
 
 LOGGER = getLogger(__name__)
+KUBERNETES_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
 # TODO: the string format expected here only applies ResourceQuota errors, should we handle LimitRange errors?

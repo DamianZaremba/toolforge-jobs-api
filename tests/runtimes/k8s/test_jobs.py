@@ -10,7 +10,7 @@ from tests.helpers.fake_k8s import (
     get_continuous_job_fixture_as_job,
     get_oneoff_job_fixture_as_job,
 )
-from tests.test_utils import cases, patch_spec
+from tests.utils import cases, patch_spec
 from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (

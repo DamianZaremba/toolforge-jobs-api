@@ -32,10 +32,11 @@ from ...core.models import (
     ScheduledJob,
     ScriptHealthCheck,
 )
-from ...core.utils import dict_get_object, format_quantity, parse_and_format_mem
+from ...core.utils import format_quantity, parse_and_format_mem
 from .command import get_command_for_k8s, get_command_from_k8s
 from .healthchecks import get_healthcheck_for_k8s
 from .labels import generate_labels, labels_selector
+from .utils import dict_get_object
 
 K8S_OBJECT_TYPE = dict[str, Any]
 # tell kubernetes to delete jobs this many seconds after they finish
