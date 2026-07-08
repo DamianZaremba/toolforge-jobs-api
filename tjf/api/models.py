@@ -10,6 +10,7 @@ from tjf.core.utils import format_quantity, parse_and_format_mem
 
 from ..core.cron import CronExpression, CronParsingError
 from ..core.error import TjfValidationError
+from ..core.images import DEFAULT_IMAGE_STATE
 from ..core.images import Image as ImageData
 from ..core.models import (
     JOBNAME_MAX_LENGTH,
@@ -581,10 +582,17 @@ class Health(BaseModel):
 class Image(BaseModel):
     shortname: str
     image: str | None
+    state: str = DEFAULT_IMAGE_STATE
+    webservice_defaults: dict[str, Any] = Field(default={})
 
     @classmethod
     def from_image_data(cls: type["Image"], image_data: ImageData) -> "Image":
-        return cls(shortname=image_data.short_name, image=image_data.to_full_url())
+        return cls(
+            shortname=image_data.short_name,
+            image=image_data.to_full_url(),
+            state=image_data.state,
+            webservice_defaults=image_data.webservice_defaults,
+        )
 
 
 class ResponseMessages(BaseModel):
