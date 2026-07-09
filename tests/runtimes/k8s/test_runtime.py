@@ -698,7 +698,9 @@ class TestGetScheduledJob:
         )
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
         monkeypatch.setattr(
-            k8s_runtime, "get_scheduled_job_status", get_scheduled_job_status_raising
+            k8s_runtime,
+            "get_scheduled_job_status",
+            get_scheduled_job_status_raising,
         )
 
         gotten_job = my_runtime.get_scheduled_job(
@@ -1029,7 +1031,9 @@ class TestGetContinuousJob:
         )
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
         monkeypatch.setattr(
-            k8s_runtime, "get_continuous_job_status", get_continuous_job_status_raising
+            k8s_runtime,
+            "get_continuous_job_status",
+            get_continuous_job_status_raising,
         )
 
         gotten_job = my_runtime.get_continuous_job(

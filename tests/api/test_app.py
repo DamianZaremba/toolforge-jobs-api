@@ -514,11 +514,12 @@ class TestApiUpdateJob:
             }
         )
         monkeypatch.setattr(
-            app.core.storage,
-            "get_job",
-            value=lambda *args, **kwargs: dummy_job.model_copy(
-                update={"status": ContinuousJobStatus(up_to_date=False)}
-            ),
+            app.core.storage, "get_job", value=lambda *args, **kwargs: dummy_job
+        )
+        monkeypatch.setattr(
+            app.core.runtime,
+            "get_continuous_job",
+            value=lambda *args, **kwargs: dummy_job,
         )
         monkeypatch.setattr(
             app.core.runtime,
@@ -607,6 +608,9 @@ class TestApiUpdateJob:
     ) -> None:
         dummy_job = get_dummy_job()
         different_dummy_job = get_dummy_job(cmd="different job")
+        monkeypatch.setattr(
+            app.core, "get_job", value=lambda *args, **kwargs: different_dummy_job
+        )
         monkeypatch.setattr(
             app.core, "get_job", value=lambda *args, **kwargs: different_dummy_job
         )

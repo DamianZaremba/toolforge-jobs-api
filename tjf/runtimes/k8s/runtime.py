@@ -36,9 +36,13 @@ from ..exceptions import AlreadyExistsInRuntime, NotFoundInRuntime
 from .account import ToolAccount
 from .jobs import (
     K8sKind,
+    create_k8s_object_for_job,
     format_logs,
     get_continuous_job_from_k8s_object,
     get_job_for_k8s,
+    get_k8s_cronjob_object,
+    get_k8s_deployment_object,
+    get_k8s_job_object,
     get_k8s_objects_by_job_name,
     get_one_off_job_from_k8s_object,
     get_scheduled_job_from_k8s_object,
@@ -255,7 +259,7 @@ class K8sRuntime(BaseRuntime):
             spec = self._create_k8s_spec_for_job(job)
             obj_kind = "deployments" if isinstance(job, ContinuousJob) else "cronjobs"
             try:
-                tool_account.k8s_cli.replace_object(obj_kind, spec)
+                tool_account.k8s_cli.replace_object(kind=obj_kind, spec=spec)
             except requests.exceptions.HTTPError as error:
                 if (
                     error.response is None
@@ -299,7 +303,7 @@ class K8sRuntime(BaseRuntime):
         spec = get_k8s_service_object(job)
 
         try:
-            tool_account.k8s_cli.replace_object("services", spec)
+            tool_account.k8s_cli.replace_object(kind="services", spec=spec)
         except requests.exceptions.HTTPError as error:
             raise get_error_from_k8s_response(error=error, job=job, spec=spec)
         return None
@@ -314,59 +318,68 @@ class K8sRuntime(BaseRuntime):
         LOGGER.debug(f"Got k8s spec: {spec}")
         return spec
 
-    def create_job(self, *, job: AnyJob) -> None:
-        tool_account = ToolAccount(name=job.tool_name)
-        validate_job_limits(tool_account, job)
+    def _create_scheduled_job(
+        self, *, job: ScheduledJob, tool_account: ToolAccount
+    ) -> None:
+        spec = get_k8s_cronjob_object(job=job, default_cpu_limit=self.default_cpu_limit)
+        k8s_result = create_k8s_object_for_job(
+            tool_account=tool_account,
+            job=job,
+            kind=K8sKind.CRONJOBS,
+            spec=spec,
+        )
+        LOGGER.debug(f"Result from k8s: {k8s_result}")
+        job.k8s_object = k8s_result
 
-        if isinstance(job, ContinuousJob) and job.port:
+    def _create_continuous_job(
+        self, *, job: ContinuousJob, tool_account: ToolAccount
+    ) -> None:
+        spec = get_k8s_deployment_object(
+            job=job, default_cpu_limit=self.default_cpu_limit
+        )
+        LOGGER.debug(f"Got k8s spec: {spec}")
+        k8s_result = create_k8s_object_for_job(
+            tool_account=tool_account,
+            job=job,
+            kind=K8sKind.DEPLOYMENTS,
+            spec=spec,
+        )
+        LOGGER.debug(f"Result from k8s: {k8s_result}")
+        if job.port:
             self._create_service(job=job)
 
-        spec = self._create_k8s_spec_for_job(job)
-        # TODO: this will go away when we split it
-        match job.job_type:
-            case JobType.SCHEDULED:
-                kind = K8sKind.CRONJOBS
-            case JobType.CONTINUOUS:
-                kind = K8sKind.DEPLOYMENTS
-            case JobType.ONE_OFF:
-                kind = K8sKind.JOBS
+    def _create_one_off_job(self, *, job: OneOffJob, tool_account: ToolAccount) -> None:
+        spec = get_k8s_job_object(job=job, default_cpu_limit=self.default_cpu_limit)
+        LOGGER.debug(f"Got k8s spec: {spec}")
+        k8s_result = create_k8s_object_for_job(
+            tool_account=tool_account,
+            job=job,
+            kind=K8sKind.JOBS,
+            spec=spec,
+        )
+        LOGGER.debug(f"Result from k8s: {k8s_result}")
+        job.k8s_object = k8s_result
+
+    def create_job(self, *, job: AnyJob) -> None:
+        if not job.image.exists:
+            raise TjfImageNotFoundError(f"No such image '{job.image.to_full_url()}'")
+
+        tool_account = ToolAccount(name=job.tool_name)
+        validate_job_limits(tool_account, job)
         try:
-            k8s_result = tool_account.k8s_cli.create_object(kind=kind, spec=spec)
+            if isinstance(job, ScheduledJob):
+                return self._create_scheduled_job(job=job, tool_account=tool_account)
+            elif isinstance(job, ContinuousJob):
+                return self._create_continuous_job(job=job, tool_account=tool_account)
+            elif isinstance(job, OneOffJob):
+                return self._create_one_off_job(job=job, tool_account=tool_account)
+
         except K8sAlreadyExists as error:
             raise AlreadyExistsInRuntime(
                 f"Job {job.job_name} already exists in runtime"
             ) from error
-        except requests.exceptions.HTTPError as error:
-            raise get_error_from_k8s_response(error=error, job=job, spec=spec)
 
-        LOGGER.debug(f"Result from k8s: {k8s_result}")
-        job.k8s_object = k8s_result
-
-        refresh_job_short_status(tool_account, job)
-        refresh_job_long_status(tool_account, job)
-        try:
-            match job.job_type:
-                case JobType.ONE_OFF:
-                    job.status = get_one_off_job_status(
-                        tool_account=tool_account, k8s_job=job.k8s_object
-                    )
-
-                case JobType.SCHEDULED:
-                    job.status = get_scheduled_job_status(
-                        job=job, tool_account=tool_account
-                    )
-
-                case JobType.CONTINUOUS:
-                    job.status = get_continuous_job_status(
-                        job=job, tool_account=tool_account
-                    )
-                case _:
-                    raise TjfError(
-                        f"Unable to get status for job {job.job_name} with unknown type: {job.job_type}"
-                    )
-
-        except requests.exceptions.HTTPError as error:
-            raise get_error_from_k8s_response(error=error, job=job, spec=spec)
+        raise TjfError(f"Invalid job type {job.job_type}")
 
     def delete_all_jobs(self, *, tool_name: str) -> None:
         """Deletes all jobs for a user."""
