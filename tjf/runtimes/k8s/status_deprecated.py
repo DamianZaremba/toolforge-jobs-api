@@ -243,9 +243,6 @@ def _refresh_status_dp(tool_account: ToolAccount, job: ContinuousJob) -> None:
         pods = tool_account.k8s_cli.get_objects(
             kind="pods", label_selector=pod_selector
         )
-        pods = tool_account.k8s_cli.get_objects(
-            kind="pods", label_selector=pod_selector
-        )
 
         for pod in pods:
             if "containerStatuses" not in pod["status"]:
@@ -290,9 +287,6 @@ def refresh_job_long_status(tool_account: ToolAccount, job: AnyJob) -> None:
         job_name=job.job_name,
         tool_name=tool_account.name,
         job_type=job.job_type,
-    )
-    podlist = tool_account.k8s_cli.get_objects(
-        kind="pods", label_selector=label_selector
     )
     podlist = tool_account.k8s_cli.get_objects(
         kind="pods", label_selector=label_selector
