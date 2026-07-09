@@ -62,6 +62,9 @@ class K8sKind(StrEnum):
     CRONJOBS = "cronjobs"
     PODS = "pods"
     SERVICES = "services"
+    EVENTS = "events"
+    LIMIT_RANGES = "limitranges"
+    RESOURCE_QUOTAS = "resourcequotas"
 
 
 def get_job_for_k8s(job: AnyJob, default_cpu_limit: str) -> K8S_OBJECT_TYPE:
@@ -698,8 +701,9 @@ def get_k8s_objects_by_job_name(
 
 
 def create_k8s_object_for_job(
-    tool_account: ToolAccount, kind: str, spec: dict[str, Any], job: AnyJob
+    tool_account: ToolAccount, kind: K8sKind, spec: dict[str, Any], job: AnyJob
 ) -> dict[str, Any]:
+    """Makes sure the created k8s object is labeled correctly to match the jobs-api job."""
     try:
         k8s_object = tool_account.k8s_cli.create_object(kind=kind, spec=spec)
     except K8sAlreadyExists as error:

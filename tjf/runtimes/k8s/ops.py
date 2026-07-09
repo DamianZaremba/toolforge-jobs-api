@@ -28,9 +28,9 @@ from .labels import labels_selector
 
 
 def validate_job_limits(account: ToolAccount, job: AnyJob) -> None:
-    limits = account.k8s_cli.get_object("limitranges", name=account.namespace)["spec"][
-        "limits"
-    ]
+    limits = account.k8s_cli.get_object(
+        kind=K8sKind.LIMIT_RANGES, name=account.namespace
+    )["spec"]["limits"]
 
     for limit in limits:
         if limit["type"] != "Container":
@@ -106,7 +106,7 @@ def wait_for_pods_exit(
     for _ in range(timeout * 2):
         # TODO: this can use the get_k8s_objects_for_job_name once the delete_all function gets split
         pods = tool_account.k8s_cli.get_objects(
-            kind="pods", label_selector=label_selector
+            kind=K8sKind.PODS, label_selector=label_selector
         )
         if len(pods) == 0:
             return True

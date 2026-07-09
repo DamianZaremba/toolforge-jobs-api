@@ -212,10 +212,10 @@ class K8sRuntime(BaseRuntime):
         if isinstance(job, ScheduledJob):
             # Delete currently running jobs to avoid duplication
             tool_account.k8s_cli.delete_objects(
-                K8sKind.JOBS, label_selector=label_selector
+                kind=K8sKind.JOBS, label_selector=label_selector
             )
             tool_account.k8s_cli.delete_objects(
-                K8sKind.PODS, label_selector=label_selector
+                kind=K8sKind.PODS, label_selector=label_selector
             )
 
             wait_for_pods_exit(
@@ -228,13 +228,15 @@ class K8sRuntime(BaseRuntime):
 
         elif isinstance(job, ContinuousJob):
             # Update the Deployment spec and let Kubernetes cycle the pods, this ensures a graceful restart
-            k8s_obj = tool_account.k8s_cli.get_object("deployments", job.job_name)
+            k8s_obj = tool_account.k8s_cli.get_object(
+                kind=K8sKind.DEPLOYMENTS, name=job.job_name
+            )
             if "annotations" not in k8s_obj["spec"]["template"]["metadata"]:
                 k8s_obj["spec"]["template"]["metadata"]["annotations"] = {}
             k8s_obj["spec"]["template"]["metadata"]["annotations"] |= {
                 "app.kubernetes.io/restartedAt": datetime.now(timezone.utc).isoformat()
             }
-            tool_account.k8s_cli.replace_object("deployments", k8s_obj)
+            tool_account.k8s_cli.replace_object(kind=K8sKind.DEPLOYMENTS, spec=k8s_obj)
 
         elif isinstance(job, OneOffJob):
             raise TjfValidationError("Unable to restart a single job")
@@ -257,7 +259,11 @@ class K8sRuntime(BaseRuntime):
                 self._create_or_delete_service(job=job)
 
             spec = self._create_k8s_spec_for_job(job)
-            obj_kind = "deployments" if isinstance(job, ContinuousJob) else "cronjobs"
+            obj_kind = (
+                K8sKind.DEPLOYMENTS
+                if isinstance(job, ContinuousJob)
+                else K8sKind.CRONJOBS
+            )
             try:
                 tool_account.k8s_cli.replace_object(kind=obj_kind, spec=spec)
             except requests.exceptions.HTTPError as error:
@@ -289,7 +295,7 @@ class K8sRuntime(BaseRuntime):
                 tool_account.name,
             )
             tool_account.k8s_cli.delete_objects(
-                kind="services",
+                kind=K8sKind.SERVICES,
                 label_selector=labels_selector(
                     job_name=job.job_name,
                     tool_name=tool_account.name,
@@ -303,7 +309,7 @@ class K8sRuntime(BaseRuntime):
         spec = get_k8s_service_object(job)
 
         try:
-            tool_account.k8s_cli.replace_object(kind="services", spec=spec)
+            tool_account.k8s_cli.replace_object(kind=K8sKind.SERVICES, spec=spec)
         except requests.exceptions.HTTPError as error:
             raise get_error_from_k8s_response(error=error, job=job, spec=spec)
         return None
@@ -387,9 +393,15 @@ class K8sRuntime(BaseRuntime):
         tool_account = ToolAccount(name=tool_name)
         label_selector = labels_selector(tool_name=tool_account.name)
 
-        for object_type in K8sKind:
+        for object_type in [
+            K8sKind.DEPLOYMENTS,
+            K8sKind.CRONJOBS,
+            K8sKind.JOBS,
+            K8sKind.PODS,
+            K8sKind.SERVICES,
+        ]:
             tool_account.k8s_cli.delete_objects(
-                object_type, label_selector=label_selector
+                kind=object_type, label_selector=label_selector
             )
         wait_for_pods_exit(tool_account=tool_account)
 
@@ -423,10 +435,10 @@ class K8sRuntime(BaseRuntime):
     def get_quotas(self, *, tool_name: str) -> list[QuotaData]:
         tool_account = ToolAccount(name=tool_name)
         resource_quota = tool_account.k8s_cli.get_object(
-            "resourcequotas", tool_account.namespace
+            kind=K8sKind.RESOURCE_QUOTAS, name=tool_account.namespace
         )
         limit_range = tool_account.k8s_cli.get_object(
-            "limitranges", tool_account.namespace
+            K8sKind.LIMIT_RANGES, name=tool_account.namespace
         )
 
         if not resource_quota or not limit_range:
