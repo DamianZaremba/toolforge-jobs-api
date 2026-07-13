@@ -299,7 +299,7 @@ def _get_one_off_job_status_from_out_of_quota_event(
 
     LOGGER.debug("Got uid %s for job, getting events", k8s_job_uid)
     events = tool_account.k8s_cli.get_objects(
-        kind="events", field_selector=f"involvedObject.uid={k8s_job_uid}"
+        kind=K8sKind.EVENTS, field_selector=f"involvedObject.uid={k8s_job_uid}"
     )
     for event in sorted(events, key=lambda event: event["lastTimestamp"], reverse=True):
         reason = event.get("reason", None)
@@ -465,7 +465,9 @@ def get_one_off_job_status(
         tool_name=tool_account.name,
         job_type=JobType.ONE_OFF,
     )
-    k8s_pods = tool_account.k8s_cli.get_objects(kind="pods", label_selector=selector)
+    k8s_pods = tool_account.k8s_cli.get_objects(
+        kind=K8sKind.PODS, label_selector=selector
+    )
     LOGGER.debug(f"k8s pod objects: {k8s_pods}")
     return _get_one_off_job_status_from_k8s_job(
         tool_account=tool_account, k8s_job=k8s_job, k8s_pods=k8s_pods

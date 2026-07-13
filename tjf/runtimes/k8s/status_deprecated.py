@@ -80,7 +80,7 @@ def _get_job_object_status(
     LOGGER.debug("Got uid %s for job, getting events", job_uid)
 
     events = tool_account.k8s_cli.get_objects(
-        kind="events", field_selector=f"involvedObject.uid={job_uid}"
+        kind=K8sKind.EVENTS, field_selector=f"involvedObject.uid={job_uid}"
     )
     for event in sorted(events, key=lambda event: event["lastTimestamp"], reverse=True):
         reason = event.get("reason", None)
@@ -116,7 +116,7 @@ def _refresh_status_cronjob_from_restarted_cronjob(
         job_type=JobType.SCHEDULED,
     )
     all_cronjob_jobs = tool_account.k8s_cli.get_objects(
-        kind="jobs", label_selector=label_selector
+        kind=K8sKind.JOBS, label_selector=label_selector
     )
     for maybe_manual_job_data in all_cronjob_jobs:
         metadata = maybe_manual_job_data.get("metadata", None)
@@ -194,7 +194,9 @@ def _refresh_status_cronjob(tool_account: ToolAccount, job: ScheduledJob) -> Non
         job.status_short = "Waiting for scheduled time"
 
     for active_job in status_dict.get("active", []):
-        job_data = tool_account.k8s_cli.get_object(K8sKind.JOBS, active_job["name"])
+        job_data = tool_account.k8s_cli.get_object(
+            kind=K8sKind.JOBS, name=active_job["name"]
+        )
         if not job_data:
             continue
 
@@ -241,7 +243,7 @@ def _refresh_status_dp(tool_account: ToolAccount, job: ContinuousJob) -> None:
             job_type=job.job_type,
         )
         pods = tool_account.k8s_cli.get_objects(
-            kind="pods", label_selector=pod_selector
+            kind=K8sKind.PODS, label_selector=pod_selector
         )
 
         for pod in pods:
@@ -289,7 +291,7 @@ def refresh_job_long_status(tool_account: ToolAccount, job: AnyJob) -> None:
         job_type=job.job_type,
     )
     podlist = tool_account.k8s_cli.get_objects(
-        kind="pods", label_selector=label_selector
+        kind=K8sKind.PODS, label_selector=label_selector
     )
 
     if len(podlist) == 0:
