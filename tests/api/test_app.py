@@ -570,7 +570,9 @@ class TestApiUpdateJob:
             ),
         )
         monkeypatch.setattr(
-            app.core.runtime, "update_job", value=lambda *args, **kwargs: None
+            app.core.runtime,
+            "update_continuous_job",
+            value=lambda *args, **kwargs: None,
         )
 
         new_job = NewContinuousJob.model_validate(

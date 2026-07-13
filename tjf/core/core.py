@@ -129,6 +129,9 @@ class Core:
         return job
 
     def update_job(self, job: AnyJob) -> Tuple[bool, str]:
+        if isinstance(job, OneOffJob):
+            return False, "OneOffJobs can't be updated, delete and recreate it instead"
+
         # this already syncs storage and runtime (taking into account which is configured as the source of truth)
         maybe_fresh_job = self.get_job(tool_name=job.tool_name, name=job.job_name)
         if not maybe_fresh_job:
@@ -149,7 +152,10 @@ class Core:
         changed_in_runtime = False
         if changed_in_storage or not maybe_fresh_job.status.up_to_date:
             LOGGER.debug(f"Updating job in runtime {job.job_name}")
-            self._update_job_in_runtime(job=resolved_job)
+            try:
+                self._update_job_in_runtime(job=resolved_job)
+            except NotFoundInRuntime:
+                self._create_runtime_job(job=resolved_job)
             changed_in_runtime = True
 
         message = f"Job {job.job_name} "
@@ -190,13 +196,14 @@ class Core:
         return True
 
     def _update_job_in_runtime(self, job: AnyJob) -> None:
-        try:
-            LOGGER.debug(f"Updating job {job.job_name}")
-            self.runtime.update_job(job=job)
-
-        except NotFoundInRuntime:
-            LOGGER.debug(f"Creating job {job.job_name}")
-            self.runtime.create_job(job=job)
+        LOGGER.debug(f"Updating job {job.job_name}")
+        match job.job_type:
+            case JobType.CONTINUOUS:
+                self.runtime.update_continuous_job(job=job)
+            case JobType.SCHEDULED:
+                self.runtime.update_scheduled_job(job=job)
+            case _:
+                raise TjfValidationError(f"Unknown job type {job.job_type}")
 
         LOGGER.info(f"Job {job.job_name} updated in runtime")
 

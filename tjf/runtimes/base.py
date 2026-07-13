@@ -40,6 +40,18 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def update_continuous_job(self, *, job: ContinuousJob) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_scheduled_job(self, *, job: ScheduledJob) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_one_off_job(self, *, job: OneOffJob) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     def restart_job(self, *, job: AnyJob) -> None:
         raise NotImplementedError
 

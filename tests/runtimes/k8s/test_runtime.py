@@ -32,9 +32,15 @@ from tjf.runtimes.exceptions import NotFoundInRuntime
 from tjf.runtimes.k8s import ops as k8s_ops
 from tjf.runtimes.k8s import runtime as k8s_runtime
 from tjf.runtimes.k8s.account import ToolAccount
-from tjf.runtimes.k8s.jobs import K8sKind, get_k8s_deployment_object
+from tjf.runtimes.k8s.jobs import (
+    K8sKind,
+    get_k8s_cronjob_object,
+    get_k8s_deployment_object,
+    get_k8s_job_object,
+)
 from tjf.runtimes.k8s.labels import labels_selector
 from tjf.runtimes.k8s.runtime import K8sRuntime
+from tjf.runtimes.k8s.services import get_k8s_service_object
 from tjf.settings import get_settings
 
 
@@ -1428,7 +1434,7 @@ class TestRestartJob:
             assert expected_kind == gotten_params["kind"]
 
 
-class TestUpdateJob:
+class TestUpdateContinuousJob:
     def test_raises_NotFoundInRunitme_when_it_does_not_exist(
         self,
         fake_tool_account: ToolAccount,
@@ -1446,10 +1452,227 @@ class TestUpdateJob:
         my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
 
         with pytest.raises(NotFoundInRuntime):
-            my_runtime.update_job(job=job)
+            my_runtime.update_continuous_job(job=job)
 
         expected_spec = get_k8s_deployment_object(job=job, default_cpu_limit="1000m")
 
         runtime_k8s_cli.replace_object.assert_called_once_with(
             kind=K8sKind.DEPLOYMENTS, spec=expected_spec
         )
+
+    @cases(
+        "with_port",
+        ["with port", [True]],
+        ["without port", [False]],
+    )
+    def test_only_replaces_all_if_everything_goes_ok(
+        self,
+        fake_tool_account: ToolAccount,
+        fake_tool_account_uid: None,
+        runtime_k8s_cli: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+        with_port: bool,
+    ):
+        if with_port:
+            job = get_continuous_job_fixture_as_job(port=1234)
+        else:
+            job = get_continuous_job_fixture_as_job()
+
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        expected_deployment_spec = get_k8s_deployment_object(
+            job=job, default_cpu_limit="1000m"
+        )
+        expected_replace_calls = [
+            call(kind=K8sKind.DEPLOYMENTS, spec=expected_deployment_spec)
+        ]
+        if with_port:
+            expected_service_spec = get_k8s_service_object(job=job)
+            # the service gets created before the deployment
+            expected_replace_calls = [
+                call(kind=K8sKind.SERVICES, spec=expected_service_spec)
+            ] + expected_replace_calls
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+
+        my_runtime.update_continuous_job(job=job)
+
+        assert runtime_k8s_cli.replace_object.call_args_list == expected_replace_calls
+        runtime_k8s_cli.delete_objects.assert_not_called()
+        runtime_k8s_cli.create_object.assert_not_called()
+
+    def test_falls_back_to_delete_and_create_on_unprocessable_entity_error(
+        self,
+        fake_tool_account: ToolAccount,
+        fake_tool_account_uid: None,
+        runtime_k8s_cli: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        job = get_continuous_job_fixture_as_job()
+
+        error = requests.HTTPError("422 Unprocessable entity")
+        error.response = MagicMock(status_code=422, text="Unprocessable entity")
+        runtime_k8s_cli.replace_object.side_effect = error
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        expected_deployment_spec = get_k8s_deployment_object(
+            job=job, default_cpu_limit="1000m"
+        )
+        labels = labels_selector(
+            job_name=job.job_name,
+            tool_name=job.tool_name,
+            job_type=job.job_type,
+        )
+        expected_delete_calls = [
+            # services gets deleted twice, first as usual, then when recreating the job
+            call(kind=K8sKind.SERVICES, label_selector=labels),
+            call(kind=K8sKind.DEPLOYMENTS, label_selector=labels),
+            call(kind=K8sKind.PODS, label_selector=labels),
+            call(kind=K8sKind.SERVICES, label_selector=labels),
+        ]
+
+        my_runtime.update_continuous_job(job=job)
+
+        runtime_k8s_cli.replace_object.assert_called_once_with(
+            kind=K8sKind.DEPLOYMENTS, spec=expected_deployment_spec
+        )
+        assert runtime_k8s_cli.delete_objects.call_args_list == expected_delete_calls
+        runtime_k8s_cli.create_object.assert_called_with(
+            kind=K8sKind.DEPLOYMENTS, spec=expected_deployment_spec
+        )
+
+
+class TestUpdateScheduledJob:
+    def test_raises_NotFoundInRunitme_when_it_does_not_exist(
+        self,
+        fake_tool_account: ToolAccount,
+        fake_tool_account_uid: None,
+        runtime_k8s_cli: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        job = get_scheduled_job_fixture_as_job()
+        error = requests.HTTPError("404 Client Error: Not Found")
+        error.response = MagicMock(status_code=404, text="Not found")
+        runtime_k8s_cli.replace_object.side_effect = error
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+
+        with pytest.raises(NotFoundInRuntime):
+            my_runtime.update_scheduled_job(job=job)
+
+        expected_spec = get_k8s_cronjob_object(job=job, default_cpu_limit="1000m")
+
+        runtime_k8s_cli.replace_object.assert_called_once_with(
+            kind=K8sKind.CRONJOBS, spec=expected_spec
+        )
+
+    def test_only_replaces_all_if_everything_goes_ok(
+        self,
+        fake_tool_account: ToolAccount,
+        fake_tool_account_uid: None,
+        runtime_k8s_cli: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        job = get_scheduled_job_fixture_as_job()
+
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        expected_cronjob_spec = get_k8s_cronjob_object(
+            job=job, default_cpu_limit="1000m"
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+
+        my_runtime.update_scheduled_job(job=job)
+
+        runtime_k8s_cli.replace_object.assert_called_with(
+            kind=K8sKind.CRONJOBS, spec=expected_cronjob_spec
+        )
+        runtime_k8s_cli.delete_objects.assert_not_called()
+        runtime_k8s_cli.create_object.assert_not_called()
+
+    def test_falls_back_to_delete_and_create_on_unprocessable_entity_error(
+        self,
+        fake_tool_account: ToolAccount,
+        fake_tool_account_uid: None,
+        runtime_k8s_cli: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        job = get_scheduled_job_fixture_as_job()
+        fake_tool_account.name = job.tool_name
+        error = requests.HTTPError("422 Unprocessable entity")
+        error.response = MagicMock(status_code=422, text="Unprocessable entity")
+        runtime_k8s_cli.replace_object.side_effect = error
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        expected_cronjob_spec = get_k8s_cronjob_object(
+            job=job, default_cpu_limit="1000m"
+        )
+        labels = labels_selector(
+            job_name=job.job_name,
+            tool_name=job.tool_name,
+            job_type=job.job_type,
+        )
+        expected_delete_calls = [
+            # services gets deleted twice, first as usual, then when recreating the job
+            call(kind=K8sKind.CRONJOBS, label_selector=labels),
+            call(kind=K8sKind.JOBS, label_selector=labels),
+            call(kind=K8sKind.PODS, label_selector=labels),
+        ]
+
+        my_runtime.update_scheduled_job(job=job)
+
+        runtime_k8s_cli.replace_object.assert_called_once_with(
+            kind=K8sKind.CRONJOBS, spec=expected_cronjob_spec
+        )
+        assert runtime_k8s_cli.delete_objects.call_args_list == expected_delete_calls
+        runtime_k8s_cli.create_object.assert_called_with(
+            kind=K8sKind.CRONJOBS, spec=expected_cronjob_spec
+        )
+
+
+class TestUpdateOneOffJob:
+    def test_deletes_job_and_pods_and_creates_job(
+        self,
+        fake_tool_account: ToolAccount,
+        fake_tool_account_uid: None,
+        runtime_k8s_cli: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        job = get_oneoff_job_fixture_as_job()
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        expected_delete_calls = [
+            call(
+                kind=K8sKind.JOBS,
+                label_selector=labels_selector(
+                    job_name=job.job_name,
+                    tool_name=job.tool_name,
+                    job_type=job.job_type,
+                ),
+            ),
+            call(
+                kind=K8sKind.PODS,
+                label_selector=labels_selector(
+                    job_name=job.job_name,
+                    tool_name=job.tool_name,
+                    job_type=job.job_type,
+                ),
+            ),
+        ]
+        expected_spec = get_k8s_job_object(job=job, default_cpu_limit="1000m")
+
+        my_runtime.update_one_off_job(job=job)
+
+        runtime_k8s_cli.create_object.assert_called_once_with(
+            kind=K8sKind.JOBS, spec=expected_spec
+        )
+        assert runtime_k8s_cli.delete_objects.call_args_list == expected_delete_calls
