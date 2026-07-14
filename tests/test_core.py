@@ -15,6 +15,7 @@ from tjf.core.models import (
     ScheduledJobStatus,
     StatusShort,
 )
+from tjf.runtimes.exceptions import NotFoundInRuntime
 from tjf.settings import Settings
 
 
@@ -379,3 +380,45 @@ class TestCore:
             storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
             assert gotten_job.model_dump() == expected_job.model_dump()
             assert gotten_job.status.up_to_date
+
+    class TestDeleteJob:
+        def test_does_not_raise_if_it_does_not_exist_in_runtime(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_job(job_type=JobType.CONTINUOUS)
+            my_core = get_my_core()
+            mock_storage_delete_job = MagicMock(spec=my_core.storage.delete_job)
+            mock_runtime_delete_job = MagicMock(
+                spec=my_core.runtime.delete_job,
+                side_effect=NotFoundInRuntime("Not found in runtime"),
+            )
+            monkeypatch.setattr(my_core.storage, "delete_job", mock_storage_delete_job)
+            monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete_job)
+
+            my_core.delete_job(job=job)
+
+            mock_storage_delete_job.assert_called_once_with(job=job)
+            mock_runtime_delete_job.assert_called_once_with(job=job)
+
+    class TestUpdateJob:
+        def test_creates_in_runtime_when_it_does_not_exist(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_job(job_type=JobType.CONTINUOUS)
+            my_core = get_my_core()
+            mock_runtime_update_job = MagicMock(
+                spec=my_core.runtime.update_job,
+                side_effect=NotFoundInRuntime("Not found in runtime"),
+            )
+            mock_runtime_create_job = MagicMock(spec=my_core.runtime.create_job)
+            monkeypatch.setattr(my_core.runtime, "update_job", mock_runtime_update_job)
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+
+            my_core._update_job_in_runtime(job=job)
+
+            mock_runtime_update_job.assert_called_once_with(job=job)
+            mock_runtime_create_job.assert_called_once_with(job=job)

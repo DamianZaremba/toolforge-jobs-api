@@ -47,7 +47,7 @@ from .jobs import (
     get_one_off_job_from_k8s_object,
     get_scheduled_job_from_k8s_object,
 )
-from .k8s_errors import K8sAlreadyExists, get_error_from_k8s_response
+from .k8s_errors import K8sAlreadyExists, K8sNotFound, get_error_from_k8s_response
 from .labels import labels_selector
 from .ops import trigger_scheduled_job, validate_job_limits, wait_for_pods_exit
 from .services import get_k8s_service_object
@@ -228,9 +228,18 @@ class K8sRuntime(BaseRuntime):
 
         elif isinstance(job, ContinuousJob):
             # Update the Deployment spec and let Kubernetes cycle the pods, this ensures a graceful restart
-            k8s_obj = tool_account.k8s_cli.get_object(
-                kind=K8sKind.DEPLOYMENTS, name=job.job_name
-            )
+            try:
+                k8s_obj = tool_account.k8s_cli.get_object(
+                    kind=K8sKind.DEPLOYMENTS, name=job.job_name
+                )
+            except requests.HTTPError as error:
+                new_error = get_error_from_k8s_response(
+                    error=error, job=job, spec=job.k8s_object
+                )
+                if isinstance(new_error, K8sNotFound):
+                    raise NotFoundInRuntime(message=str(K8sNotFound)) from error
+                raise new_error
+
             if "annotations" not in k8s_obj["spec"]["template"]["metadata"]:
                 k8s_obj["spec"]["template"]["metadata"]["annotations"] = {}
             k8s_obj["spec"]["template"]["metadata"]["annotations"] |= {
@@ -271,7 +280,12 @@ class K8sRuntime(BaseRuntime):
                     error.response is None
                     or error.response.status_code != HTTPStatus.UNPROCESSABLE_ENTITY
                 ):
-                    raise get_error_from_k8s_response(error=error, job=job, spec=spec)
+                    new_error = get_error_from_k8s_response(
+                        error=error, job=job, spec=spec
+                    )
+                    if isinstance(new_error, K8sNotFound):
+                        raise NotFoundInRuntime(message=str(new_error)) from error
+                    raise new_error
 
                 LOGGER.warning(
                     f"Failed to patch k8s object, falling back to delete/create for {job.job_name} in {job.tool_name}: {error}"
@@ -418,7 +432,15 @@ class K8sRuntime(BaseRuntime):
             case JobType.ONE_OFF:
                 kind = K8sKind.JOBS
 
-        tool_account.k8s_cli.delete_object(kind=kind, name=job.job_name)
+        try:
+            tool_account.k8s_cli.delete_object(kind=kind, name=job.job_name)
+        except requests.HTTPError as error:
+            wrapped_error = get_error_from_k8s_response(
+                error=error, job=job, spec=job.k8s_object
+            )
+            if isinstance(wrapped_error, K8sNotFound):
+                raise NotFoundInRuntime(message=str(K8sNotFound)) from error
+
         for object_type in [K8sKind.PODS, K8sKind.SERVICES]:
             tool_account.k8s_cli.delete_objects(
                 kind=object_type,

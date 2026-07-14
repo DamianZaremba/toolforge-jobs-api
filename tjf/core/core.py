@@ -31,7 +31,6 @@ from ..storages.exceptions import NotFoundInStorage
 from ..storages.k8s.storage import K8sStorage
 from .error import (
     TjfError,
-    TjfJobNotFoundError,
     TjfValidationError,
 )
 from .images import Image, ImageType
@@ -195,7 +194,7 @@ class Core:
             LOGGER.debug(f"Updating job {job.job_name}")
             self.runtime.update_job(job=job)
 
-        except TjfJobNotFoundError:
+        except NotFoundInRuntime:
             LOGGER.debug(f"Creating job {job.job_name}")
             self.runtime.create_job(job=job)
 
@@ -245,16 +244,19 @@ class Core:
         final_jobs: dict[str, AnyJob] = {}
 
         for storage_job in storage_jobs:
-            if storage_job.job_type == JobType.SCHEDULED:
-                runtime_job: AnyJob = self.runtime.get_scheduled_job(
-                    job_name=storage_job.job_name, tool_name=tool_name
-                )
-            elif storage_job.job_type == JobType.CONTINUOUS:
-                runtime_job = self.runtime.get_continuous_job(
-                    job_name=storage_job.job_name, tool_name=tool_name
-                )
-            else:
-                raise TjfValidationError(f"Unknown job type {storage_job.job_type}")
+            try:
+                if storage_job.job_type == JobType.SCHEDULED:
+                    runtime_job: AnyJob | None = self.runtime.get_scheduled_job(
+                        job_name=storage_job.job_name, tool_name=tool_name
+                    )
+                elif storage_job.job_type == JobType.CONTINUOUS:
+                    runtime_job = self.runtime.get_continuous_job(
+                        job_name=storage_job.job_name, tool_name=tool_name
+                    )
+                else:
+                    raise TjfValidationError(f"Unknown job type {storage_job.job_type}")
+            except NotFoundInRuntime:
+                runtime_job = None
 
             final_job = self._reconciliate_storage_and_runtime(
                 runtime_job=runtime_job,
@@ -332,7 +334,10 @@ class Core:
             if not isinstance(job, OneOffJob):
                 raise TjfError("Unable to delete job") from error
 
-        self.runtime.delete_job(job=job)
+        try:
+            self.runtime.delete_job(job=job)
+        except NotFoundInRuntime:
+            pass
 
     def restart_job(self, job: AnyJob) -> None:
         self.runtime.restart_job(job=job)
