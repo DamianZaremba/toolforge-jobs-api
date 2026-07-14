@@ -699,6 +699,7 @@ def get_k8s_objects_by_job_name(
     label_selector = labels_selector(
         job_name=job_name, tool_name=tool_account.name, job_type=job_type
     )
+    # this returns an empty list when there's no match
     return tool_account.k8s_cli.get_objects(
         kind=k8s_kind, label_selector=label_selector
     )

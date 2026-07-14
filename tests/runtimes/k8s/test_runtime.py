@@ -3,6 +3,7 @@ from typing import Any, Callable
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 from toolforge_weld.kubernetes import MountOption
 
 from tests.helpers.fake_k8s import (
@@ -27,6 +28,7 @@ from tjf.core.models import (
 from tjf.runtimes.exceptions import NotFoundInRuntime
 from tjf.runtimes.k8s import runtime as k8s_runtime
 from tjf.runtimes.k8s.account import ToolAccount
+from tjf.runtimes.k8s.jobs import K8sKind, get_k8s_deployment_object
 from tjf.runtimes.k8s.runtime import K8sRuntime
 from tjf.settings import get_settings
 
@@ -1043,4 +1045,80 @@ class TestGetContinuousJob:
         assert gotten_job
         assert gotten_job.model_dump(exclude=["k8s_object"]) == expected_job.model_dump(
             exclude=["k8s_object"]
+        )
+
+
+class TestDeleteJob:
+    def test_raises_NotFoundInRunitme_when_it_does_not_exist(
+        self,
+        fake_tool_account: ToolAccount,
+        runtime_k8s_cli: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        job = get_continuous_job_fixture_as_job()
+        error = requests.HTTPError("404 Client Error: Not Found")
+        error.response = MagicMock(status_code=404, text="Not found")
+        runtime_k8s_cli.delete_object.side_effect = error
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+
+        with pytest.raises(NotFoundInRuntime):
+            my_runtime.delete_job(job=job)
+
+        runtime_k8s_cli.delete_object.assert_called_once_with(
+            kind=K8sKind.DEPLOYMENTS, name=job.job_name
+        )
+        runtime_k8s_cli.delete_objects.assert_not_called()
+
+
+class TestRestartJob:
+    def test_raises_NotFoundInRunitme_when_it_does_not_exist(
+        self,
+        fake_tool_account: ToolAccount,
+        runtime_k8s_cli: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        job = get_continuous_job_fixture_as_job()
+        error = requests.HTTPError("404 Client Error: Not Found")
+        error.response = MagicMock(status_code=404, text="Not found")
+        runtime_k8s_cli.get_object.side_effect = error
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+
+        with pytest.raises(NotFoundInRuntime):
+            my_runtime.restart_job(job=job)
+
+        runtime_k8s_cli.get_object.assert_called_once_with(
+            kind=K8sKind.DEPLOYMENTS, name=job.job_name
+        )
+
+
+class TestUpdateJob:
+    def test_raises_NotFoundInRunitme_when_it_does_not_exist(
+        self,
+        fake_tool_account: ToolAccount,
+        fake_tool_account_uid: None,
+        runtime_k8s_cli: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        job = get_continuous_job_fixture_as_job()
+        error = requests.HTTPError("404 Client Error: Not Found")
+        error.response = MagicMock(status_code=404, text="Not found")
+        runtime_k8s_cli.replace_object.side_effect = error
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+
+        with pytest.raises(NotFoundInRuntime):
+            my_runtime.update_job(job=job)
+
+        expected_spec = get_k8s_deployment_object(job=job, default_cpu_limit="1000m")
+
+        runtime_k8s_cli.replace_object.assert_called_once_with(
+            kind=K8sKind.DEPLOYMENTS, spec=expected_spec
         )
