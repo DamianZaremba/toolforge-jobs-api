@@ -422,3 +422,50 @@ class TestCore:
 
             mock_runtime_update_job.assert_called_once_with(job=job)
             mock_runtime_create_job.assert_called_once_with(job=job)
+
+        def test_updates_runtime_when_changed_in_storage(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            existing_job = get_dummy_job(
+                job_name="my-job",
+                job_type=JobType.CONTINUOUS,
+                status={"up_to_date": True},
+            )
+            updated_job = get_dummy_job(
+                job_name="my-job",
+                job_type=JobType.CONTINUOUS,
+                cmd="different command",
+            )
+            my_core = get_my_core()
+            mock_get_job = MagicMock(
+                spec=my_core.get_job,
+                return_value=existing_job,
+            )
+            mock_update_job_in_storage = MagicMock(
+                spec=my_core._update_job_in_storage,
+                return_value=True,
+            )
+            mock_update_job_in_runtime = MagicMock(
+                spec=my_core._update_job_in_runtime,
+            )
+            monkeypatch.setattr(my_core, "get_job", mock_get_job)
+            monkeypatch.setattr(
+                my_core, "_update_job_in_storage", mock_update_job_in_storage
+            )
+            monkeypatch.setattr(
+                my_core, "_update_job_in_runtime", mock_update_job_in_runtime
+            )
+
+            changed, message = my_core.update_job(job=updated_job)
+
+            assert changed is True
+            assert message == "Job my-job was updated in storage and runtime"
+            mock_get_job.assert_called_once_with(tool_name="some-tool", name="my-job")
+            mock_update_job_in_storage.assert_called_once_with(
+                existing_job=existing_job, new_job=updated_job
+            )
+            mock_update_job_in_runtime.assert_called_once_with(
+                job=updated_job.get_resolved_core_job()
+            )

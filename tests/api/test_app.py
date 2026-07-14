@@ -598,47 +598,6 @@ class TestApiUpdateJob:
             UpdateResponse.model_validate(actual_response.json()) == expected_response
         )
 
-    def test_job_with_changes_in_storage_only(
-        self,
-        client: TestClient,
-        app: JobsApi,
-        monkeypatch: MonkeyPatch,
-        fake_auth_headers: dict[str, str],
-        fake_images: dict[str, Any],
-    ) -> None:
-        dummy_job = get_dummy_job()
-        different_dummy_job = get_dummy_job(cmd="different job")
-        monkeypatch.setattr(
-            app.core, "get_job", value=lambda *args, **kwargs: different_dummy_job
-        )
-        monkeypatch.setattr(
-            app.core, "get_job", value=lambda *args, **kwargs: different_dummy_job
-        )
-
-        new_job = NewContinuousJob.model_validate(
-            {
-                "name": dummy_job.job_name,
-                "cmd": dummy_job.cmd,
-                "imagename": dummy_job.image.short_name,
-            }
-        )
-
-        expected_response = UpdateResponse(
-            job_changed=True,
-            messages=ResponseMessages(
-                info=["Job silly-job-name was updated in storage only"]
-            ),
-        )
-        actual_response = client.patch(
-            "/v1/tool/some-tool/jobs/",
-            json=new_job.model_dump(mode="json"),
-            headers=fake_auth_headers,
-        )
-
-        assert (
-            UpdateResponse.model_validate(actual_response.json()) == expected_response
-        )
-
     def test_missing_job_in_storage_and_runtime(
         self,
         client: TestClient,
