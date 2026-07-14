@@ -147,7 +147,7 @@ class Core:
         )
 
         changed_in_runtime = False
-        if not maybe_fresh_job.status.up_to_date:
+        if changed_in_storage or not maybe_fresh_job.status.up_to_date:
             LOGGER.debug(f"Updating job in runtime {job.job_name}")
             self._update_job_in_runtime(job=resolved_job)
             changed_in_runtime = True
