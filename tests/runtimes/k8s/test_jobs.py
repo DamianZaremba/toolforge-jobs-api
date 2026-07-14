@@ -258,6 +258,30 @@ class TestGetJobForK8s:
                 ],
             ],
             [
+                "Test no PORT env set if job has no port set",
+                [
+                    {},
+                    lambda k8s_obj: all(
+                        env["name"] != "PORT"
+                        for env in k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "env"
+                        ]
+                    ),
+                ],
+            ],
+            [
+                "Test PORT env set if job has port set",
+                [
+                    {"port": 12345},
+                    lambda k8s_obj: any(
+                        env == {"name": "PORT", "value": "12345"}
+                        for env in k8s_obj["spec"]["template"]["spec"]["containers"][0][
+                            "env"
+                        ]
+                    ),
+                ],
+            ],
+            [
                 "Test port without health-check or protocol sets default health-check and port",
                 [
                     {"port": 12345},
