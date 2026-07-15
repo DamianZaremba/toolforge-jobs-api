@@ -469,3 +469,34 @@ class TestCore:
             mock_update_job_in_runtime.assert_called_once_with(
                 job=updated_job.get_resolved_core_job()
             )
+
+    class TestRestartJob:
+        def test_creates_job_in_runtime_if_it_does_not_exist(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_job(job_type=JobType.CONTINUOUS)
+            my_core = get_my_core()
+            mock_runtime_restart_job = MagicMock(
+                spec=my_core.runtime.restart_job,
+                side_effect=NotFoundInRuntime("Not found in runtime"),
+            )
+            mock_runtime_create_job = MagicMock(spec=my_core.runtime.create_job)
+            mock_storage_get_job = MagicMock(
+                spec=my_core.storage.get_job,
+                return_value=job,
+            )
+            monkeypatch.setattr(
+                my_core.runtime, "restart_job", mock_runtime_restart_job
+            )
+            monkeypatch.setattr(my_core.storage, "get_job", mock_storage_get_job)
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+
+            my_core.restart_job(job=job)
+
+            mock_runtime_restart_job.assert_called_once_with(job=job)
+            mock_runtime_create_job.assert_called_once_with(job=job)
+            mock_storage_get_job.assert_called_once_with(
+                job_name=job.job_name, tool_name=job.tool_name
+            )

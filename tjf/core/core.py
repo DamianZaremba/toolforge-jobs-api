@@ -340,4 +340,12 @@ class Core:
             pass
 
     def restart_job(self, job: AnyJob) -> None:
-        self.runtime.restart_job(job=job)
+        # check that it exists
+        storage_job = self.storage.get_job(
+            job_name=job.job_name, tool_name=job.tool_name
+        )
+        try:
+            self.runtime.restart_job(job=job)
+        except NotFoundInRuntime:
+            core_job = storage_job.get_resolved_core_job()
+            self.runtime.create_job(job=core_job)
