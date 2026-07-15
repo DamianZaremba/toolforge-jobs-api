@@ -37,6 +37,7 @@ from .account import ToolAccount
 from .jobs import (
     K8sKind,
     create_k8s_object_for_job,
+    delete_k8s_objects_for_job,
     format_logs,
     get_continuous_job_from_k8s_object,
     get_job_for_k8s,
@@ -401,58 +402,74 @@ class K8sRuntime(BaseRuntime):
 
         raise TjfError(f"Invalid job type {job.job_type}")
 
-    def delete_all_jobs(self, *, tool_name: str) -> None:
-        """Deletes all jobs for a user."""
+    def delete_jobs(self, *, tool_name: str, jobs: list[AnyJob]) -> None:
         LOGGER.debug("Deleting all jobs for tool %s", tool_name)
-        tool_account = ToolAccount(name=tool_name)
-        label_selector = labels_selector(tool_name=tool_account.name)
+        for job in jobs:
+            self.delete_job(job=job, wait_for_pods=False)
 
-        for object_type in [
-            K8sKind.DEPLOYMENTS,
-            K8sKind.CRONJOBS,
-            K8sKind.JOBS,
-            K8sKind.PODS,
-            K8sKind.SERVICES,
-        ]:
-            tool_account.k8s_cli.delete_objects(
-                kind=object_type, label_selector=label_selector
-            )
+        tool_account = ToolAccount(name=tool_name)
         wait_for_pods_exit(tool_account=tool_account)
 
-    def delete_job(self, *, job: AnyJob) -> None:
-        """Deletes a specified job."""
-        LOGGER.debug("Deleting job %s for tool %s", job.job_name, job.tool_name)
+    def _delete_continuous_job(
+        self, *, job: ContinuousJob, wait_for_pods: bool = True
+    ) -> None:
+        LOGGER.debug(
+            "Deleting continuous job %s for tool %s", job.job_name, job.tool_name
+        )
         tool_account = ToolAccount(name=job.tool_name)
-        # TODO: this will go away when we split it
+        # TODO: We might want to stop filtering by the kind and just delete by the labels only
+        delete_k8s_objects_for_job(
+            job=job,
+            kinds=[K8sKind.DEPLOYMENTS, K8sKind.PODS, K8sKind.SERVICES],
+            tool_account=tool_account,
+        )
+        if wait_for_pods:
+            wait_for_pods_exit(
+                tool_account=tool_account, job_name=job.job_name, job_type=job.job_type
+            )
+
+    def _delete_scheduled_job(
+        self, *, job: ScheduledJob, wait_for_pods: bool = True
+    ) -> None:
+        LOGGER.debug(
+            "Deleting scheduled job %s for tool %s", job.job_name, job.tool_name
+        )
+        tool_account = ToolAccount(name=job.tool_name)
+        # k8s cronjobs might create ephemeral k8s jobs too
+        # TODO: We might want to stop filtering by the kind and just delete by the labels only
+        delete_k8s_objects_for_job(
+            job=job,
+            kinds=[K8sKind.CRONJOBS, K8sKind.JOBS, K8sKind.PODS],
+            tool_account=tool_account,
+        )
+        if wait_for_pods:
+            wait_for_pods_exit(
+                tool_account=tool_account, job_name=job.job_name, job_type=job.job_type
+            )
+
+    def _delete_one_off_job(
+        self, *, job: OneOffJob, wait_for_pods: bool = True
+    ) -> None:
+        LOGGER.debug("Deleting one-off job %s for tool %s", job.job_name, job.tool_name)
+        tool_account = ToolAccount(name=job.tool_name)
+        # TODO: We might want to stop filtering by the kind and just delete by the labels only
+        delete_k8s_objects_for_job(
+            job=job, kinds=[K8sKind.JOBS, K8sKind.PODS], tool_account=tool_account
+        )
+        if wait_for_pods:
+            wait_for_pods_exit(
+                tool_account=tool_account, job_name=job.job_name, job_type=job.job_type
+            )
+
+    def delete_job(self, *, job: AnyJob, wait_for_pods: bool = True) -> None:
         match job.job_type:
             case JobType.SCHEDULED:
-                kind = K8sKind.CRONJOBS
+                return self._delete_scheduled_job(job=job, wait_for_pods=wait_for_pods)
             case JobType.CONTINUOUS:
-                kind = K8sKind.DEPLOYMENTS
+                return self._delete_continuous_job(job=job, wait_for_pods=wait_for_pods)
             case JobType.ONE_OFF:
-                kind = K8sKind.JOBS
-
-        try:
-            tool_account.k8s_cli.delete_object(kind=kind, name=job.job_name)
-        except requests.HTTPError as error:
-            wrapped_error = get_error_from_k8s_response(
-                error=error, job=job, spec=job.k8s_object
-            )
-            if isinstance(wrapped_error, K8sNotFound):
-                raise NotFoundInRuntime(message=str(K8sNotFound)) from error
-
-        for object_type in [K8sKind.PODS, K8sKind.SERVICES]:
-            tool_account.k8s_cli.delete_objects(
-                kind=object_type,
-                label_selector=labels_selector(
-                    job_name=job.job_name,
-                    tool_name=tool_account.name,
-                    job_type=job.job_type,
-                ),
-            )
-        wait_for_pods_exit(
-            tool_account=tool_account, job_name=job.job_name, job_type=job.job_type
-        )
+                return self._delete_one_off_job(job=job, wait_for_pods=wait_for_pods)
+        raise TjfError(f"Unknown job type {job.job_type}")
 
     def get_quotas(self, *, tool_name: str) -> list[QuotaData]:
         tool_account = ToolAccount(name=tool_name)

@@ -500,3 +500,53 @@ class TestCore:
             mock_storage_get_job.assert_called_once_with(
                 job_name=job.job_name, tool_name=job.tool_name
             )
+
+    class TestFlushJob:
+        def test_deletes_in_storage_and_runtime(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            continuous_job = get_dummy_job(
+                job_name="continuous-job", job_type=JobType.CONTINUOUS
+            )
+            scheduled_job = get_dummy_job(
+                job_name="scheduled-job", job_type=JobType.SCHEDULED
+            )
+            one_off_job = get_dummy_job(
+                job_name="one-off-job", job_type=JobType.ONE_OFF
+            )
+            storage_jobs = [continuous_job, scheduled_job]
+            my_core = get_my_core()
+            mock_storage_get_jobs = MagicMock(
+                spec=my_core.storage.get_jobs,
+                return_value=storage_jobs,
+            )
+            mock_storage_delete_jobs = MagicMock(spec=my_core.storage.delete_jobs)
+            mock_runtime_get_one_off_jobs = MagicMock(
+                spec=my_core.runtime.get_one_off_jobs,
+                return_value=[one_off_job],
+            )
+            mock_runtime_delete_jobs = MagicMock(spec=my_core.runtime.delete_jobs)
+            monkeypatch.setattr(my_core.storage, "get_jobs", mock_storage_get_jobs)
+            monkeypatch.setattr(
+                my_core.storage, "delete_jobs", mock_storage_delete_jobs
+            )
+            monkeypatch.setattr(
+                my_core.runtime, "get_one_off_jobs", mock_runtime_get_one_off_jobs
+            )
+            monkeypatch.setattr(
+                my_core.runtime, "delete_jobs", mock_runtime_delete_jobs
+            )
+
+            my_core.flush_job(tool_name="some-tool")
+
+            mock_storage_get_jobs.assert_called_once_with(tool_name="some-tool")
+            mock_storage_delete_jobs.assert_called_once_with(
+                tool_name="some-tool", jobs=storage_jobs
+            )
+            mock_runtime_get_one_off_jobs.assert_called_once_with(tool_name="some-tool")
+            mock_runtime_delete_jobs.assert_called_once_with(
+                tool_name="some-tool",
+                jobs=[continuous_job, scheduled_job, one_off_job],
+            )

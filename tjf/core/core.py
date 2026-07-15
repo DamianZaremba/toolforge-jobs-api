@@ -272,8 +272,15 @@ class Core:
         return list(final_jobs.values())
 
     def flush_job(self, tool_name: str) -> None:
-        self.storage.delete_all_jobs(tool_name=tool_name)
-        self.runtime.delete_all_jobs(tool_name=tool_name)
+        continuous_and_scheduled_jobs = self.storage.get_jobs(tool_name=tool_name)
+        self.storage.delete_jobs(
+            tool_name=tool_name, jobs=continuous_and_scheduled_jobs
+        )
+        all_jobs: list[AnyJob] = []
+        all_jobs.extend(continuous_and_scheduled_jobs)
+        all_jobs.extend(self.runtime.get_one_off_jobs(tool_name=tool_name))
+        # one-off jobs live only in the runtime for now
+        self.runtime.delete_jobs(tool_name=tool_name, jobs=all_jobs)
 
     def get_job(self, tool_name: str, name: str) -> AnyJob | None:
         try:

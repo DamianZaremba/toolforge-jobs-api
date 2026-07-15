@@ -150,13 +150,12 @@ class K8sStorage(BaseStorage):
 
         return job
 
-    def delete_all_jobs(self, *, tool_name: str) -> list[AnyJob]:
-        LOGGER.debug("Deleting all jobs for tool %s", tool_name)
-        all_jobs = self.get_jobs(tool_name=tool_name)
-        for job in all_jobs:
+    def delete_jobs(self, *, tool_name: str, jobs: list[AnyJob]) -> list[AnyJob]:
+        LOGGER.debug(f"Deleting {len(jobs)} jobs for tool {tool_name}")
+        for job in jobs:
             self.delete_job(job=job)
 
-        return all_jobs
+        return jobs
 
     def delete_job(self, *, job: AnyJob) -> AnyJob:
         LOGGER.debug("Deleting job %s for tool %s", job.job_name, job.tool_name)
