@@ -347,10 +347,11 @@ class Core:
             pass
 
     def restart_job(self, job: AnyJob) -> None:
-        # check that it exists
-        storage_job = self.storage.get_job(
-            job_name=job.job_name, tool_name=job.tool_name
-        )
+        if not isinstance(job, OneOffJob):
+            # check that it exists
+            storage_job = self.storage.get_job(
+                job_name=job.job_name, tool_name=job.tool_name
+            )
         try:
             self.runtime.restart_job(job=job)
         except NotFoundInRuntime:
