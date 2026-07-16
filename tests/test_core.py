@@ -13,6 +13,7 @@ from tjf.core.models import (
     AnyJobStatus,
     ContinuousJobStatus,
     JobType,
+    OneOffJobStatus,
     ScheduledJobStatus,
     StatusShort,
 )
@@ -404,25 +405,80 @@ class TestCore:
             mock_runtime_delete_job.assert_called_once_with(job=job)
 
     class TestUpdateJob:
-        def test_creates_in_runtime_when_it_does_not_exist(
+        def test_creates_continuous_job_in_runtime_when_it_does_not_exist(
             self,
             get_my_core: GetMyCore,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            job = get_dummy_job(job_type=JobType.CONTINUOUS)
+            job = get_dummy_job(
+                job_type=JobType.CONTINUOUS,
+                status=ContinuousJobStatus(up_to_date=False),
+            )
             my_core = get_my_core()
             mock_runtime_update_job = MagicMock(
-                spec=my_core.runtime.update_job,
+                spec=my_core.runtime.update_continuous_job,
                 side_effect=NotFoundInRuntime("Not found in runtime"),
             )
             mock_runtime_create_job = MagicMock(spec=my_core.runtime.create_job)
-            monkeypatch.setattr(my_core.runtime, "update_job", mock_runtime_update_job)
+            monkeypatch.setattr(
+                my_core.runtime, "update_continuous_job", mock_runtime_update_job
+            )
             monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+            mock_core_get_job = MagicMock(spec=my_core.get_job, return_value=job)
+            monkeypatch.setattr(my_core, "get_job", mock_core_get_job)
 
-            my_core._update_job_in_runtime(job=job)
+            gotten_change, gotten_message = my_core.update_job(job=job)
 
             mock_runtime_update_job.assert_called_once_with(job=job)
             mock_runtime_create_job.assert_called_once_with(job=job)
+            mock_core_get_job.assert_called_once_with(
+                tool_name=job.tool_name, name=job.job_name
+            )
+            assert gotten_change
+            assert gotten_message == "Job silly-job-name was updated in runtime only"
+
+        def test_creates_scheduled_job_in_runtime_when_it_does_not_exist(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_job(
+                job_type=JobType.SCHEDULED, status=ScheduledJobStatus(up_to_date=False)
+            )
+            my_core = get_my_core()
+            mock_runtime_update_job = MagicMock(
+                spec=my_core.runtime.update_scheduled_job,
+                side_effect=NotFoundInRuntime("Not found in runtime"),
+            )
+            mock_runtime_create_job = MagicMock(spec=my_core.runtime.create_job)
+            monkeypatch.setattr(
+                my_core.runtime, "update_scheduled_job", mock_runtime_update_job
+            )
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+            mock_core_get_job = MagicMock(spec=my_core.get_job, return_value=job)
+            monkeypatch.setattr(my_core, "get_job", mock_core_get_job)
+
+            gotten_change, gotten_message = my_core.update_job(job=job)
+
+            mock_runtime_update_job.assert_called_once_with(job=job)
+            assert gotten_change
+            assert gotten_message == "Job silly-job-name was updated in runtime only"
+
+        def test_creates_one_off_job_in_runtime_when_it_does_not_exist(
+            self, get_my_core: GetMyCore
+        ):
+            job = get_dummy_job(
+                job_type=JobType.ONE_OFF, status=OneOffJobStatus(up_to_date=False)
+            )
+            my_core = get_my_core()
+
+            gotten_changed, gotten_message = my_core.update_job(job=job)
+
+            assert not gotten_changed
+            assert (
+                gotten_message
+                == "OneOffJobs can't be updated, delete and recreate it instead"
+            )
 
         def test_updates_runtime_when_changed_in_storage(
             self,

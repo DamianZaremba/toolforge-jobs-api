@@ -265,48 +265,63 @@ class K8sRuntime(BaseRuntime):
 
         raise TjfError(f"Unable to restart unknown job type: {job}")
 
-    def update_job(self, *, job: AnyJob) -> None:
-        if isinstance(job, (ContinuousJob, ScheduledJob)):
-            # Update the Deployment/CronJob object spec, if this differs from the current spec,
-            # then Kubernetes will detect that and cycle all related pods, ensuring the pods are
-            # converged to the (new) specification.
-            #
-            # Note: This will only cycle/restart the pods if something in the template spec (hash)
-            # has changed, to explicitly restart the `restart_job` function should be used.
-            tool_account = ToolAccount(name=job.tool_name)
-            validate_job_limits(tool_account, job)
+    def update_continuous_job(self, *, job: ContinuousJob) -> None:
+        """
+        Update the Deployment/CronJob object spec, if this differs from the current spec,
+        then Kubernetes will detect that and cycle all related pods, ensuring the pods are
+        converged to the (new) specification.
 
-            # Note: no guard by .port as in create_job, as this function will delete if there is no port specified
-            if isinstance(job, ContinuousJob):
-                self._create_or_delete_service(job=job)
+        Note: This will only cycle/restart the pods if something in the template spec (hash)
+        has changed, to explicitly restart the `restart_job` function should be used.
+        """
+        tool_account = ToolAccount(name=job.tool_name)
+        validate_job_limits(tool_account, job)
 
-            spec = self._create_k8s_spec_for_job(job)
-            obj_kind = (
-                K8sKind.DEPLOYMENTS
-                if isinstance(job, ContinuousJob)
-                else K8sKind.CRONJOBS
+        # Note: no guard by .port as in create_job, as this function will delete if there is no port specified
+        self._create_or_delete_service(job=job)
+        spec = self._create_k8s_spec_for_job(job)
+        try:
+            tool_account.k8s_cli.replace_object(kind=K8sKind.DEPLOYMENTS, spec=spec)
+            return
+        except requests.exceptions.HTTPError as error:
+            if (
+                error.response is None
+                or error.response.status_code != HTTPStatus.UNPROCESSABLE_ENTITY
+            ):
+                _wrap_in_runtime_exception_and_raise(error=error, job=job, spec=spec)
+
+            LOGGER.warning(
+                f"Failed to patch k8s object, falling back to delete/create for {job.job_name} in {job.tool_name}: {error}"
             )
-            try:
-                tool_account.k8s_cli.replace_object(kind=obj_kind, spec=spec)
-            except requests.exceptions.HTTPError as error:
-                if (
-                    error.response is None
-                    or error.response.status_code != HTTPStatus.UNPROCESSABLE_ENTITY
-                ):
-                    _wrap_in_runtime_exception_and_raise(
-                        error=error, job=job, spec=spec
-                    )
 
-                LOGGER.warning(
-                    f"Failed to patch k8s object, falling back to delete/create for {job.job_name} in {job.tool_name}: {error}"
-                )
-            else:
-                # Patch was successful
-                return
+        self._delete_continuous_job(job=job)
+        self._create_continuous_job(job=job, tool_account=tool_account)
 
-        # Delete and re-create the objects
-        self.delete_job(job=job)
-        self.create_job(job=job)
+    def update_scheduled_job(self, *, job: ScheduledJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
+        validate_job_limits(tool_account, job)
+        spec = self._create_k8s_spec_for_job(job)
+        try:
+            tool_account.k8s_cli.replace_object(kind=K8sKind.CRONJOBS, spec=spec)
+            return
+        except requests.exceptions.HTTPError as error:
+            if (
+                error.response is None
+                or error.response.status_code != HTTPStatus.UNPROCESSABLE_ENTITY
+            ):
+                _wrap_in_runtime_exception_and_raise(error=error, job=job, spec=spec)
+
+            LOGGER.warning(
+                f"Failed to patch k8s object, falling back to delete/create for {job.job_name} in {job.tool_name}: {error}"
+            )
+
+        self._delete_scheduled_job(job=job)
+        self._create_scheduled_job(job=job, tool_account=tool_account)
+
+    def update_one_off_job(self, *, job: OneOffJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
+        self._delete_one_off_job(job=job)
+        self._create_one_off_job(job=job, tool_account=tool_account)
 
     def _create_or_delete_service(self, job: ContinuousJob) -> None:
         tool_account = ToolAccount(name=job.tool_name)
