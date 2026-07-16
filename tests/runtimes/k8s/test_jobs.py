@@ -8,7 +8,7 @@ from tests.helpers.fake_k8s import (
     K8S_ONEOFF_JOB_OBJ,
     K8S_SCHEDULED_JOB_OBJ,
     get_continuous_job_fixture_as_job,
-    get_oneoff_job_fixture_as_job,
+    get_one_off_job_fixture_as_job,
 )
 from tests.utils import cases, patch_spec
 from tjf.core.cron import CronExpression
@@ -79,7 +79,7 @@ class TestJobFromK8s:
 
     class TestOneoffJob:
         def test_minimal_fields(self, fake_images: dict[str, Any]):
-            expected_job = get_oneoff_job_fixture_as_job(
+            expected_job = get_one_off_job_fixture_as_job(
                 mount=MountOption.ALL, status_long="Unknown"
             )
             gotten_job = jobs.get_one_off_job_from_k8s_object(
@@ -94,7 +94,7 @@ class TestJobFromK8s:
             k8s_object = patch_spec(
                 spec=K8S_ONEOFF_JOB_OBJ, patch={"spec": {"backoffLimit": 5}}
             )
-            expected_job = get_oneoff_job_fixture_as_job(
+            expected_job = get_one_off_job_fixture_as_job(
                 retry=5,
                 k8s_object=k8s_object,
                 mount=MountOption.ALL,

@@ -13,7 +13,7 @@ from tests.helpers.fake_k8s import (
     K8S_ONEOFF_JOB_OBJ,
     K8S_SCHEDULED_JOB_OBJ,
     get_continuous_job_fixture_as_job,
-    get_oneoff_job_fixture_as_job,
+    get_one_off_job_fixture_as_job,
     get_scheduled_job_fixture_as_job,
 )
 from tests.utils import cases, patch_spec
@@ -76,58 +76,58 @@ class TestGetOneOffJob:
         "patch, expected_job",
         [
             "We get the same as the fixture",
-            [None, get_oneoff_job_fixture_as_job()],
+            [None, get_one_off_job_fixture_as_job()],
         ],
         [
             "Ignores metadata.creationTimestamp",
             [
                 {"metadata": {"creationTimestamp": "2021-09-01T00:00:00Z"}},
-                get_oneoff_job_fixture_as_job(),
+                get_one_off_job_fixture_as_job(),
             ],
         ],
         [
             "Ignores metadata.resourceVersion",
             [
                 {"metadata": {"resourceVersion": "123456"}},
-                get_oneoff_job_fixture_as_job(),
+                get_one_off_job_fixture_as_job(),
             ],
         ],
         [
             "Ignores metadata.selfLink",
             [
                 {"metadata": {"selfLink": "self-link"}},
-                get_oneoff_job_fixture_as_job(),
+                get_one_off_job_fixture_as_job(),
             ],
         ],
         [
             "Ignores metadata.uid",
-            [{"metadata": {"uid": "123456"}}, get_oneoff_job_fixture_as_job()],
+            [{"metadata": {"uid": "123456"}}, get_one_off_job_fixture_as_job()],
         ],
         [
             "Ignores metadata.generation",
-            [{"metadata": {"generation": 10}}, get_oneoff_job_fixture_as_job()],
+            [{"metadata": {"generation": 10}}, get_one_off_job_fixture_as_job()],
         ],
         [
             "Ignores metadata.managedFields",
             [
                 {"metadata": {"managedFields": []}},
-                get_oneoff_job_fixture_as_job(),
+                get_one_off_job_fixture_as_job(),
             ],
         ],
         [
             "Ignores metadata.finalizers",
-            [{"metadata": {"finalizers": []}}, get_oneoff_job_fixture_as_job()],
+            [{"metadata": {"finalizers": []}}, get_one_off_job_fixture_as_job()],
         ],
         [
             "Ignores metadata.ownerReferences",
             [
                 {"metadata": {"ownerReferences": []}},
-                get_oneoff_job_fixture_as_job(),
+                get_one_off_job_fixture_as_job(),
             ],
         ],
         [
             "Ignores metadata.annotations",
-            [{"metadata": {"annotations": {}}}, get_oneoff_job_fixture_as_job()],
+            [{"metadata": {"annotations": {}}}, get_one_off_job_fixture_as_job()],
         ],
         [
             "Ignores prefix launcher in the command when buildservice image",
@@ -152,7 +152,7 @@ class TestGetOneOffJob:
                         }
                     },
                 },
-                get_oneoff_job_fixture_as_job(
+                get_one_off_job_fixture_as_job(
                     image=Image(
                         short_name="tool-some-tool/some-container:latest",
                         host="harbor.example.org",
@@ -181,7 +181,7 @@ class TestGetOneOffJob:
                                             "/bin/sh",
                                             "-c",
                                             "--",
-                                            "exec 1>>/data/project/some-tool/testoneoff.out;exec 2>>/data/project/some-tool/testoneoff.err;date",
+                                            "exec 1>>/data/project/some-tool/testone-off.out;exec 2>>/data/project/some-tool/testone-off.err;date",
                                         ]
                                     }
                                 ],
@@ -189,7 +189,7 @@ class TestGetOneOffJob:
                         }
                     },
                 },
-                get_oneoff_job_fixture_as_job(filelog=True),
+                get_one_off_job_fixture_as_job(filelog=True),
             ],
         ],
         [
@@ -205,7 +205,7 @@ class TestGetOneOffJob:
                                             "/bin/sh",
                                             "-c",
                                             "--",
-                                            "exec 1>>/data/project/some-tool/testoneoff.out;exec 2>>/data/project/some-tool/testoneoff.err;test-command with-arguments 'other argument with spaces'",
+                                            "exec 1>>/data/project/some-tool/testone-off.out;exec 2>>/data/project/some-tool/testone-off.err;test-command with-arguments 'other argument with spaces'",
                                         ]
                                     }
                                 ]
@@ -213,7 +213,7 @@ class TestGetOneOffJob:
                         }
                     }
                 },
-                get_oneoff_job_fixture_as_job(
+                get_one_off_job_fixture_as_job(
                     cmd="test-command with-arguments 'other argument with spaces'",
                 ),
             ],
@@ -234,7 +234,7 @@ class TestGetOneOffJob:
                         }
                     }
                 },
-                get_oneoff_job_fixture_as_job(
+                get_one_off_job_fixture_as_job(
                     image=Image(
                         short_name="tool-some-tool/some-container:latest",
                         host="harbor.example.org",
@@ -262,7 +262,7 @@ class TestGetOneOffJob:
                         }
                     }
                 },
-                get_oneoff_job_fixture_as_job(cpu="2"),
+                get_one_off_job_fixture_as_job(cpu="2"),
             ],
         ],
         [
@@ -279,14 +279,14 @@ class TestGetOneOffJob:
                         }
                     }
                 },
-                get_oneoff_job_fixture_as_job(memory="1Gi"),
+                get_one_off_job_fixture_as_job(memory="1Gi"),
             ],
         ],
         [
             "Picks up email setting",
             [
                 {"metadata": {"labels": {"jobs.toolforge.org/emails": "all"}}},
-                get_oneoff_job_fixture_as_job(emails=EmailOption.all),
+                get_one_off_job_fixture_as_job(emails=EmailOption.all),
             ],
         ],
     )
@@ -340,7 +340,7 @@ class TestGetOneOffJob:
                 [K8S_ONEOFF_JOB_OBJ] if kind == "jobs" else []
             ),
         )
-        expected_job = get_oneoff_job_fixture_as_job(
+        expected_job = get_one_off_job_fixture_as_job(
             status=OneOffJobStatus(
                 short=StatusShort.UNKNOWN, messages=["Failed retrieving status"]
             ),
@@ -1161,8 +1161,12 @@ class TestDeleteJobs:
         ):
             tool_name = "some-tool"
             jobs = [
-                get_oneoff_job_fixture_as_job(job_name="testjob1", tool_name=tool_name),
-                get_oneoff_job_fixture_as_job(job_name="testjob2", tool_name=tool_name),
+                get_one_off_job_fixture_as_job(
+                    job_name="testjob1", tool_name=tool_name
+                ),
+                get_one_off_job_fixture_as_job(
+                    job_name="testjob2", tool_name=tool_name
+                ),
             ]
 
             TestDeleteJobs._assert_deletes_all_jobs_and_waits_for_pods_once(
@@ -1201,7 +1205,7 @@ class TestDeleteJob:
         [
             "OneOffJob, and waits for pods by default",
             [
-                get_oneoff_job_fixture_as_job(),
+                get_one_off_job_fixture_as_job(),
                 [K8sKind.JOBS, K8sKind.PODS],
                 None,
             ],
@@ -1229,7 +1233,7 @@ class TestDeleteJob:
         [
             "OneOffJob, and waits for pods when passed",
             [
-                get_oneoff_job_fixture_as_job(),
+                get_one_off_job_fixture_as_job(),
                 [K8sKind.JOBS, K8sKind.PODS],
                 True,
             ],
@@ -1257,7 +1261,7 @@ class TestDeleteJob:
         [
             "OneOffJob, and does not wait for pods",
             [
-                get_oneoff_job_fixture_as_job(),
+                get_one_off_job_fixture_as_job(),
                 [K8sKind.JOBS, K8sKind.PODS],
                 False,
             ],
@@ -1371,7 +1375,7 @@ class TestRestartJob:
     class TestOneOffJob:
         def test_raises_as_not_restartable(self):
             my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-            job = get_oneoff_job_fixture_as_job()
+            job = get_one_off_job_fixture_as_job()
 
             with pytest.raises(
                 TjfValidationError, match="Unable to restart a one-off job"
@@ -1645,7 +1649,7 @@ class TestUpdateOneOffJob:
         runtime_k8s_cli: MagicMock,
         monkeypatch: pytest.MonkeyPatch,
     ):
-        job = get_oneoff_job_fixture_as_job()
+        job = get_one_off_job_fixture_as_job()
         monkeypatch.setattr(
             k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
         )

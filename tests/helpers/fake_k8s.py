@@ -1082,13 +1082,13 @@ def get_continuous_job_fixture_as_new_job(**overrides) -> AnyJob:
     return new_job
 
 
-def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
+def get_one_off_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
     """Returns a job matching the only fixture used in this suite.
 
     Pass a custom job_name to get a non-matching job instead.
     """
     params = dict(
-        job_name="testoneoff",
+        job_name="testone-off",
         cmd="date",
         # When creating a new job, the job that comes as input only has the short_name for the image
         image=Image(
@@ -1112,8 +1112,8 @@ def get_oneoff_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJo
         # cpu will be 1.0 (will use the k8s resource limit instead of the request value)
         "cpu": "0.1",
         "filelog": True,
-        "filelog_stderr": Path("/data/project/some-tool/testoneoff.err"),
-        "filelog_stdout": Path("/data/project/some-tool/testoneoff.out"),
+        "filelog_stderr": Path("/data/project/some-tool/testone-off.err"),
+        "filelog_stdout": Path("/data/project/some-tool/testone-off.out"),
         "k8s_object": K8S_ONEOFF_JOB_OBJ,
         "mount": MountOption.ALL,
     }

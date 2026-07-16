@@ -151,7 +151,7 @@ def api_update_job(
 def api_flush_job(request: Request, tool_name: str) -> FlushResponse:
     ensure_authenticated(request=request)
 
-    current_app(request).core.flush_job(tool_name=tool_name)
+    current_app(request).core.flush_jobs(tool_name=tool_name)
     return FlushResponse(messages=ResponseMessages())
 
 
