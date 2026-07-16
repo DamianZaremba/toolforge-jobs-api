@@ -67,7 +67,7 @@ def get_dummy_defined_common_job(**overrides) -> DefinedCommonJob:
     return defined_job
 
 
-def get_dummy_core_oneoff_job(**overrides) -> CoreOneOffJob:
+def get_dummy_core_one_off_job(**overrides) -> CoreOneOffJob:
     params = {
         "cmd": "dummy-command",
         "image": Image.from_short_name_or_url(
@@ -79,7 +79,7 @@ def get_dummy_core_oneoff_job(**overrides) -> CoreOneOffJob:
     return CoreOneOffJob.model_validate(params | overrides)
 
 
-def get_dummy_new_oneoff_job(**overrides) -> NewOneOffJob:
+def get_dummy_new_one_off_job(**overrides) -> NewOneOffJob:
     params = {
         "name": "dummy-job-name",
         "cmd": "dummy-command",
@@ -88,7 +88,7 @@ def get_dummy_new_oneoff_job(**overrides) -> NewOneOffJob:
     return NewOneOffJob.model_validate(params | overrides)
 
 
-def get_dummy_defined_oneoff_job(**overrides) -> DefinedOneOffJob:
+def get_dummy_defined_one_off_job(**overrides) -> DefinedOneOffJob:
     params = {
         "name": "dummy-job-name",
         "cmd": "dummy-command",
@@ -241,8 +241,8 @@ class TestCommonJob:
 
 class TestNewOneOffJob:
     def test_to_job_returns_expected_value_when_excluding_unset(self):
-        my_job = get_dummy_new_oneoff_job()
-        expected_core_job = get_dummy_core_oneoff_job()
+        my_job = get_dummy_new_one_off_job()
+        expected_core_job = get_dummy_core_one_off_job()
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
@@ -251,8 +251,8 @@ class TestNewOneOffJob:
         ) == expected_core_job.model_dump(exclude_unset=True)
 
     def test_to_job_returns_expected_value_when_including_unset(self):
-        my_job = get_dummy_new_oneoff_job()
-        expected_core_job = get_dummy_core_oneoff_job()
+        my_job = get_dummy_new_one_off_job()
+        expected_core_job = get_dummy_core_one_off_job()
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
@@ -262,8 +262,8 @@ class TestNewOneOffJob:
 
     def test_to_job_returns_expected_value_when_setting_all_fields(self):
         # similar as before, but leaving for consistency and in case we add fields to it
-        my_job = get_dummy_new_oneoff_job()
-        expected_core_job = get_dummy_core_oneoff_job()
+        my_job = get_dummy_new_one_off_job()
+        expected_core_job = get_dummy_core_one_off_job()
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
@@ -406,12 +406,12 @@ class TestDefinedCommonJob:
 
 class TestDefinedOneOffJob:
     def test_to_job_returns_expected_value_when_excluding_unset(self):
-        expected_defined_job = get_dummy_defined_oneoff_job(
+        expected_defined_job = get_dummy_defined_one_off_job(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_oneoff_job(
+        core_job = get_dummy_core_one_off_job(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
@@ -425,12 +425,12 @@ class TestDefinedOneOffJob:
         assert "job_type" in gotten_defined_job.model_dump(exclude_unset=True)
 
     def test_to_job_returns_expected_value_when_including_unset(self):
-        expected_defined_job = get_dummy_defined_oneoff_job(
+        expected_defined_job = get_dummy_defined_one_off_job(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_oneoff_job(
+        core_job = get_dummy_core_one_off_job(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
@@ -443,13 +443,13 @@ class TestDefinedOneOffJob:
         ) == expected_defined_job.model_dump(exclude_unset=False)
 
     def test_to_job_returns_expected_value_when_all_fields_set(self):
-        expected_defined_job = get_dummy_defined_oneoff_job(
+        expected_defined_job = get_dummy_defined_one_off_job(
             retry=5,
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_oneoff_job(
+        core_job = get_dummy_core_one_off_job(
             retry=5,
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",

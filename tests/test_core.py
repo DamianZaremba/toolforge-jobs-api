@@ -679,7 +679,7 @@ class TestCore:
                 my_core.runtime, "delete_jobs", mock_runtime_delete_jobs
             )
 
-            my_core.flush_job(tool_name="some-tool")
+            my_core.flush_jobs(tool_name="some-tool")
 
             mock_storage_get_jobs.assert_called_once_with(tool_name="some-tool")
             mock_storage_delete_jobs.assert_called_once_with(

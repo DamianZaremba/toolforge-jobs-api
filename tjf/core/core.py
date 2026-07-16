@@ -278,7 +278,7 @@ class Core:
 
         return list(final_jobs.values())
 
-    def flush_job(self, tool_name: str) -> None:
+    def flush_jobs(self, tool_name: str) -> None:
         continuous_and_scheduled_jobs = self.storage.get_jobs(tool_name=tool_name)
         self.storage.delete_jobs(
             tool_name=tool_name, jobs=continuous_and_scheduled_jobs
