@@ -1,9 +1,11 @@
 from copy import deepcopy
+from datetime import datetime, timezone
 from typing import Any, Callable
 from unittest.mock import MagicMock, call
 
 import pytest
 import requests
+from freezegun import freeze_time
 from toolforge_weld.kubernetes import MountOption
 
 from tests.helpers.fake_k8s import (
@@ -16,6 +18,7 @@ from tests.helpers.fake_k8s import (
 )
 from tests.utils import cases, patch_spec
 from tjf.core.cron import CronExpression
+from tjf.core.error import TjfValidationError
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
     AnyJob,
@@ -26,6 +29,7 @@ from tjf.core.models import (
     StatusShort,
 )
 from tjf.runtimes.exceptions import NotFoundInRuntime
+from tjf.runtimes.k8s import ops as k8s_ops
 from tjf.runtimes.k8s import runtime as k8s_runtime
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.jobs import K8sKind, get_k8s_deployment_object
@@ -1298,27 +1302,130 @@ class TestDeleteJob:
 
 
 class TestRestartJob:
-    def test_raises_NotFoundInRunitme_when_it_does_not_exist(
-        self,
-        fake_tool_account: ToolAccount,
-        runtime_k8s_cli: MagicMock,
-        monkeypatch: pytest.MonkeyPatch,
-    ):
-        job = get_continuous_job_fixture_as_job()
-        error = requests.HTTPError("404 Client Error: Not Found")
-        error.response = MagicMock(status_code=404, text="Not found")
-        runtime_k8s_cli.get_object.side_effect = error
-        monkeypatch.setattr(
-            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
-        )
-        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+    class TestScheduledJob:
+        def test_raises_NotFoundInRunitme_when_it_does_not_exist(
+            self,
+            fake_tool_account: ToolAccount,
+            runtime_k8s_cli: MagicMock,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_scheduled_job_fixture_as_job()
+            error = requests.HTTPError("404 Client Error: Not Found")
+            error.response = MagicMock(status_code=404, text="Not found")
+            runtime_k8s_cli.get_object.side_effect = error
+            monkeypatch.setattr(
+                k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+            )
+            my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+            now = datetime.now(timezone.utc)
 
-        with pytest.raises(NotFoundInRuntime):
+            with freeze_time(now):
+                with pytest.raises(NotFoundInRuntime):
+                    my_runtime.restart_job(job=job)
+
+            runtime_k8s_cli.get_object.assert_called_once()
+
+        def test_deletes_jobs_and_pods_and_trigger_cronjob(
+            self,
+            fake_tool_account: ToolAccount,
+            runtime_k8s_cli: MagicMock,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_scheduled_job_fixture_as_job()
+            fake_tool_account.name = job.tool_name
+            runtime_k8s_cli.get_object.return_value = job.k8s_object
+            monkeypatch.setattr(
+                k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+            )
+            monkeypatch.setattr(
+                k8s_ops,
+                "validate_job_limits",
+                MagicMock(spec=k8s_ops.validate_job_limits),
+            )
+            my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+            delete_objects_calls = [
+                call(
+                    kind=kind,
+                    label_selector=labels_selector(
+                        job_name=job.job_name,
+                        tool_name=job.tool_name,
+                        job_type=job.job_type,
+                    ),
+                )
+                for kind in [K8sKind.JOBS, K8sKind.PODS]
+            ]
+
             my_runtime.restart_job(job=job)
 
-        runtime_k8s_cli.get_object.assert_called_once_with(
-            kind=K8sKind.DEPLOYMENTS, name=job.job_name
-        )
+            assert runtime_k8s_cli.delete_objects.call_args_list == delete_objects_calls
+            runtime_k8s_cli.get_object.assert_called_once()
+            runtime_k8s_cli.create_object.assert_called_once()
+            k8s_ops.validate_job_limits.assert_called_once()
+
+    class TestOneOffJob:
+        def test_raises_as_not_restartable(self):
+            my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+            job = get_oneoff_job_fixture_as_job()
+
+            with pytest.raises(
+                TjfValidationError, match="Unable to restart a one-off job"
+            ):
+                my_runtime.restart_job(job=job)
+
+    class TestContinuousJob:
+        def test_raises_NotFoundInRunitme_when_it_does_not_exist(
+            self,
+            fake_tool_account: ToolAccount,
+            runtime_k8s_cli: MagicMock,
+            monkeypatch: pytest.MonkeyPatch,
+            fake_tool_account_uid: None,
+        ):
+            job = get_continuous_job_fixture_as_job()
+            error = requests.HTTPError("404 Client Error: Not Found")
+            error.response = MagicMock(status_code=404, text="Not found")
+            runtime_k8s_cli.replace_object.side_effect = error
+            monkeypatch.setattr(
+                k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+            )
+            my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+            now = datetime.now(timezone.utc)
+
+            with freeze_time(now):
+                with pytest.raises(NotFoundInRuntime):
+                    my_runtime.restart_job(job=job)
+
+            runtime_k8s_cli.replace_object.assert_called_once()
+
+        def test_updates_deployment_and_adds_restartedAt_annotation(
+            self,
+            fake_tool_account: ToolAccount,
+            runtime_k8s_cli: MagicMock,
+            monkeypatch: pytest.MonkeyPatch,
+            fake_tool_account_uid: None,
+        ):
+            job = get_continuous_job_fixture_as_job()
+            monkeypatch.setattr(
+                k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+            )
+            my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+            now = datetime.now(timezone.utc)
+            expected_spec = get_k8s_deployment_object(
+                job=job.get_resolved_core_job(),
+                default_cpu_limit=my_runtime.default_cpu_limit,
+            )
+            expected_spec["spec"]["template"]["metadata"]["annotations"] = {
+                "app.kubernetes.io/restartedAt": now.isoformat()
+            }
+            expected_kind = K8sKind.DEPLOYMENTS
+
+            with freeze_time(now, tick=False):
+                my_runtime.restart_job(job=job)
+
+            runtime_k8s_cli.replace_object.assert_called_once()
+            gotten_params = runtime_k8s_cli.replace_object.mock_calls[0][2]
+
+            assert expected_spec == gotten_params["spec"]
+            assert expected_kind == gotten_params["kind"]
 
 
 class TestUpdateJob:

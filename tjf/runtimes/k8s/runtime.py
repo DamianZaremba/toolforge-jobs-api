@@ -62,6 +62,17 @@ from .status_deprecated import refresh_job_long_status, refresh_job_short_status
 LOGGER = getLogger(__name__)
 
 
+def _wrap_in_runtime_exception_and_raise(
+    error: requests.HTTPError, job: AnyJob, spec: dict[str, Any]
+) -> Exception:
+    new_error = get_error_from_k8s_response(error=error, job=job, spec=job.k8s_object)
+    if isinstance(new_error, K8sNotFound):
+        raise NotFoundInRuntime(
+            message=f"Unable to find job {job.job_name} in runtime."
+        ) from error
+    raise new_error
+
+
 class K8sRuntime(BaseRuntime):
     def __init__(self, *, settings: Settings):
         self.loki_url = settings.loki_url
@@ -202,56 +213,57 @@ class K8sRuntime(BaseRuntime):
 
         raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool_name}.")
 
-    def restart_job(self, *, job: AnyJob) -> None:
+    def _restart_continuous_job(self, *, job: ContinuousJob) -> None:
         tool_account = ToolAccount(name=job.tool_name)
-        label_selector = labels_selector(
+        k8s_deployment = get_k8s_deployment_object(
+            job=job.get_resolved_core_job(), default_cpu_limit=self.default_cpu_limit
+        )
+        # Update the Deployment spec and let Kubernetes cycle the pods, this ensures a graceful restart
+        if "annotations" not in k8s_deployment["spec"]["template"]["metadata"]:
+            k8s_deployment["spec"]["template"]["metadata"]["annotations"] = {}
+
+        # TODO: either use kubectl.kubernetes.io/restartedAt (k8s own annotation) or our own prefixed one
+        # as this one does not really exist for k8s but it looks like.
+        #     see https://kubernetes.io/docs/reference/labels-annotations-taints/#kubectl-k8s-io-restart-at
+        k8s_deployment["spec"]["template"]["metadata"]["annotations"] |= {
+            "app.kubernetes.io/restartedAt": datetime.now(timezone.utc).isoformat()
+        }
+        try:
+            tool_account.k8s_cli.replace_object(
+                kind=K8sKind.DEPLOYMENTS, spec=k8s_deployment
+            )
+        except requests.HTTPError as error:
+            _wrap_in_runtime_exception_and_raise(
+                error=error, job=job, spec=k8s_deployment
+            )
+
+    def _restart_scheduled_job(self, *, job: ScheduledJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
+        delete_k8s_objects_for_job(
+            job=job, kinds=[K8sKind.JOBS, K8sKind.PODS], tool_account=tool_account
+        )
+        wait_for_pods_exit(
+            tool_account=tool_account,
             job_name=job.job_name,
-            tool_name=tool_account.name,
             job_type=job.job_type,
         )
-
-        if isinstance(job, ScheduledJob):
-            # Delete currently running jobs to avoid duplication
-            tool_account.k8s_cli.delete_objects(
-                kind=K8sKind.JOBS, label_selector=label_selector
-            )
-            tool_account.k8s_cli.delete_objects(
-                kind=K8sKind.PODS, label_selector=label_selector
+        try:
+            trigger_scheduled_job(tool_account=tool_account, scheduled_job=job)
+        except requests.HTTPError as error:
+            _wrap_in_runtime_exception_and_raise(
+                error=error, job=job, spec=job.k8s_object
             )
 
-            wait_for_pods_exit(
-                tool_account=tool_account,
-                job_name=job.job_name,
-                job_type=job.job_type,
-            )
+    def restart_job(self, *, job: AnyJob) -> None:
+        match job:
+            case ContinuousJob():
+                return self._restart_continuous_job(job=job)
+            case ScheduledJob():
+                return self._restart_scheduled_job(job=job)
+            case OneOffJob():
+                raise TjfValidationError("Unable to restart a one-off job")
 
-            trigger_scheduled_job(tool_account, job)
-
-        elif isinstance(job, ContinuousJob):
-            # Update the Deployment spec and let Kubernetes cycle the pods, this ensures a graceful restart
-            try:
-                k8s_obj = tool_account.k8s_cli.get_object(
-                    kind=K8sKind.DEPLOYMENTS, name=job.job_name
-                )
-            except requests.HTTPError as error:
-                new_error = get_error_from_k8s_response(
-                    error=error, job=job, spec=job.k8s_object
-                )
-                if isinstance(new_error, K8sNotFound):
-                    raise NotFoundInRuntime(message=str(K8sNotFound)) from error
-                raise new_error
-
-            if "annotations" not in k8s_obj["spec"]["template"]["metadata"]:
-                k8s_obj["spec"]["template"]["metadata"]["annotations"] = {}
-            k8s_obj["spec"]["template"]["metadata"]["annotations"] |= {
-                "app.kubernetes.io/restartedAt": datetime.now(timezone.utc).isoformat()
-            }
-            tool_account.k8s_cli.replace_object(kind=K8sKind.DEPLOYMENTS, spec=k8s_obj)
-
-        elif isinstance(job, OneOffJob):
-            raise TjfValidationError("Unable to restart a single job")
-        else:
-            raise TjfError(f"Unable to restart unknown job type: {job}")
+        raise TjfError(f"Unable to restart unknown job type: {job}")
 
     def update_job(self, *, job: AnyJob) -> None:
         if isinstance(job, (ContinuousJob, ScheduledJob)):
@@ -281,12 +293,9 @@ class K8sRuntime(BaseRuntime):
                     error.response is None
                     or error.response.status_code != HTTPStatus.UNPROCESSABLE_ENTITY
                 ):
-                    new_error = get_error_from_k8s_response(
+                    _wrap_in_runtime_exception_and_raise(
                         error=error, job=job, spec=spec
                     )
-                    if isinstance(new_error, K8sNotFound):
-                        raise NotFoundInRuntime(message=str(new_error)) from error
-                    raise new_error
 
                 LOGGER.warning(
                     f"Failed to patch k8s object, falling back to delete/create for {job.job_name} in {job.tool_name}: {error}"
@@ -326,7 +335,7 @@ class K8sRuntime(BaseRuntime):
         try:
             tool_account.k8s_cli.replace_object(kind=K8sKind.SERVICES, spec=spec)
         except requests.exceptions.HTTPError as error:
-            raise get_error_from_k8s_response(error=error, job=job, spec=spec)
+            _wrap_in_runtime_exception_and_raise(error=error, job=job, spec=spec)
         return None
 
     def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
