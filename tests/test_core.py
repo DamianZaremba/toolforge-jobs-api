@@ -10,6 +10,7 @@ from tjf.core import core
 from tjf.core.error import TjfValidationError
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
+    OUT_OF_SYNC_JOB_WARNING_MESSAGE,
     AnyJobStatus,
     ContinuousJobStatus,
     JobType,
@@ -383,6 +384,46 @@ class TestCore:
             assert gotten_job.model_dump() == expected_job.model_dump()
             assert gotten_job.status.up_to_date
 
+        def test_returns_storage_job_not_up_to_date_on_error_when_retrieving_from_runtime(
+            self,
+            get_my_core: GetMyCore,
+            storage_k8s_cli: MagicMock,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            storage_job = get_dummy_job(
+                job_name="my-job",
+                job_type=JobType.CONTINUOUS,
+            )
+            my_core = get_my_core()
+            mock_storage_get_job = MagicMock(
+                spec=my_core.storage.get_job,
+                return_value=storage_job,
+            )
+            mock_runtime_get_job = MagicMock(
+                spec=my_core.runtime.get_continuous_job,
+                side_effect=Exception("Unexpected error!"),
+            )
+            monkeypatch.setattr(my_core.storage, "get_job", mock_storage_get_job)
+            monkeypatch.setattr(
+                my_core.runtime, "get_continuous_job", mock_runtime_get_job
+            )
+
+            gotten_job = my_core.get_job(tool_name="some-tool", name="my-job")
+
+            assert gotten_job
+            assert gotten_job.job_name == storage_job.job_name
+            assert gotten_job.status.up_to_date is False
+            assert gotten_job.status_long == OUT_OF_SYNC_JOB_WARNING_MESSAGE.format(
+                job_name=storage_job.job_name
+            )
+            mock_storage_get_job.assert_called_once_with(
+                job_name="my-job", tool_name="some-tool"
+            )
+            mock_runtime_get_job.assert_called_once_with(
+                job_name="my-job", tool_name="some-tool"
+            )
+            storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
+
     class TestDeleteJob:
         def test_does_not_raise_if_it_does_not_exist_in_runtime(
             self,
@@ -690,3 +731,49 @@ class TestCore:
                 tool_name="some-tool",
                 jobs=[continuous_job, scheduled_job, one_off_job],
             )
+
+    class TestGetJobs:
+        def test_returns_storage_job_not_up_to_date_on_error_when_retrieving_from_runtime(
+            self,
+            get_my_core: GetMyCore,
+            storage_k8s_cli: MagicMock,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            storage_job = get_dummy_job(
+                job_name="my-job",
+                job_type=JobType.CONTINUOUS,
+            )
+            my_core = get_my_core()
+            mock_storage_get_jobs = MagicMock(
+                spec=my_core.storage.get_jobs,
+                return_value=[storage_job],
+            )
+            mock_runtime_get_one_off_jobs = MagicMock(
+                spec=my_core.runtime.get_one_off_jobs,
+                return_value=[],
+            )
+            mock_runtime_get_continuous_job = MagicMock(
+                spec=my_core.runtime.get_continuous_job,
+                side_effect=Exception("Unexpected error!"),
+            )
+            monkeypatch.setattr(my_core.storage, "get_jobs", mock_storage_get_jobs)
+            monkeypatch.setattr(
+                my_core.runtime, "get_continuous_job", mock_runtime_get_continuous_job
+            )
+            monkeypatch.setattr(
+                my_core.runtime, "get_one_off_jobs", mock_runtime_get_one_off_jobs
+            )
+
+            gotten_jobs = my_core.get_jobs(tool_name="some-tool")
+
+            assert len(gotten_jobs) == 1
+            assert gotten_jobs[0].job_name == storage_job.job_name
+            assert gotten_jobs[0].status.up_to_date is False
+            assert gotten_jobs[0].status_long == OUT_OF_SYNC_JOB_WARNING_MESSAGE.format(
+                job_name=storage_job.job_name
+            )
+            mock_storage_get_jobs.assert_called_once_with(tool_name="some-tool")
+            mock_runtime_get_continuous_job.assert_called_once_with(
+                job_name="my-job", tool_name="some-tool"
+            )
+            storage_k8s_cli.create_namespaced_custom_object.assert_not_called()

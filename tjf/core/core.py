@@ -251,9 +251,10 @@ class Core:
         final_jobs: dict[str, AnyJob] = {}
 
         for storage_job in storage_jobs:
+            runtime_job: AnyJob | None = None
             try:
                 if storage_job.job_type == JobType.SCHEDULED:
-                    runtime_job: AnyJob | None = self.runtime.get_scheduled_job(
+                    runtime_job = self.runtime.get_scheduled_job(
                         job_name=storage_job.job_name, tool_name=tool_name
                     )
                 elif storage_job.job_type == JobType.CONTINUOUS:
@@ -263,7 +264,11 @@ class Core:
                 else:
                     raise TjfValidationError(f"Unknown job type {storage_job.job_type}")
             except NotFoundInRuntime:
-                runtime_job = None
+                pass
+            except Exception as error:
+                LOGGER.exception(
+                    f"Error when retrieving job {storage_job.job_name} for tool {tool_name} from runtime: {error}"
+                )
 
             final_job = self._reconciliate_storage_and_runtime(
                 runtime_job=runtime_job,
@@ -295,12 +300,13 @@ class Core:
         except NotFoundInStorage:
             storage_job = None
 
+        runtime_job: AnyJob | None = None
         try:
             if not storage_job:
                 return self.runtime.get_one_off_job(job_name=name, tool_name=tool_name)
 
             if storage_job.job_type == JobType.CONTINUOUS:
-                runtime_job: AnyJob | None = self.runtime.get_continuous_job(
+                runtime_job = self.runtime.get_continuous_job(
                     job_name=name, tool_name=tool_name
                 )
 
@@ -313,7 +319,11 @@ class Core:
                 raise TjfValidationError(f"Unknown job of type {storage_job.job_type}")
 
         except NotFoundInRuntime:
-            runtime_job = None
+            pass
+        except Exception as error:
+            LOGGER.exception(
+                f"Error when trying to get job {name} for tool {tool_name} from runtime: {error}"
+            )
 
         return self._reconciliate_storage_and_runtime(
             runtime_job=runtime_job, storage_job=storage_job
