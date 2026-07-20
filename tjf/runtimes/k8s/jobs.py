@@ -235,7 +235,10 @@ def _get_deployment_k8s_podtemplate(
     *, job: ContinuousJob, default_cpu_limit: str
 ) -> dict[str, Any]:
     probes = get_healthcheck_for_k8s(
-        health_check=job.health_check, port=job.port, port_protocol=job.port_protocol
+        health_check=job.health_check,
+        port=job.port,
+        port_protocol=job.port_protocol,
+        is_buildservice=job.image.type == ImageType.BUILDSERVICE,
     )
 
     podtemplate = _get_common_k8s_podtemplate(

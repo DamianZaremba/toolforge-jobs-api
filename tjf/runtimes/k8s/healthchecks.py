@@ -1,3 +1,4 @@
+import shlex
 from typing import Any
 
 from ...core.models import HttpHealthCheck, PortProtocol, ScriptHealthCheck
@@ -29,10 +30,13 @@ def get_healthcheck_for_k8s(
     health_check: ScriptHealthCheck | HttpHealthCheck | None,
     port: int | None,
     port_protocol: PortProtocol,
+    is_buildservice: bool,
 ) -> dict[str, Any]:
     match health_check:
         case ScriptHealthCheck():
-            return _get_script_healthcheck_for_k8s(health_check=health_check)
+            return _get_script_healthcheck_for_k8s(
+                health_check=health_check, is_buildservice=is_buildservice
+            )
         case HttpHealthCheck():
             return _get_http_healthcheck_for_k8s(
                 health_check=health_check, port=port, port_protocol=port_protocol
@@ -41,17 +45,24 @@ def get_healthcheck_for_k8s(
             return _get_tcp_healthcheck_for_k8s(port=port, port_protocol=port_protocol)
 
 
-def _get_script_healthcheck_for_k8s(health_check: ScriptHealthCheck) -> dict[str, Any]:
+def _get_script_healthcheck_for_k8s(
+    health_check: ScriptHealthCheck, is_buildservice: bool
+) -> dict[str, Any]:
+    if is_buildservice:
+        command = ["launcher"] + shlex.split(health_check.script)
+    else:
+        command = ["/bin/sh", "-c", health_check.script]
+
     return {
         "startupProbe": {
             "exec": {
-                "command": ["/bin/sh", "-c", health_check.script],
+                "command": command,
             },
             **STARTUP_PROBE_DEFAULTS,
         },
         "livenessProbe": {
             "exec": {
-                "command": ["/bin/sh", "-c", health_check.script],
+                "command": command,
             },
             **LIVENESS_PROBE_DEFAULTS,
         },
