@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path, PosixPath
 from typing import Any, Callable
 
@@ -5,9 +6,11 @@ from pytest import MonkeyPatch
 
 from tests.helpers.fake_k8s import (
     K8S_CONTINUOUS_JOB_OBJ,
+    K8S_CONTINUOUS_JOB_WITH_HEALTH_CHECK_OBJ,
     K8S_ONEOFF_JOB_OBJ,
     K8S_SCHEDULED_JOB_OBJ,
     get_continuous_job_fixture_as_job,
+    get_continuous_job_with_health_check_fixture_as_job,
     get_one_off_job_fixture_as_job,
 )
 from tests.utils import cases, patch_spec
@@ -15,6 +18,7 @@ from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
     EmailOption,
+    HealthCheckType,
     HttpHealthCheck,
     JobType,
     MountOption,
@@ -130,6 +134,95 @@ class TestJobFromK8s:
 
             gotten_job = jobs.get_continuous_job_from_k8s_object(
                 k8s_object=K8S_CONTINUOUS_JOB_OBJ,
+                default_cpu_limit="1000m",
+                tool_name="some-tool",
+            )
+
+            assert gotten_job.model_dump() == expected_job.model_dump()
+
+        def test_health_check_matches_for_buildservice_when_not_prefixed_with_launcher(
+            self, fake_images: dict[str, Any]
+        ):
+            """This test is for backwards compatibility, new healthchecks should have the prefix."""
+            expected_job = get_continuous_job_with_health_check_fixture_as_job(
+                add_status=False, filelog=False
+            )
+
+            gotten_job = jobs.get_continuous_job_from_k8s_object(
+                k8s_object=K8S_CONTINUOUS_JOB_WITH_HEALTH_CHECK_OBJ,
+                default_cpu_limit="1000m",
+                tool_name="some-tool",
+            )
+
+            assert gotten_job.model_dump() == expected_job.model_dump()
+
+        def test_health_check_matches_for_buildservice_when_prefixed_with_launcher(
+            self, fake_images: dict[str, Any]
+        ):
+            K8S_DEPLOYMENT_WITH_HEALTH_CHECK_WITH_LAUNCHER_OBJ = deepcopy(
+                K8S_CONTINUOUS_JOB_WITH_HEALTH_CHECK_OBJ
+            )
+            K8S_DEPLOYMENT_WITH_HEALTH_CHECK_WITH_LAUNCHER_OBJ["spec"]["template"][
+                "spec"
+            ]["containers"][0]["startupProbe"]["exec"]["command"] = [
+                "launcher",
+                "procfile_entry",
+            ]
+            K8S_DEPLOYMENT_WITH_HEALTH_CHECK_WITH_LAUNCHER_OBJ["spec"]["template"][
+                "spec"
+            ]["containers"][0]["livenessProbe"]["exec"]["command"] = [
+                "launcher",
+                "procfile_entry",
+            ]
+            expected_job = get_continuous_job_with_health_check_fixture_as_job(
+                add_status=False,
+                filelog=False,
+                health_check=ScriptHealthCheck(
+                    script="procfile_entry", type=HealthCheckType.SCRIPT
+                ),
+                k8s_object=K8S_DEPLOYMENT_WITH_HEALTH_CHECK_WITH_LAUNCHER_OBJ,
+            )
+
+            gotten_job = jobs.get_continuous_job_from_k8s_object(
+                k8s_object=K8S_DEPLOYMENT_WITH_HEALTH_CHECK_WITH_LAUNCHER_OBJ,
+                default_cpu_limit="1000m",
+                tool_name="some-tool",
+            )
+
+            assert gotten_job.model_dump() == expected_job.model_dump()
+
+        def test_health_check_falls_back_to_join_when_no_wrapper_or_launcher(
+            self, fake_images: dict[str, Any]
+        ):
+            """
+            This test is for backwards compatibility, all jobs should have either launcher or wrapper, but just in case.
+            """
+            K8S_DEPLOYMENT_WITH_HEALTH_CHECK_WITH_LAUNCHER_OBJ = deepcopy(
+                K8S_CONTINUOUS_JOB_WITH_HEALTH_CHECK_OBJ
+            )
+            K8S_DEPLOYMENT_WITH_HEALTH_CHECK_WITH_LAUNCHER_OBJ["spec"]["template"][
+                "spec"
+            ]["containers"][0]["startupProbe"]["exec"]["command"] = [
+                "some",
+                "command",
+            ]
+            K8S_DEPLOYMENT_WITH_HEALTH_CHECK_WITH_LAUNCHER_OBJ["spec"]["template"][
+                "spec"
+            ]["containers"][0]["livenessProbe"]["exec"]["command"] = [
+                "some",
+                "command",
+            ]
+            expected_job = get_continuous_job_with_health_check_fixture_as_job(
+                add_status=False,
+                filelog=False,
+                health_check=ScriptHealthCheck(
+                    script="some command", type=HealthCheckType.SCRIPT
+                ),
+                k8s_object=K8S_DEPLOYMENT_WITH_HEALTH_CHECK_WITH_LAUNCHER_OBJ,
+            )
+
+            gotten_job = jobs.get_continuous_job_from_k8s_object(
+                k8s_object=K8S_DEPLOYMENT_WITH_HEALTH_CHECK_WITH_LAUNCHER_OBJ,
                 default_cpu_limit="1000m",
                 tool_name="some-tool",
             )

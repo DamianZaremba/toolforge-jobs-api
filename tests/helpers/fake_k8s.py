@@ -7,7 +7,13 @@ from toolforge_weld.kubernetes import MountOption
 from tests.helpers.fakes import get_dummy_job
 from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
-from tjf.core.models import AnyJob, JobType
+from tjf.core.models import (
+    AnyJob,
+    ContinuousJob,
+    HealthCheckType,
+    JobType,
+    ScriptHealthCheck,
+)
 
 TESTS_PATH = Path(__file__).parent.resolve()
 FIXTURES_PATH = TESTS_PATH / "fixtures"
@@ -1028,12 +1034,33 @@ LIMIT_RANGE_OBJECT = {
 K8S_CONTINUOUS_JOB_OBJ = json.loads(
     (FIXTURES_PATH / "deployments" / "deployment-simple-buildservice.json").read_text()
 )
+K8S_CONTINUOUS_JOB_WITH_HEALTH_CHECK_OBJ = json.loads(
+    (
+        FIXTURES_PATH
+        / "deployments"
+        / "deployment-simple-buildservice-with-healthcheck.json"
+    ).read_text()
+)
 K8S_SCHEDULED_JOB_OBJ = json.loads(
     (FIXTURES_PATH / "cronjobs" / "daily_cronjob.json").read_text()
 )
 K8S_ONEOFF_JOB_OBJ = json.loads(
     (FIXTURES_PATH / "jobs" / "job-simple-prebuilt.json").read_text()
 )
+
+ContinuousJob
+
+
+def get_continuous_job_with_health_check_fixture_as_job(
+    add_status: bool = True, **overrides
+) -> AnyJob:
+    if "health_check" not in overrides:
+        overrides["health_check"] = ScriptHealthCheck(
+            script="./some_script.sh", type=HealthCheckType.SCRIPT
+        )
+    if "k8s_object" not in overrides:
+        overrides["k8s_object"] = K8S_CONTINUOUS_JOB_WITH_HEALTH_CHECK_OBJ
+    return get_continuous_job_fixture_as_job(add_status=add_status, **overrides)
 
 
 def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:

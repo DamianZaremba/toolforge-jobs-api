@@ -1,5 +1,6 @@
 import json
 import pwd
+import shlex
 import time
 from copy import deepcopy
 from enum import StrEnum
@@ -235,7 +236,10 @@ def _get_deployment_k8s_podtemplate(
     *, job: ContinuousJob, default_cpu_limit: str
 ) -> dict[str, Any]:
     probes = get_healthcheck_for_k8s(
-        health_check=job.health_check, port=job.port, port_protocol=job.port_protocol
+        health_check=job.health_check,
+        port=job.port,
+        port_protocol=job.port_protocol,
+        is_buildservice=job.image.type == ImageType.BUILDSERVICE,
     )
 
     podtemplate = _get_common_k8s_podtemplate(
@@ -663,8 +667,14 @@ def get_continuous_job_from_k8s_object(
         ContinuousJob.model_fields["health_check"].default
     )
     container_spec = podspec["template"]["spec"]["containers"][0]
-    if container_spec.get("startupProbe", {}).get("exec", None):
-        script = container_spec["startupProbe"]["exec"]["command"][2]
+    if probe_exec := container_spec.get("startupProbe", {}).get("exec"):
+        if probe_exec["command"][0] == "launcher":
+            script = shlex.join(probe_exec["command"][1:])
+        elif probe_exec["command"][0:2] == ["/bin/sh", "-c"]:
+            script = probe_exec["command"][2]
+        else:
+            # Fallback, next time the job is recreated it should add the shell wrapper or launcher
+            script = shlex.join(probe_exec["command"])
         health_check = ScriptHealthCheck(type=HealthCheckType.SCRIPT, script=script)
     elif container_spec.get("startupProbe", {}).get("httpGet", None):
         path = container_spec["startupProbe"]["httpGet"]["path"]
