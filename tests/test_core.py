@@ -7,7 +7,7 @@ from toolforge_weld.kubernetes import MountOption
 
 from tests.utils import cases
 from tjf.core import core
-from tjf.core.error import TjfValidationError
+from tjf.core.error import TjfError, TjfValidationError
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
     AnyJobStatus,
@@ -690,3 +690,40 @@ class TestCore:
                 tool_name="some-tool",
                 jobs=[continuous_job, scheduled_job, one_off_job],
             )
+
+    class TestCreateJob:
+        def test_deletes_job_when_theres_a_failure_in_runtime_and_raises_TjfError(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_job(job_type=JobType.CONTINUOUS)
+            my_core = get_my_core()
+            mock_storage_create_job = MagicMock(
+                spec=my_core.storage.create_job,
+                return_value=job,
+            )
+
+            class CustomError(Exception):
+                pass
+
+            mock_runtime_create_job = MagicMock(
+                spec=my_core.runtime.create_job,
+                side_effect=CustomError("Unable to create job in runtime"),
+            )
+            mock_storage_delete_job = MagicMock(spec=my_core.storage.delete_job)
+            mock_runtime_delete_job = MagicMock(spec=my_core.runtime.delete_job)
+            monkeypatch.setattr(my_core.storage, "create_job", mock_storage_create_job)
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+            monkeypatch.setattr(my_core.storage, "delete_job", mock_storage_delete_job)
+            monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete_job)
+
+            with pytest.raises(TjfError):
+                my_core.create_job(job=job)
+
+            mock_storage_create_job.assert_called_once_with(job=job)
+            mock_runtime_create_job.assert_called_once_with(
+                job=job.get_resolved_core_job()
+            )
+            mock_storage_delete_job.assert_called_once_with(job=job)
+            mock_runtime_delete_job.assert_called_once_with(job=job)
