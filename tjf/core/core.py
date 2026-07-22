@@ -125,7 +125,15 @@ class Core:
         resolved_job = job.get_resolved_core_job()
         # we could make this function not return anything, as it does not really change the job at all
         job = self._create_storage_job(job=job)
-        self._create_runtime_job(job=resolved_job)
+        try:
+            self._create_runtime_job(job=resolved_job)
+        except Exception as error:
+            LOGGER.exception(
+                f"Failed to create runtime job ({error}), cleaning up. Job was:\n{job}"
+            )
+            self.delete_job(job=job)
+            raise
+
         return job
 
     def update_job(self, job: AnyJob) -> Tuple[bool, str]:
