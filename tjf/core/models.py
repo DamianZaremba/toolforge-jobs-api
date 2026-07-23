@@ -23,7 +23,13 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, Type
 
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 from toolforge_weld.kubernetes import MountOption, parse_quantity
 from typing_extensions import Self
 
@@ -287,6 +293,7 @@ class ContinuousJob(CommonJob, BaseModel):
     port: Annotated[int, Field(ge=1, le=65535)] | None = None
     port_protocol: PortProtocol = PortProtocol.TCP
     replicas: int = Field(default=JOB_DEFAULT_REPLICAS, ge=0)
+    publish: Annotated[str, StringConstraints(pattern=r"^/$")] = ""
     health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
         default=None,
         discriminator="health_check_type",
@@ -296,6 +303,12 @@ class ContinuousJob(CommonJob, BaseModel):
     @model_validator(mode="after")
     def validate_continuous_job(self) -> Self:
         self.model_fields_set.add("job_type")
+        if self.publish:
+            if self.port is None:
+                raise ValueError("publish requires port to be set")
+            if self.port_protocol != PortProtocol.TCP:
+                raise ValueError("publish requires port_protocol set to tcp")
+
         if (
             self.health_check
             and self.health_check.health_check_type == HealthCheckType.HTTP

@@ -1,5 +1,4 @@
 from typing import Any
-from unittest.mock import MagicMock
 
 from tjf.core.cron import CronExpression
 from tjf.core.images import HarborConfig, Image, ImageType
@@ -25,7 +24,7 @@ def get_fake_account(
 
     class FakeToolAccount(ToolAccount):
         namespace = f"tool-{name}"
-        k8s_cli = fake_k8s_cli or MagicMock()
+        k8s_cli = fake_k8s_cli
 
         def __init__(self, name: str) -> None:
             self.name = name

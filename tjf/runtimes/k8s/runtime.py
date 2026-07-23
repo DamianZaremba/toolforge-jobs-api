@@ -34,6 +34,7 @@ from ...settings import Settings
 from ..base import BaseRuntime
 from ..exceptions import AlreadyExistsInRuntime, NotFoundInRuntime
 from .account import ToolAccount
+from .httproute import check_httproute_host_conflict, get_k8s_http_route_object
 from .jobs import (
     K8sKind,
     create_k8s_object_for_job,
@@ -48,7 +49,11 @@ from .jobs import (
     get_one_off_job_from_k8s_object,
     get_scheduled_job_from_k8s_object,
 )
-from .k8s_errors import K8sAlreadyExists, K8sNotFound, get_error_from_k8s_response
+from .k8s_errors import (
+    K8sAlreadyExists,
+    K8sNotFound,
+    get_error_from_k8s_response,
+)
 from .labels import labels_selector
 from .ops import trigger_scheduled_job, validate_job_limits, wait_for_pods_exit
 from .services import get_k8s_service_object
@@ -77,6 +82,7 @@ class K8sRuntime(BaseRuntime):
     def __init__(self, *, settings: Settings):
         self.loki_url = settings.loki_url
         self.default_cpu_limit = settings.default_cpu_limit
+        self.public_domain = settings.public_domain
 
     def get_one_off_jobs(self, *, tool_name: str) -> list[OneOffJob]:
         job_list = []
@@ -190,7 +196,7 @@ class K8sRuntime(BaseRuntime):
             job = get_continuous_job_from_k8s_object(
                 k8s_object=k8s_obj,
                 default_cpu_limit=self.default_cpu_limit,
-                tool_name=tool_name,
+                tool_account=tool_account,
             )
             # TODO: we can probably push the try-except to the status gathering function once we deprecate the
             # short/long statuses
@@ -279,6 +285,7 @@ class K8sRuntime(BaseRuntime):
 
         # Note: no guard by .port as in create_job, as this function will delete if there is no port specified
         self._create_or_delete_service(job=job)
+        self._create_or_delete_httproute(job=job)
         spec = self._create_k8s_spec_for_job(job)
         try:
             tool_account.k8s_cli.replace_object(kind=K8sKind.DEPLOYMENTS, spec=spec)
@@ -353,6 +360,50 @@ class K8sRuntime(BaseRuntime):
             _wrap_in_runtime_exception_and_raise(error=error, job=job, spec=spec)
         return None
 
+    def _create_or_delete_httproute(self, job: ContinuousJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
+        if job.publish:
+            self._create_httproute(job=job)
+        else:
+            LOGGER.debug(
+                "Deleting httproutes related to %s for tool %s",
+                job.job_name,
+                tool_account.name,
+            )
+            tool_account.k8s_cli.delete_objects(
+                kind=K8sKind.HTTP_ROUTES,
+                label_selector=labels_selector(
+                    job_name=job.job_name,
+                    tool_name=tool_account.name,
+                    job_type=job.job_type,
+                ),
+            )
+
+    def _create_httproute(self, job: ContinuousJob) -> None:
+        tool_account = ToolAccount(name=job.tool_name)
+        label_selector = labels_selector(
+            job_name=job.job_name,
+            tool_name=tool_account.name,
+            job_type=job.job_type,
+        )
+        spec = get_k8s_http_route_object(job=job, public_domain=self.public_domain)
+        LOGGER.debug(f"Creating httproute for {job.job_name}: {spec}")
+
+        try:
+            existing_http_routes = tool_account.k8s_cli.get_objects(
+                K8sKind.HTTP_ROUTES, label_selector=label_selector
+            )
+            if existing_http_routes:
+                # blows up if omitted
+                spec["metadata"]["resourceVersion"] = existing_http_routes[0][
+                    "metadata"
+                ]["resourceVersion"]
+                tool_account.k8s_cli.replace_object(K8sKind.HTTP_ROUTES, spec)
+            else:
+                tool_account.k8s_cli.create_object(K8sKind.HTTP_ROUTES, spec)
+        except requests.exceptions.HTTPError as error:
+            _wrap_in_runtime_exception_and_raise(error=error, job=job, spec=spec)
+
     def _create_k8s_spec_for_job(self, job: AnyJob) -> dict[str, Any]:
         if not job.image.exists:
             raise TjfImageNotFoundError(f"No such image '{job.image.to_full_url()}'")
@@ -390,6 +441,13 @@ class K8sRuntime(BaseRuntime):
             spec=spec,
         )
         LOGGER.debug(f"Result from k8s: {k8s_result}")
+        if job.publish:
+            check_httproute_host_conflict(
+                public_domain=self.public_domain,
+                tool_account=tool_account,
+                job_name=job.job_name,
+            )
+            self._create_httproute(job=job)
         if job.port:
             self._create_service(job=job)
 
@@ -444,7 +502,12 @@ class K8sRuntime(BaseRuntime):
         # TODO: We might want to stop filtering by the kind and just delete by the labels only
         delete_k8s_objects_for_job(
             job=job,
-            kinds=[K8sKind.DEPLOYMENTS, K8sKind.PODS, K8sKind.SERVICES],
+            kinds=[
+                K8sKind.DEPLOYMENTS,
+                K8sKind.PODS,
+                K8sKind.SERVICES,
+                K8sKind.HTTP_ROUTES,
+            ],
             tool_account=tool_account,
         )
         if wait_for_pods:
