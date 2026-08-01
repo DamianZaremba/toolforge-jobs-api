@@ -103,9 +103,9 @@ def api_get_jobs(
 def api_create_job(request: Request, tool_name: str, new_job: AnyNewJob) -> JobResponse:
     ensure_authenticated(request=request)
     core = current_app(request).core
-    logging.debug(f"Generated NewJob: {new_job}")
+    LOGGER.debug(f"Generated NewJob: {new_job}")
     job = new_job.to_core_job(tool_name=tool_name)
-    logging.debug(f"Generated job: {job}")
+    LOGGER.debug(f"Generated job: {job}")
 
     existing_job = core.get_job(tool_name=job.tool_name, name=job.job_name)
     if existing_job:
@@ -118,12 +118,12 @@ def api_create_job(request: Request, tool_name: str, new_job: AnyNewJob) -> JobR
                 http_status_code=409,
             )
         core.delete_job(job=existing_job)
-        logging.debug(f"Deleted existing job: {existing_job}")
+        LOGGER.debug(f"Deleted existing job: {existing_job}")
 
     core.create_job(job=job)
 
     defined_job = get_job_for_api(job=job)
-    logging.debug(f"Generated DefinedJob: {defined_job}")
+    LOGGER.debug(f"Generated DefinedJob: {defined_job}")
 
     return JobResponse(job=defined_job, messages=ResponseMessages())
 
@@ -135,11 +135,11 @@ def api_update_job(
 ) -> UpdateResponse:
     ensure_authenticated(request=request)
     core = current_app(request).core
-    logging.debug(
+    LOGGER.debug(
         f"Generated NewJob: {new_job.__class__}:{new_job} (set fields {new_job.model_fields_set})"
     )
     job = new_job.to_core_job(tool_name=tool_name)
-    logging.debug(f"Generated CoreJob: {job} (set fields {job.model_fields_set})")
+    LOGGER.debug(f"Generated CoreJob: {job} (set fields {job.model_fields_set})")
 
     job_changed, message = core.update_job(job=job)
     messages = ResponseMessages(info=[message])

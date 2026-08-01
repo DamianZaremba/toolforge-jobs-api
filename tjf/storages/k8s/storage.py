@@ -13,7 +13,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 from logging import getLogger
-from typing import Any, Type, TypeAlias
+from typing import Any
 
 import kubernetes  # type: ignore
 
@@ -27,7 +27,7 @@ from ..exceptions import NotFoundInStorage, StorageError, get_storage_error
 LOGGER = getLogger(__name__)
 
 
-AnyJobClass: TypeAlias = Type[ContinuousJob] | Type[ScheduledJob] | Type[OneOffJob]
+type AnyJobClass = type[ContinuousJob | ScheduledJob | OneOffJob]
 API_GROUP = "jobs-api.toolforge.org"
 API_VERSION = "v1"
 
@@ -41,7 +41,7 @@ class K8sObjectNotFound(Exception):
 
 
 def _job_to_k8s_crd(*, job: AnyJob) -> dict[str, Any]:
-    kind, k8s_plural = _get_kind_and_plural_from_job_class(job_class=job.__class__)
+    kind, _ = _get_kind_and_plural_from_job_class(job_class=job.__class__)
     k8s_dict = {
         "kind": kind,
         "apiVersion": f"{API_GROUP}/{API_VERSION}",
@@ -78,7 +78,7 @@ class K8sStorage(BaseStorage):
     def _get_jobs(
         self,
         *,
-        job_class: Type[ContinuousJob] | Type[ScheduledJob] | Type[OneOffJob],
+        job_class: type[ContinuousJob] | type[ScheduledJob] | type[OneOffJob],
         tool_name: str,
     ) -> list[AnyJob]:
         _, k8s_plural = _get_kind_and_plural_from_job_class(job_class=job_class)

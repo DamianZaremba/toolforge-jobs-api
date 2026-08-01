@@ -82,7 +82,7 @@ def _create_fake_http_error(
         requests.get(f"https://{FAKE_K8S_HOST}/make-error").raise_for_status()
     except HTTPError as error:
         return error
-    raise Exception("did not get expected error")
+    raise Exception("did not get expected error")  # noqa: TRY002
 
 
 class TestCreateErrorFromK8sResponse:

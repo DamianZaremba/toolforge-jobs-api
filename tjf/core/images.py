@@ -184,16 +184,16 @@ class Image(BaseModel):
             return matched_prebuilt_image
 
         # TODO: set validate_assigments=True and use the model directly (see https://gitlab.wikimedia.org/repos/cloud/toolforge/jobs-api/-/merge_requests/273#note_199637)
-        params = dict(
-            type=ImageType.STANDARD,
-            short_name=path,
-            aliases=[],
-            tag=tag,
-            host=host,
-            path=path,
-            state=DEFAULT_IMAGE_STATE,
-            exists=False,
-        )
+        params = {
+            "type": ImageType.STANDARD,
+            "short_name": path,
+            "aliases": [],
+            "tag": tag,
+            "host": host,
+            "path": path,
+            "state": DEFAULT_IMAGE_STATE,
+            "exists": False,
+        }
         if tag:
             params["short_name"] = f"{params['short_name']}:{tag}"
         if digest:
@@ -237,7 +237,7 @@ def _get_harbor_project(tool: str) -> str:
     return f"tool-{tool}"
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _get_harbor_config() -> HarborConfig:
     with open(HARBOR_CONFIG_PATH, "r") as f:
         data = json.load(f)
@@ -247,12 +247,12 @@ def _get_harbor_config() -> HarborConfig:
     )
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _get_images_data() -> dict[str, Any]:
     skip_images = get_settings().skip_images
     if skip_images:
         return {
-            "datetime": datetime.now().isoformat(),
+            "datetime": datetime.now(tz=UTC).isoformat(),
             "data": {},
         }
 
@@ -264,7 +264,7 @@ def _get_images_data() -> dict[str, Any]:
     yaml_data = yaml.safe_load(configmap["data"]["images-v1.yaml"])
 
     return {
-        "datetime": datetime.now().isoformat(),
+        "datetime": datetime.now(tz=UTC).isoformat(),
         "data": yaml_data,
     }
 
@@ -274,7 +274,7 @@ def _get_prebuilt_images() -> list[Image]:
     refresh_interval = settings.images_config_refresh_interval
     LOGGER.debug("Fetching cached images data")
     result = copy.deepcopy(_get_images_data())
-    refresh_if_older = datetime.now() - refresh_interval
+    refresh_if_older = datetime.now(tz=UTC) - refresh_interval
 
     if datetime.fromisoformat(result["datetime"]) < refresh_if_older:
         LOGGER.debug(
@@ -304,15 +304,15 @@ def _get_prebuilt_images() -> list[Image]:
         host, path = container.split("/", 1)
         path, tag = path.split(":", 1) if ":" in path else (path, "latest")
         tag, digest = tag.split("@", 1) if "@" in path else (tag, "")
-        params = dict(
-            type=ImageType.STANDARD,
-            short_name=name,
-            aliases=image_data.get("aliases", []),
-            host=host,
-            path=path,
-            tag=tag,
-            state=image_data["state"],
-        )
+        params = {
+            "type": ImageType.STANDARD,
+            "short_name": name,
+            "aliases": image_data.get("aliases", []),
+            "host": host,
+            "path": path,
+            "tag": tag,
+            "state": image_data["state"],
+        }
         # prebuilt images don't have digests for now, this may change in the future
         if digest:
             params["digest"] = digest

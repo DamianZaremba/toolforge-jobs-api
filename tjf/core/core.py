@@ -15,8 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 import logging
-from collections.abc import Mapping
-from typing import AsyncIterator, Tuple
+from collections.abc import AsyncIterator, Mapping
 
 from pydantic.main import IncEx
 from toolforge_weld.utils import apeek
@@ -61,9 +60,12 @@ def _update_storage_job_status_from_runtime(
 
     # Hack due to us manually adding `launcher` to the runtime if not there
     # for buildservice images
-    if storage_job.image.type == ImageType.BUILDSERVICE:
-        if storage_job.cmd.startswith("launcher ") and runtime_job:
-            runtime_job.cmd = f"launcher {runtime_job.cmd}"
+    if (
+        storage_job.image.type == ImageType.BUILDSERVICE
+        and storage_job.cmd.startswith("launcher ")
+        and runtime_job
+    ):
+        runtime_job.cmd = f"launcher {runtime_job.cmd}"
 
     if not runtime_job or runtime_job.model_dump(
         exclude=to_exclude
@@ -107,8 +109,8 @@ class Core:
             self.runtime.create_job(job=job)
         except K8sAlreadyExists:
             recreate = True
-        except TjfError as e:
-            raise e
+        except TjfError:
+            raise
         except Exception as e:
             raise TjfError("Unable to start job") from e
 
@@ -116,8 +118,8 @@ class Core:
             try:
                 self.runtime.delete_job(job=job)
                 self.runtime.create_job(job=job)
-            except TjfError as e:
-                raise e
+            except TjfError:
+                raise
             except Exception as e:
                 raise TjfError("Unable to start job") from e
 
@@ -127,16 +129,16 @@ class Core:
         job = self._create_storage_job(job=job)
         try:
             self._create_runtime_job(job=resolved_job)
-        except Exception as error:
+        except Exception:
             LOGGER.exception(
-                f"Failed to create runtime job ({error}), cleaning up. Job was:\n{job}"
+                f"Failed to create runtime job, cleaning up. Job was:\n{job}"
             )
             self.delete_job(job=job)
             raise
 
         return job
 
-    def update_job(self, job: AnyJob) -> Tuple[bool, str]:
+    def update_job(self, job: AnyJob) -> tuple[bool, str]:
         if isinstance(job, OneOffJob):
             return False, "OneOffJobs can't be updated, delete and recreate it instead"
 
@@ -183,7 +185,7 @@ class Core:
             LOGGER.debug("Skipping updating one-off job in storage.")
             return False
 
-        to_exclude = set(["status_short", "status_long", "status", "k8s_object"])
+        to_exclude = {"status_short", "status_long", "status", "k8s_object"}
         are_the_same = existing_job.model_dump(
             exclude_unset=True, exclude=to_exclude
         ) == new_job.model_dump(exclude_unset=True, exclude=to_exclude)
@@ -273,9 +275,9 @@ class Core:
                     raise TjfValidationError(f"Unknown job type {storage_job.job_type}")
             except NotFoundInRuntime:
                 pass
-            except Exception as error:
+            except Exception:
                 LOGGER.exception(
-                    f"Error when retrieving job {storage_job.job_name} for tool {tool_name} from runtime: {error}"
+                    f"Error when retrieving job {storage_job.job_name} for tool {tool_name} from runtime"
                 )
 
             final_job = self._reconciliate_storage_and_runtime(
@@ -328,9 +330,9 @@ class Core:
 
         except NotFoundInRuntime:
             pass
-        except Exception as error:
+        except Exception:
             LOGGER.exception(
-                f"Error when trying to get job {name} for tool {tool_name} from runtime: {error}"
+                f"Error when trying to get job {name} for tool {tool_name} from runtime"
             )
 
         return self._reconciliate_storage_and_runtime(

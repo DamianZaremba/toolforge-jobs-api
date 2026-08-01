@@ -4,18 +4,17 @@ T = TypeVar("T")
 U = TypeVar("U")
 
 
-def dict_get_object(dict_in: dict[T, U], kind: T) -> U | None:
-    for o in dict_in:
-        if o == kind:
-            return dict_in[o]
+def dict_get_object[T, U](dict_in: dict[T, U], kind: T) -> U | None:
+    for key, value in dict_in.items():
+        if key == kind:
+            return value
 
     return None
 
 
 def remove_prefixes(text: str, prefixes: set[str]) -> str:
     for prefix in prefixes:
-        if text.startswith(prefix):
-            text = text[len(prefix) :]
+        text = text.removeprefix(prefix)
     return text
 
 

@@ -1,7 +1,8 @@
-from datetime import datetime, timezone
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from http import HTTPStatus
 from logging import getLogger
-from typing import Any, AsyncIterator
+from typing import Any
 
 import requests
 from toolforge_weld.kubernetes import parse_quantity
@@ -104,9 +105,9 @@ class K8sRuntime(BaseRuntime):
                 one_off_job.status = get_one_off_job_status(
                     tool_account=tool_account, k8s_job=one_off_job.k8s_object
                 )
-            except Exception as error:
+            except Exception:
                 LOGGER.exception(
-                    f"Exception trying to get the status for {one_off_job}: {error}"
+                    f"Exception trying to get the status for {one_off_job}"
                 )
                 one_off_job.status_long = "Failed retrieving status"
                 one_off_job.status_short = "Toolforge error"
@@ -138,9 +139,9 @@ class K8sRuntime(BaseRuntime):
                 one_off_job.status = get_one_off_job_status(
                     tool_account=tool_account, k8s_job=one_off_job.k8s_object
                 )
-            except Exception as error:
+            except Exception:
                 LOGGER.exception(
-                    f"Exception trying to get the status for {one_off_job}: {error}"
+                    f"Exception trying to get the status for {one_off_job}"
                 )
                 one_off_job.status_long = "Failed retrieving status"
                 one_off_job.status_short = "Toolforge error"
@@ -172,9 +173,9 @@ class K8sRuntime(BaseRuntime):
                 scheduled_job.status = get_scheduled_job_status(
                     job=scheduled_job, tool_account=tool_account
                 )
-            except Exception as error:
+            except Exception:
                 LOGGER.exception(
-                    f"Exception trying to get the status for {scheduled_job}: {error}"
+                    f"Exception trying to get the status for {scheduled_job}"
                 )
                 scheduled_job.status_long = "Failed retrieving status"
                 scheduled_job.status_short = "Toolforge error"
@@ -206,10 +207,8 @@ class K8sRuntime(BaseRuntime):
                 job.status = get_continuous_job_status(
                     job=job, tool_account=tool_account
                 )
-            except Exception as error:
-                LOGGER.exception(
-                    f"Exception trying to get the status for {job}: {error}"
-                )
+            except Exception:
+                LOGGER.exception(f"Exception trying to get the status for {job}")
                 job.status_long = "Failed retrieving status"
                 job.status_short = "Toolforge error"
                 job.status = ContinuousJobStatus(
@@ -232,7 +231,7 @@ class K8sRuntime(BaseRuntime):
         # as this one does not really exist for k8s but it looks like.
         #     see https://kubernetes.io/docs/reference/labels-annotations-taints/#kubectl-k8s-io-restart-at
         k8s_deployment["spec"]["template"]["metadata"]["annotations"] |= {
-            "app.kubernetes.io/restartedAt": datetime.now(timezone.utc).isoformat()
+            "app.kubernetes.io/restartedAt": datetime.now(UTC).isoformat()
         }
         try:
             tool_account.k8s_cli.replace_object(
@@ -348,7 +347,6 @@ class K8sRuntime(BaseRuntime):
                     job_type=job.job_type,
                 ),
             )
-        return None
 
     def _create_service(self, job: ContinuousJob) -> None:
         tool_account = ToolAccount(name=job.tool_name)
@@ -358,7 +356,6 @@ class K8sRuntime(BaseRuntime):
             tool_account.k8s_cli.replace_object(kind=K8sKind.SERVICES, spec=spec)
         except requests.exceptions.HTTPError as error:
             _wrap_in_runtime_exception_and_raise(error=error, job=job, spec=spec)
-        return None
 
     def _create_or_delete_httproute(self, job: ContinuousJob) -> None:
         tool_account = ToolAccount(name=job.tool_name)

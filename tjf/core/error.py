@@ -36,8 +36,6 @@ class TjfClientError(TjfError):
 class TjfValidationError(TjfClientError):
     """Custom error class for jobs-api errors caused by invalid data."""
 
-    pass
-
 
 class TjfJobParsingError(TjfError):
     """Custom error class for issues with loading jobs from the cluster."""

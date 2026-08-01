@@ -1,8 +1,9 @@
 import asyncio
 import functools
 import json
-from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import urlencode
 
 import requests
@@ -30,7 +31,7 @@ def _parse_stream(result: dict[str, Any]) -> Iterator[LogEntry]:
             # The Loki API returns timestamps as Unix nanos,
             # cut last 9 digits to convert to Unix seconds to make the number
             # small enough for Python int to process
-            datetime=datetime.fromtimestamp(int(time[:-9]), tz=timezone.utc),
+            datetime=datetime.fromtimestamp(int(time[:-9]), tz=UTC),
             message=message,
         )
 

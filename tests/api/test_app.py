@@ -506,12 +506,10 @@ class TestApiUpdateJob:
         fake_images: dict[str, Any],
     ) -> None:
         dummy_job = get_dummy_job(
-            **{
-                # The model is validating `None` as a path and getting "None",
-                # then the diff errors because `"None"` and `null` are different...
-                "filelog_stderr": "/dev/null",
-                "filelog_stdout": "/dev/null",
-            }
+            # The model is validating `None` as a path and getting "None",
+            # then the diff errors because `"None"` and `null` are different...
+            filelog_stderr="/dev/null",
+            filelog_stdout="/dev/null",
         )
         monkeypatch.setattr(
             app.core.storage, "get_job", value=lambda *args, **kwargs: dummy_job

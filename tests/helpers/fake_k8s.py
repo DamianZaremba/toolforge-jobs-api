@@ -10,7 +10,6 @@ from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
     AnyJob,
-    ContinuousJob,
     HealthCheckType,
     JobType,
     ScriptHealthCheck,
@@ -168,7 +167,7 @@ CRONJOB_NOT_RUN_YET = {
                                     "--",
                                     "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                                 ],
-                                "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",  # noqa:E501
+                                "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                                 "imagePullPolicy": "Always",
                                 "name": "job",
                                 "resources": {},
@@ -249,7 +248,7 @@ CRONJOB_PREVIOUS_RUN_BUT_NO_RUNNING_JOB = {
                                     "--",
                                     "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                                 ],
-                                "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",  # noqa:E501
+                                "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                                 "imagePullPolicy": "Always",
                                 "name": "job",
                                 "resources": {},
@@ -330,7 +329,7 @@ CRONJOB_WITH_RUNNING_JOB = {
                                     "--",
                                     "exec 1>>/data/project/tf-test/test.out;exec 2>>/data/project/tf-test/test.err;./restart.sh",
                                 ],
-                                "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",  # noqa:E501
+                                "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                                 "imagePullPolicy": "Always",
                                 "name": "job",
                                 "resources": {},
@@ -726,7 +725,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_NEW_ARRAY = {
                             "/bin/sh",
                             "-c",
                             "--",
-                            "exec 1>>/dev/null;exec 2>>/dev/null;./command-by-the-user.sh --with-args ; ./other-command.sh",  # noqa:E501
+                            "exec 1>>/dev/null;exec 2>>/dev/null;./command-by-the-user.sh --with-args ; ./other-command.sh",
                         ],
                         "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
@@ -787,7 +786,7 @@ JOB_CONT_NO_EMAILS_NO_FILELOG_V2_ARRAY = {
                             "/bin/sh",
                             "-c",
                             "--",
-                            "./command-by-the-user.sh --with-args ; ./other-command.sh",  # noqa:E501
+                            "./command-by-the-user.sh --with-args ; ./other-command.sh",
                         ],
                         "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
@@ -854,7 +853,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_NEW_ARRAY = {
                             "/bin/sh",
                             "-c",
                             "--",
-                            "exec 1>>/data/project/test/myjob.out;exec 2>>/data/project/test/myjob.err;./command-by-the-user.sh --with-args ; ./other-command.sh",  # noqa:E501
+                            "exec 1>>/data/project/test/myjob.out;exec 2>>/data/project/test/myjob.err;./command-by-the-user.sh --with-args ; ./other-command.sh",
                         ],
                         "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
@@ -920,7 +919,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT = {
                             "/bin/sh",
                             "-c",
                             "--",
-                            "exec 1>>/data/project/test/logs/myjob.log;exec 2>>myjob.err;./command-by-the-user.sh --with-args",  # noqa:E501
+                            "exec 1>>/data/project/test/logs/myjob.log;exec 2>>myjob.err;./command-by-the-user.sh --with-args",
                         ],
                         "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
@@ -986,7 +985,7 @@ JOB_CONT_NO_EMAILS_YES_FILELOG_CUSTOM_STDOUT_STDERR = {
                             "/bin/sh",
                             "-c",
                             "--",
-                            "exec 1>>/dev/null;exec 2>>logs/customlog.err;./command-by-the-user.sh --with-args",  # noqa:E501
+                            "exec 1>>/dev/null;exec 2>>logs/customlog.err;./command-by-the-user.sh --with-args",
                         ],
                         "image": "docker-registry.tools.wmflabs.org/toolforge-bullseye-sssd:latest",
                         "imagePullPolicy": "Always",
@@ -1049,8 +1048,6 @@ K8S_ONEOFF_JOB_OBJ = json.loads(
     (FIXTURES_PATH / "jobs" / "job-simple-prebuilt.json").read_text()
 )
 
-ContinuousJob
-
 
 def get_continuous_job_with_health_check_fixture_as_job(
     add_status: bool = True, **overrides
@@ -1069,10 +1066,10 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
 
     Pass a custom job_name to get a non-matching job instead.
     """
-    params = dict(
-        job_name="migrate",
-        cmd="cmdname with-arguments 'other argument with spaces'",
-        image=Image(
+    params = {
+        "job_name": "migrate",
+        "cmd": "cmdname with-arguments 'other argument with spaces'",
+        "image": Image(
             short_name="python3.11",
             host="docker-registry.tools.wmflabs.org",
             path="toolforge-python311-sssd-web",
@@ -1085,11 +1082,11 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
                 "toolforge-python311-sssd-web",
             ],
         ),
-        job_type=JobType.CONTINUOUS,
-        tool_name="some-tool",
-        k8s_object=K8S_CONTINUOUS_JOB_OBJ,
-        mount=MountOption.ALL,
-    )
+        "job_type": JobType.CONTINUOUS,
+        "tool_name": "some-tool",
+        "k8s_object": K8S_CONTINUOUS_JOB_OBJ,
+        "mount": MountOption.ALL,
+    }
     if add_status:
         overrides["status_short"] = overrides.get("status_short", "Not running")
         overrides["status_long"] = overrides.get(
@@ -1115,11 +1112,11 @@ def get_one_off_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJ
 
     Pass a custom job_name to get a non-matching job instead.
     """
-    params = dict(
-        job_name="testone-off",
-        cmd="date",
+    params = {
+        "job_name": "testone-off",
+        "cmd": "date",
         # When creating a new job, the job that comes as input only has the short_name for the image
-        image=Image(
+        "image": Image(
             short_name="python3.11",
             type=ImageType.STANDARD,
             state="stable",
@@ -1132,9 +1129,9 @@ def get_one_off_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJ
                 "toolforge-python311-sssd-web",
             ],
         ),
-        job_type=JobType.ONE_OFF,
-        tool_name="some-tool",
-    )
+        "job_type": JobType.ONE_OFF,
+        "tool_name": "some-tool",
+    }
     optional_params = {
         # This cpu is only valid if the default cpu limit is 1000m, otherwise this
         # cpu will be 1.0 (will use the k8s resource limit instead of the request value)
@@ -1160,12 +1157,12 @@ def get_scheduled_job_fixture_as_job(add_status: bool = True, **overrides) -> An
 
     Pass a custom job_name to get a non-matching job instead.
     """
-    params = dict(
-        job_name="cronjobtest",
-        cmd="date",
-        mount=MountOption.ALL,
+    params = {
+        "job_name": "cronjobtest",
+        "cmd": "date",
+        "mount": MountOption.ALL,
         # When creating a new job, the job that comes as input only has the short_name for the image
-        image=Image(
+        "image": Image(
             short_name="python3.11",
             type=ImageType.STANDARD,
             state="stable",
@@ -1178,9 +1175,9 @@ def get_scheduled_job_fixture_as_job(add_status: bool = True, **overrides) -> An
                 "toolforge-python311-sssd-web",
             ],
         ),
-        job_type=JobType.SCHEDULED,
-        tool_name="tf-test",
-    )
+        "job_type": JobType.SCHEDULED,
+        "tool_name": "tf-test",
+    }
     params["schedule"] = CronExpression.parse(
         value="@daily", job_name=params["job_name"], tool_name=params["tool_name"]
     )

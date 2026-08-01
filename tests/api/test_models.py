@@ -1,5 +1,6 @@
+from collections.abc import Generator
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 import pytest
 from toolforge_weld.kubernetes import MountOption
@@ -32,14 +33,14 @@ from tjf.runtimes.k8s.jobs import get_one_off_job_from_k8s_object
 
 
 def get_dummy_core_common_job(**overrides) -> CoreCommonJob:
-    params = dict(
-        cmd="dummy-command",
-        image=Image.from_short_name_or_url(
+    params = {
+        "cmd": "dummy-command",
+        "image": Image.from_short_name_or_url(
             url_or_name="python3.11", tool_name="some-tool"
         ),
-        job_name="dummy-job-name",
-        tool_name="some-tool",
-    )
+        "job_name": "dummy-job-name",
+        "tool_name": "some-tool",
+    }
     return CoreCommonJob.model_validate(params | overrides)
 
 
@@ -105,17 +106,17 @@ def get_dummy_defined_one_off_job(**overrides) -> DefinedOneOffJob:
 
 
 def get_dummy_core_scheduled_job(**overrides) -> CoreScheduledJob:
-    params = dict(
-        cmd="dummy-command",
-        image=Image.from_short_name_or_url(
+    params = {
+        "cmd": "dummy-command",
+        "image": Image.from_short_name_or_url(
             url_or_name="python3.11", tool_name="some-tool"
         ),
-        job_name="dummy-job-name",
-        tool_name="some-tool",
-        schedule=CronExpression.parse(
+        "job_name": "dummy-job-name",
+        "tool_name": "some-tool",
+        "schedule": CronExpression.parse(
             value="@daily", job_name="dummy-job-name", tool_name="some-tool"
         ),
-    )
+    }
     return CoreScheduledJob.model_validate(params | overrides)
 
 
@@ -150,14 +151,14 @@ def get_dummy_defined_scheduled_job(**overrides) -> DefinedScheduledJob:
 
 
 def get_dummy_core_continuous_job(**overrides) -> CoreContinuousJob:
-    params = dict(
-        cmd="dummy-command",
-        image=Image.from_short_name_or_url(
+    params = {
+        "cmd": "dummy-command",
+        "image": Image.from_short_name_or_url(
             url_or_name="python3.11", tool_name="some-tool"
         ),
-        job_name="dummy-job-name",
-        tool_name="some-tool",
-    )
+        "job_name": "dummy-job-name",
+        "tool_name": "some-tool",
+    }
     return CoreContinuousJob.model_validate(params | overrides)
 
 
@@ -189,7 +190,7 @@ def get_dummy_defined_continuous_job(**overrides) -> DefinedContinuousJob:
 
 
 @pytest.fixture(autouse=True)
-def use_fake_images(fake_images: dict[str, Any]) -> Generator[None, None, None]:
+def use_fake_images(fake_images: dict[str, Any]) -> Generator[None]:
     yield
 
 

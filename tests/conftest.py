@@ -1,8 +1,9 @@
 import json
 import sys
+from collections.abc import Generator
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 from unittest.mock import MagicMock
 
 import kubernetes  # type: ignore
@@ -26,9 +27,15 @@ from tjf.storages.k8s import storage
 TESTS_PATH = Path(__file__).parent.resolve()
 sys.path.append(str(TESTS_PATH))
 
-# Needed after sys.path.append
-from tests.helpers.fake_k8s import FAKE_IMAGE_CONFIG, FIXTURES_PATH  # noqa
-from tests.helpers.fakes import FAKE_HARBOR_HOST, get_fake_harbor_config  # noqa
+# Needed after sys.path.append, flake8 and ruff fight with it
+from tests.helpers.fake_k8s import (  # noqa: E402, RUF100
+    FAKE_IMAGE_CONFIG,
+    FIXTURES_PATH,
+)
+from tests.helpers.fakes import (  # noqa: E402, RUF100
+    FAKE_HARBOR_HOST,
+    get_fake_harbor_config,
+)
 
 FAKE_VALID_TOOL_TOOL_HEADER = "O=toolforge,CN=some-tool"
 
@@ -40,7 +47,7 @@ def clean_settings_environment(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-def fixtures_path() -> Generator[Path, None, None]:
+def fixtures_path() -> Generator[Path]:
     yield FIXTURES_PATH
 
 
@@ -198,7 +205,7 @@ def runtime_k8s_cli(
 
 
 @pytest.fixture
-def app(storage_k8s_cli: MagicMock) -> Generator[JobsApi, None, None]:
+def app(storage_k8s_cli: MagicMock) -> Generator[JobsApi]:
     settings = Settings(
         debug=True,
         skip_metrics=False,

@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -36,73 +36,73 @@ async def test_LokiSource_query_nofollow(
         LogEntry(
             pod="contjob-5c858fb978-tv2zb",
             container="job",
-            datetime=datetime(2025, 7, 7, 12, 34, 51, tzinfo=timezone.utc),
+            datetime=datetime(2025, 7, 7, 12, 34, 51, tzinfo=UTC),
             message="another loop!",
         ),
         LogEntry(
             pod="contjob-5c858fb978-tv2zb",
             container="job",
-            datetime=datetime(2025, 7, 7, 12, 34, 51, tzinfo=timezone.utc),
+            datetime=datetime(2025, 7, 7, 12, 34, 51, tzinfo=UTC),
             message="Mon Jul  7 12:34:51 PM UTC 2025",
         ),
         LogEntry(
             pod="contjob-5c858fb978-tv2zb",
             container="job",
-            datetime=datetime(2025, 7, 7, 12, 34, 21, tzinfo=timezone.utc),
+            datetime=datetime(2025, 7, 7, 12, 34, 21, tzinfo=UTC),
             message="another loop!",
         ),
         LogEntry(
             pod="contjob-5c858fb978-tv2zb",
             container="job",
-            datetime=datetime(2025, 7, 7, 12, 34, 21, tzinfo=timezone.utc),
+            datetime=datetime(2025, 7, 7, 12, 34, 21, tzinfo=UTC),
             message="Mon Jul  7 12:34:21 PM UTC 2025",
         ),
         LogEntry(
             pod="contjob-5c858fb978-tv2zb",
             container="job",
-            datetime=datetime(2025, 7, 7, 12, 33, 51, tzinfo=timezone.utc),
+            datetime=datetime(2025, 7, 7, 12, 33, 51, tzinfo=UTC),
             message="another loop!",
         ),
         LogEntry(
             pod="contjob-5c858fb978-tv2zb",
             container="job",
-            datetime=datetime(2025, 7, 7, 12, 33, 51, tzinfo=timezone.utc),
+            datetime=datetime(2025, 7, 7, 12, 33, 51, tzinfo=UTC),
             message="Mon Jul  7 12:33:51 PM UTC 2025",
         ),
         LogEntry(
             pod="contjob-5c858fb978-kfq65",
             container="job",
-            datetime=datetime(2025, 7, 7, 12, 34, 40, tzinfo=timezone.utc),
+            datetime=datetime(2025, 7, 7, 12, 34, 40, tzinfo=UTC),
             message="another loop!",
         ),
         LogEntry(
             pod="contjob-5c858fb978-kfq65",
             container="job",
-            datetime=datetime(2025, 7, 7, 12, 34, 40, tzinfo=timezone.utc),
+            datetime=datetime(2025, 7, 7, 12, 34, 40, tzinfo=UTC),
             message="Mon Jul  7 12:34:40 PM UTC 2025",
         ),
         LogEntry(
             pod="contjob-5c858fb978-kfq65",
             container="job",
-            datetime=datetime(2025, 7, 7, 12, 34, 10, tzinfo=timezone.utc),
+            datetime=datetime(2025, 7, 7, 12, 34, 10, tzinfo=UTC),
             message="another loop!",
         ),
         LogEntry(
             pod="contjob-5c858fb978-kfq65",
             container="job",
-            datetime=datetime(2025, 7, 7, 12, 34, 10, tzinfo=timezone.utc),
+            datetime=datetime(2025, 7, 7, 12, 34, 10, tzinfo=UTC),
             message="Mon Jul  7 12:34:10 PM UTC 2025",
         ),
         LogEntry(
             pod="contjob-5c858fb978-kfq65",
             container="job",
-            datetime=datetime(2025, 7, 7, 12, 33, 40, tzinfo=timezone.utc),
+            datetime=datetime(2025, 7, 7, 12, 33, 40, tzinfo=UTC),
             message="another loop!",
         ),
         LogEntry(
             pod="contjob-5c858fb978-kfq65",
             container="job",
-            datetime=datetime(2025, 7, 7, 12, 33, 40, tzinfo=timezone.utc),
+            datetime=datetime(2025, 7, 7, 12, 33, 40, tzinfo=UTC),
             message="Mon Jul  7 12:33:40 PM UTC 2025",
         ),
     ]

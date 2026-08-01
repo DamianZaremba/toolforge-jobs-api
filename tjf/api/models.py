@@ -1,11 +1,10 @@
 from enum import Enum
 from logging import getLogger
 from pathlib import Path
-from typing import Any, Literal, Self, Type
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import Field, StringConstraints, field_validator, model_validator
 from toolforge_weld.kubernetes import MountOption, parse_quantity
-from typing_extensions import Annotated
 
 from tjf.core.utils import format_quantity, parse_and_format_mem
 
@@ -50,7 +49,7 @@ class CommonJob(BaseModel):
 
     @field_validator("name")
     @classmethod
-    def job_name_validator(cls: Type["CommonJob"], value: str) -> str:
+    def job_name_validator(cls: type["CommonJob"], value: str) -> str:
         # It's fine leaving this here because we want to customize the error message for this field.
         # Moving to internal jobs model will make customization impossible.
         # Making this field nullable will lead to confusion in the openapi spec.
@@ -478,14 +477,14 @@ class Image(BaseModel):
     image: str | None
 
     @classmethod
-    def from_image_data(cls: Type["Image"], image_data: ImageData) -> "Image":
+    def from_image_data(cls: type["Image"], image_data: ImageData) -> "Image":
         return cls(shortname=image_data.short_name, image=image_data.to_full_url())
 
 
 class ResponseMessages(BaseModel):
-    info: list[str] = []
-    warning: list[str] = []
-    error: list[str] = []
+    info: list[str] = Field(default=[])
+    warning: list[str] = Field(default=[])
+    error: list[str] = Field(default=[])
 
 
 class ImageListResponse(BaseModel):

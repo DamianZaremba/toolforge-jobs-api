@@ -9,8 +9,6 @@ from .error import TjfJobParsingError, TjfValidationError
 class CronParsingError(TjfValidationError):
     """Raised when a cron input fails to parse."""
 
-    pass
-
 
 @dataclass
 class CronField:

@@ -1,6 +1,7 @@
+from collections.abc import Callable
 from copy import deepcopy
-from datetime import datetime, timezone
-from typing import Any, Callable
+from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import ANY, MagicMock, call
 
 import pytest
@@ -333,7 +334,7 @@ class TestGetOneOffJob:
         monkeypatch: pytest.MonkeyPatch,
     ):
         def get_one_off_job_status_raising(*args, kind, **kwargs):
-            raise Exception("Something happened!")
+            raise Exception("Something happened!")  # noqa: TRY002
 
         patch_tool_account_k8s_cli(
             monkeymodule=monkeymodule,
@@ -695,7 +696,7 @@ class TestGetScheduledJob:
         monkeypatch: pytest.MonkeyPatch,
     ):
         def get_scheduled_job_status_raising(*args, kind, **kwargs):
-            raise Exception("Something happened!")
+            raise Exception("Something happened!")  # noqa: TRY002
 
         patch_tool_account_k8s_cli(
             monkeymodule=monkeymodule,
@@ -1028,7 +1029,7 @@ class TestGetContinuousJob:
         monkeypatch: pytest.MonkeyPatch,
     ):
         def get_continuous_job_status_raising(*args, kind, **kwargs):
-            raise Exception("Something happened!")
+            raise Exception("Something happened!")  # noqa: TRY002
 
         patch_tool_account_k8s_cli(
             monkeymodule=monkeymodule,
@@ -1336,11 +1337,10 @@ class TestRestartJob:
                 k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
             )
             my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
-            with freeze_time(now):
-                with pytest.raises(NotFoundInRuntime):
-                    my_runtime.restart_job(job=job)
+            with freeze_time(now), pytest.raises(NotFoundInRuntime):
+                my_runtime.restart_job(job=job)
 
             runtime_k8s_cli.get_object.assert_called_once()
 
@@ -1407,11 +1407,10 @@ class TestRestartJob:
                 k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
             )
             my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
-            with freeze_time(now):
-                with pytest.raises(NotFoundInRuntime):
-                    my_runtime.restart_job(job=job)
+            with freeze_time(now), pytest.raises(NotFoundInRuntime):
+                my_runtime.restart_job(job=job)
 
             runtime_k8s_cli.replace_object.assert_called_once()
 
@@ -1427,7 +1426,7 @@ class TestRestartJob:
                 k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
             )
             my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             expected_spec = get_k8s_deployment_object(
                 job=job.get_resolved_core_job(),
                 default_cpu_limit=my_runtime.default_cpu_limit,

@@ -50,7 +50,7 @@ def error_handler(request: Request, error: Exception) -> JSONResponse:
     message = message or str(error)
     if cause:
         print(f"----------------- cause: {cause}")
-        message += f" ({str(cause)})"
+        message += f" ({cause!s})"
 
     LOGGER.error(f"{message}. context: {json.dumps(data)}")
     return JSONResponse(

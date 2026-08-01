@@ -4,7 +4,7 @@ from unittest.mock import create_autospec
 
 from toolforge_weld.kubernetes import K8sClient
 
-import tests.helpers.fake_k8s as fake_k8s
+from tests.helpers import fake_k8s
 from tests.utils import cases
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.jobs import K8sKind, get_scheduled_job_from_k8s_object
@@ -16,7 +16,7 @@ from tjf.runtimes.k8s.status_deprecated import (
 
 
 def test_get_quota_error():
-    message = 'Error creating: pods "test2-dgggb" is forbidden: exceeded quota: tool-tf-test, requested: limits.cpu=500m,limits.memory=512Mi, used: limits.cpu=1,limits.memory=1Gi, limited: limits.cpu=100m,limits.memory=12'  # noqa: E501
+    message = 'Error creating: pods "test2-dgggb" is forbidden: exceeded quota: tool-tf-test, requested: limits.cpu=500m,limits.memory=512Mi, used: limits.cpu=1,limits.memory=1Gi, limited: limits.cpu=100m,limits.memory=12'
     assert _get_quota_error(message) == "out of quota for cpu, memory"
 
 

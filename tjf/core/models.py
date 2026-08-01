@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, Literal, Type
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import (
@@ -31,7 +31,6 @@ from pydantic import (
     model_validator,
 )
 from toolforge_weld.kubernetes import MountOption, parse_quantity
-from typing_extensions import Self
 
 from .cron import CronExpression
 from .images import Image, ImageType
@@ -181,12 +180,12 @@ class CommonJob(PydanticBaseModel):
 
     @field_validator("memory")
     @classmethod
-    def memory_validator(cls: Type["CommonJob"], value: str) -> str | None:
+    def memory_validator(cls: type["CommonJob"], value: str) -> str | None:
         return value and parse_and_format_mem(mem=value)
 
     @field_validator("cpu")
     @classmethod
-    def cpu_validator(cls: Type["CommonJob"], value: str) -> str | None:
+    def cpu_validator(cls: type["CommonJob"], value: str) -> str | None:
         return value and format_quantity(quantity_value=parse_quantity(value))
 
     @model_validator(mode="after")
@@ -349,7 +348,7 @@ class Quota(BaseModel):
     categories: list[QuotaCategory]
 
     @classmethod
-    def from_quota_data(cls: Type["Quota"], quota_data: list[QuotaData]) -> "Quota":
+    def from_quota_data(cls: type["Quota"], quota_data: list[QuotaData]) -> "Quota":
         quota = cls(categories=[])
         # size of both QuotaCategoryType and quota_data are limited so nested for-loop is fine
         for type in QuotaCategoryType:

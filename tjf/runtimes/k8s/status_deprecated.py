@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2023 Arturo Borrero Gonzalez <aborrero@wikimedia.org>
 # TODO: remove after https://gitlab.wikimedia.org/repos/cloud/toolforge/jobs-api/-/merge_requests/208 is merged and been in use for a while
-from datetime import datetime
+from datetime import UTC, datetime
 from logging import getLogger
 from typing import Any
 
@@ -69,8 +69,10 @@ def _get_job_object_status(
         status_dict.get("active", None) is not None
         and status_dict.get("startTime", None) is not None
     ):
-        start_time = datetime.strptime(status_dict["startTime"], KUBERNETES_DATE_FORMAT)
-        running_for = int((datetime.now() - start_time).total_seconds())
+        start_time = datetime.strptime(
+            status_dict["startTime"], KUBERNETES_DATE_FORMAT
+        ).astimezone(tz=UTC)
+        running_for = int((datetime.now(tz=UTC) - start_time).total_seconds())
         return f"Running for {format_duration(running_for)}"
 
     job_uid = job["metadata"]["uid"]
@@ -185,7 +187,7 @@ def _refresh_status_cronjob_from_restarted_cronjob(
 def _refresh_status_cronjob(tool_account: ToolAccount, job: ScheduledJob) -> None:
     status_dict = dict_get_object(job.k8s_object, "status")
     if status_dict is None:
-        return None
+        return
 
     last = status_dict.get("lastScheduleTime", None)
     if last:

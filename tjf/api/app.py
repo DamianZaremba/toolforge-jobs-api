@@ -74,7 +74,7 @@ def create_app(settings: Settings | None = None) -> JobsApi:
     if not settings.skip_metrics:
         get_metrics_app(app)
 
-    logging.info("Registered urls:")
-    logging.info("%s", str(app.routes))
+    LOGGER.info("Registered urls:")
+    LOGGER.info("%s", str(app.routes))
 
     return app

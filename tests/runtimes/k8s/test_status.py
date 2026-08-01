@@ -1,12 +1,12 @@
 import json
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, call, create_autospec
 
 from freezegun import freeze_time
 from toolforge_weld.kubernetes import K8sClient
 
-import tests.helpers.fake_k8s as fake_k8s
+from tests.helpers import fake_k8s
 from tests.helpers.fakes import get_dummy_job
 from tests.utils import cases
 from tjf.core.images import Image
@@ -264,7 +264,7 @@ def test_get_one_off_job_status(
     fake_tool_account: ToolAccount,
 ):
     dummy_date_str = (
-        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
     )
     k8s_job_json = json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_job))
     k8s_pods = (
@@ -789,7 +789,7 @@ def test_get_scheduled_job_status(
 ):
 
     dummy_date_str = (
-        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
     )
     k8s_cronjob_json = json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_cronjob))
     k8s_jobs_json = (
@@ -933,7 +933,7 @@ def test_get_continuous_job_status(
     runtime_k8s_cli: MagicMock,
 ):
     dummy_date_str = (
-        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
     )
     k8s_deployment_json = json.loads(
         re.sub(ISO_PATTERN, dummy_date_str, k8s_deployment)
@@ -962,7 +962,7 @@ def test_k8s_deployment_fails_if_no_ready_replicas_for_long(
     fake_tool_account: ToolAccount,
     runtime_k8s_cli: MagicMock,
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(tz=UTC)
     deployed_minutes_ago = 15
     dummy_date_str = (
         (now - timedelta(minutes=deployed_minutes_ago))

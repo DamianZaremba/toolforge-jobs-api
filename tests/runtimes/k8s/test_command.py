@@ -52,6 +52,7 @@ class TestGetCommandForK8s:
             capture_output=True,
             text=True,
             cwd=fake_tool_account.home,
+            check=True,
         )
 
         assert result.stdout == "this text has no meaningful content nofilelog,\n"
@@ -92,6 +93,7 @@ class TestGetCommandForK8s:
             capture_output=True,
             text=True,
             cwd=fake_tool_account.home,
+            check=True,
         )
 
         assert result.stdout == ""

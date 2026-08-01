@@ -1,6 +1,7 @@
+from collections.abc import Callable
 from copy import deepcopy
 from pathlib import Path, PosixPath
-from typing import Any, Callable
+from typing import Any
 from unittest.mock import MagicMock
 
 from pytest import MonkeyPatch

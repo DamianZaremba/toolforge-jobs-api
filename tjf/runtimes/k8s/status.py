@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2025 Raymond Ndibe <rndibe@wikimedia.org>
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from logging import getLogger
 from typing import Any
 
@@ -39,10 +39,10 @@ KUBERNETES_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 def _get_quota_error(message: str) -> str:
     keyword = "limited: "
     if keyword in message:
-        quota_types = set(
+        quota_types = {
             remove_prefixes(entry.split("=")[0], {"requests.", "limits."})
             for entry in message[message.rindex(keyword) + len(keyword) :].split(",")
-        )
+        }
     else:
         quota_types = set()
 
@@ -51,15 +51,14 @@ def _get_quota_error(message: str) -> str:
 
 def _get_duration(start_time: str | None) -> str:
     if start_time:
-        start_time_obj = datetime.strptime(start_time, KUBERNETES_DATE_FORMAT)
-        start_time_obj = start_time_obj.replace(tzinfo=timezone.utc)
+        start_time_obj = datetime.strptime(start_time, KUBERNETES_DATE_FORMAT).replace(
+            tzinfo=UTC
+        )
     else:
-        start_time_obj = datetime.now(timezone.utc)
+        start_time_obj = datetime.now(tz=UTC)
     # TODO: The format of the string returned by format_duration ("24d24h59m45s") has terrible UX.
     # Maybe use something else or refactor format_duration?
-    return format_duration(
-        int((datetime.now(timezone.utc) - start_time_obj).total_seconds())
-    )
+    return format_duration(int((datetime.now(tz=UTC) - start_time_obj).total_seconds()))
 
 
 def _get_highest_priority_status(
@@ -546,7 +545,7 @@ def get_scheduled_job_status(
     next_schedule = (
         croniter(expr_format=schedule)
         .get_next(datetime)
-        .replace(tzinfo=timezone.utc)
+        .replace(tzinfo=UTC)
         .isoformat()
         .replace("+00:00", "Z")
     )
@@ -568,7 +567,7 @@ def get_scheduled_job_status(
     )
     previous_schedule = previous_schedule or cronjob_status.get("lastScheduleTime", "")
     if previous_schedule:
-        base_time = date_parser.isoparse(previous_schedule).replace(tzinfo=timezone.utc)
+        base_time = date_parser.isoparse(previous_schedule).replace(tzinfo=UTC)
         cron = croniter(expr_format=schedule, start_time=base_time)
         next_schedule = cron.get_next(datetime).isoformat().replace("+00:00", "Z")
 
@@ -657,11 +656,11 @@ def _get_continuous_job_status_from_deployment_status(
 
     deployment_restart_time_obj = restarted_at and datetime.strptime(
         restarted_at, KUBERNETES_DATE_FORMAT
-    ).replace(tzinfo=timezone.utc)
+    ).replace(tzinfo=UTC)
     deployment_start_time_obj = datetime.strptime(
         k8s_deployment["metadata"]["creationTimestamp"], KUBERNETES_DATE_FORMAT
-    ).replace(tzinfo=timezone.utc)
-    success_deadline_exceeded = datetime.now(timezone.utc) - (
+    ).replace(tzinfo=UTC)
+    success_deadline_exceeded = datetime.now(UTC) - (
         deployment_restart_time_obj or deployment_start_time_obj
     ) > timedelta(seconds=JOB_PROGRESS_DEADLINE_SECONDS)
 
@@ -758,7 +757,7 @@ def get_continuous_job_status(
         and datetime.strptime(
             restarted_at,
             "%Y-%m-%dT%H:%M:%S.%f%z",  # can't use KUBERNETES_DATE_FORMAT here because of the format
-        ).replace(tzinfo=timezone.utc)
+        ).replace(tzinfo=UTC)
     )
     restarted_at = restarted_at and deployment_restart_time_obj.strftime(
         KUBERNETES_DATE_FORMAT
