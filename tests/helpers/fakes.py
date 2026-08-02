@@ -1,5 +1,3 @@
-from typing import Any
-
 from tjf.core.cron import CronExpression
 from tjf.core.images import HarborConfig, Image, ImageType
 from tjf.core.models import (
@@ -9,27 +7,12 @@ from tjf.core.models import (
     OneOffJob,
     ScheduledJob,
 )
-from tjf.runtimes.k8s.account import ToolAccount
 
 FAKE_HARBOR_HOST = "harbor.example.org"
 
 
 def get_fake_harbor_config() -> HarborConfig:
     return HarborConfig(host=FAKE_HARBOR_HOST)
-
-
-def get_fake_account(
-    fake_k8s_cli: Any | None = None, name: str = "tf-test"
-) -> ToolAccount:
-
-    class FakeToolAccount(ToolAccount):
-        namespace = f"tool-{name}"
-        k8s_cli = fake_k8s_cli
-
-        def __init__(self, name: str) -> None:
-            self.name = name
-
-    return FakeToolAccount(name=name)
 
 
 def get_dummy_job(**overrides) -> AnyJob:

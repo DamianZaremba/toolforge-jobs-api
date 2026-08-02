@@ -16,23 +16,27 @@
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import call, create_autospec
 
 import pytest
 import requests
 from requests import HTTPError
 from requests_mock import Mocker as RequestsMockMocker
+from toolforge_weld.kubernetes import K8sClient
 
 from tests.helpers.fake_k8s import (
     CRONJOB_NOT_RUN_YET,
     FAKE_K8S_HOST,
     LIMIT_RANGE_OBJECT,
 )
-from tests.helpers.fakes import get_dummy_job, get_fake_account
+from tests.helpers.fakes import get_dummy_job
 from tjf.core.error import TjfValidationError
 from tjf.core.models import AnyJob, JobType
+from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.jobs import (
     JOB_DEFAULT_CPU,
     JOB_DEFAULT_MEMORY,
+    K8sKind,
     get_job_for_k8s,
     get_scheduled_job_from_k8s_object,
 )
@@ -50,14 +54,22 @@ def fake_job(fake_tool_account_uid: None, fake_images: dict[str, Any]) -> AnyJob
 
 
 @pytest.fixture()
-def account_with_limit_range():
-    class FakeK8sCli:
-        def get_object(self, kind, name):
-            if kind == "limitranges" and name == "tool-tf-test":
-                return LIMIT_RANGE_OBJECT
-            raise Exception("not supposed to happen")
+def account_with_limit_range(fake_tool_account: ToolAccount):
+    fake_k8s_cli = create_autospec(K8sClient, spec_set=True, instance=True)
+    fake_k8s_cli.get_object.return_value = LIMIT_RANGE_OBJECT
+    fake_tool_account.k8s_cli = fake_k8s_cli
 
-    return get_fake_account(fake_k8s_cli=FakeK8sCli())
+    yield fake_tool_account
+
+    fake_k8s_cli.assert_has_calls(
+        any_order=True,
+        calls=[
+            call.get_object(
+                kind=K8sKind.LIMIT_RANGES,
+                name=fake_tool_account.namespace,
+            )
+        ],
+    )
 
 
 def _create_fake_http_error(

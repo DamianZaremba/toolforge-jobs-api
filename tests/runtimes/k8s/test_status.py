@@ -1,12 +1,13 @@
 import json
 import re
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call, create_autospec
 
 from freezegun import freeze_time
+from toolforge_weld.kubernetes import K8sClient
 
 import tests.helpers.fake_k8s as fake_k8s
-from tests.helpers.fakes import get_dummy_job, get_fake_account
+from tests.helpers.fakes import get_dummy_job
 from tests.utils import cases
 from tjf.core.images import Image
 from tjf.core.models import (
@@ -19,7 +20,8 @@ from tjf.core.models import (
     ScheduledJobStatus,
 )
 from tjf.runtimes.k8s.account import ToolAccount
-from tjf.runtimes.k8s.jobs import JOB_PROGRESS_DEADLINE_SECONDS
+from tjf.runtimes.k8s.jobs import JOB_PROGRESS_DEADLINE_SECONDS, K8sKind
+from tjf.runtimes.k8s.labels import labels_selector
 from tjf.runtimes.k8s.status import (
     _get_quota_error,
     get_continuous_job_status,
@@ -259,29 +261,35 @@ def test_get_one_off_job_status(
     k8s_pod: str | None,
     expected_status: OneOffJobStatus,
     event: str | None,
+    fake_tool_account: ToolAccount,
 ):
-    class FakeK8sCli:
-        def get_objects(self, *args, kind, **kwargs):
-            if kind == "pods":
-                return (
-                    [json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_pod))]
-                    if k8s_pod
-                    else []
-                )
-
-            if not event:
-                return []
-            return [json.loads(re.sub(ISO_PATTERN, dummy_date_str, event))]
-
-    tool_account = get_fake_account(fake_k8s_cli=FakeK8sCli())
-
     dummy_date_str = (
         datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     )
     k8s_job_json = json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_job))
+    k8s_pods = (
+        [json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_pod))] if k8s_pod else []
+    )
+    k8s_events = (
+        [json.loads(re.sub(ISO_PATTERN, dummy_date_str, event))] if event else []
+    )
+    should_get_events = event is not None or expected_status.short == "unknown"
+
+    fake_k8s_cli = create_autospec(K8sClient, spec_set=True, instance=True)
+    objects = {
+        K8sKind.PODS: k8s_pods,
+        K8sKind.EVENTS: k8s_events,
+    }
+
+    def fake_get_objects(kind, **_):
+        return objects[kind]
+
+    fake_k8s_cli.get_objects.side_effect = fake_get_objects
+    fake_tool_account.k8s_cli = fake_k8s_cli
+
     with freeze_time(dummy_date_str):
         gotten_status = get_one_off_job_status(
-            tool_account=tool_account, k8s_job=k8s_job_json
+            tool_account=fake_tool_account, k8s_job=k8s_job_json
         )
 
     assert expected_status.short == gotten_status.short
@@ -290,6 +298,27 @@ def test_get_one_off_job_status(
     message = next(iter(expected_status.messages), None)
     if message:
         assert message in gotten_status.messages
+
+    expected_k8s_calls = [
+        call.get_objects(
+            kind=K8sKind.PODS,
+            label_selector=labels_selector(
+                job_name=k8s_job_json["metadata"]["name"],
+                tool_name=fake_tool_account.name,
+                job_type=JobType.ONE_OFF,
+            ),
+        )
+    ]
+    if should_get_events:
+        expected_k8s_calls.append(
+            call.get_objects(
+                kind=K8sKind.EVENTS,
+                field_selector=(
+                    f"involvedObject.uid={k8s_job_json['metadata']['uid']}"
+                ),
+            )
+        )
+    fake_k8s_cli.assert_has_calls(calls=expected_k8s_calls, any_order=True)
 
 
 @cases(
