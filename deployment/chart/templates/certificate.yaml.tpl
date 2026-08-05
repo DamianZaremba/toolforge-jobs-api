@@ -1,16 +1,22 @@
+---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ .Release.Name }}-api-gateway-server
+  name: "jobs-api-certificate"
   labels:
-    {{- include "jobs-api.labels" . | nindent 4 }}
+    name: "jobs-api"
 spec:
-  secretName: {{ .Release.Name }}-api-gateway-server
+  commonName: "service:jobs-api"
   dnsNames:
     - "jobs-api.{{ .Release.Namespace }}.svc"
     - "jobs-api.{{ .Release.Namespace }}.svc.{{ .Values.certificates.internalClusterDomain }}"
+  secretName: "jobs-api-certificate"
+  subject:
+    organizations:
+      - toolforge
   usages:
     - server auth
+    - client auth
   duration: "504h" # 21d
   privateKey:
     algorithm: ECDSA

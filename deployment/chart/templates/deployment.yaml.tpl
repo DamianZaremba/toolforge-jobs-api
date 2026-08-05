@@ -10,7 +10,7 @@ metadata:
     # use https://github.com/stakater/reloader (via the cert-manager deployment)
     # to restart when certificates get renewed
     configmap.reloader.stakater.com/reload: "nginx-config,harbor-config"
-    secret.reloader.stakater.com/reload: "{{ .Release.Name }}-api-gateway-server"
+    secret.reloader.stakater.com/reload: "{{ .Release.Name }}-certificate"
 spec:
   replicas: {{ .Values.replicas }}
   selector:
@@ -78,6 +78,9 @@ spec:
         - name: nsswitch
           mountPath: /etc/nsswitch.conf
           readOnly: true
+        - mountPath: /etc/jobs-api-certificate
+          name: jobs-api-certificate
+          readOnly: true
       - name: nginx
         image: {{ .Values.nginx.image.name }}:{{ .Values.nginx.image.nginxTag }}
         imagePullPolicy: Always
@@ -90,8 +93,8 @@ spec:
           protocol: TCP
         resources: {}
         volumeMounts:
-        - mountPath: /etc/nginx/api-gateway-ssl
-          name: api-gateway-server-cert
+        - mountPath: /etc/nginx/jobs-api-certificate
+          name: jobs-api-certificate
           readOnly: true
         - mountPath: /etc/nginx/nginx.conf
           name: nginx-config
@@ -133,6 +136,6 @@ spec:
               path: nginx.conf
           name: nginx-config
         name: nginx-config
-      - name: api-gateway-server-cert
+      - name: jobs-api-certificate
         secret:
-          secretName: {{ .Release.Name }}-api-gateway-server
+          secretName: {{ .Release.Name }}-certificate

@@ -21,9 +21,9 @@ data:
             # API gateway (the client in this context) and jobs-api (the server)
             # verify that each other have certificates signed by the api gateway
             # backend CA.
-            ssl_certificate        /etc/nginx/api-gateway-ssl/tls.crt;
-            ssl_certificate_key    /etc/nginx/api-gateway-ssl/tls.key;
-            ssl_client_certificate /etc/nginx/api-gateway-ssl/ca.crt;
+            ssl_certificate        /etc/nginx/jobs-api-certificate/tls.crt;
+            ssl_certificate_key    /etc/nginx/jobs-api-certificate/tls.key;
+            ssl_client_certificate /etc/nginx/jobs-api-certificate/ca.crt;
             ssl_verify_client      on;
             ssl_protocols          TLSv1.2;
             ssl_ciphers            HIGH:!aNULL:!MD5;
