@@ -5,12 +5,17 @@ import kubernetes
 import pytest
 from fastapi import status
 
+from tests.helpers.fakes import (
+    get_dummy_webservice_job,
+)
 from tests.utils import cases
 from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
     ContinuousJob,
+    OneOffJob,
     ScheduledJob,
+    WebserviceJob,
 )
 from tjf.settings import Settings
 from tjf.storages.exceptions import (
@@ -138,9 +143,54 @@ def get_k8s_scheduled_job(*, name: str = "testsched"):
     return base_object
 
 
+def get_k8s_webservice_job(*, name: str = "testwebservice"):
+    base_object = {
+        "apiVersion": "jobs-api.toolforge.org/v1",
+        "kind": "WebserviceJob",
+        "metadata": {
+            "creationTimestamp": "2026-07-26T09:47:05Z",
+            "generation": 1,
+            "name": name,
+            "namespace": "tool-tf-test",
+            "resourceVersion": "4944797",
+            "uid": "9575d034-1595-49f4-83a9-04a4dd4f5cbc",
+        },
+        "spec": {
+            "job_type": "webservice",
+            "image": {
+                "short_name": "python3.11",
+                "type": "standard",
+                "aliases": [
+                    "toolforge-python311",
+                    "toolforge-python311-sssd-base",
+                    "toolforge-python311-sssd-web",
+                ],
+                "state": "stable",
+                "host": "docker-registry.tools.wmflabs.org",
+                "path": "toolforge-python311-sssd-web",
+                "tag": "latest",
+                "webservice_defaults": {
+                    "command": [
+                        "/usr/bin/webservice-runner",
+                        "--type",
+                        "uwsgi-python",
+                        "--port",
+                        "$PORT",
+                    ],
+                    "port": 8000,
+                },
+            },
+            "job_name": name,
+            "tool_name": "tf-test",
+        },
+    }
+
+    return base_object
+
+
 def assert_jobs_get_k8s_calls(storage_k8s_cli: MagicMock):
     # TODO: add one-off jobs once we support them as crds
-    for kind in ["continuous-jobs", "scheduled-jobs"]:
+    for kind in ["continuous-jobs", "scheduled-jobs", "webservice-jobs"]:
         storage_k8s_cli.list_namespaced_custom_object.assert_any_call(
             version="v1",
             group="jobs-api.toolforge.org",
@@ -217,6 +267,31 @@ class TestStorage:
                 get_continuous_job(name="testcont1"),
                 get_continuous_job(name="testcont2"),
                 get_scheduled_job(name="testsched1"),
+            ]
+            assert_jobs_get_k8s_calls(storage_k8s_cli=storage_k8s_cli)
+
+        def test_returns_webservice_jobs(self, storage_k8s_cli: MagicMock) -> None:
+            def _fake_list_objects(
+                group: str, version: str, plural: str, namespace: str
+            ) -> None:
+                if plural == "webservice-jobs":
+                    return get_k8s_jobs_response(
+                        items=[get_k8s_webservice_job(name="testwebservice1")]
+                    )
+                return get_k8s_jobs_response()
+
+            storage_k8s_cli.list_namespaced_custom_object.side_effect = (
+                _fake_list_objects
+            )
+            my_storage = storage.K8sStorage(settings=Settings(debug=True))
+
+            gotten_jobs = my_storage.get_jobs(tool_name="tf-test")
+
+            assert gotten_jobs == [
+                get_dummy_webservice_job(
+                    job_name="testwebservice1",
+                    tool_name="tf-test",
+                )
             ]
             assert_jobs_get_k8s_calls(storage_k8s_cli=storage_k8s_cli)
 
@@ -328,6 +403,37 @@ class TestStorage:
             assert gotten_job == expected_job
             assert_jobs_get_k8s_calls(storage_k8s_cli=storage_k8s_cli)
 
+        def test_finds_webservice_job_by_name_when_many_exist(
+            self, storage_k8s_cli: MagicMock
+        ) -> None:
+            def _fake_list_objects(
+                group: str, version: str, plural: str, namespace: str
+            ):
+                if plural == "webservice-jobs":
+                    return get_k8s_jobs_response(
+                        items=[
+                            get_k8s_webservice_job(name="testwebservice1"),
+                            get_k8s_webservice_job(name="testwebservice2"),
+                        ]
+                    )
+                return get_k8s_jobs_response()
+
+            storage_k8s_cli.list_namespaced_custom_object.side_effect = (
+                _fake_list_objects
+            )
+            my_storage = storage.K8sStorage(settings=Settings(debug=True))
+            expected_job = get_dummy_webservice_job(
+                job_name="testwebservice2",
+                tool_name="tf-test",
+            )
+
+            gotten_job = my_storage.get_job(
+                tool_name="tf-test", job_name="testwebservice2"
+            )
+
+            assert gotten_job == expected_job
+            assert_jobs_get_k8s_calls(storage_k8s_cli=storage_k8s_cli)
+
     class TestCreateJob:
         def test_creates_continuous_job_with_only_set_values(
             self, storage_k8s_cli: MagicMock
@@ -405,6 +511,58 @@ class TestStorage:
                 },
             )
 
+        def test_creates_webservice_job_with_only_set_values(
+            self, storage_k8s_cli: MagicMock
+        ):
+            my_storage = storage.K8sStorage(settings=Settings(debug=True))
+            expected_job = get_dummy_webservice_job(
+                job_name="testwebservice2",
+                tool_name="tf-test",
+            )
+
+            gotten_job = my_storage.create_job(job=expected_job)
+
+            assert gotten_job == expected_job
+            storage_k8s_cli.create_namespaced_custom_object.assert_called_with(
+                group="jobs-api.toolforge.org",
+                version="v1",
+                plural="webservice-jobs",
+                namespace="tool-tf-test",
+                body={
+                    "kind": "WebserviceJob",
+                    "apiVersion": "jobs-api.toolforge.org/v1",
+                    "metadata": {"name": "testwebservice2"},
+                    "spec": {
+                        "job_type": "webservice",
+                        "image": {
+                            "short_name": "python3.11",
+                            "type": "standard",
+                            "aliases": [
+                                "toolforge-python311",
+                                "toolforge-python311-sssd-base",
+                                "toolforge-python311-sssd-web",
+                            ],
+                            "state": "stable",
+                            "host": "docker-registry.tools.wmflabs.org",
+                            "path": "toolforge-python311-sssd-web",
+                            "tag": "latest",
+                            "webservice_defaults": {
+                                "command": [
+                                    "/usr/bin/webservice-runner",
+                                    "--type",
+                                    "uwsgi-python",
+                                    "--port",
+                                    "$PORT",
+                                ],
+                                "port": 8000,
+                            },
+                        },
+                        "job_name": "testwebservice2",
+                        "tool_name": "tf-test",
+                    },
+                },
+            )
+
         def test_bubbles_up_conflict_as_AlreadyExistsInStorage(
             self, storage_k8s_cli: MagicMock
         ):
@@ -445,6 +603,24 @@ class TestStorage:
                 plural="continuous-jobs",
                 namespace="tool-tf-test",
                 name="testcont2",
+            )
+
+        def test_deletes_webservice_job_if_found(self, storage_k8s_cli: MagicMock):
+            my_storage = storage.K8sStorage(settings=Settings(debug=True))
+            expected_job = get_dummy_webservice_job(
+                job_name="testwebservice2",
+                tool_name="tf-test",
+            )
+
+            gotten_job = my_storage.delete_job(job=expected_job)
+
+            assert gotten_job == expected_job
+            storage_k8s_cli.delete_namespaced_custom_object.assert_called_with(
+                group="jobs-api.toolforge.org",
+                version="v1",
+                plural="webservice-jobs",
+                namespace="tool-tf-test",
+                name="testwebservice2",
             )
 
         def test_raises_NotFoundInStorage_if_job_not_found(
@@ -524,3 +700,27 @@ class TestStorage:
                 namespace="tool-tf-test",
                 name="testsched1",
             )
+
+
+class TestGetKindAndPluralFromJobClass:
+    def test_maps_all_job_classes(self):
+        assert storage._get_kind_and_plural_from_job_class(job_class=ContinuousJob) == (
+            "ContinuousJob",
+            "continuous-jobs",
+        )
+        assert storage._get_kind_and_plural_from_job_class(job_class=ScheduledJob) == (
+            "ScheduledJob",
+            "scheduled-jobs",
+        )
+        assert storage._get_kind_and_plural_from_job_class(job_class=OneOffJob) == (
+            "OneOffJob",
+            "one-off-jobs",
+        )
+        assert storage._get_kind_and_plural_from_job_class(job_class=WebserviceJob) == (
+            "WebserviceJob",
+            "webservice-jobs",
+        )
+
+    def test_raises_on_unknown_job_class(self):
+        with pytest.raises(StorageError, match="Unknown job type"):
+            storage._get_kind_and_plural_from_job_class(job_class=dict)  # type: ignore

@@ -1,10 +1,12 @@
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from toolforge_weld.kubernetes import MountOption
 
 from tests.helpers.fake_k8s import K8S_ONEOFF_JOB_OBJ
+from tests.helpers.fakes import get_dummy_webservice_job
 from tests.utils import cases
 from tjf.api.models import (
     CommonOptions,
@@ -12,10 +14,13 @@ from tjf.api.models import (
     DefinedContinuousJob,
     DefinedOneOffJob,
     DefinedScheduledJob,
+    DefinedWebserviceJob,
     FileLoggingOptions,
     NewContinuousJob,
     NewOneOffJob,
     NewScheduledJob,
+    NewWebserviceJob,
+    get_job_for_api,
 )
 from tjf.core.cron import CronExpression
 from tjf.core.error import TjfValidationError
@@ -183,6 +188,29 @@ def get_dummy_defined_continuous_job(**overrides) -> DefinedContinuousJob:
         "continuous": True,
     }
     defined_job = DefinedContinuousJob.model_validate(params | overrides)
+    # Flag this param as unset, in order to verify that from_core_job is correctly doing the same.
+    defined_job.model_fields_set.remove("image_state")
+    return defined_job
+
+
+def get_dummy_new_webservice_job(**overrides) -> NewWebserviceJob:
+    params = {
+        "name": "dummy-job-name",
+        "imagename": "python3.11",
+    }
+    return NewWebserviceJob.model_validate(params | overrides)
+
+
+def get_dummy_defined_webservice_job(**overrides) -> DefinedWebserviceJob:
+    params = {
+        "name": "dummy-job-name",
+        # these two are the same, imagename to be removed eventually
+        "image": "python3.11",
+        "imagename": "python3.11",
+        "job_type": JobType.WEBSERVICE,
+        "image_state": "stable",
+    }
+    defined_job = DefinedWebserviceJob.model_validate(params | overrides)
     # Flag this param as unset, in order to verify that from_core_job is correctly doing the same.
     defined_job.model_fields_set.remove("image_state")
     return defined_job
@@ -383,6 +411,60 @@ class TestNewContinuousJob:
         assert gotten_core_job.model_dump(
             exclude_unset=False
         ) == expected_core_job.model_dump(exclude_unset=False)
+
+
+class TestNewWebserviceJob:
+    def test_to_job_returns_expected_value_when_excluding_unset(
+        self,
+    ):
+        my_job = get_dummy_new_webservice_job()
+        expected_core_job = get_dummy_webservice_job()
+
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
+
+        assert gotten_core_job.model_dump(
+            exclude_unset=True
+        ) == expected_core_job.model_dump(exclude_unset=True)
+
+    def test_to_job_returns_expected_value_when_including_unset(
+        self,
+    ):
+        my_job = get_dummy_new_webservice_job()
+        expected_core_job = get_dummy_webservice_job()
+
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
+
+        assert gotten_core_job.model_dump(
+            exclude_unset=False
+        ) == expected_core_job.model_dump(exclude_unset=False)
+
+    def test_to_job_returns_expected_value_when_setting_all_fields(
+        self,
+    ):
+        my_job = get_dummy_new_webservice_job(
+            replicas=3,
+            mount=MountOption.ALL,
+            memory="2Gi",
+            cpu="500m",
+            health_check=ScriptHealthCheck(
+                script="echo ok", type=HealthCheckType.SCRIPT
+            ),
+            cmd="custom-cmd",
+        )
+        expected_core_job = get_dummy_webservice_job(
+            replicas=3,
+            mount=MountOption.ALL,
+            memory="2.0Gi",
+            cpu="500m",
+            health_check=ScriptHealthCheck(
+                script="echo ok", type=HealthCheckType.SCRIPT
+            ),
+            cmd="custom-cmd",
+        )
+
+        gotten_core_job = my_job.to_core_job(tool_name="some-tool")
+
+        assert gotten_core_job.model_dump() == expected_core_job.model_dump()
 
 
 class TestDefinedCommonOptions:
@@ -633,6 +715,55 @@ class TestDefinedContinuousJob:
         assert gotten_defined_job.model_dump() == expected_defined_job.model_dump()
 
 
+class TestDefinedWebserviceJob:
+    def test_to_job_returns_expected_value_when_excluding_unset(
+        self,
+    ):
+        expected_defined_job = get_dummy_defined_webservice_job()
+        core_job = get_dummy_webservice_job()
+
+        gotten_defined_job = DefinedWebserviceJob.from_core_job(core_job=core_job)
+
+        assert gotten_defined_job.model_dump(
+            exclude_unset=True
+        ) == expected_defined_job.model_dump(exclude_unset=True)
+        assert "job_type" in gotten_defined_job.model_dump(exclude_unset=True)
+
+    def test_to_job_returns_expected_value_when_including_unset(self):
+        expected_defined_job = get_dummy_defined_webservice_job()
+        core_job = get_dummy_webservice_job()
+
+        gotten_defined_job = DefinedWebserviceJob.from_core_job(core_job=core_job)
+
+        assert gotten_defined_job.model_dump(
+            exclude_unset=False
+        ) == expected_defined_job.model_dump(exclude_unset=False)
+
+    def test_to_job_returns_expected_value_when_all_fields_set(self):
+        expected_defined_job = get_dummy_defined_webservice_job(
+            replicas=3,
+            mount=MountOption.ALL,
+            memory="2.0Gi",
+            health_check=ScriptHealthCheck(
+                script="echo ok", type=HealthCheckType.SCRIPT
+            ),
+            cmd="custom-cmd",
+        )
+        core_job = get_dummy_webservice_job(
+            replicas=3,
+            mount=MountOption.ALL,
+            memory="2.0Gi",
+            health_check=ScriptHealthCheck(
+                script="echo ok", type=HealthCheckType.SCRIPT
+            ),
+            cmd="custom-cmd",
+        )
+
+        gotten_defined_job = DefinedWebserviceJob.from_core_job(core_job=core_job)
+
+        assert gotten_defined_job.model_dump() == expected_defined_job.model_dump()
+
+
 class TestGetResolvedCoreJob:
     def test_one_off_job_resolves_mount_and_filelog_for_standard_image(
         self,
@@ -741,3 +872,44 @@ class TestContinuousJobPublishValidation:
         assert job.publish == "/"
         assert job.port == 8000
         assert job.port_protocol == PortProtocol.TCP
+
+
+class TestDefinedJobFromCoreJobTypeGuard:
+    @cases(
+        ["defined_class"],
+        ["one-off", [DefinedOneOffJob]],
+        ["scheduled", [DefinedScheduledJob]],
+        ["continuous", [DefinedContinuousJob]],
+        ["webservice", [DefinedWebserviceJob]],
+    )
+    def test_from_core_job_raises_on_wrong_core_job_type(self, defined_class):
+        if defined_class is DefinedWebserviceJob:
+            core_job = get_dummy_core_one_off_job()
+        else:
+            core_job = get_dummy_webservice_job()
+
+        with pytest.raises(TjfValidationError, match="can only be created from"):
+            defined_class.from_core_job(core_job=core_job)
+
+
+class TestGetJobForApi:
+    @cases(
+        ["get_dummy_job", "expected_defined_class"],
+        ["one-off", [get_dummy_core_one_off_job, DefinedOneOffJob]],
+        ["scheduled", [get_dummy_core_scheduled_job, DefinedScheduledJob]],
+        [
+            "continuous",
+            [get_dummy_core_continuous_job, DefinedContinuousJob],
+        ],
+        ["webservice", [get_dummy_webservice_job, DefinedWebserviceJob]],
+    )
+    def test_returns_the_right_defined_job_for_each_job_type(
+        self, get_dummy_job, expected_defined_class
+    ):
+        gotten_defined_job = get_job_for_api(job=get_dummy_job())
+
+        assert isinstance(gotten_defined_job, expected_defined_class)
+
+    def test_raises_on_unknown_job_type(self):
+        with pytest.raises(TjfValidationError, match="Invalid job type"):
+            get_job_for_api(job=MagicMock(job_type="bogus-job-type"))
