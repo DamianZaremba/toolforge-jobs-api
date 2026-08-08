@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.15.0"
+  version: "4.16.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -106,6 +106,7 @@ paths:
                 - $ref: "#/components/schemas/NewOneOffJob"
                 - $ref: "#/components/schemas/NewScheduledJob"
                 - $ref: "#/components/schemas/NewContinuousJob"
+                - $ref: "#/components/schemas/NewWebserviceJob"
               ## TODO: Uncomment once job_type is enforced everywhere
               # discriminator:
               #   propertyName: job_type
@@ -145,6 +146,7 @@ paths:
                 - $ref: "#/components/schemas/NewOneOffJob"
                 - $ref: "#/components/schemas/NewScheduledJob"
                 - $ref: "#/components/schemas/NewContinuousJob"
+                - $ref: "#/components/schemas/NewWebserviceJob"
               ## TODO: Uncomment once job_type is enforced everywhere
               # discriminator:
               #   propertyName: job_type
@@ -395,6 +397,7 @@ components:
               - $ref: "#/components/schemas/DefinedOneOffJob"
               - $ref: "#/components/schemas/DefinedScheduledJob"
               - $ref: "#/components/schemas/DefinedContinuousJob"
+              - $ref: "#/components/schemas/DefinedWebserviceJob"
             ## TODO: Uncomment once job_type is enforced everywhere
             # discriminator:
             #   propertyName: job_type
@@ -412,6 +415,7 @@ components:
             - $ref: "#/components/schemas/DefinedOneOffJob"
             - $ref: "#/components/schemas/DefinedScheduledJob"
             - $ref: "#/components/schemas/DefinedContinuousJob"
+            - $ref: "#/components/schemas/DefinedWebserviceJob"
           ## TODO: Uncomment once job_type is enforced everywhere
           # discriminator:
           #   propertyName: job_type
@@ -610,13 +614,6 @@ components:
               type: string
               description: "Container image the job uses."
               example: "tool-my-tool/tool-my-tool:latest"
-            retry:
-              type: integer
-              description: "Job retry policy. Zero means don't retry at all (the default)"
-              minimum: 0
-              maximum: 5
-              example: 0
-              default: 0
             memory:
               type:
                 - string
@@ -671,6 +668,13 @@ components:
             job_type:
               type: string
               enum: ["one-off"]
+            retry:
+              type: integer
+              description: "Job retry policy. Zero means don't retry at all (the default)"
+              minimum: 0
+              maximum: 5
+              example: 0
+              default: 0
     NewScheduledJob:
       allOf:
         - $ref: "#/components/schemas/CommonOptions"
@@ -689,6 +693,13 @@ components:
             job_type:
               type: string
               enum: ["scheduled"]
+            retry:
+              type: integer
+              description: "Job retry policy. Zero means don't retry at all (the default)"
+              minimum: 0
+              maximum: 5
+              example: 0
+              default: 0
             schedule:
               type: string
               description: "If the job is a cronjob, execution schedule."
@@ -767,6 +778,41 @@ components:
                 mapping:
                   script: "#/components/schemas/ScriptHealthCheck"
                   http: "#/components/schemas/HttpHealthCheck"
+    NewWebserviceJob:
+      allOf:
+        - $ref: "#/components/schemas/CommonOptions"
+        - type: object
+          required:
+            - job_type
+          properties:
+            cmd:
+              type: string
+              description: "Command that this job is executing. Leave empty to use the image's webservice default command."
+              example: "./some-command.sh --with-args"
+              default: ""
+            job_type:
+              type: string
+              enum: ["webservice"]
+            replicas:
+              type:
+                - integer
+                - "null"
+              description: "Number of replicas to be used for the job"
+              minimum: 1
+              example: 1
+            health_check:
+              type:
+                - object
+                - "null"
+              description: "Health check configuration for the job"
+              oneOf:
+                - $ref: "#/components/schemas/ScriptHealthCheck"
+                - $ref: "#/components/schemas/HttpHealthCheck"
+              discriminator:
+                propertyName: type
+                mapping:
+                  script: "#/components/schemas/ScriptHealthCheck"
+                  http: "#/components/schemas/HttpHealthCheck"
     DefinedCommonOptions:
       allOf:
         - $ref: "#/components/schemas/CommonOptions"
@@ -811,6 +857,13 @@ components:
             job_type:
               type: string
               enum: ["one-off"]
+            retry:
+              type: integer
+              description: "Job retry policy. Zero means no retry at all (the default)"
+              minimum: 0
+              maximum: 5
+              example: 0
+              default: 0
     DefinedScheduledJob:
       allOf:
         - $ref: "#/components/schemas/DefinedCommonOptions"
@@ -828,6 +881,13 @@ components:
             job_type:
               type: string
               enum: ["scheduled"]
+            retry:
+              type: integer
+              description: "Job retry policy. Zero means no retry at all (the default)"
+              minimum: 0
+              maximum: 5
+              example: 0
+              default: 0
             schedule:
               type: string
               description: "If the job is a cronjob, execution schedule."
@@ -893,6 +953,41 @@ components:
               description: |
                 Returns the job's publish path, if the job is published.
               example: "/"
+            health_check:
+              type:
+                - object
+                - "null"
+              description: "Health check configuration for the job"
+              oneOf:
+                - $ref: "#/components/schemas/ScriptHealthCheck"
+                - $ref: "#/components/schemas/HttpHealthCheck"
+              discriminator:
+                propertyName: type
+                mapping:
+                  script: "#/components/schemas/ScriptHealthCheck"
+                  http: "#/components/schemas/HttpHealthCheck"
+    DefinedWebserviceJob:
+      allOf:
+        - $ref: "#/components/schemas/DefinedCommonOptions"
+        - type: object
+          required:
+            - job_type
+          properties:
+            cmd:
+              type: string
+              description: "Command that this job is executing. Empty if using the image's webservice default command."
+              example: "./some-command.sh --with-args"
+              default: ""
+            job_type:
+              type: string
+              enum: ["webservice"]
+            replicas:
+              type:
+                - integer
+                - "null"
+              description: "Number of replicas to be used for the job"
+              minimum: 1
+              example: 1
             health_check:
               type:
                 - object

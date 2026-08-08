@@ -39,9 +39,17 @@ from .models import (
     JobType,
     OneOffJob,
     QuotaData,
+    WebserviceJob,
 )
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _get_resolved_storage_job(job: AnyJob) -> AnyJob:
+    if isinstance(job, WebserviceJob):
+        return job.to_resolved_continuous_job()
+
+    return job.get_resolved_job()
 
 
 def _update_storage_job_status_from_runtime(
@@ -62,12 +70,14 @@ def _update_storage_job_status_from_runtime(
     # for buildservice images
     if (
         storage_job.image.type == ImageType.BUILDSERVICE
+        and storage_job.cmd
         and storage_job.cmd.startswith("launcher ")
         and runtime_job
     ):
         runtime_job.cmd = f"launcher {runtime_job.cmd}"
 
-    resolved_storage_job = storage_job.get_resolved_job()
+    resolved_storage_job = _get_resolved_storage_job(job=storage_job)
+
     if not runtime_job or runtime_job.model_dump(
         exclude=to_exclude
     ) != resolved_storage_job.model_dump(exclude=to_exclude):
@@ -125,11 +135,10 @@ class Core:
                 raise TjfError("Unable to start job") from e
 
     def create_job(self, job: AnyJob) -> AnyJob:
-        resolved_job = job.get_resolved_job()
         # we could make this function not return anything, as it does not really change the job at all
         job = self._create_storage_job(job=job)
         try:
-            self._create_runtime_job(job=resolved_job)
+            self._create_runtime_job(job=_get_resolved_storage_job(job=job))
         except Exception:
             LOGGER.exception(
                 f"Failed to create runtime job, cleaning up. Job was:\n{job}"
@@ -153,7 +162,7 @@ class Core:
             LOGGER.info(message)
             return True, message
 
-        resolved_job = job.get_resolved_job()
+        resolved_job = _get_resolved_storage_job(job=job)
 
         LOGGER.debug(f"Updating job in storage {job.job_name}")
         changed_in_storage = self._update_job_in_storage(
@@ -257,7 +266,7 @@ class Core:
         return self.runtime.get_quotas(tool_name=tool_name)
 
     def get_jobs(self, tool_name: str) -> list[AnyJob]:
-        # Currently storage only has continuous and scheduled jobs
+        # Currently storage only has continuous, scheduled and webservice jobs
         storage_jobs = self.storage.get_jobs(tool_name=tool_name)
         final_jobs: dict[str, AnyJob] = {}
 
@@ -268,7 +277,10 @@ class Core:
                     runtime_job = self.runtime.get_scheduled_job(
                         job_name=storage_job.job_name, tool_name=tool_name
                     )
-                elif storage_job.job_type == JobType.CONTINUOUS:
+                elif (
+                    storage_job.job_type == JobType.CONTINUOUS
+                    or storage_job.job_type == JobType.WEBSERVICE
+                ):
                     runtime_job = self.runtime.get_continuous_job(
                         job_name=storage_job.job_name, tool_name=tool_name
                     )
@@ -295,12 +307,17 @@ class Core:
         return list(final_jobs.values())
 
     def flush_jobs(self, tool_name: str) -> None:
-        continuous_and_scheduled_jobs = self.storage.get_jobs(tool_name=tool_name)
+        scheduled_continuous_and_webservice_jobs = self.storage.get_jobs(
+            tool_name=tool_name
+        )
         self.storage.delete_jobs(
-            tool_name=tool_name, jobs=continuous_and_scheduled_jobs
+            tool_name=tool_name, jobs=scheduled_continuous_and_webservice_jobs
         )
         all_jobs: list[AnyJob] = []
-        all_jobs.extend(continuous_and_scheduled_jobs)
+        all_jobs.extend(
+            _get_resolved_storage_job(job=job)
+            for job in scheduled_continuous_and_webservice_jobs
+        )
         all_jobs.extend(self.runtime.get_one_off_jobs(tool_name=tool_name))
         # one-off jobs live only in the runtime for now
         self.runtime.delete_jobs(tool_name=tool_name, jobs=all_jobs)
@@ -323,6 +340,11 @@ class Core:
 
             elif storage_job.job_type == JobType.SCHEDULED:
                 runtime_job = self.runtime.get_scheduled_job(
+                    job_name=name, tool_name=tool_name
+                )
+
+            elif storage_job.job_type == JobType.WEBSERVICE:
+                runtime_job = self.runtime.get_continuous_job(
                     job_name=name, tool_name=tool_name
                 )
 
@@ -370,7 +392,7 @@ class Core:
                 raise TjfError("Unable to delete job") from error
 
         try:
-            self.runtime.delete_job(job=job)
+            self.runtime.delete_job(job=_get_resolved_storage_job(job=job))
         except NotFoundInRuntime:
             pass
 
@@ -381,6 +403,6 @@ class Core:
                 job_name=job.job_name, tool_name=job.tool_name
             )
         try:
-            self.runtime.restart_job(job=job)
+            self.runtime.restart_job(job=_get_resolved_storage_job(job=job))
         except NotFoundInRuntime:
-            self.runtime.create_job(job=storage_job.get_resolved_job())
+            self.runtime.create_job(job=_get_resolved_storage_job(job=storage_job))

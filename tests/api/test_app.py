@@ -1,6 +1,7 @@
 import http
 import json
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -13,6 +14,7 @@ from tests.helpers.fakes import (
     get_dummy_continuous_job,
     get_dummy_one_off_job,
     get_dummy_scheduled_job,
+    get_dummy_webservice_job,
 )
 from tests.utils import cases
 from tjf.api.app import error_handler
@@ -626,3 +628,303 @@ class TestApiUpdateJob:
         assert (
             UpdateResponse.model_validate(actual_response.json()) == expected_response
         )
+
+
+class TestApiCreateWebserviceJob:
+    def test_create_webservice_job(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        monkeypatch.setattr(app.core, "get_job", value=lambda *args, **kwargs: None)
+        monkeypatch.setattr(
+            app.core, "create_job", value=lambda *args, **kwargs: kwargs["job"]
+        )
+
+        response = client.post(
+            "/v1/tool/some-tool/jobs",
+            json={
+                "name": "my-webservice-job",
+                "imagename": "python3.11",
+                "job_type": "webservice",
+            },
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.CREATED
+        data = response.json()
+        assert data["job"]["name"] == "my-webservice-job"
+        assert data["job"]["job_type"] == "webservice"
+        assert data.get("messages", {}).get("warning", []) == []
+
+    def test_create_webservice_job_conflict_when_job_exists(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        monkeypatch.setattr(
+            app.core,
+            "get_job",
+            value=lambda *args, **kwargs: get_dummy_continuous_job(
+                job_name="my-webservice-job",
+                tool_name="some-tool",
+            ),
+        )
+
+        response = client.post(
+            "/v1/tool/some-tool/jobs",
+            json={
+                "name": "my-webservice-job",
+                "imagename": "python3.11",
+                "job_type": "webservice",
+            },
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.CONFLICT
+        assert "already exists" in response.json()["error"][0]
+
+
+class TestApiWebserviceJobOps:
+    def test_get_webservice_job(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_webservice_job(job_name="my-webservice-job")
+        monkeypatch.setattr(
+            app.core, "get_job", value=lambda *args, **kwargs: dummy_job
+        )
+
+        response = client.get(
+            "/v1/tool/some-tool/jobs/my-webservice-job",
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.OK
+        data = response.json()
+        assert data["job"]["name"] == "my-webservice-job"
+        assert data["job"]["job_type"] == "webservice"
+
+    def test_get_webservice_job_returns_404_when_missing(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        monkeypatch.setattr(app.core, "get_job", value=lambda *args, **kwargs: None)
+
+        response = client.get(
+            "/v1/tool/some-tool/jobs/idontexist",
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.NOT_FOUND
+
+    def test_list_jobs_includes_webservice_jobs(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_webservice_job(job_name="my-webservice-job")
+        monkeypatch.setattr(
+            app.core, "get_jobs", value=lambda *args, **kwargs: [dummy_job]
+        )
+
+        response = client.get(
+            "/v1/tool/some-tool/jobs",
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.OK
+        data = response.json()
+        assert len(data["jobs"]) == 1
+        assert data["jobs"][0]["name"] == "my-webservice-job"
+        assert data["jobs"][0]["job_type"] == "webservice"
+
+    def test_create_webservice_job_recreates_completed_job_with_same_name(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        existing_job = get_dummy_webservice_job(
+            job_name="my-webservice-job",
+            status_short="Completed",
+        )
+        monkeypatch.setattr(
+            app.core, "get_job", value=lambda *args, **kwargs: existing_job
+        )
+        mock_delete_job = MagicMock(spec=app.core.delete_job)
+        monkeypatch.setattr(app.core, "delete_job", mock_delete_job)
+        monkeypatch.setattr(
+            app.core, "create_job", value=lambda *args, **kwargs: kwargs["job"]
+        )
+
+        response = client.post(
+            "/v1/tool/some-tool/jobs",
+            json={
+                "name": "my-webservice-job",
+                "imagename": "python3.11",
+                "job_type": "webservice",
+            },
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.CREATED
+        mock_delete_job.assert_called_once_with(job=existing_job)
+
+    def test_delete_webservice_job(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_webservice_job(job_name="my-webservice-job")
+        monkeypatch.setattr(
+            app.core, "get_job", value=lambda *args, **kwargs: dummy_job
+        )
+        mock_delete_job = MagicMock(spec=app.core.delete_job)
+        monkeypatch.setattr(app.core, "delete_job", mock_delete_job)
+
+        response = client.delete(
+            "/v1/tool/some-tool/jobs/my-webservice-job",
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.OK
+        mock_delete_job.assert_called_once_with(job=dummy_job)
+
+    def test_delete_webservice_job_returns_404_when_missing(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        monkeypatch.setattr(app.core, "get_job", value=lambda *args, **kwargs: None)
+
+        response = client.delete(
+            "/v1/tool/some-tool/jobs/idontexist",
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.NOT_FOUND
+
+    def test_restart_webservice_job(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_webservice_job(job_name="my-webservice-job")
+        monkeypatch.setattr(
+            app.core, "get_job", value=lambda *args, **kwargs: dummy_job
+        )
+        mock_restart_job = MagicMock(spec=app.core.restart_job)
+        monkeypatch.setattr(app.core, "restart_job", mock_restart_job)
+
+        response = client.post(
+            "/v1/tool/some-tool/jobs/my-webservice-job/restart",
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.OK
+        mock_restart_job.assert_called_once_with(job=dummy_job)
+
+    def test_restart_webservice_job_returns_404_when_missing(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        monkeypatch.setattr(app.core, "get_job", value=lambda *args, **kwargs: None)
+
+        response = client.post(
+            "/v1/tool/some-tool/jobs/idontexist/restart",
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.NOT_FOUND
+
+    def test_flush_jobs(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        mock_flush_jobs = MagicMock(spec=app.core.flush_jobs)
+        monkeypatch.setattr(app.core, "flush_jobs", mock_flush_jobs)
+
+        response = client.delete(
+            "/v1/tool/some-tool/jobs",
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.OK
+        mock_flush_jobs.assert_called_once_with(tool_name="some-tool")
+
+    def test_get_webservice_job_logs(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        # webservices log to logs-api, so the logs endpoint must work for them
+        dummy_job = get_dummy_webservice_job(job_name="my-webservice-job")
+        monkeypatch.setattr(
+            app.core, "get_job", value=lambda *args, **kwargs: dummy_job
+        )
+
+        async def fake_get_logs(*args, **kwargs):
+            async def gen():
+                yield "some log line\n"
+
+            return gen()
+
+        monkeypatch.setattr(app.core, "get_logs", value=fake_get_logs)
+
+        response = client.get(
+            "/v1/tool/some-tool/jobs/my-webservice-job/logs",
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.OK
+        assert "some log line" in response.text
+
+
+class TestApiGetLogs:
+    def test_get_logs_returns_404_for_filelog_jobs(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_continuous_job(job_name="my-filelog-job", filelog=True)
+        monkeypatch.setattr(
+            app.core, "get_job", value=lambda *args, **kwargs: dummy_job
+        )
+
+        response = client.get(
+            "/v1/tool/some-tool/jobs/my-filelog-job/logs",
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == http.HTTPStatus.NOT_FOUND
+        assert "file logging enabled" in response.json()["error"][0]

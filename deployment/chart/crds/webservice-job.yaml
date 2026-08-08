@@ -1,0 +1,31 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: webservice-jobs.jobs-api.toolforge.org
+spec:
+  group: jobs-api.toolforge.org
+  scope: Namespaced
+
+  names:
+    # e.g. `kubectl get webservice-jobs -n <namespace>`
+    plural: webservice-jobs
+    # e.g. `kubectl get webservice-job -n <namespace>`
+    singular: webservice-job
+    kind: WebserviceJob
+    # e.g. `kubectl get toolforge-jobs -n <namespace>`
+    categories:
+    - toolforge-jobs
+
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+
+    additionalPrinterColumns:
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
