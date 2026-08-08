@@ -9,8 +9,8 @@ rules:
 - apiGroups:
   - jobs-api.toolforge.org
   resources:
-  - one-off-jobs
   - continuous-jobs
   - scheduled-jobs
+  - webservice-jobs
   verbs:
   - "*"

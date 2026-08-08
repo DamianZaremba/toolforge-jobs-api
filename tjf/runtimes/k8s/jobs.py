@@ -23,6 +23,7 @@ from ...core.images import ImageType
 from ...core.models import (
     JOB_DEFAULT_CPU,
     JOB_DEFAULT_MEMORY,
+    AnyFileLogJob,
     AnyJob,
     Command,
     CommonOptions,
@@ -130,7 +131,7 @@ def get_k8s_cronjob_object(
 
 
 def _get_common_k8s_podtemplate(
-    *, job: AnyJob, default_cpu_limit: str
+    *, job: AnyFileLogJob, default_cpu_limit: str
 ) -> dict[str, Any]:
     labels = generate_labels(
         jobname=job.job_name,

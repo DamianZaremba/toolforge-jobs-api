@@ -8,13 +8,17 @@ from tests.helpers.fakes import (
     get_dummy_continuous_job,
     get_dummy_one_off_job,
     get_dummy_scheduled_job,
+    get_dummy_webservice_job,
 )
 from tests.utils import cases
+from tjf.core.error import TjfValidationError
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
     AnyJob,
     HealthCheckType,
     HttpHealthCheck,
+    ScriptHealthCheck,
+    WebserviceJob,
 )
 
 
@@ -25,6 +29,127 @@ def get_buildservice_image() -> Image:
         host="harbor.example.org",
         path="tool-some-tool/some-container",
     )
+
+
+class TestWebserviceJob:
+    def test_job_name_defaults_to_webservice_when_omitted(
+        self,
+    ):
+        job = WebserviceJob.model_validate(
+            {
+                "tool_name": "some-tool",
+                "image": Image.from_short_name_or_url(
+                    url_or_name="python3.11", tool_name="some-tool"
+                ),
+            }
+        )
+
+        assert job.job_name == "webservice"
+
+    def test_to_continuous_job_returns_expected_value_when_excluding_unset(
+        self,
+    ):
+        my_job = get_dummy_webservice_job()
+
+        expected_continuous_job = get_dummy_continuous_job(
+            cmd="/usr/bin/webservice-runner --type uwsgi-python --port $PORT",
+            port=8000,
+            publish="/",
+            filelog=False,
+            mount=MountOption.ALL,
+        )
+
+        gotten_continuous_job = my_job.to_continuous_job()
+        assert gotten_continuous_job.model_dump(
+            exclude_unset=True
+        ) == expected_continuous_job.model_dump(exclude_unset=True)
+
+    def test_to_continuous_job_returns_expected_value_when_including_unset(
+        self,
+    ):
+        my_job = get_dummy_webservice_job()
+
+        expected_continuous_job = get_dummy_continuous_job(
+            cmd="/usr/bin/webservice-runner --type uwsgi-python --port $PORT",
+            port=8000,
+            publish="/",
+            filelog=False,
+            mount=MountOption.ALL,
+        )
+
+        gotten_continuous_job = my_job.to_continuous_job()
+        assert gotten_continuous_job.model_dump(
+            exclude_unset=False
+        ) == expected_continuous_job.model_dump(exclude_unset=False)
+
+    def test_to_continuous_job_returns_expected_value_when_setting_all_fields(
+        self,
+    ):
+        my_job = get_dummy_webservice_job(
+            replicas=3,
+            mount=MountOption.ALL,
+            memory="2Gi",
+            health_check=ScriptHealthCheck(
+                script="echo ok", type=HealthCheckType.SCRIPT
+            ),
+            cmd="custom-cmd",
+        )
+
+        expected_continuous_job = get_dummy_continuous_job(
+            replicas=3,
+            mount=MountOption.ALL,
+            memory="2.0Gi",
+            port=8000,
+            publish="/",
+            filelog=False,
+            health_check=ScriptHealthCheck(
+                script="echo ok", type=HealthCheckType.SCRIPT
+            ),
+            cmd="/usr/bin/webservice-runner --type uwsgi-python --port $PORT custom-cmd",
+        )
+
+        gotten_continuous_job = my_job.to_continuous_job()
+
+        assert (
+            gotten_continuous_job.model_dump() == expected_continuous_job.model_dump()
+        )
+
+    def test_to_continuous_job_raises_when_no_command_resolvable(
+        self,
+    ):
+        job = get_dummy_webservice_job(
+            image=Image.from_short_name_or_url(
+                url_or_name="bullseye", tool_name="some-tool"
+            ),
+        )
+
+        with pytest.raises(
+            TjfValidationError, match="requires that you specify a command"
+        ):
+            job.to_continuous_job()
+
+    def test_to_continuous_job_works_for_buildservice_images(self):
+        job = get_dummy_webservice_job(image=get_buildservice_image())
+
+        continuous_job = job.to_continuous_job()
+
+        assert continuous_job.cmd == "web"
+        assert continuous_job.port == 8000
+        assert continuous_job.publish == "/"
+        assert continuous_job.filelog is False
+
+    def test_to_continuous_job_uses_explicit_port(self):
+        job = get_dummy_webservice_job(
+            image=Image.from_short_name_or_url(
+                url_or_name="bullseye", tool_name="some-tool"
+            ),
+            cmd="custom-cmd",
+            port=8080,
+        )
+
+        continuous_job = job.to_continuous_job()
+
+        assert continuous_job.port == 8080
 
 
 class TestCommonOptions:

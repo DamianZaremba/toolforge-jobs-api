@@ -6,6 +6,7 @@ from helpers.fakes import (
     get_dummy_continuous_job,
     get_dummy_one_off_job,
     get_dummy_scheduled_job,
+    get_dummy_webservice_job,
 )
 from toolforge_weld.kubernetes import MountOption
 
@@ -21,10 +22,12 @@ from tjf.core.models import (
     OneOffJobStatus,
     ScheduledJobStatus,
     StatusShort,
+    WebserviceJobStatus,
 )
 from tjf.runtimes.exceptions import NotFoundInRuntime
 from tjf.runtimes.k8s.k8s_errors import K8sAlreadyExists
 from tjf.settings import Settings
+from tjf.storages.exceptions import NotFoundInStorage
 
 
 class GetMyCore(Protocol):
@@ -410,6 +413,9 @@ class TestCore:
             storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
             assert gotten_job.model_dump() == expected_job.model_dump()
             assert gotten_job.status.up_to_date
+            mock_runtime_get_job.assert_called_once_with(
+                job_name=my_runtime_job.job_name, tool_name="some-tool"
+            )
 
         def test_returns_storage_job_not_up_to_date_on_error_when_retrieving_from_runtime(
             self,
@@ -504,7 +510,7 @@ class TestCore:
             my_core.delete_job(job=job)
 
             mock_storage_delete_job.assert_called_once_with(job=job)
-            mock_runtime_delete_job.assert_called_once_with(job=job)
+            mock_runtime_delete_job.assert_called_once_with(job=job.get_resolved_job())
 
     class TestUpdateJob:
         def test_creates_continuous_job_in_runtime_when_it_does_not_exist(
@@ -565,6 +571,10 @@ class TestCore:
             mock_runtime_update_job.assert_called_once_with(job=job.get_resolved_job())
             assert gotten_change
             assert gotten_message == "Job silly-job-name was updated in runtime only"
+            mock_core_get_job.assert_called_once_with(
+                tool_name=job.tool_name, name=job.job_name
+            )
+            mock_runtime_create_job.assert_called_once_with(job=job.get_resolved_job())
 
         def test_creates_one_off_job_in_runtime_when_it_does_not_exist(
             self, get_my_core: GetMyCore
@@ -651,7 +661,7 @@ class TestCore:
 
             my_core.restart_job(job=job)
 
-            mock_runtime_restart_job.assert_called_once_with(job=job)
+            mock_runtime_restart_job.assert_called_once_with(job=job.get_resolved_job())
             mock_runtime_create_job.assert_called_once_with(job=job.get_resolved_job())
             mock_storage_get_job.assert_called_once_with(
                 job_name=job.job_name, tool_name=job.tool_name
@@ -682,7 +692,7 @@ class TestCore:
 
             my_core.restart_job(job=job)
 
-            mock_runtime_restart_job.assert_called_once_with(job=job)
+            mock_runtime_restart_job.assert_called_once_with(job=job.get_resolved_job())
             mock_runtime_create_job.assert_called_once_with(job=job.get_resolved_job())
             mock_storage_get_job.assert_called_once_with(
                 job_name=job.job_name, tool_name=job.tool_name
@@ -733,7 +743,7 @@ class TestCore:
 
             my_core.restart_job(job=job)
 
-            mock_runtime_restart_job.assert_called_once_with(job=job)
+            mock_runtime_restart_job.assert_called_once_with(job=job.get_resolved_job())
             mock_runtime_create_job.assert_called_once_with(job=job.get_resolved_job())
             mock_storage_get_job.assert_called_once_with(
                 job_name=job.job_name, tool_name=job.tool_name
@@ -780,7 +790,11 @@ class TestCore:
             mock_runtime_get_one_off_jobs.assert_called_once_with(tool_name="some-tool")
             mock_runtime_delete_jobs.assert_called_once_with(
                 tool_name="some-tool",
-                jobs=[continuous_job, scheduled_job, one_off_job],
+                jobs=[
+                    continuous_job.get_resolved_job(),
+                    scheduled_job.get_resolved_job(),
+                    one_off_job,
+                ],
             )
 
     class TestCreateJob:
@@ -875,7 +889,7 @@ class TestCore:
             mock_storage_create_job.assert_called_once_with(job=job)
             mock_runtime_create_job.assert_called_once_with(job=job.get_resolved_job())
             mock_storage_delete_job.assert_called_once_with(job=job)
-            mock_runtime_delete_job.assert_called_once_with(job=job)
+            mock_runtime_delete_job.assert_called_once_with(job=job.get_resolved_job())
 
         def test_recreates_in_runtime_when_job_already_exists(
             self,
@@ -947,7 +961,7 @@ class TestCore:
             ]
             assert mock_runtime_delete_job.call_args_list == [
                 call(job=job.get_resolved_job()),
-                call(job=job),
+                call(job=job.get_resolved_job()),
             ]
 
     class TestGetJobs:
@@ -1096,6 +1110,310 @@ class TestCore:
             assert gotten_jobs[0].status.up_to_date
             mock_storage_get_jobs.assert_called_once_with(tool_name="some-tool")
             mock_runtime_get_one_off_jobs.assert_called_once_with(tool_name="some-tool")
+
+    class TestWebserviceJob:
+        def test_create_stores_webservice_job_and_creates_derived_continuous_job_in_runtime(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_webservice_job()
+            my_core = get_my_core()
+            mock_storage_create_job = MagicMock(
+                spec=my_core.storage.create_job, side_effect=lambda job: job
+            )
+            mock_runtime_create_job = MagicMock(spec=my_core.runtime.create_job)
+            monkeypatch.setattr(my_core.storage, "create_job", mock_storage_create_job)
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+
+            my_core.create_job(job=job)
+
+            mock_storage_create_job.assert_called_once_with(job=job)
+            mock_runtime_create_job.assert_called_once_with(job=job.to_continuous_job())
+
+        def test_update_updates_derived_continuous_job_in_runtime(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            existing_job = get_dummy_webservice_job(
+                job_name="silly-job-name",
+                status={"up_to_date": True},
+            )
+            updated_job = get_dummy_webservice_job(
+                job_name="silly-job-name",
+                cmd="different command",
+            )
+            my_core = get_my_core()
+            mock_get_job = MagicMock(
+                spec=my_core.get_job,
+                return_value=existing_job,
+            )
+            mock_update_job_in_storage = MagicMock(
+                spec=my_core._update_job_in_storage,
+                return_value=True,
+            )
+            mock_update_job_in_runtime = MagicMock(
+                spec=my_core._update_job_in_runtime,
+            )
+            monkeypatch.setattr(my_core, "get_job", mock_get_job)
+            monkeypatch.setattr(
+                my_core, "_update_job_in_storage", mock_update_job_in_storage
+            )
+            monkeypatch.setattr(
+                my_core, "_update_job_in_runtime", mock_update_job_in_runtime
+            )
+
+            changed, message = my_core.update_job(job=updated_job)
+
+            assert changed is True
+            assert message == "Job silly-job-name was updated in storage and runtime"
+            mock_update_job_in_storage.assert_called_once_with(
+                existing_job=existing_job, new_job=updated_job
+            )
+            mock_update_job_in_runtime.assert_called_once_with(
+                job=updated_job.to_continuous_job()
+            )
+
+        def test_delete_deletes_derived_continuous_job_in_runtime(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_webservice_job()
+            my_core = get_my_core()
+            mock_storage_delete_job = MagicMock(spec=my_core.storage.delete_job)
+            mock_runtime_delete_job = MagicMock(spec=my_core.runtime.delete_job)
+            monkeypatch.setattr(my_core.storage, "delete_job", mock_storage_delete_job)
+            monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete_job)
+
+            my_core.delete_job(job=job)
+
+            mock_storage_delete_job.assert_called_once_with(job=job)
+            mock_runtime_delete_job.assert_called_once_with(job=job.to_continuous_job())
+
+        def test_restart_restarts_derived_continuous_job_in_runtime(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_webservice_job()
+            my_core = get_my_core()
+            mock_runtime_restart_job = MagicMock(
+                spec=my_core.runtime.restart_job,
+                side_effect=NotFoundInRuntime("Not found in runtime"),
+            )
+            mock_runtime_create_job = MagicMock(spec=my_core.runtime.create_job)
+            mock_storage_get_job = MagicMock(
+                spec=my_core.storage.get_job,
+                return_value=job,
+            )
+            monkeypatch.setattr(
+                my_core.runtime, "restart_job", mock_runtime_restart_job
+            )
+            monkeypatch.setattr(my_core.storage, "get_job", mock_storage_get_job)
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+
+            my_core.restart_job(job=job)
+
+            mock_runtime_restart_job.assert_called_once_with(
+                job=job.to_continuous_job()
+            )
+            mock_runtime_create_job.assert_called_once_with(job=job.to_continuous_job())
+            mock_storage_get_job.assert_called_once_with(
+                job_name=job.job_name, tool_name=job.tool_name
+            )
+
+        def test_get_fetches_derived_continuous_job_from_runtime(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_webservice_job()
+            my_core = get_my_core()
+            mock_storage_get_job = MagicMock(
+                spec=my_core.storage.get_job,
+                return_value=job,
+            )
+            mock_runtime_get_continuous_job = MagicMock(
+                spec=my_core.runtime.get_continuous_job,
+                return_value=job.to_continuous_job(),
+            )
+            monkeypatch.setattr(my_core.storage, "get_job", mock_storage_get_job)
+            monkeypatch.setattr(
+                my_core.runtime,
+                "get_continuous_job",
+                mock_runtime_get_continuous_job,
+            )
+
+            gotten_job = my_core.get_job(tool_name=job.tool_name, name=job.job_name)
+
+            mock_runtime_get_continuous_job.assert_called_once_with(
+                job_name=job.job_name, tool_name=job.tool_name
+            )
+            assert gotten_job
+            assert gotten_job.job_type == JobType.WEBSERVICE
+            assert gotten_job.status.up_to_date is True
+
+        def test_flush_deletes_derived_continuous_job_in_runtime(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            webservice_job = get_dummy_webservice_job(job_name="webservice-job")
+            storage_jobs = [webservice_job]
+            my_core = get_my_core()
+            mock_storage_get_jobs = MagicMock(
+                spec=my_core.storage.get_jobs,
+                return_value=storage_jobs,
+            )
+            mock_storage_delete_jobs = MagicMock(spec=my_core.storage.delete_jobs)
+            mock_runtime_get_one_off_jobs = MagicMock(
+                spec=my_core.runtime.get_one_off_jobs,
+                return_value=[],
+            )
+            mock_runtime_delete_jobs = MagicMock(spec=my_core.runtime.delete_jobs)
+            monkeypatch.setattr(my_core.storage, "get_jobs", mock_storage_get_jobs)
+            monkeypatch.setattr(
+                my_core.storage, "delete_jobs", mock_storage_delete_jobs
+            )
+            monkeypatch.setattr(
+                my_core.runtime, "get_one_off_jobs", mock_runtime_get_one_off_jobs
+            )
+            monkeypatch.setattr(
+                my_core.runtime, "delete_jobs", mock_runtime_delete_jobs
+            )
+
+            my_core.flush_jobs(tool_name="some-tool")
+
+            mock_storage_delete_jobs.assert_called_once_with(
+                tool_name="some-tool", jobs=storage_jobs
+            )
+            mock_runtime_delete_jobs.assert_called_once_with(
+                tool_name="some-tool",
+                jobs=[webservice_job.to_continuous_job()],
+            )
+
+        def test_webservice_storage_job_matches_derived_continuous_runtime_job(
+            self,
+            get_my_core: GetMyCore,
+        ):
+            storage_job = get_dummy_webservice_job()
+            runtime_job = storage_job.to_continuous_job()
+            my_core = get_my_core()
+
+            gotten_job = my_core._reconciliate_storage_and_runtime(
+                runtime_job=runtime_job,
+                storage_job=storage_job,
+            )
+
+            assert gotten_job
+            assert gotten_job.job_type == JobType.WEBSERVICE
+            assert gotten_job.status.up_to_date is True
+
+        def test_get_jobs_fetches_derived_continuous_jobs_from_runtime(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_webservice_job()
+            my_core = get_my_core()
+            mock_storage_get_jobs = MagicMock(
+                spec=my_core.storage.get_jobs,
+                return_value=[job],
+            )
+            mock_runtime_get_continuous_job = MagicMock(
+                spec=my_core.runtime.get_continuous_job,
+                return_value=job.to_continuous_job(),
+            )
+            mock_runtime_get_one_off_jobs = MagicMock(
+                spec=my_core.runtime.get_one_off_jobs,
+                return_value=[],
+            )
+            monkeypatch.setattr(my_core.storage, "get_jobs", mock_storage_get_jobs)
+            monkeypatch.setattr(
+                my_core.runtime,
+                "get_continuous_job",
+                mock_runtime_get_continuous_job,
+            )
+            monkeypatch.setattr(
+                my_core.runtime, "get_one_off_jobs", mock_runtime_get_one_off_jobs
+            )
+
+            gotten_jobs = my_core.get_jobs(tool_name=job.tool_name)
+
+            mock_runtime_get_continuous_job.assert_called_once_with(
+                job_name=job.job_name, tool_name=job.tool_name
+            )
+            assert len(gotten_jobs) == 1
+            assert gotten_jobs[0].job_type == JobType.WEBSERVICE
+            assert gotten_jobs[0].status.up_to_date is True
+
+        def test_delete_raises_when_job_not_in_storage(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_webservice_job()
+            my_core = get_my_core()
+            mock_storage_delete_job = MagicMock(
+                spec=my_core.storage.delete_job,
+                side_effect=NotFoundInStorage("Not found in storage"),
+            )
+            monkeypatch.setattr(my_core.storage, "delete_job", mock_storage_delete_job)
+
+            with pytest.raises(TjfError):
+                my_core.delete_job(job=job)
+
+        def test_update_creates_derived_continuous_job_in_runtime_when_it_does_not_exist(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_webservice_job(
+                job_name="silly-job-name",
+                status=WebserviceJobStatus(up_to_date=False),
+            )
+            my_core = get_my_core()
+            mock_runtime_update_job = MagicMock(
+                spec=my_core.runtime.update_continuous_job,
+                side_effect=NotFoundInRuntime("Not found in runtime"),
+            )
+            mock_runtime_create_job = MagicMock(spec=my_core.runtime.create_job)
+            monkeypatch.setattr(
+                my_core.runtime, "update_continuous_job", mock_runtime_update_job
+            )
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+            mock_core_get_job = MagicMock(spec=my_core.get_job, return_value=job)
+            monkeypatch.setattr(my_core, "get_job", mock_core_get_job)
+
+            gotten_change, gotten_message = my_core.update_job(job=job)
+
+            derived_job = job.to_continuous_job()
+            mock_runtime_update_job.assert_called_once_with(job=derived_job)
+            mock_runtime_create_job.assert_called_once_with(job=derived_job)
+            assert gotten_change
+            assert gotten_message == "Job silly-job-name was updated in runtime only"
+
+        def test_webservice_job_marked_out_of_sync_when_runtime_differs(
+            self,
+            get_my_core: GetMyCore,
+        ):
+            storage_job = get_dummy_webservice_job()
+            runtime_job = storage_job.to_continuous_job()
+            runtime_job.cmd = "some other command"
+            my_core = get_my_core()
+
+            gotten_job = my_core._reconciliate_storage_and_runtime(
+                runtime_job=runtime_job,
+                storage_job=storage_job,
+            )
+
+            assert gotten_job
+            assert gotten_job.status.up_to_date is False
+            assert gotten_job.status_long == OUT_OF_SYNC_JOB_WARNING_MESSAGE.format(
+                job_name=storage_job.job_name
+            )
 
     class TestUpdateJobInStorage:
         class TestContinuousJob:
