@@ -26,7 +26,7 @@ from .auth import ensure_authenticated
 from .models import (
     AnyDefinedJob,
     AnyNewJob,
-    CommonJob,
+    CommonOptions,
     DeleteResponse,
     FlushResponse,
     JobListResponse,
@@ -220,7 +220,7 @@ async def api_get_logs(request: Request, tool_name: str, name: str) -> Response:
     # Prevent injection attacks onto the Loki LogQL query.
     # (In theory LogQL is safe, but I don't want to learn that that's not the case
     # the hard way.)
-    job_name = CommonJob.validate_job_name(name)
+    job_name = CommonOptions.validate_job_name(name)
 
     job = core.get_job(tool_name=tool_name, name=job_name)
     if job and job.filelog:

@@ -26,7 +26,7 @@ from ..core.models import (
     ScriptHealthCheck,
 )
 from ..core.models import AnyJob as AnyCoreJob
-from ..core.models import CommonJob as CoreCommonJob
+from ..core.models import CommonOptions as CoreCommonOptions
 from ..core.models import ContinuousJob as CoreContinuousJob
 from ..core.models import OneOffJob as CoreOneOffJob
 from ..core.models import ScheduledJob as CoreScheduledJob
@@ -34,21 +34,25 @@ from ..core.models import ScheduledJob as CoreScheduledJob
 LOGGER = getLogger(__name__)
 
 
-class CommonJob(BaseModel):
+class CommonOptions(BaseModel):
     name: str
     # TODO: replace imagename with image, note this will change the API
     imagename: str
-    filelog: bool = CoreCommonJob.model_fields["filelog"].default
-    filelog_stdout: Path | None = CoreCommonJob.model_fields["filelog_stdout"].default
-    filelog_stderr: Path | None = CoreCommonJob.model_fields["filelog_stderr"].default
-    emails: EmailOption = CoreCommonJob.model_fields["emails"].default
-    mount: MountOption = CoreCommonJob.model_fields["mount"].default
-    memory: str = CoreCommonJob.model_fields["memory"].default
-    cpu: str = CoreCommonJob.model_fields["cpu"].default
+    filelog: bool = CoreCommonOptions.model_fields["filelog"].default
+    filelog_stdout: Path | None = CoreCommonOptions.model_fields[
+        "filelog_stdout"
+    ].default
+    filelog_stderr: Path | None = CoreCommonOptions.model_fields[
+        "filelog_stderr"
+    ].default
+    emails: EmailOption = CoreCommonOptions.model_fields["emails"].default
+    mount: MountOption = CoreCommonOptions.model_fields["mount"].default
+    memory: str = CoreCommonOptions.model_fields["memory"].default
+    cpu: str = CoreCommonOptions.model_fields["cpu"].default
 
     @field_validator("name")
     @classmethod
-    def job_name_validator(cls: type["CommonJob"], value: str) -> str:
+    def job_name_validator(cls: type["CommonOptions"], value: str) -> str:
         # It's fine leaving this here because we want to customize the error message for this field.
         # Moving to internal jobs model will make customization impossible.
         # Making this field nullable will lead to confusion in the openapi spec.
@@ -81,9 +85,9 @@ class CommonJob(BaseModel):
             )
         return job_name
 
-    def to_core_job(self, tool_name: str) -> CoreCommonJob:
+    def to_core_job(self, tool_name: str) -> CoreCommonOptions:
         LOGGER.debug(
-            f"CommonJob.to_core_job: got {self} (with set fields {self.model_fields_set})"
+            f"CommonOptions.to_core_job: got {self} (with set fields {self.model_fields_set})"
         )
         set_job_params = self.model_dump(exclude_unset=True)
 
@@ -96,14 +100,14 @@ class CommonJob(BaseModel):
             "image": image,
             **set_job_params,
         }
-        my_job = CoreCommonJob.model_validate(params)
+        my_job = CoreCommonOptions.model_validate(params)
         LOGGER.debug(
             f"Got {self} (set fields {self.model_fields_set}), \ngenerated {my_job} (fields set {my_job.model_fields_set})"
         )
         return my_job
 
     @classmethod
-    def from_core_job(cls, core_job: AnyCoreJob) -> "CommonJob":
+    def from_core_job(cls, core_job: AnyCoreJob) -> "CommonOptions":
         set_job_params = core_job.model_dump(exclude_unset=True)
         name = set_job_params.pop("job_name")
         imagename = set_job_params.pop("image")["short_name"]
@@ -119,14 +123,14 @@ class CommonJob(BaseModel):
             **set_job_params,
         }
 
-        my_job = CommonJob.model_validate(params)
+        my_job = CommonOptions.model_validate(params)
         LOGGER.debug(
             f"Got {core_job} (set fields {core_job.model_fields_set}), \ngenerated {my_job} (set fields {my_job.model_fields_set})"
         )
         return my_job
 
 
-class NewOneOffJob(CommonJob, BaseModel):
+class NewOneOffJob(CommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.ONE_OFF] = CoreOneOffJob.model_fields["job_type"].default
     retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields[
@@ -160,7 +164,7 @@ class NewOneOffJob(CommonJob, BaseModel):
         return my_job
 
 
-class NewScheduledJob(CommonJob, BaseModel):
+class NewScheduledJob(CommonOptions, BaseModel):
     cmd: str
     schedule: str
     job_type: Literal[JobType.SCHEDULED] = CoreScheduledJob.model_fields[
@@ -213,7 +217,7 @@ class NewScheduledJob(CommonJob, BaseModel):
         return my_job
 
 
-class NewContinuousJob(CommonJob, BaseModel):
+class NewContinuousJob(CommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.CONTINUOUS] = CoreContinuousJob.model_fields[
         "job_type"
@@ -266,18 +270,18 @@ class NewContinuousJob(CommonJob, BaseModel):
 AnyNewJob = NewOneOffJob | NewScheduledJob | NewContinuousJob
 
 
-class DefinedCommonJob(CommonJob):
+class DefinedCommonOptions(CommonOptions):
     # image is the same as imagename, imagename is only used when interacting with the user
     # TODO: replace imagename with image
     image: str
     imagename: str
     image_state: str = ImageData.model_fields["state"].default
-    status_short: str = CoreCommonJob.model_fields["status_short"].default
-    status_long: str = CoreCommonJob.model_fields["status_long"].default
+    status_short: str = CoreCommonOptions.model_fields["status_short"].default
+    status_long: str = CoreCommonOptions.model_fields["status_long"].default
 
     @classmethod
-    def from_core_job(cls, core_job: AnyCoreJob) -> "DefinedCommonJob":
-        common_params = CommonJob.from_core_job(core_job=core_job).model_dump(
+    def from_core_job(cls, core_job: AnyCoreJob) -> "DefinedCommonOptions":
+        common_params = CommonOptions.from_core_job(core_job=core_job).model_dump(
             exclude_unset=True
         )
         set_core_params = core_job.model_dump(exclude_unset=True)
@@ -305,7 +309,7 @@ class DefinedCommonJob(CommonJob):
         return my_job
 
 
-class DefinedOneOffJob(DefinedCommonJob, BaseModel):
+class DefinedOneOffJob(DefinedCommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.ONE_OFF] = CoreOneOffJob.model_fields["job_type"].default
     retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields[
@@ -320,8 +324,8 @@ class DefinedOneOffJob(DefinedCommonJob, BaseModel):
                 "DefinedOneOffJob can only be created from a CoreOneOffJob"
             )
 
-        defined_common_job = DefinedCommonJob.from_core_job(core_job=core_job)
-        common_params = defined_common_job.model_dump(exclude_unset=True)
+        defined_common_options = DefinedCommonOptions.from_core_job(core_job=core_job)
+        common_params = defined_common_options.model_dump(exclude_unset=True)
         set_core_params = core_job.model_dump(exclude_unset=True)
         image_state = set_core_params.pop("image")["state"]
 
@@ -346,7 +350,7 @@ class DefinedOneOffJob(DefinedCommonJob, BaseModel):
         return my_job
 
 
-class DefinedScheduledJob(DefinedCommonJob, BaseModel):
+class DefinedScheduledJob(DefinedCommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.SCHEDULED] = CoreScheduledJob.model_fields[
         "job_type"
@@ -368,8 +372,8 @@ class DefinedScheduledJob(DefinedCommonJob, BaseModel):
                 "DefinedScheduledJob can only be created from a CoreScheduledJob"
             )
 
-        defined_common_job = DefinedCommonJob.from_core_job(core_job=core_job)
-        common_params = defined_common_job.model_dump(exclude_unset=True)
+        defined_common_options = DefinedCommonOptions.from_core_job(core_job=core_job)
+        common_params = defined_common_options.model_dump(exclude_unset=True)
         set_core_params = core_job.model_dump(exclude_unset=True)
         schedule = set_core_params.pop("schedule")["text"]
         image_state = set_core_params.pop("image")["state"]
@@ -405,7 +409,7 @@ class DefinedScheduledJob(DefinedCommonJob, BaseModel):
         return my_job
 
 
-class DefinedContinuousJob(DefinedCommonJob, BaseModel):
+class DefinedContinuousJob(DefinedCommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.CONTINUOUS] = CoreContinuousJob.model_fields[
         "job_type"
@@ -436,8 +440,8 @@ class DefinedContinuousJob(DefinedCommonJob, BaseModel):
             raise TjfValidationError(
                 "DefinedContinuousJob can only be created from a CoreContinuousJob"
             )
-        defined_common_job = DefinedCommonJob.from_core_job(core_job=core_job)
-        common_params = defined_common_job.model_dump(exclude_unset=True)
+        defined_common_options = DefinedCommonOptions.from_core_job(core_job=core_job)
+        common_params = defined_common_options.model_dump(exclude_unset=True)
         set_core_params = core_job.model_dump(exclude_unset=True)
         image_state = set_core_params.pop("image")["state"]
 

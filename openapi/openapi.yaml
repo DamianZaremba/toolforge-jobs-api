@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.13.0"
+  version: "4.14.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -577,7 +577,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/CommonJobStatus"
     # common job fields
-    CommonJob:
+    CommonOptions:
       type: object
       required:
         - name
@@ -645,7 +645,7 @@ components:
           example: "1"
     NewOneOffJob:
       allOf:
-        - $ref: "#/components/schemas/CommonJob"
+        - $ref: "#/components/schemas/CommonOptions"
         - type: object
           required:
             - cmd
@@ -662,7 +662,7 @@ components:
               enum: ["one-off"]
     NewScheduledJob:
       allOf:
-        - $ref: "#/components/schemas/CommonJob"
+        - $ref: "#/components/schemas/CommonOptions"
         - type: object
           required:
             - cmd
@@ -690,7 +690,7 @@ components:
               example: 120
     NewContinuousJob:
       allOf:
-        - $ref: "#/components/schemas/CommonJob"
+        - $ref: "#/components/schemas/CommonOptions"
         - type: object
           required:
             - cmd
@@ -754,9 +754,9 @@ components:
                 mapping:
                   script: "#/components/schemas/ScriptHealthCheck"
                   http: "#/components/schemas/HttpHealthCheck"
-    DefinedCommonJob:
+    DefinedCommonOptions:
       allOf:
-        - $ref: "#/components/schemas/CommonJob"
+        - $ref: "#/components/schemas/CommonOptions"
         - type: object
           properties:
             image:
@@ -784,7 +784,7 @@ components:
                 - $ref: "#/components/schemas/ScheduledJobStatus"
     DefinedOneOffJob:
       allOf:
-        - $ref: "#/components/schemas/DefinedCommonJob"
+        - $ref: "#/components/schemas/DefinedCommonOptions"
         - type: object
           required:
             - cmd
@@ -799,7 +799,7 @@ components:
               enum: ["one-off"]
     DefinedScheduledJob:
       allOf:
-        - $ref: "#/components/schemas/DefinedCommonJob"
+        - $ref: "#/components/schemas/DefinedCommonOptions"
         - type: object
           required:
             - cmd
@@ -830,7 +830,7 @@ components:
               example: 120
     DefinedContinuousJob:
       allOf:
-        - $ref: "#/components/schemas/DefinedCommonJob"
+        - $ref: "#/components/schemas/DefinedCommonOptions"
         - type: object
           required:
             - cmd

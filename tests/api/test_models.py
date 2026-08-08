@@ -7,8 +7,8 @@ from toolforge_weld.kubernetes import MountOption
 from tests.helpers.fake_k8s import K8S_ONEOFF_JOB_OBJ
 from tests.utils import cases
 from tjf.api.models import (
-    CommonJob,
-    DefinedCommonJob,
+    CommonOptions,
+    DefinedCommonOptions,
     DefinedContinuousJob,
     DefinedOneOffJob,
     DefinedScheduledJob,
@@ -19,7 +19,7 @@ from tjf.api.models import (
 from tjf.core.cron import CronExpression
 from tjf.core.error import TjfValidationError
 from tjf.core.images import Image, ImageType
-from tjf.core.models import CommonJob as CoreCommonJob
+from tjf.core.models import CommonOptions as CoreCommonOptions
 from tjf.core.models import ContinuousJob as CoreContinuousJob
 from tjf.core.models import (
     EmailOption,
@@ -33,7 +33,7 @@ from tjf.core.models import ScheduledJob as CoreScheduledJob
 from tjf.runtimes.k8s.jobs import get_one_off_job_from_k8s_object
 
 
-def get_dummy_core_common_job(**overrides) -> CoreCommonJob:
+def get_dummy_core_common_options(**overrides) -> CoreCommonOptions:
     params = {
         "image": Image.from_short_name_or_url(
             url_or_name="python3.11", tool_name="some-tool"
@@ -41,18 +41,18 @@ def get_dummy_core_common_job(**overrides) -> CoreCommonJob:
         "job_name": "dummy-job-name",
         "tool_name": "some-tool",
     }
-    return CoreCommonJob.model_validate(params | overrides)
+    return CoreCommonOptions.model_validate(params | overrides)
 
 
-def get_dummy_common_job(**overrides) -> CommonJob:
+def get_dummy_common_options(**overrides) -> CommonOptions:
     params = {
         "name": "dummy-job-name",
         "imagename": "python3.11",
     }
-    return CommonJob.model_validate(params | overrides)
+    return CommonOptions.model_validate(params | overrides)
 
 
-def get_dummy_defined_common_job(**overrides) -> DefinedCommonJob:
+def get_dummy_defined_common_options(**overrides) -> DefinedCommonOptions:
     params = {
         "name": "dummy-job-name",
         # these two are the same, imagename to be removed eventually
@@ -60,7 +60,7 @@ def get_dummy_defined_common_job(**overrides) -> DefinedCommonJob:
         "imagename": "python3.11",
         "image_state": "stable",
     }
-    defined_job = DefinedCommonJob.model_validate(params | overrides)
+    defined_job = DefinedCommonOptions.model_validate(params | overrides)
     # Flag this param as unset, in order to verify that from_core_job is correctly doing the same.
     defined_job.model_fields_set.remove("image_state")
     return defined_job
@@ -187,10 +187,10 @@ def get_dummy_defined_continuous_job(**overrides) -> DefinedContinuousJob:
     return defined_job
 
 
-class TestCommonJob:
+class TestCommonOptions:
     def test_to_job_returns_expected_value_when_excluding_unset(self):
-        my_job = get_dummy_common_job()
-        expected_core_job = get_dummy_core_common_job()
+        my_job = get_dummy_common_options()
+        expected_core_job = get_dummy_core_common_options()
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
@@ -199,8 +199,8 @@ class TestCommonJob:
         ) == expected_core_job.model_dump(exclude_unset=True)
 
     def test_to_job_returns_expected_value_when_including_unset(self):
-        my_job = get_dummy_common_job()
-        expected_core_job = get_dummy_core_common_job()
+        my_job = get_dummy_common_options()
+        expected_core_job = get_dummy_core_common_options()
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
@@ -210,7 +210,7 @@ class TestCommonJob:
 
     def test_to_job_returns_expected_value_when_setting_all_fields(self):
         # similar as before, but leaving for consistency and in case we add fields to it
-        my_job = get_dummy_common_job(
+        my_job = get_dummy_common_options(
             cpu="1000m",
             memory="1G",
             mount=MountOption.ALL,
@@ -219,7 +219,7 @@ class TestCommonJob:
             filelog_stderr=Path("/path/to.log.err"),
             filelog_stdout=Path("/path/to.log.out"),
         )
-        expected_core_job = get_dummy_core_common_job(
+        expected_core_job = get_dummy_core_common_options(
             cpu="1000m",
             memory="1G",
             mount=MountOption.ALL,
@@ -349,45 +349,45 @@ class TestNewContinuousJob:
         ) == expected_core_job.model_dump(exclude_unset=False)
 
 
-class TestDefinedCommonJob:
+class TestDefinedCommonOptions:
     def test_to_job_returns_expected_value_when_excluding_unset(self):
-        expected_defined_job = get_dummy_defined_common_job(
+        expected_defined_job = get_dummy_defined_common_options(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_common_job(
+        core_job = get_dummy_core_common_options(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
 
-        gotten_defined_job = DefinedCommonJob.from_core_job(core_job=core_job)
+        gotten_defined_job = DefinedCommonOptions.from_core_job(core_job=core_job)
 
         assert gotten_defined_job.model_dump(
             exclude_unset=True
         ) == expected_defined_job.model_dump(exclude_unset=True)
 
     def test_to_job_returns_expected_value_when_including_unset(self):
-        expected_defined_job = get_dummy_defined_common_job(
+        expected_defined_job = get_dummy_defined_common_options(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_common_job(
+        core_job = get_dummy_core_common_options(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
 
-        gotten_defined_job = DefinedCommonJob.from_core_job(core_job=core_job)
+        gotten_defined_job = DefinedCommonOptions.from_core_job(core_job=core_job)
 
         assert gotten_defined_job.model_dump(
             exclude_unset=False
         ) == expected_defined_job.model_dump(exclude_unset=False)
 
     def test_to_job_returns_expected_value_when_all_fields_set(self):
-        expected_defined_job = get_dummy_defined_common_job(
+        expected_defined_job = get_dummy_defined_common_options(
             image="python3.11",
             imagename="python3.11",
             image_state="stable",
@@ -397,7 +397,7 @@ class TestDefinedCommonJob:
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_common_job(
+        core_job = get_dummy_core_common_options(
             image=Image.from_short_name_or_url(
                 url_or_name="python3.11", tool_name="some-tool"
             ),
@@ -408,7 +408,7 @@ class TestDefinedCommonJob:
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
 
-        gotten_defined_job = DefinedCommonJob.from_core_job(core_job=core_job)
+        gotten_defined_job = DefinedCommonOptions.from_core_job(core_job=core_job)
 
         assert gotten_defined_job.model_dump() == expected_defined_job.model_dump()
 
@@ -596,8 +596,8 @@ class TestDefinedContinuousJob:
 
 
 class TestGetResolvedCoreJob:
-    def test_common_job_resolves_mount_and_filelog_for_standard_image(self):
-        job = get_dummy_core_common_job()
+    def test_common_options_resolves_mount_and_filelog_for_standard_image(self):
+        job = get_dummy_core_common_options()
         resolved = job.get_resolved_core_job()
         assert resolved.mount == MountOption.ALL
         assert resolved.filelog is True
@@ -608,8 +608,8 @@ class TestGetResolvedCoreJob:
             "/data/project/some-tool/dummy-job-name.err"
         )
 
-    def test_common_job_resolves_mount_and_filelog_for_buildservice_image(self):
-        job = get_dummy_core_common_job(
+    def test_common_options_resolves_mount_and_filelog_for_buildservice_image(self):
+        job = get_dummy_core_common_options(
             image=Image(
                 short_name="tool-some-tool/myimage:latest",
                 type=ImageType.BUILDSERVICE,
@@ -623,8 +623,8 @@ class TestGetResolvedCoreJob:
         assert resolved.mount == MountOption.NONE
         assert resolved.filelog is False
 
-    def test_common_job_explicit_mount_not_overridden(self):
-        job = get_dummy_core_common_job(
+    def test_common_options_explicit_mount_not_overridden(self):
+        job = get_dummy_core_common_options(
             image=Image(
                 short_name="tool-some-tool/myimage:latest",
                 type=ImageType.BUILDSERVICE,
@@ -639,7 +639,7 @@ class TestGetResolvedCoreJob:
         assert resolved.mount == MountOption.ALL
 
     def test_explicit_filelog_false_not_overridden_no_paths(self):
-        job = get_dummy_core_common_job(filelog=False)
+        job = get_dummy_core_common_options(filelog=False)
         resolved = job.get_resolved_core_job()
         assert resolved.filelog is False
         assert resolved.filelog_stdout is None

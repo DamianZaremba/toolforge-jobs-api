@@ -25,7 +25,7 @@ def get_buildservice_image() -> Image:
     )
 
 
-class TestCommonJob:
+class TestCommonOptions:
     def test_mount_none_is_rejected_for_standard_images(self):
         with pytest.raises(ValueError, match="only supported for build service images"):
             get_dummy_continuous_job(mount=MountOption.NONE)

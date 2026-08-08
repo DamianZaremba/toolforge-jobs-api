@@ -25,7 +25,7 @@ from ...core.models import (
     JOB_DEFAULT_MEMORY,
     AnyJob,
     Command,
-    CommonJob,
+    CommonOptions,
     ContinuousJob,
     EmailOption,
     HealthCheckType,
@@ -491,12 +491,12 @@ def _strip_launcher(command: Command, image: Image) -> str:
     return command.user_command
 
 
-def get_common_job_from_k8s(
+def get_common_options_from_k8s(
     k8s_object: dict[str, Any],
     job_type: JobType,
     default_cpu_limit: str,
     tool_name: str,
-) -> CommonJob:
+) -> CommonOptions:
     # TODO: why not just index the dict directly instead of dict_get_object?
     spec = dict_get_object(k8s_object, "spec")
     if not spec:
@@ -530,15 +530,19 @@ def get_common_job_from_k8s(
     )
     resources = podspec["template"]["spec"]["containers"][0].get("resources", {})
     resources_limits = resources.get("limits", {})
-    memory = resources_limits.get("memory", CommonJob.model_fields["memory"].default)
+    memory = resources_limits.get(
+        "memory", CommonOptions.model_fields["memory"].default
+    )
     resources_requests = resources.get("requests", {})
     cpu_limit = resources_limits.get("cpu", default_cpu_limit)
-    cpu_request = resources_requests.get("cpu", CommonJob.model_fields["cpu"].default)
+    cpu_request = resources_requests.get(
+        "cpu", CommonOptions.model_fields["cpu"].default
+    )
     if parse_quantity(cpu_limit) == parse_quantity(default_cpu_limit) and (
         parse_quantity(cpu_request)
-        == parse_quantity(CommonJob.model_fields["cpu"].default)
+        == parse_quantity(CommonOptions.model_fields["cpu"].default)
     ):
-        cpu = CommonJob.model_fields["cpu"].default
+        cpu = CommonOptions.model_fields["cpu"].default
     else:
         cpu = cpu_limit
 
@@ -560,24 +564,24 @@ def get_common_job_from_k8s(
         "cpu": format_quantity(parse_quantity(cpu)),
     }
 
-    myjob = CommonJob.model_validate(params)
+    myjob = CommonOptions.model_validate(params)
     return myjob
 
 
 def get_one_off_job_from_k8s_object(
     k8s_object: dict[str, Any], default_cpu_limit: str, tool_name: str
 ) -> OneOffJob:
-    common_job = get_common_job_from_k8s(
+    common_options = get_common_options_from_k8s(
         k8s_object=k8s_object,
         job_type=JobType.ONE_OFF,
         default_cpu_limit=default_cpu_limit,
         tool_name=tool_name,
     )
-    set_common_params = common_job.model_dump(exclude_unset=True)
+    set_common_params = common_options.model_dump(exclude_unset=True)
     command = _get_command_from_k8s_object(
         k8s_object=k8s_object, job_type=JobType.ONE_OFF
     )
-    user_command = _strip_launcher(command=command, image=common_job.image)
+    user_command = _strip_launcher(command=command, image=common_options.image)
 
     podspec = dict_get_object(k8s_object, "spec")
     if not podspec:
@@ -612,17 +616,17 @@ def get_scheduled_job_from_k8s_object(
             "Invalid k8s object, did not contain metadata", data={"k8s_object": object}
         )
 
-    common_job = get_common_job_from_k8s(
+    common_options = get_common_options_from_k8s(
         k8s_object=k8s_object,
         job_type=JobType.SCHEDULED,
         default_cpu_limit=default_cpu_limit,
         tool_name=tool_name,
     )
-    set_common_params = common_job.model_dump(exclude_unset=True)
+    set_common_params = common_options.model_dump(exclude_unset=True)
     command = _get_command_from_k8s_object(
         k8s_object=k8s_object, job_type=JobType.SCHEDULED
     )
-    user_command = _strip_launcher(command=command, image=common_job.image)
+    user_command = _strip_launcher(command=command, image=common_options.image)
 
     if "annotations" in metadata:
         configured_schedule_str = metadata["annotations"].get(
@@ -640,14 +644,14 @@ def get_scheduled_job_from_k8s_object(
     actual_schedule = str(
         CronExpression.parse(
             value=spec["schedule"],
-            job_name=common_job.job_name,
-            tool_name=common_job.tool_name,
+            job_name=common_options.job_name,
+            tool_name=common_options.tool_name,
         )
     )
     configured_schedule = CronExpression.parse(
         value=configured_schedule_str,
-        job_name=common_job.job_name,
-        tool_name=common_job.tool_name,
+        job_name=common_options.job_name,
+        tool_name=common_options.tool_name,
     ).text
 
     schedule = CronExpression.from_runtime(
@@ -712,20 +716,20 @@ def get_continuous_job_from_k8s_object(
         path = container_spec["startupProbe"]["httpGet"]["path"]
         health_check = HttpHealthCheck(type=HealthCheckType.HTTP, path=path)
 
-    common_job = get_common_job_from_k8s(
+    common_options = get_common_options_from_k8s(
         k8s_object=k8s_object,
         job_type=JobType.CONTINUOUS,
         default_cpu_limit=default_cpu_limit,
         tool_name=tool_account.name,
     )
-    set_common_params = common_job.model_dump(exclude_unset=True)
+    set_common_params = common_options.model_dump(exclude_unset=True)
     command = _get_command_from_k8s_object(
         k8s_object=k8s_object, job_type=JobType.CONTINUOUS
     )
-    user_command = _strip_launcher(command=command, image=common_job.image)
+    user_command = _strip_launcher(command=command, image=common_options.image)
 
     httproute_selector = labels_selector(
-        job_name=common_job.job_name,
+        job_name=common_options.job_name,
         tool_name=tool_account.name,
         job_type=JobType.CONTINUOUS,
     )

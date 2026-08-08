@@ -162,7 +162,7 @@ class ScheduledJobStatus(CommonJobStatus):
 AnyJobStatus = OneOffJobStatus | ContinuousJobStatus | ScheduledJobStatus
 
 
-class CommonJob(PydanticBaseModel):
+class CommonOptions(PydanticBaseModel):
     filelog: bool = False
     filelog_stderr: Path | None = None
     filelog_stdout: Path | None = None
@@ -179,16 +179,16 @@ class CommonJob(PydanticBaseModel):
 
     @field_validator("memory")
     @classmethod
-    def memory_validator(cls: type["CommonJob"], value: str) -> str | None:
+    def memory_validator(cls: type["CommonOptions"], value: str) -> str | None:
         return value and parse_and_format_mem(mem=value)
 
     @field_validator("cpu")
     @classmethod
-    def cpu_validator(cls: type["CommonJob"], value: str) -> str | None:
+    def cpu_validator(cls: type["CommonOptions"], value: str) -> str | None:
         return value and format_quantity(quantity_value=parse_quantity(value))
 
     @model_validator(mode="after")
-    def validate_common_job(self) -> Self:
+    def validate_common_options(self) -> Self:
         LOGGER.debug(
             f"Validating common job: {self} (set fields {self.model_fields_set})"
         )
@@ -216,53 +216,53 @@ class CommonJob(PydanticBaseModel):
 
     def get_resolved_core_job(self) -> Self:
         LOGGER.debug(
-            f"CommonJob.get_resolved_core_job(): got {self} (set fields {self.model_fields_set})"
+            f"CommonOptions.get_resolved_core_job(): got {self} (set fields {self.model_fields_set})"
         )
         # we rely on the image having set the type even if we have not yet verified it's a valid one
-        common_job_params = self.model_dump(exclude_unset=True)
+        common_options_params = self.model_dump(exclude_unset=True)
 
         if (
-            "mount" not in common_job_params
-            and common_job_params["image"]["type"] == ImageType.STANDARD
+            "mount" not in common_options_params
+            and common_options_params["image"]["type"] == ImageType.STANDARD
         ):
             LOGGER.debug("Found standard image with default mount, setting to all")
-            common_job_params["mount"] = MountOption.ALL
+            common_options_params["mount"] = MountOption.ALL
 
         elif (
-            "mount" not in common_job_params
-            and common_job_params["image"]["type"] == ImageType.BUILDSERVICE
+            "mount" not in common_options_params
+            and common_options_params["image"]["type"] == ImageType.BUILDSERVICE
         ):
             LOGGER.debug("Found buildservice image with default mount, setting to none")
-            common_job_params["mount"] = MountOption.NONE
+            common_options_params["mount"] = MountOption.NONE
 
         if (
-            "filelog" not in common_job_params
-            and common_job_params["image"]["type"] != ImageType.BUILDSERVICE
+            "filelog" not in common_options_params
+            and common_options_params["image"]["type"] != ImageType.BUILDSERVICE
         ):
             # defaulting filelog to True when mount=all and image_type=standard. something to pay attention to in the future
-            common_job_params["filelog"] = True
+            common_options_params["filelog"] = True
 
-        if common_job_params.get("filelog", None):
-            tool_home = get_tool_home(name=common_job_params["tool_name"])
-            common_job_params["filelog_stdout"] = resolve_filelog_path(
-                path=common_job_params.get("filelog_stdout", None),
+        if common_options_params.get("filelog", None):
+            tool_home = get_tool_home(name=common_options_params["tool_name"])
+            common_options_params["filelog_stdout"] = resolve_filelog_path(
+                path=common_options_params.get("filelog_stdout", None),
                 home=tool_home,
-                default=Path(f"{common_job_params['job_name']}.out"),
+                default=Path(f"{common_options_params['job_name']}.out"),
             )
-            common_job_params["filelog_stderr"] = resolve_filelog_path(
-                path=common_job_params.get("filelog_stderr", None),
+            common_options_params["filelog_stderr"] = resolve_filelog_path(
+                path=common_options_params.get("filelog_stderr", None),
                 home=tool_home,
-                default=Path(f"{common_job_params['job_name']}.err"),
+                default=Path(f"{common_options_params['job_name']}.err"),
             )
 
-        resolved_job = self.model_validate(common_job_params)
+        resolved_job = self.model_validate(common_options_params)
         LOGGER.debug(
             f"Got {self} (set fields {self.model_fields_set}), \nresolved {resolved_job} (set fields {resolved_job.model_fields_set})"
         )
         return resolved_job
 
 
-class OneOffJob(CommonJob, BaseModel):
+class OneOffJob(CommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.ONE_OFF] = JobType.ONE_OFF
     retry: Annotated[int, Field(ge=0, le=5)] = 0
@@ -274,7 +274,7 @@ class OneOffJob(CommonJob, BaseModel):
         return self
 
 
-class ScheduledJob(CommonJob, BaseModel):
+class ScheduledJob(CommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.SCHEDULED] = JobType.SCHEDULED
     schedule: CronExpression
@@ -288,7 +288,7 @@ class ScheduledJob(CommonJob, BaseModel):
         return self
 
 
-class ContinuousJob(CommonJob, BaseModel):
+class ContinuousJob(CommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.CONTINUOUS] = JobType.CONTINUOUS
     port: Annotated[int, Field(ge=1, le=65535)] | None = None
