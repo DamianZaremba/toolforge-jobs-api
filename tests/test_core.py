@@ -2,7 +2,11 @@ from typing import Protocol
 from unittest.mock import MagicMock
 
 import pytest
-from helpers.fakes import get_dummy_job
+from helpers.fakes import (
+    get_dummy_continuous_job,
+    get_dummy_one_off_job,
+    get_dummy_scheduled_job,
+)
 from toolforge_weld.kubernetes import MountOption
 
 from tests.utils import cases
@@ -52,18 +56,26 @@ class TestCore:
             assert gotten_job is None
 
         @cases(
-            ["job_type"],
-            ["Continuous job", [JobType.CONTINUOUS]],
-            ["Scheduled job", [JobType.SCHEDULED]],
+            ["get_dummy_job"],
+            ["Continuous job", [get_dummy_continuous_job]],
+            ["Scheduled job", [get_dummy_scheduled_job]],
         )
         def test_ignores_if_only_exists_in_runtime(
             self,
             get_my_core: GetMyCore,
             storage_k8s_cli: MagicMock,
-            job_type: JobType,
+            get_dummy_job,
         ):
             my_storage_job = None
-            my_runtime_job = get_dummy_job(job_type=job_type, mount=MountOption.NONE)
+            my_runtime_job = get_dummy_job(
+                image=Image(
+                    type=ImageType.BUILDSERVICE,
+                    short_name="tool-some-tool/some-container:latest",
+                    host="harbor.example.org",
+                    path="tool-some-tool/some-container",
+                ),
+                mount=MountOption.NONE,
+            )
             my_core = get_my_core()
 
             gotten_job = my_core._reconciliate_storage_and_runtime(
@@ -75,9 +87,9 @@ class TestCore:
             storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
 
         @cases(
-            ["job_type"],
-            ["Continuous job", [JobType.CONTINUOUS]],
-            ["Scheduled job", [JobType.SCHEDULED]],
+            ["get_dummy_job"],
+            ["Continuous job", [get_dummy_continuous_job]],
+            ["Scheduled job", [get_dummy_scheduled_job]],
         )
         def test_returns_recreate_message_if_only_exists_in_storage(
             self,
@@ -85,12 +97,11 @@ class TestCore:
             storage_k8s_cli: MagicMock,
             runtime_k8s_cli: MagicMock,
             monkeypatch: pytest.MonkeyPatch,
-            job_type: JobType,
+            get_dummy_job,
         ):
-            my_storage_job = get_dummy_job(job_type=job_type)
+            my_storage_job = get_dummy_job()
             my_runtime_job = None
             expected_job = get_dummy_job(
-                job_type=job_type,
                 status={"up_to_date": False},
             )
             expected_job.status_long = f"The running version of job '{expected_job.job_name}' is different from what was configured, please recreate or redeploy."
@@ -100,13 +111,13 @@ class TestCore:
                 spec=my_core.runtime.create_job, return_value=my_storage_job
             )
             monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
-            if job_type == JobType.CONTINUOUS:
+            if my_storage_job.job_type == JobType.CONTINUOUS:
                 monkeypatch.setattr(
                     my_core.runtime,
                     "get_continuous_job",
                     lambda *args, **kwargs: my_storage_job,
                 )
-            elif job_type == JobType.SCHEDULED:
+            elif my_storage_job.job_type == JobType.SCHEDULED:
                 monkeypatch.setattr(
                     my_core.runtime,
                     "get_scheduled_job",
@@ -123,9 +134,9 @@ class TestCore:
             mock_runtime_create_job.assert_not_called()
 
         @cases(
-            ["job_type"],
-            ["Continuous job", [JobType.CONTINUOUS]],
-            ["Scheduled job", [JobType.SCHEDULED]],
+            ["get_dummy_job"],
+            ["Continuous job", [get_dummy_continuous_job]],
+            ["Scheduled job", [get_dummy_scheduled_job]],
         )
         def test_returns_storage_if_both_exist_and_set_up_to_date_false_if_different(
             self,
@@ -133,30 +144,24 @@ class TestCore:
             storage_k8s_cli: MagicMock,
             runtime_k8s_cli: MagicMock,
             monkeypatch: pytest.MonkeyPatch,
-            job_type: JobType,
+            get_dummy_job,
         ):
-            my_storage_job = get_dummy_job(
-                job_name="job-from-storage", job_type=job_type
-            )
-            my_runtime_job = get_dummy_job(
-                job_name="job-from-runtime", job_type=job_type
-            )
-            expected_job = get_dummy_job(
-                job_type=job_type, status={"up_to_date": False}
-            )
+            my_storage_job = get_dummy_job(job_name="job-from-storage")
+            my_runtime_job = get_dummy_job(job_name="job-from-runtime")
+            expected_job = get_dummy_job(status={"up_to_date": False})
             my_core = get_my_core()
 
             mock_runtime_create_job = MagicMock(
                 spec=my_core.runtime.create_job, return_value=my_storage_job
             )
             monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
-            if job_type == JobType.CONTINUOUS:
+            if my_storage_job.job_type == JobType.CONTINUOUS:
                 monkeypatch.setattr(
                     my_core.runtime,
                     "get_continuous_job",
                     lambda *args, **kwargs: my_storage_job,
                 )
-            elif job_type == JobType.SCHEDULED:
+            elif my_storage_job.job_type == JobType.SCHEDULED:
                 monkeypatch.setattr(
                     my_core.runtime,
                     "get_scheduled_job",
@@ -178,17 +183,15 @@ class TestCore:
 
     class TestUpdateStorageStatusWithRuntime:
         @cases(
-            ["job_type"],
-            ["Continuous job", [JobType.CONTINUOUS]],
-            ["Scheduled job", [JobType.SCHEDULED]],
+            ["get_dummy_job"],
+            ["Continuous job", [get_dummy_continuous_job]],
+            ["Scheduled job", [get_dummy_scheduled_job]],
         )
         def test_no_runtime_job_but_storage_job_updates_only_long_status_and_sets_up_to_date_false(
             self,
-            job_type: JobType,
+            get_dummy_job,
         ):
-            my_storage_job = get_dummy_job(
-                job_name="job-from-storage", job_type=job_type
-            )
+            my_storage_job = get_dummy_job(job_name="job-from-storage")
             my_runtime_job = None
             gotten_job = core._update_storage_job_status_from_runtime(
                 storage_job=my_storage_job, runtime_job=my_runtime_job
@@ -198,31 +201,30 @@ class TestCore:
             assert "is different" in gotten_job.status_long
 
         @cases(
-            ["job_type", "job_status"],
+            ["get_dummy_job", "job_status"],
             [
                 "Continuous job",
                 [
-                    JobType.CONTINUOUS,
+                    get_dummy_continuous_job,
                     ContinuousJobStatus(short=StatusShort.RUNNING),
                 ],
             ],
             [
                 "Scheduled job",
                 [
-                    JobType.SCHEDULED,
+                    get_dummy_scheduled_job,
                     ScheduledJobStatus(short=StatusShort.RUNNING),
                 ],
             ],
         )
         def test_different_runtime_job_but_storage_job_updates_status_and_sets_up_to_date_false(
             self,
-            job_type: JobType,
+            get_dummy_job,
             job_status: AnyJobStatus,
         ):
-            my_storage_job = get_dummy_job(job_name="my-job", job_type=job_type)
+            my_storage_job = get_dummy_job(job_name="my-job")
             my_runtime_job = get_dummy_job(
                 job_name="my-job",
-                job_type=job_type,
                 status=job_status,
                 cmd="different command",
             )
@@ -235,33 +237,32 @@ class TestCore:
             assert my_runtime_job.status.short == gotten_job.status.short
 
         @cases(
-            ["job_type", "job_status"],
+            ["get_dummy_job", "job_status"],
             [
                 "Continuous job",
                 [
-                    JobType.CONTINUOUS,
+                    get_dummy_continuous_job,
                     ContinuousJobStatus(short=StatusShort.RUNNING),
                 ],
             ],
             [
                 "Scheduled job",
                 [
-                    JobType.SCHEDULED,
+                    get_dummy_scheduled_job,
                     ScheduledJobStatus(short=StatusShort.RUNNING),
                 ],
             ],
         )
         def test_same_runtime_job_and_storage_job_updates_status_and_sets_up_to_date_true(
             self,
-            job_type: JobType,
+            get_dummy_job,
             job_status: AnyJobStatus,
         ):
-            my_storage_job = get_dummy_job(job_name="my-job", job_type=job_type)
+            my_storage_job = get_dummy_job(job_name="my-job")
             my_runtime_job = get_dummy_job(
                 job_name="my-job",
-                job_type=job_type,
                 status=job_status,
-            )
+            ).get_resolved_core_job()
             gotten_job = core._update_storage_job_status_from_runtime(
                 storage_job=my_storage_job, runtime_job=my_runtime_job
             )
@@ -284,9 +285,13 @@ class TestCore:
                 state="stable",
                 exists=True,
             )
-            my_storage_job = get_dummy_job(job_name="my-job", image=storage_image)
+            my_storage_job = get_dummy_continuous_job(
+                job_name="my-job", image=storage_image
+            )
             runtime_image = storage_image.model_copy(update={"exists": False})
-            my_runtime_job = get_dummy_job(job_name="my-job", image=runtime_image)
+            my_runtime_job = get_dummy_continuous_job(
+                job_name="my-job", image=runtime_image
+            )
             gotten_job = core._update_storage_job_status_from_runtime(
                 storage_job=my_storage_job, runtime_job=my_runtime_job
             )
@@ -308,9 +313,13 @@ class TestCore:
                 state="stable",
                 exists=True,
             )
-            my_storage_job = get_dummy_job(job_name="my-job", image=storage_image)
+            my_storage_job = get_dummy_continuous_job(
+                job_name="my-job", image=storage_image
+            )
             runtime_image = storage_image.model_copy(update={"state": "deprecated"})
-            my_runtime_job = get_dummy_job(job_name="my-job", image=runtime_image)
+            my_runtime_job = get_dummy_continuous_job(
+                job_name="my-job", image=runtime_image
+            )
             gotten_job = core._update_storage_job_status_from_runtime(
                 storage_job=my_storage_job, runtime_job=my_runtime_job
             )
@@ -332,9 +341,13 @@ class TestCore:
                 state="stable",
                 exists=True,
             )
-            my_storage_job = get_dummy_job(job_name="my-job", image=storage_image)
+            my_storage_job = get_dummy_continuous_job(
+                job_name="my-job", image=storage_image
+            )
             runtime_image = storage_image.model_copy(update={"aliases": ["new_alias"]})
-            my_runtime_job = get_dummy_job(job_name="my-job", image=runtime_image)
+            my_runtime_job = get_dummy_continuous_job(
+                job_name="my-job", image=runtime_image
+            )
             gotten_job = core._update_storage_job_status_from_runtime(
                 storage_job=my_storage_job, runtime_job=my_runtime_job
             )
@@ -344,8 +357,15 @@ class TestCore:
         def test_runtime_buildservice_job_with_trimmed_launcher_matches_storage_job_with_explicit_launcher(
             self,
         ):
-            my_storage_job = get_dummy_job(
-                job_name="my-job", cmd="launcher some command"
+            my_storage_job = get_dummy_continuous_job(
+                job_name="my-job",
+                cmd="launcher some command",
+                image=Image(
+                    type=ImageType.BUILDSERVICE,
+                    short_name="tool-some-tool/some-container:latest",
+                    host="harbor.example.org",
+                    path="tool-some-tool/some-container",
+                ),
             )
             my_runtime_job = my_storage_job.model_copy(update={"cmd": "some command"})
             gotten_job = core._update_storage_job_status_from_runtime(
@@ -361,8 +381,14 @@ class TestCore:
             storage_k8s_cli: MagicMock,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            my_runtime_job = get_dummy_job(
-                job_type=JobType.ONE_OFF, mount=MountOption.NONE
+            my_runtime_job = get_dummy_one_off_job(
+                image=Image(
+                    type=ImageType.BUILDSERVICE,
+                    short_name="tool-some-tool/some-container:latest",
+                    host="harbor.example.org",
+                    path="tool-some-tool/some-container",
+                ),
+                mount=MountOption.NONE,
             )
             expected_job = my_runtime_job
             my_core = get_my_core()
@@ -390,9 +416,8 @@ class TestCore:
             storage_k8s_cli: MagicMock,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            storage_job = get_dummy_job(
+            storage_job = get_dummy_continuous_job(
                 job_name="my-job",
-                job_type=JobType.CONTINUOUS,
             )
             my_core = get_my_core()
             mock_storage_get_job = MagicMock(
@@ -430,7 +455,7 @@ class TestCore:
             get_my_core: GetMyCore,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            job = get_dummy_job(job_type=JobType.CONTINUOUS)
+            job = get_dummy_continuous_job()
             my_core = get_my_core()
             mock_storage_delete_job = MagicMock(spec=my_core.storage.delete_job)
             mock_runtime_delete_job = MagicMock(
@@ -451,8 +476,8 @@ class TestCore:
             get_my_core: GetMyCore,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            job = get_dummy_job(
-                job_type=JobType.CONTINUOUS,
+            job = get_dummy_continuous_job(
+                job_name="silly-job-name",
                 status=ContinuousJobStatus(up_to_date=False),
             )
             my_core = get_my_core()
@@ -470,8 +495,12 @@ class TestCore:
 
             gotten_change, gotten_message = my_core.update_job(job=job)
 
-            mock_runtime_update_job.assert_called_once_with(job=job)
-            mock_runtime_create_job.assert_called_once_with(job=job)
+            mock_runtime_update_job.assert_called_once_with(
+                job=job.get_resolved_core_job()
+            )
+            mock_runtime_create_job.assert_called_once_with(
+                job=job.get_resolved_core_job()
+            )
             mock_core_get_job.assert_called_once_with(
                 tool_name=job.tool_name, name=job.job_name
             )
@@ -483,8 +512,8 @@ class TestCore:
             get_my_core: GetMyCore,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            job = get_dummy_job(
-                job_type=JobType.SCHEDULED, status=ScheduledJobStatus(up_to_date=False)
+            job = get_dummy_scheduled_job(
+                job_name="silly-job-name", status=ScheduledJobStatus(up_to_date=False)
             )
             my_core = get_my_core()
             mock_runtime_update_job = MagicMock(
@@ -501,16 +530,16 @@ class TestCore:
 
             gotten_change, gotten_message = my_core.update_job(job=job)
 
-            mock_runtime_update_job.assert_called_once_with(job=job)
+            mock_runtime_update_job.assert_called_once_with(
+                job=job.get_resolved_core_job()
+            )
             assert gotten_change
             assert gotten_message == "Job silly-job-name was updated in runtime only"
 
         def test_creates_one_off_job_in_runtime_when_it_does_not_exist(
             self, get_my_core: GetMyCore
         ):
-            job = get_dummy_job(
-                job_type=JobType.ONE_OFF, status=OneOffJobStatus(up_to_date=False)
-            )
+            job = get_dummy_one_off_job(status=OneOffJobStatus(up_to_date=False))
             my_core = get_my_core()
 
             gotten_changed, gotten_message = my_core.update_job(job=job)
@@ -526,14 +555,12 @@ class TestCore:
             get_my_core: GetMyCore,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            existing_job = get_dummy_job(
+            existing_job = get_dummy_continuous_job(
                 job_name="my-job",
-                job_type=JobType.CONTINUOUS,
                 status={"up_to_date": True},
             )
-            updated_job = get_dummy_job(
+            updated_job = get_dummy_continuous_job(
                 job_name="my-job",
-                job_type=JobType.CONTINUOUS,
                 cmd="different command",
             )
             my_core = get_my_core()
@@ -575,7 +602,7 @@ class TestCore:
             monkeypatch: pytest.MonkeyPatch,
             fake_tool_account_uid: None,
         ):
-            job = get_dummy_job(job_type=JobType.CONTINUOUS)
+            job = get_dummy_continuous_job()
             my_core = get_my_core()
             mock_runtime_restart_job = MagicMock(
                 spec=my_core.runtime.restart_job,
@@ -595,7 +622,9 @@ class TestCore:
             my_core.restart_job(job=job)
 
             mock_runtime_restart_job.assert_called_once_with(job=job)
-            mock_runtime_create_job.assert_called_once_with(job=job)
+            mock_runtime_create_job.assert_called_once_with(
+                job=job.get_resolved_core_job()
+            )
             mock_storage_get_job.assert_called_once_with(
                 job_name=job.job_name, tool_name=job.tool_name
             )
@@ -606,7 +635,7 @@ class TestCore:
             monkeypatch: pytest.MonkeyPatch,
             fake_tool_account_uid: None,
         ):
-            job = get_dummy_job(job_type=JobType.SCHEDULED)
+            job = get_dummy_scheduled_job()
             my_core = get_my_core()
             mock_runtime_restart_job = MagicMock(
                 spec=my_core.runtime.restart_job,
@@ -626,7 +655,9 @@ class TestCore:
             my_core.restart_job(job=job)
 
             mock_runtime_restart_job.assert_called_once_with(job=job)
-            mock_runtime_create_job.assert_called_once_with(job=job)
+            mock_runtime_create_job.assert_called_once_with(
+                job=job.get_resolved_core_job()
+            )
             mock_storage_get_job.assert_called_once_with(
                 job_name=job.job_name, tool_name=job.tool_name
             )
@@ -636,7 +667,7 @@ class TestCore:
             get_my_core: GetMyCore,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            job = get_dummy_job(job_type=JobType.ONE_OFF)
+            job = get_dummy_one_off_job()
             my_core = get_my_core()
             mock_runtime_create_job = MagicMock(spec=my_core.runtime.create_job)
             mock_storage_get_job = MagicMock(
@@ -657,7 +688,7 @@ class TestCore:
             get_my_core: GetMyCore,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            job = get_dummy_job(job_type=JobType.CONTINUOUS)
+            job = get_dummy_continuous_job()
             my_core = get_my_core()
             mock_runtime_restart_job = MagicMock(
                 spec=my_core.runtime.restart_job,
@@ -677,7 +708,9 @@ class TestCore:
             my_core.restart_job(job=job)
 
             mock_runtime_restart_job.assert_called_once_with(job=job)
-            mock_runtime_create_job.assert_called_once_with(job=job)
+            mock_runtime_create_job.assert_called_once_with(
+                job=job.get_resolved_core_job()
+            )
             mock_storage_get_job.assert_called_once_with(
                 job_name=job.job_name, tool_name=job.tool_name
             )
@@ -688,15 +721,9 @@ class TestCore:
             get_my_core: GetMyCore,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            continuous_job = get_dummy_job(
-                job_name="continuous-job", job_type=JobType.CONTINUOUS
-            )
-            scheduled_job = get_dummy_job(
-                job_name="scheduled-job", job_type=JobType.SCHEDULED
-            )
-            one_off_job = get_dummy_job(
-                job_name="one-off-job", job_type=JobType.ONE_OFF
-            )
+            continuous_job = get_dummy_continuous_job(job_name="continuous-job")
+            scheduled_job = get_dummy_scheduled_job(job_name="scheduled-job")
+            one_off_job = get_dummy_one_off_job(job_name="one-off-job")
             storage_jobs = [continuous_job, scheduled_job]
             my_core = get_my_core()
             mock_storage_get_jobs = MagicMock(
@@ -738,7 +765,7 @@ class TestCore:
             get_my_core: GetMyCore,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            job = get_dummy_job(job_type=JobType.CONTINUOUS)
+            job = get_dummy_continuous_job()
             my_core = get_my_core()
             mock_storage_create_job = MagicMock(
                 spec=my_core.storage.create_job,
@@ -776,9 +803,8 @@ class TestCore:
             storage_k8s_cli: MagicMock,
             monkeypatch: pytest.MonkeyPatch,
         ):
-            storage_job = get_dummy_job(
+            storage_job = get_dummy_continuous_job(
                 job_name="my-job",
-                job_type=JobType.CONTINUOUS,
             )
             my_core = get_my_core()
             mock_storage_get_jobs = MagicMock(

@@ -69,6 +69,7 @@ def patch_account_to_have_quotas(account_with_quotas):
 
 
 @pytest.mark.parametrize("trailing_slash", ["", "/"])
+@pytest.mark.no_fake_images
 def test_quota_endpoint(
     trailing_slash: str,
     client: TestClient,

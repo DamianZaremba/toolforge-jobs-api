@@ -7,7 +7,9 @@ from freezegun import freeze_time
 from toolforge_weld.kubernetes import K8sClient
 
 from tests.helpers import fake_k8s
-from tests.helpers.fakes import get_dummy_job
+from tests.helpers.fakes import (
+    get_dummy_continuous_job,
+)
 from tests.utils import cases
 from tjf.core.images import Image
 from tjf.core.models import (
@@ -339,7 +341,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-initializing",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="*/5 * * * *",
                     minute="*/5",
@@ -372,7 +373,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-initializing",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="*/5 * * * *",
                     minute="*/5",
@@ -405,7 +405,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-initializing",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="*/5 * * * *",
                     minute="*/5",
@@ -443,7 +442,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-restarting",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="* * * * *",
                     minute="*",
@@ -481,7 +479,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-restarting",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="* * * * *",
                     minute="*",
@@ -519,7 +516,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-scheduling",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="*/5 * * * *",
                     minute="*/5",
@@ -554,7 +550,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-running",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="*/5 * * * *",
                     minute="*/5",
@@ -587,7 +582,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-succeeded",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="0/5 * * * *",
                     minute="0/5",
@@ -620,7 +614,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-succeeded",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="0/5 * * * *",
                     minute="0/5",
@@ -653,7 +646,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-failed",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="*/1 * * * *",
                     minute="*/1",
@@ -688,7 +680,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-failed",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="*/1 * * * *",
                     minute="*/1",
@@ -721,7 +712,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-unknown",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="*/1 * * * *",
                     minute="*/1",
@@ -759,7 +749,6 @@ def test_get_one_off_job_status(
                 ),
                 job_name="test-unknown",
                 tool_name="test",
-                job_type=JobType.SCHEDULED,
                 schedule=CronExpression(
                     text="*/1 * * * *",
                     minute="*/1",
@@ -938,7 +927,7 @@ def test_get_continuous_job_status(
     k8s_deployment_json = json.loads(
         re.sub(ISO_PATTERN, dummy_date_str, k8s_deployment)
     )
-    my_job = get_dummy_job(job_type=JobType.CONTINUOUS, k8s_object=k8s_deployment_json)
+    my_job = get_dummy_continuous_job(k8s_object=k8s_deployment_json)
 
     k8s_pods_json = (
         [json.loads(re.sub(ISO_PATTERN, dummy_date_str, k8s_pod))] if k8s_pod else []
@@ -972,7 +961,7 @@ def test_k8s_deployment_fails_if_no_ready_replicas_for_long(
     k8s_deployment_json = json.loads(
         re.sub(ISO_PATTERN, dummy_date_str, DEPLOYMENT_FAILED)
     )
-    my_job = get_dummy_job(job_type=JobType.CONTINUOUS, k8s_object=k8s_deployment_json)
+    my_job = get_dummy_continuous_job(k8s_object=k8s_deployment_json)
     expected_duration_str = (
         f"{deployed_minutes_ago - (JOB_PROGRESS_DEADLINE_SECONDS // 60)}m"
     )

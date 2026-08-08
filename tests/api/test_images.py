@@ -9,7 +9,6 @@ class TestGetImages:
     def test_get_images_endpoint(
         self,
         trailing_slash: str,
-        fake_images: dict[str, Any],
         client: TestClient,
         fake_auth_headers: dict[str, str],
     ) -> None:

@@ -15,7 +15,6 @@
 #
 import json
 from pathlib import Path
-from typing import Any
 from unittest.mock import call, create_autospec
 
 import pytest
@@ -29,9 +28,11 @@ from tests.helpers.fake_k8s import (
     FAKE_K8S_HOST,
     LIMIT_RANGE_OBJECT,
 )
-from tests.helpers.fakes import get_dummy_job
+from tests.helpers.fakes import (
+    get_dummy_one_off_job,
+)
 from tjf.core.error import TjfValidationError
-from tjf.core.models import AnyJob, JobType
+from tjf.core.models import AnyJob
 from tjf.runtimes.k8s.account import ToolAccount
 from tjf.runtimes.k8s.jobs import (
     JOB_DEFAULT_CPU,
@@ -45,7 +46,7 @@ from tjf.runtimes.k8s.ops import get_error_from_k8s_response, validate_job_limit
 
 
 @pytest.fixture
-def fake_job(fake_tool_account_uid: None, fake_images: dict[str, Any]) -> AnyJob:
+def fake_job(fake_tool_account_uid: None) -> AnyJob:
     return get_scheduled_job_from_k8s_object(
         CRONJOB_NOT_RUN_YET,
         default_cpu_limit="4000m",
@@ -189,26 +190,23 @@ class TestCreateErrorFromK8sResponse:
 
 class TestValidateJobLimits:
     def test_default_job(self, account_with_limit_range):
-        job_with_defaults = get_dummy_job(
+        job_with_defaults = get_dummy_one_off_job(
             cpu=JOB_DEFAULT_CPU,
             memory=JOB_DEFAULT_MEMORY,
-            job_type=JobType.ONE_OFF,
         )
         assert validate_job_limits(account_with_limit_range, job_with_defaults) is None
 
     def test_custom(self, account_with_limit_range):
-        job = get_dummy_job(
+        job = get_dummy_one_off_job(
             cpu="0.5",
             memory="1Gi",
-            job_type=JobType.ONE_OFF,
         )
         assert validate_job_limits(account_with_limit_range, job) is None
 
     def test_under_minimum(self, account_with_limit_range):
-        job = get_dummy_job(
+        job = get_dummy_one_off_job(
             cpu=JOB_DEFAULT_CPU,
             memory="0.049Gi",
-            job_type=JobType.ONE_OFF,
         )
 
         with pytest.raises(
@@ -218,10 +216,9 @@ class TestValidateJobLimits:
             validate_job_limits(account_with_limit_range, job)
 
     def test_over_maximum(self, account_with_limit_range):
-        job = get_dummy_job(
+        job = get_dummy_one_off_job(
             cpu="2.5",
             memory=JOB_DEFAULT_MEMORY,
-            job_type=JobType.ONE_OFF,
         )
 
         with pytest.raises(

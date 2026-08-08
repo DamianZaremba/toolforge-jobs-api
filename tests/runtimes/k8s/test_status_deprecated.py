@@ -91,7 +91,6 @@ def test_refresh_job_short_status_cronjob(
     should_get_object: bool,
     should_get_objects: bool,
     fake_tool_account: ToolAccount,
-    fake_images: dict[str, Any],
 ):
     fake_k8s_cli = create_autospec(K8sClient, spec_set=True, instance=True)
     fake_k8s_cli.get_objects.return_value = [job]

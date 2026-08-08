@@ -1,4 +1,3 @@
-from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 
@@ -187,11 +186,6 @@ def get_dummy_defined_continuous_job(**overrides) -> DefinedContinuousJob:
     # Flag this param as unset, in order to verify that from_core_job is correctly doing the same.
     defined_job.model_fields_set.remove("image_state")
     return defined_job
-
-
-@pytest.fixture(autouse=True)
-def use_fake_images(fake_images: dict[str, Any]) -> Generator[None]:
-    yield
 
 
 class TestCommonJob:

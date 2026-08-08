@@ -9,7 +9,12 @@ from pydantic import BaseModel
 from pytest import MonkeyPatch
 from toolforge_weld.errors import ToolforgeUserError
 
-from tests.helpers.fakes import get_dummy_job
+from tests.helpers.fakes import (
+    get_dummy_continuous_job,
+    get_dummy_one_off_job,
+    get_dummy_scheduled_job,
+)
+from tests.utils import cases
 from tjf.api.app import error_handler
 from tjf.api.models import (
     JobListResponse,
@@ -23,7 +28,6 @@ from tjf.api.utils import JobsApi
 from tjf.core.cron import CronExpression
 from tjf.core.error import TjfClientError, TjfError
 from tjf.core.models import (
-    AnyJob,
     ContinuousJobStatus,
     HealthCheckType,
     JobType,
@@ -138,35 +142,11 @@ class TestJobsEndpoint:
         assert gotten_response.status_code == http.HTTPStatus.OK
         assert gotten_response.json() == expected_response
 
-    @pytest.mark.parametrize(
-        "job_type, job",
-        [
-            [
-                JobType.CONTINUOUS,
-                get_dummy_job(
-                    job_name="job1", tool_name="some-tool", job_type=JobType.CONTINUOUS
-                ),
-            ],
-            [
-                JobType.SCHEDULED,
-                get_dummy_job(
-                    job_name="job1",
-                    tool_name="some-tool",
-                    job_type=JobType.SCHEDULED,
-                    schedule=CronExpression.parse(
-                        value="* * * * *", job_name="job1", tool_name="some-tool"
-                    ),
-                ),
-            ],
-            [
-                JobType.ONE_OFF,
-                get_dummy_job(
-                    job_name="job1",
-                    tool_name="some-tool",
-                    job_type=JobType.ONE_OFF,
-                ),
-            ],
-        ],
+    @cases(
+        ["get_dummy_job"],
+        ["Continuous job", [get_dummy_continuous_job]],
+        ["Scheduled job", [get_dummy_scheduled_job]],
+        ["One-off job", [get_dummy_one_off_job]],
     )
     def test_returns_job_type_for_all(
         self,
@@ -174,9 +154,9 @@ class TestJobsEndpoint:
         app: JobsApi,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
-        job_type: JobType,
-        job: AnyJob,
+        get_dummy_job,
     ) -> None:
+        job = get_dummy_job(job_name="job1", tool_name="some-tool")
         monkeypatch.setattr(
             app.core,
             "get_jobs",
@@ -195,9 +175,9 @@ class TestJobsEndpoint:
         assert response_json is not None, "Response JSON is None"
 
         gotten_jobs: list[dict[str, Any]] = response_json["jobs"]
-        if job_type == JobType.CONTINUOUS:
+        if job.job_type == JobType.CONTINUOUS:
             assert gotten_jobs[0]["continuous"]
-        assert gotten_jobs[0]["job_type"] == job_type.value
+        assert gotten_jobs[0]["job_type"] == job.job_type.value
         # to make sure not all fields are set
         assert "cpu" not in gotten_jobs[0]
 
@@ -210,7 +190,7 @@ class TestJobsEndpoint:
     ) -> None:
         expected_names = ["job1", "job2"]
         dummy_jobs = [
-            get_dummy_job(job_name=name, tool_name="some-tool")
+            get_dummy_continuous_job(job_name=name, tool_name="some-tool")
             for name in expected_names
         ]
         monkeypatch.setattr(
@@ -241,7 +221,9 @@ class TestJobsEndpoint:
         expected_health_check = ScriptHealthCheck(
             type=HealthCheckType.SCRIPT, script="silly script"
         )
-        dummy_job = get_dummy_job(health_check=expected_health_check.model_dump())
+        dummy_job = get_dummy_continuous_job(
+            health_check=expected_health_check.model_dump()
+        )
         monkeypatch.setattr(
             app.core,
             "get_jobs",
@@ -267,7 +249,7 @@ class TestJobsEndpoint:
         fake_auth_headers: dict[str, str],
     ) -> None:
         expected_port = 8080
-        dummy_job = get_dummy_job(port=expected_port, tool_name="some-tool")
+        dummy_job = get_dummy_continuous_job(port=expected_port, tool_name="some-tool")
         monkeypatch.setattr(
             app.core,
             "get_jobs",
@@ -292,7 +274,9 @@ class TestJobsEndpoint:
     ) -> None:
         expected_port = 1234
         expected_protocol = "udp"
-        dummy_job = get_dummy_job(port=expected_port, port_protocol=expected_protocol)
+        dummy_job = get_dummy_continuous_job(
+            port=expected_port, port_protocol=expected_protocol
+        )
         monkeypatch.setattr(
             app.core,
             "get_jobs",
@@ -316,7 +300,7 @@ class TestJobsEndpoint:
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:
-        dummy_job = get_dummy_job()
+        dummy_job = get_dummy_continuous_job()
         monkeypatch.setattr(
             app.core,
             "get_jobs",
@@ -347,7 +331,7 @@ class TestJobsEndpoint:
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:
-        dummy_job = get_dummy_job()
+        dummy_job = get_dummy_continuous_job()
         monkeypatch.setattr(
             app.core,
             "get_jobs",
@@ -378,7 +362,7 @@ class TestJobsEndpoint:
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:
-        dummy_job = get_dummy_job(status={"up_to_date": False})
+        dummy_job = get_dummy_continuous_job(status={"up_to_date": False})
         expected_message = f"The running version of job '{dummy_job.job_name}' is different from what was configured, please recreate or redeploy."
         monkeypatch.setattr(
             app.core,
@@ -404,7 +388,7 @@ class TestApiGetJob:
         fake_auth_headers: dict[str, str],
     ) -> None:
         # a common issue is non-serializable PosixPath due to wrong serialization, this tests that too
-        dummy_job = get_dummy_job(filelog=True, mount="all")
+        dummy_job = get_dummy_continuous_job(filelog=True, mount="all")
         monkeypatch.setattr(
             app.core,
             "get_job",
@@ -435,10 +419,9 @@ class TestApiGetJob:
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:
-        dummy_job = get_dummy_job(
+        dummy_job = get_dummy_scheduled_job(
             job_name="dummy-name",
             tool_name="some-tool",
-            job_type=JobType.SCHEDULED,
             schedule=CronExpression.parse(
                 value="@daily", job_name="dummy-name", tool_name="some-tool"
             ),
@@ -473,14 +456,15 @@ class TestApiGetJob:
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
     ) -> None:
-        dummy_job = get_dummy_job()
+        dummy_job = get_dummy_continuous_job(job_name="silly-job-name")
         monkeypatch.setattr(
             app.core,
             "get_job",
             value=lambda *args, **kwargs: dummy_job,
         )
         expected_response = JobResponse(
-            job=get_job_for_api(dummy_job), messages=ResponseMessages()
+            job=get_job_for_api(dummy_job.get_resolved_core_job()),
+            messages=ResponseMessages(),
         )
         gotten_response = client.get(
             f"/v1/tool/some-tool/jobs/{dummy_job.job_name}", headers=fake_auth_headers
@@ -503,9 +487,9 @@ class TestApiUpdateJob:
         app: JobsApi,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
-        fake_images: dict[str, Any],
     ) -> None:
-        dummy_job = get_dummy_job(
+        dummy_job = get_dummy_continuous_job(
+            job_name="silly-job-name",
             # The model is validating `None` as a path and getting "None",
             # then the diff errors because `"None"` and `null` are different...
             filelog_stderr="/dev/null",
@@ -517,12 +501,7 @@ class TestApiUpdateJob:
         monkeypatch.setattr(
             app.core.runtime,
             "get_continuous_job",
-            value=lambda *args, **kwargs: dummy_job,
-        )
-        monkeypatch.setattr(
-            app.core.runtime,
-            "get_continuous_job",
-            value=lambda *args, **kwargs: dummy_job,
+            value=lambda *args, **kwargs: dummy_job.get_resolved_core_job(),
         )
 
         new_job = NewContinuousJob.model_validate(
@@ -557,9 +536,8 @@ class TestApiUpdateJob:
         app: JobsApi,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
-        fake_images: dict[str, Any],
     ) -> None:
-        dummy_job = get_dummy_job()
+        dummy_job = get_dummy_continuous_job(job_name="silly-job-name")
         monkeypatch.setattr(
             app.core,
             "get_job",
@@ -604,12 +582,11 @@ class TestApiUpdateJob:
         app: JobsApi,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
-        fake_images: dict[str, Any],
     ) -> None:
         def raise_not_found(*args, **kwargs):
             raise NotFoundInRuntime(f"{args}, {kwargs}")
 
-        dummy_job = get_dummy_job(
+        dummy_job = get_dummy_continuous_job(
             job_name="silly-job-name",
             cmd="silly command",
             job_type=JobType.CONTINUOUS,

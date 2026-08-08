@@ -1,7 +1,6 @@
 from tjf.core.cron import CronExpression
-from tjf.core.images import HarborConfig, Image, ImageType
+from tjf.core.images import HarborConfig, Image
 from tjf.core.models import (
-    AnyJob,
     ContinuousJob,
     JobType,
     OneOffJob,
@@ -15,39 +14,49 @@ def get_fake_harbor_config() -> HarborConfig:
     return HarborConfig(host=FAKE_HARBOR_HOST)
 
 
-def get_dummy_job(**overrides) -> AnyJob:
+def get_dummy_one_off_job(**overrides) -> OneOffJob:
     params = {
-        "job_type": JobType.CONTINUOUS,
-        "cmd": "silly command",
-        "image": Image(
-            type=ImageType.BUILDSERVICE,
-            short_name="tool-some-tool/some-container:latest",
-            aliases=[
-                "tool-some-tool/some-container:latest@sha256:5b8c5641d2dbd7d849cacb39853141c00b29ed9f40af9ee946b6a6a715e637c3"
-            ],
-            host="harbor.example.org",
-            path="tool-some-tool/some-container",
-            tag="latest",
-            state="stable",
-        ),
-        "job_name": "silly-job-name",
+        "cmd": "dummy-command",
+        "job_name": "dummy-job-name",
         "tool_name": "some-tool",
+        "job_type": JobType.ONE_OFF,
     }
     params.update(overrides)
-    match params["job_type"]:
-        case JobType.ONE_OFF:
-            return OneOffJob.model_validate(params)
-        case JobType.SCHEDULED:
-            params["schedule"] = params.get(
-                "schedule",
-                CronExpression.parse(
-                    value="* * * * *",
-                    job_name=params["job_name"],
-                    tool_name=params["tool_name"],
-                ),
-            )
-            return ScheduledJob.model_validate(params)
-        case JobType.CONTINUOUS:
-            return ContinuousJob.model_validate(params)
-        case _:
-            raise ValueError(f"Invalid job type: {params['job_type']}")
+    if "image" not in params:
+        params["image"] = Image.from_short_name_or_url(
+            url_or_name="python3.11", tool_name="some-tool"
+        )
+    return OneOffJob.model_validate(params)
+
+
+def get_dummy_scheduled_job(**overrides) -> ScheduledJob:
+    params = {
+        "cmd": "dummy-command",
+        "job_name": "dummy-job-name",
+        "tool_name": "some-tool",
+        "job_type": JobType.SCHEDULED,
+        "schedule": CronExpression.parse(
+            value="* * * * *", job_name="dummy-job-name", tool_name="some-tool"
+        ),
+    }
+    params.update(overrides)
+    if "image" not in params:
+        params["image"] = Image.from_short_name_or_url(
+            url_or_name="python3.11", tool_name="some-tool"
+        )
+    return ScheduledJob.model_validate(params)
+
+
+def get_dummy_continuous_job(**overrides) -> ContinuousJob:
+    params = {
+        "cmd": "dummy-command",
+        "job_name": "dummy-job-name",
+        "tool_name": "some-tool",
+        "job_type": JobType.CONTINUOUS,
+    }
+    params.update(overrides)
+    if "image" not in params:
+        params["image"] = Image.from_short_name_or_url(
+            url_or_name="python3.11", tool_name="some-tool"
+        )
+    return ContinuousJob.model_validate(params)

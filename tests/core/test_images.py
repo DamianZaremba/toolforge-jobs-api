@@ -7,7 +7,7 @@ from tjf.core.images import (
 )
 
 
-def test_available_images_len(fake_images):
+def test_available_images_len():
     """Basic test to check if the get_images returns available_images."""
     assert len(get_images(tool_name="some-tool")) > 1
 
@@ -394,7 +394,7 @@ IMAGE_NAME_TESTS = [
     "provided_name,expected_image",
     *IMAGE_NAME_TESTS,
 )
-def test_from_short_name_or_url_happy_path(fake_images, provided_name, expected_image):
+def test_from_short_name_or_url_happy_path(provided_name, expected_image):
     full_url = expected_image.to_full_url()
     expected_image_json = expected_image.model_dump(exclude_unset=True)
     gotten_image = Image.from_short_name_or_url(
@@ -493,7 +493,7 @@ def test_from_short_name_or_url_happy_path(fake_images, provided_name, expected_
     ],
 )
 def test_from_short_name_or_url_non_existing_image_without_raising(
-    fake_images, expected_image: Image, short_name: str
+    expected_image: Image, short_name: str
 ):
     gotten_image = Image.from_short_name_or_url(
         url_or_name=short_name,

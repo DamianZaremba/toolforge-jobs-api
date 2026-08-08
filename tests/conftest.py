@@ -156,12 +156,16 @@ def fake_harbor_content(
     return fake_content
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def fake_images(
     monkeymodule: pytest.MonkeyPatch,
     fake_harbor_content: dict[str, Any],
     patch_kube_config_loading: None,
-) -> dict[str, Any]:
+    request: pytest.FixtureRequest,
+) -> dict[str, Any] | None:
+    if "no_fake_images" in request.keywords:
+        return None
+
     _get_images_data.cache_clear()
 
     def fake_init(*args, **kwargs):

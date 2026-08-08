@@ -5,7 +5,11 @@ from typing import Any
 
 from toolforge_weld.kubernetes import MountOption
 
-from tests.helpers.fakes import get_dummy_job
+from tests.helpers.fakes import (
+    get_dummy_continuous_job,
+    get_dummy_one_off_job,
+    get_dummy_scheduled_job,
+)
 from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
@@ -1094,7 +1098,7 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
         )
         overrides["status"] = overrides.get("status", {})
 
-    job = get_dummy_job(**(params | overrides))
+    job = get_dummy_continuous_job(**(params | overrides))
     return job
 
 
@@ -1149,7 +1153,7 @@ def get_one_off_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJ
         )
         overrides["status"] = overrides.get("status", {})
 
-    return get_dummy_job(**(params | optional_params | overrides))
+    return get_dummy_one_off_job(**(params | optional_params | overrides))
 
 
 def get_scheduled_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
@@ -1198,7 +1202,7 @@ def get_scheduled_job_fixture_as_job(add_status: bool = True, **overrides) -> An
         )
         overrides["status"] = overrides.get("status", {})
 
-    return get_dummy_job(**(params | optional_params | overrides))
+    return get_dummy_scheduled_job(**(params | optional_params | overrides))
 
 
 def get_fake_http_route(

@@ -296,7 +296,6 @@ class TestGetOneOffJob:
         self,
         patch: dict[str, Any] | None,
         expected_job: AnyJob,
-        fake_images: dict[str, Any],
         monkeymodule: pytest.MonkeyPatch,
         monkeypatch: pytest.MonkeyPatch,
     ):
@@ -329,7 +328,6 @@ class TestGetOneOffJob:
 
     def test_returns_unknown_status_on_k8s_exception(
         self,
-        fake_images: dict[str, Any],
         monkeymodule: pytest.MonkeyPatch,
         monkeypatch: pytest.MonkeyPatch,
     ):
@@ -662,7 +660,6 @@ class TestGetScheduledJob:
         self,
         patch: dict[str, Any] | None,
         expected_job: AnyJob,
-        fake_images: dict[str, Any],
         monkeymodule: pytest.MonkeyPatch,
         monkeypatch: pytest.MonkeyPatch,
     ):
@@ -691,7 +688,6 @@ class TestGetScheduledJob:
 
     def test_returns_unknown_status_on_k8s_exception(
         self,
-        fake_images: dict[str, Any],
         monkeymodule: pytest.MonkeyPatch,
         monkeypatch: pytest.MonkeyPatch,
     ):
@@ -995,7 +991,6 @@ class TestGetContinuousJob:
         self,
         patch: dict[str, Any] | None,
         expected_job: AnyJob,
-        fake_images: dict[str, Any],
         monkeymodule: pytest.MonkeyPatch,
         monkeypatch: pytest.MonkeyPatch,
     ):
@@ -1024,7 +1019,6 @@ class TestGetContinuousJob:
 
     def test_returns_unknown_status_on_k8s_exception(
         self,
-        fake_images: dict[str, Any],
         monkeymodule: pytest.MonkeyPatch,
         monkeypatch: pytest.MonkeyPatch,
     ):

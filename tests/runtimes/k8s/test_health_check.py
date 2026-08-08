@@ -2,7 +2,9 @@ from typing import Literal
 
 import pytest
 
-from tests.helpers.fakes import get_dummy_job
+from tests.helpers.fakes import (
+    get_dummy_continuous_job,
+)
 from tjf.core.images import ImageType
 from tjf.core.models import (
     BaseModel,
@@ -38,7 +40,7 @@ class TestGetHealthcheckForK8s:
             },
         }
 
-        dummy_job = get_dummy_job(
+        dummy_job = get_dummy_continuous_job(
             health_check=ScriptHealthCheck(
                 health_check_type=HealthCheckType.SCRIPT, script="some-script"
             )
@@ -64,7 +66,7 @@ class TestGetHealthcheckForK8s:
             },
         }
 
-        dummy_job = get_dummy_job(
+        dummy_job = get_dummy_continuous_job(
             health_check=HttpHealthCheck(
                 health_check_type=HealthCheckType.HTTP, path="/healthz"
             ),
@@ -91,7 +93,7 @@ class TestGetHealthcheckForK8s:
             },
         }
 
-        dummy_job = get_dummy_job(port=8080)
+        dummy_job = get_dummy_continuous_job(port=8080)
         gotten_k8s_object = get_healthcheck_for_k8s(
             health_check=dummy_job.health_check,
             port=dummy_job.port,
@@ -102,7 +104,7 @@ class TestGetHealthcheckForK8s:
 
     def test_we_get_no_healthcheck(self):
         expected_k8s_object = {}
-        dummy_job = get_dummy_job()
+        dummy_job = get_dummy_continuous_job()
         gotten_k8s_object = get_healthcheck_for_k8s(
             health_check=dummy_job.health_check,
             port=dummy_job.port,

@@ -37,7 +37,7 @@ from tjf.runtimes.k8s.account import ToolAccount
 
 class TestJobFromK8s:
     class TestScheduledJob:
-        def test_preserves_special_schedules(self, fake_images: dict[str, Any]):
+        def test_preserves_special_schedules(self):
             expected_job = ScheduledJob(
                 job_type=JobType.SCHEDULED,
                 cmd="date",
@@ -87,7 +87,7 @@ class TestJobFromK8s:
             assert gotten_job.model_dump() == expected_job.model_dump()
 
     class TestOneoffJob:
-        def test_minimal_fields(self, fake_images: dict[str, Any]):
+        def test_minimal_fields(self):
             expected_job = get_one_off_job_fixture_as_job(
                 mount=MountOption.ALL, status_long="Unknown"
             )
@@ -99,7 +99,7 @@ class TestJobFromK8s:
 
             assert gotten_job.model_dump() == expected_job.model_dump()
 
-        def test_all_fields(self, fake_images: dict[str, Any]):
+        def test_all_fields(self):
             k8s_object = patch_spec(
                 spec=K8S_ONEOFF_JOB_OBJ, patch={"spec": {"backoffLimit": 5}}
             )
@@ -119,9 +119,7 @@ class TestJobFromK8s:
             assert gotten_job.model_dump() == expected_job.model_dump()
 
     class TestContinuousJob:
-        def test_minimal_fields(
-            self, fake_images: dict[str, Any], fake_tool_account: ToolAccount
-        ):
+        def test_minimal_fields(self, fake_tool_account: ToolAccount):
             fake_tool_account.k8s_cli.get_objects = MagicMock(
                 spec=K8sClient.get_objects, return_value=[]
             )
@@ -138,9 +136,7 @@ class TestJobFromK8s:
             assert gotten_job.model_dump() == expected_job.model_dump()
             fake_tool_account.k8s_cli.get_objects.assert_called_once()
 
-        def test_all_fields(
-            self, fake_images: dict[str, Any], fake_tool_account: ToolAccount
-        ):
+        def test_all_fields(self, fake_tool_account: ToolAccount):
             fake_tool_account.k8s_cli.get_objects = MagicMock(
                 spec=K8sClient.get_objects, return_value=[]
             )
@@ -158,7 +154,7 @@ class TestJobFromK8s:
             fake_tool_account.k8s_cli.get_objects.assert_called_once()
 
         def test_sets_publish_when_httproute_exists(
-            self, fake_images: dict[str, Any], fake_tool_account: ToolAccount
+            self, fake_tool_account: ToolAccount
         ):
             fake_tool_account.k8s_cli.get_objects = MagicMock(
                 spec=K8sClient.get_objects, return_value=[get_fake_http_route()]
@@ -185,7 +181,7 @@ class TestJobFromK8s:
             fake_tool_account.k8s_cli.get_objects.assert_called_once()
 
         def test_health_check_matches_for_buildservice_when_not_prefixed_with_launcher(
-            self, fake_images: dict[str, Any], fake_tool_account: ToolAccount
+            self, fake_tool_account: ToolAccount
         ):
             """This test is for backwards compatibility, new healthchecks should have the prefix."""
             fake_tool_account.k8s_cli.get_objects = MagicMock(
@@ -205,7 +201,7 @@ class TestJobFromK8s:
             fake_tool_account.k8s_cli.get_objects.assert_called_once()
 
         def test_health_check_matches_for_buildservice_when_prefixed_with_launcher(
-            self, fake_images: dict[str, Any], fake_tool_account: ToolAccount
+            self, fake_tool_account: ToolAccount
         ):
             fake_tool_account.k8s_cli.get_objects = MagicMock(
                 spec=K8sClient.get_objects, return_value=[]
@@ -244,7 +240,7 @@ class TestJobFromK8s:
             fake_tool_account.k8s_cli.get_objects.assert_called_once()
 
         def test_health_check_falls_back_to_join_when_no_wrapper_or_launcher(
-            self, fake_images: dict[str, Any], fake_tool_account: ToolAccount
+            self, fake_tool_account: ToolAccount
         ):
             """
             This test is for backwards compatibility, all jobs should have either launcher or wrapper, but just in case.
@@ -644,7 +640,6 @@ class TestGetJobForK8s:
         def test_generates_expected_k8s_object(
             self,
             monkeypatch: MonkeyPatch,
-            fake_images: dict[str, Any],
             input_params: dict[str, Any],
             match: Callable[[dict[str, Any]], bool],
         ):
