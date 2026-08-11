@@ -40,6 +40,12 @@ data:
 
             location / {
                 proxy_pass http://127.0.0.1:8000;
+                proxy_http_version 1.1;
+                # WebSocket upgrade support for the exec endpoint
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
+                # exec sessions can be long-lived, don't cut them off early
+                proxy_read_timeout 1h;
                 # If the app passes X-Accel-Buffering to disable nginx response buffering,
                 # we also need to pass that to the api-gateway nginx instance.
                 proxy_pass_header "X-Accel-Buffering";

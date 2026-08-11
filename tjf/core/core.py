@@ -18,6 +18,7 @@ import logging
 from collections.abc import AsyncIterator, Mapping
 
 from pydantic.main import IncEx
+from starlette.websockets import WebSocket
 from toolforge_weld.utils import apeek
 
 from tjf.api.metrics import ONLY_IN_RUNTIME_COUNTER, ONLY_IN_STORAGE_COUNTER
@@ -384,3 +385,20 @@ class Core:
         except NotFoundInRuntime:
             core_job = storage_job.get_resolved_core_job()
             self.runtime.create_job(job=core_job)
+
+    async def exec_job(
+        self,
+        *,
+        websocket: WebSocket,
+        job: AnyJob,
+        tool: str,
+        replica_index: int,
+        command: str,
+    ) -> None:
+        await self.runtime.exec_job(
+            websocket=websocket,
+            job=job,
+            tool=tool,
+            replica_index=replica_index,
+            command=command,
+        )

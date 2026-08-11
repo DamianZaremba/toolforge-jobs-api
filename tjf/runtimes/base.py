@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 
+from starlette.websockets import WebSocket
+
 from ..core.images import Image
 from ..core.models import (
     AnyJob,
@@ -67,6 +69,18 @@ class BaseRuntime(ABC):
     def get_logs(
         self, *, tool_name: str, job_name: str, follow: bool, lines: int | None = None
     ) -> AsyncIterator[str]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def exec_job(
+        self,
+        *,
+        websocket: WebSocket,
+        job: AnyJob,
+        tool: str,
+        replica_index: int,
+        command: str,
+    ) -> None:
         raise NotImplementedError
 
     @abstractmethod

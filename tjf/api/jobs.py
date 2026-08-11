@@ -17,12 +17,12 @@
 import http
 import logging
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, WebSocket
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from ..core.error import TjfValidationError
-from ..core.models import OUT_OF_SYNC_JOB_WARNING_MESSAGE
-from .auth import ensure_authenticated
+from ..core.error import TjfReplicaNotFoundError, TjfValidationError
+from ..core.models import OUT_OF_SYNC_JOB_WARNING_MESSAGE, StatusShort
+from .auth import ToolAuthError, ensure_authenticated
 from .models import (
     AnyDefinedJob,
     AnyNewJob,
@@ -68,7 +68,7 @@ def api_get_jobs(
 ) -> JobListResponse:
     # `response_model` and `dict[str, Any]` as return type are needed because we want to dynamically return with or
     # without excluding unset fields
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
 
     user_jobs = current_app(request).core.get_jobs(tool_name=tool_name)
 
@@ -101,7 +101,7 @@ def api_get_jobs(
 @jobs.put("", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
 @jobs.put("/", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
 def api_create_job(request: Request, tool_name: str, new_job: AnyNewJob) -> JobResponse:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
     core = current_app(request).core
     LOGGER.debug(f"Generated NewJob: {new_job}")
     job = new_job.to_core_job(tool_name=tool_name)
@@ -133,7 +133,7 @@ def api_create_job(request: Request, tool_name: str, new_job: AnyNewJob) -> JobR
 def api_update_job(
     request: Request, tool_name: str, new_job: AnyNewJob
 ) -> UpdateResponse:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
     core = current_app(request).core
     LOGGER.debug(
         f"Generated NewJob: {new_job.__class__}:{new_job} (set fields {new_job.model_fields_set})"
@@ -149,7 +149,7 @@ def api_update_job(
 @jobs.delete("")
 @jobs.delete("/", include_in_schema=False)
 def api_flush_job(request: Request, tool_name: str) -> FlushResponse:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
 
     current_app(request).core.flush_jobs(tool_name=tool_name)
     return FlushResponse(messages=ResponseMessages())
@@ -168,7 +168,7 @@ def api_get_job(
 ) -> JobResponse:
     # `response_model` and `dict[str, Any]` as return type are needed because we want to dynamically return with or
     # without excluding unset fields
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
 
     job = current_app(request).core.get_job(name=name, tool_name=tool_name)
     if not job:
@@ -201,7 +201,7 @@ def api_get_job(
 @jobs.delete("/{name}")
 @jobs.delete("/{name}/", include_in_schema=False)
 def api_delete_job(request: Request, tool_name: str, name: str) -> DeleteResponse:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
 
     job = current_app(request).core.get_job(tool_name=tool_name, name=name)
     if not job:
@@ -214,7 +214,7 @@ def api_delete_job(request: Request, tool_name: str, name: str) -> DeleteRespons
 @jobs.get("/{name}/logs")
 @jobs.get("/{name}/logs/", include_in_schema=False)
 async def api_get_logs(request: Request, tool_name: str, name: str) -> Response:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
     core = current_app(request).core
 
     # Prevent injection attacks onto the Loki LogQL query.
@@ -244,7 +244,7 @@ async def api_get_logs(request: Request, tool_name: str, name: str) -> Response:
 @jobs.post("/{name}/restart")
 @jobs.post("/{name}/restart/", include_in_schema=False)
 def api_restart_job(request: Request, tool_name: str, name: str) -> RestartResponse:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
 
     job = current_app(request).core.get_job(tool_name=tool_name, name=name)
     if not job:
@@ -253,3 +253,52 @@ def api_restart_job(request: Request, tool_name: str, name: str) -> RestartRespo
     current_app(request).core.restart_job(job=job)
 
     return RestartResponse(messages=ResponseMessages())
+
+
+@jobs.websocket("/{name}/replicas/{replica_index:int}/exec")
+async def api_exec_job(
+    websocket: WebSocket,
+    tool_name: str,
+    name: str,
+    replica_index: int,
+) -> None:
+
+    await websocket.accept()
+
+    try:
+        ensure_authenticated(headers=websocket.headers)
+    except ToolAuthError:
+        await websocket.close(code=1008, reason="Unauthorized")
+        raise
+
+    app = current_app(websocket)
+    job = app.core.get_job(tool_name=tool_name, name=name)
+    if not job:
+        await websocket.close(code=4000, reason=f"Job '{name}' not found")
+        return
+
+    if job.status.short != StatusShort.RUNNING:
+        await websocket.close(code=4001, reason=f"Job '{name}' is not running")
+        return
+
+    command = websocket.query_params.get("command")
+    if not command:
+        await websocket.close(code=4000, reason="Command is required")
+        return
+
+    try:
+        await app.core.exec_job(
+            websocket=websocket,
+            job=job,
+            tool=tool_name,
+            replica_index=replica_index,
+            command=command,
+        )
+    except TjfReplicaNotFoundError as e:
+        await websocket.close(code=4000, reason=str(e))
+    except Exception as e:
+        LOGGER.exception("Exec endpoint error for %s/%s: %s", tool_name, name, e)
+        try:
+            await websocket.close(code=4000, reason=str(e))
+        except Exception:
+            pass

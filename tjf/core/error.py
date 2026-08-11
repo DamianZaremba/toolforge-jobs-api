@@ -49,6 +49,10 @@ class TjfImageNotFoundError(TjfValidationError):
     """Raised when an image was not found in the list of available ones."""
 
 
+class TjfReplicaNotFoundError(TjfValidationError):
+    """Raised when a specified replica doesn't exist."""
+
+
 def tjf_error_from_weld_error(error: ToolforgeError) -> TjfError:
     error_class = TjfError
     if isinstance(error, ToolforgeUserError):
