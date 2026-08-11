@@ -28,7 +28,8 @@ class ToolAccount:
         self.home = get_tool_home(name=name)
 
         # TODO: probably change this to use a service account instead
+        self.kubeconfig = Kubeconfig.from_path(path=(self.home / ".kube" / "config"))
         self.k8s_cli = K8sClient(
-            kubeconfig=Kubeconfig.from_path(path=(self.home / ".kube" / "config")),
+            kubeconfig=self.kubeconfig,
             user_agent=USER_AGENT,
         )

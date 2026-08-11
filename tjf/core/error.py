@@ -2,6 +2,10 @@ from typing import Any
 
 from toolforge_weld.errors import ToolforgeError, ToolforgeUserError
 
+# The websocket spec caps close reasons at 123 bytes.
+# This helps keep these within limit.
+MAX_CLOSE_REASON_LENGTH = 120
+
 
 class TjfError(Exception):
     """Custom error class for jobs-api errors."""
@@ -47,6 +51,14 @@ class TjfJobNotFoundError(TjfError):
 
 class TjfImageNotFoundError(TjfValidationError):
     """Raised when an image was not found in the list of available ones."""
+
+
+class TjfReplicaNotFoundError(TjfValidationError):
+    """Raised when a specified replica doesn't exist."""
+
+
+def truncate_close_reason(reason: str) -> str:
+    return reason.encode("utf-8")[:MAX_CLOSE_REASON_LENGTH].decode("utf-8", "ignore")
 
 
 def tjf_error_from_weld_error(error: ToolforgeError) -> TjfError:

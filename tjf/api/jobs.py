@@ -17,13 +17,20 @@
 import http
 import logging
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, WebSocket
 from fastapi.responses import JSONResponse, Response, StreamingResponse
+from starlette.websockets import WebSocketDisconnect
 
-from ..core.error import TjfValidationError
-from ..core.models import OUT_OF_SYNC_JOB_WARNING_MESSAGE
+from ..core.error import (
+    TjfValidationError,
+    truncate_close_reason,
+)
+from ..core.models import (
+    OUT_OF_SYNC_JOB_WARNING_MESSAGE,
+    StatusShort,
+)
 from ..core.models import FileLoggingOptions as CoreFileLoggingOptions
-from .auth import ensure_authenticated
+from .auth import ToolAuthError, ensure_authenticated
 from .models import (
     AnyDefinedJob,
     AnyNewJob,
@@ -69,7 +76,7 @@ def api_get_jobs(
 ) -> JobListResponse:
     # `response_model` and `dict[str, Any]` as return type are needed because we want to dynamically return with or
     # without excluding unset fields
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
 
     user_jobs = current_app(request).core.get_jobs(tool_name=tool_name)
 
@@ -102,7 +109,7 @@ def api_get_jobs(
 @jobs.put("", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
 @jobs.put("/", status_code=http.HTTPStatus.CREATED, include_in_schema=False)
 def api_create_job(request: Request, tool_name: str, new_job: AnyNewJob) -> JobResponse:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
     core = current_app(request).core
     LOGGER.debug(f"Generated NewJob: {new_job}")
     job = new_job.to_core_job(tool_name=tool_name)
@@ -134,7 +141,7 @@ def api_create_job(request: Request, tool_name: str, new_job: AnyNewJob) -> JobR
 def api_update_job(
     request: Request, tool_name: str, new_job: AnyNewJob
 ) -> UpdateResponse:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
     core = current_app(request).core
     LOGGER.debug(
         f"Generated NewJob: {new_job.__class__}:{new_job} (set fields {new_job.model_fields_set})"
@@ -150,7 +157,7 @@ def api_update_job(
 @jobs.delete("")
 @jobs.delete("/", include_in_schema=False)
 def api_flush_job(request: Request, tool_name: str) -> FlushResponse:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
 
     current_app(request).core.flush_jobs(tool_name=tool_name)
     return FlushResponse(messages=ResponseMessages())
@@ -169,7 +176,7 @@ def api_get_job(
 ) -> JobResponse:
     # `response_model` and `dict[str, Any]` as return type are needed because we want to dynamically return with or
     # without excluding unset fields
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
 
     job = current_app(request).core.get_job(name=name, tool_name=tool_name)
     if not job:
@@ -202,7 +209,7 @@ def api_get_job(
 @jobs.delete("/{name}")
 @jobs.delete("/{name}/", include_in_schema=False)
 def api_delete_job(request: Request, tool_name: str, name: str) -> DeleteResponse:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
 
     job = current_app(request).core.get_job(tool_name=tool_name, name=name)
     if not job:
@@ -215,7 +222,7 @@ def api_delete_job(request: Request, tool_name: str, name: str) -> DeleteRespons
 @jobs.get("/{name}/logs")
 @jobs.get("/{name}/logs/", include_in_schema=False)
 async def api_get_logs(request: Request, tool_name: str, name: str) -> Response:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
     core = current_app(request).core
 
     # Prevent injection attacks onto the Loki LogQL query.
@@ -246,7 +253,7 @@ async def api_get_logs(request: Request, tool_name: str, name: str) -> Response:
 @jobs.post("/{name}/restart")
 @jobs.post("/{name}/restart/", include_in_schema=False)
 def api_restart_job(request: Request, tool_name: str, name: str) -> RestartResponse:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
 
     job = current_app(request).core.get_job(tool_name=tool_name, name=name)
     if not job:
@@ -255,3 +262,59 @@ def api_restart_job(request: Request, tool_name: str, name: str) -> RestartRespo
     current_app(request).core.restart_job(job=job)
 
     return RestartResponse(messages=ResponseMessages())
+
+
+@jobs.websocket("/{name}/replicas/{replica_index:int}/shell")
+async def api_shell_job(
+    websocket: WebSocket,
+    tool_name: str,
+    name: str,
+    replica_index: int,
+) -> None:
+
+    await websocket.accept()
+
+    try:
+        ensure_authenticated(headers=websocket.headers)
+    except ToolAuthError:
+        await websocket.close(reason="Unauthorized", code=4000)
+        raise
+
+    app = current_app(websocket)
+    job = app.core.get_job(tool_name=tool_name, name=name)
+    if not job:
+        await websocket.close(reason=f"Job '{name}' not found", code=4000)
+        return
+
+    if job.status.short != StatusShort.RUNNING:
+        await websocket.close(reason=f"Job '{name}' is not running", code=4000)
+        return
+
+    tty = websocket.query_params.get("tty", "true").lower() != "false"
+
+    try:
+        await app.core.shell_job(
+            websocket=websocket,
+            job=job,
+            tool=tool_name,
+            replica_index=replica_index,
+            command=websocket.query_params.get("command"),
+            tty=tty,
+        )
+    except WebSocketDisconnect:
+        return
+    except TjfValidationError as error:
+        close_reason = str(error)
+    except Exception:
+        LOGGER.exception("Shell endpoint error for %s/%s", tool_name, name)
+        close_reason = "shell proxy error"
+    else:
+        return
+
+    try:
+        # A failed close must not replace the session error already handled above.
+        await websocket.close(reason=truncate_close_reason(close_reason), code=4000)
+    except Exception:
+        LOGGER.debug(
+            "Failed to close websocket for %s/%s", tool_name, name, exc_info=True
+        )

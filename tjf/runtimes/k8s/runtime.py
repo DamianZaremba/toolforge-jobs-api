@@ -5,11 +5,13 @@ from logging import getLogger
 from typing import Any
 
 import requests
+from starlette.websockets import WebSocket
 from toolforge_weld.kubernetes import parse_quantity
 
 from ...core.error import (
     TjfError,
     TjfImageNotFoundError,
+    TjfReplicaNotFoundError,
     TjfValidationError,
 )
 from ...core.images import (
@@ -58,6 +60,7 @@ from .k8s_errors import (
 from .labels import labels_selector
 from .ops import trigger_scheduled_job, validate_job_limits, wait_for_pods_exit
 from .services import get_k8s_service_object
+from .shell import K8sShellProxy
 from .status import (
     get_continuous_job_status,
     get_one_off_job_status,
@@ -217,6 +220,49 @@ class K8sRuntime(BaseRuntime):
             return job
 
         raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool_name}.")
+
+    async def shell_job(
+        self,
+        *,
+        websocket: WebSocket,
+        job: AnyJob,
+        tool: str,
+        replica_index: int,
+        command: str | None,
+        tty: bool = True,
+    ) -> None:
+        tool_account = ToolAccount(name=tool)
+        pods = get_k8s_objects_by_job_name(
+            job_name=job.job_name,
+            tool_account=tool_account,
+            k8s_kind=K8sKind.PODS,
+            job_type=job.job_type,
+        )
+
+        # Sort by creation timestamp to assign stable replica indices
+        sorted_pods = sorted(
+            pods,
+            key=lambda pod: pod.get("metadata", {}).get("creationTimestamp", ""),
+        )
+
+        if replica_index >= len(sorted_pods):
+            raise TjfReplicaNotFoundError(f"Replica {replica_index} not found")
+
+        pod = sorted_pods[replica_index]
+        pod_name = pod["metadata"]["name"]
+
+        # indexing by 0 is fine, we only expect a jobs-api job pod to have only 1 container.
+        # We'll revisit if we make any changes.
+        container_name = pod["spec"]["containers"][0]["name"]
+
+        proxy = K8sShellProxy(
+            tool_account=tool_account,
+            pod_name=pod_name,
+            container_name=container_name,
+            command=command,
+            tty=tty,
+        )
+        await proxy.run(websocket=websocket)
 
     def _restart_continuous_job(self, *, job: ContinuousJob) -> None:
         tool_account = ToolAccount(name=job.tool_name)

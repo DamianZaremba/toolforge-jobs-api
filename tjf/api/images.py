@@ -38,7 +38,7 @@ images = APIRouter(prefix="/v1/tool/{tool_name}/images", redirect_slashes=False)
     include_in_schema=False,
 )
 def api_get_images(request: Request, tool_name: str) -> ImageListResponse:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
 
     images_data = current_app(request).core.get_images(tool_name=tool_name)
     return ImageListResponse(
