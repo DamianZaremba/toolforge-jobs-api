@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.12.1"
+  version: "4.13.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -581,7 +581,6 @@ components:
       type: object
       required:
         - name
-        - cmd
         - imagename
       properties:
         name:
@@ -598,10 +597,6 @@ components:
           type: string
           description: "Container image the job uses."
           example: "tool-my-tool/tool-my-tool:latest"
-        cmd:
-          type: string
-          description: "Command that this job is executing."
-          example: "./some-command.sh --with-args"
         filelog:
           type: boolean
           description: "Whether this job uses filelog or not."
@@ -652,10 +647,16 @@ components:
       allOf:
         - $ref: "#/components/schemas/CommonJob"
         - type: object
+          required:
+            - cmd
           # TODO: uncomment required when all clients have been migrated to job_type
           # required:
           #   - job_type
           properties:
+            cmd:
+              type: string
+              description: "Command that this job is executing."
+              example: "./some-command.sh --with-args"
             job_type:
               type: string
               enum: ["one-off"]
@@ -664,10 +665,15 @@ components:
         - $ref: "#/components/schemas/CommonJob"
         - type: object
           required:
+            - cmd
             - schedule
             # TODO: uncomment required when all clients have been migrated to job_type
             # - job_type
           properties:
+            cmd:
+              type: string
+              description: "Command that this job is executing."
+              example: "./some-command.sh --with-args"
             job_type:
               type: string
               enum: ["scheduled"]
@@ -686,10 +692,16 @@ components:
       allOf:
         - $ref: "#/components/schemas/CommonJob"
         - type: object
+          required:
+            - cmd
           # TODO: uncomment required when all clients have been migrated to job_type
           # required:
           #   - job_type
           properties:
+            cmd:
+              type: string
+              description: "Command that this job is executing."
+              example: "./some-command.sh --with-args"
             continuous: # TODO: For backward compatibility. Remove when every client using this api starts using job_ype
               type: boolean
               description: |
@@ -775,8 +787,13 @@ components:
         - $ref: "#/components/schemas/DefinedCommonJob"
         - type: object
           required:
+            - cmd
             - job_type
           properties:
+            cmd:
+              type: string
+              description: "Command that this job is executing."
+              example: "./some-command.sh --with-args"
             job_type:
               type: string
               enum: ["one-off"]
@@ -785,9 +802,14 @@ components:
         - $ref: "#/components/schemas/DefinedCommonJob"
         - type: object
           required:
+            - cmd
             - schedule
             - job_type
           properties:
+            cmd:
+              type: string
+              description: "Command that this job is executing."
+              example: "./some-command.sh --with-args"
             job_type:
               type: string
               enum: ["scheduled"]
@@ -811,8 +833,13 @@ components:
         - $ref: "#/components/schemas/DefinedCommonJob"
         - type: object
           required:
+            - cmd
             - job_type
           properties:
+            cmd:
+              type: string
+              description: "Command that this job is executing."
+              example: "./some-command.sh --with-args"
             continuous: # TODO: For backward compatibility. Remove when every client using this api starts using job_ype
               type: boolean
               description: |

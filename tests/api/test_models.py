@@ -35,7 +35,6 @@ from tjf.runtimes.k8s.jobs import get_one_off_job_from_k8s_object
 
 def get_dummy_core_common_job(**overrides) -> CoreCommonJob:
     params = {
-        "cmd": "dummy-command",
         "image": Image.from_short_name_or_url(
             url_or_name="python3.11", tool_name="some-tool"
         ),
@@ -48,7 +47,6 @@ def get_dummy_core_common_job(**overrides) -> CoreCommonJob:
 def get_dummy_common_job(**overrides) -> CommonJob:
     params = {
         "name": "dummy-job-name",
-        "cmd": "dummy-command",
         "imagename": "python3.11",
     }
     return CommonJob.model_validate(params | overrides)
@@ -57,7 +55,6 @@ def get_dummy_common_job(**overrides) -> CommonJob:
 def get_dummy_defined_common_job(**overrides) -> DefinedCommonJob:
     params = {
         "name": "dummy-job-name",
-        "cmd": "dummy-command",
         # these two are the same, imagename to be removed eventually
         "image": "python3.11",
         "imagename": "python3.11",

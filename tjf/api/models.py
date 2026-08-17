@@ -36,7 +36,6 @@ LOGGER = getLogger(__name__)
 
 class CommonJob(BaseModel):
     name: str
-    cmd: str
     # TODO: replace imagename with image, note this will change the API
     imagename: str
     filelog: bool = CoreCommonJob.model_fields["filelog"].default
@@ -92,7 +91,6 @@ class CommonJob(BaseModel):
             url_or_name=self.imagename, tool_name=tool_name, use_harbor_cache=False
         )
         params = {
-            "cmd": self.cmd,
             "tool_name": tool_name,
             "job_name": self.name,
             "image": image,
@@ -129,6 +127,7 @@ class CommonJob(BaseModel):
 
 
 class NewOneOffJob(CommonJob, BaseModel):
+    cmd: str
     job_type: Literal[JobType.ONE_OFF] = CoreOneOffJob.model_fields["job_type"].default
     retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields[
         "retry"
@@ -162,6 +161,7 @@ class NewOneOffJob(CommonJob, BaseModel):
 
 
 class NewScheduledJob(CommonJob, BaseModel):
+    cmd: str
     schedule: str
     job_type: Literal[JobType.SCHEDULED] = CoreScheduledJob.model_fields[
         "job_type"
@@ -214,6 +214,7 @@ class NewScheduledJob(CommonJob, BaseModel):
 
 
 class NewContinuousJob(CommonJob, BaseModel):
+    cmd: str
     job_type: Literal[JobType.CONTINUOUS] = CoreContinuousJob.model_fields[
         "job_type"
     ].default
@@ -305,6 +306,7 @@ class DefinedCommonJob(CommonJob):
 
 
 class DefinedOneOffJob(DefinedCommonJob, BaseModel):
+    cmd: str
     job_type: Literal[JobType.ONE_OFF] = CoreOneOffJob.model_fields["job_type"].default
     retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields[
         "retry"
@@ -345,6 +347,7 @@ class DefinedOneOffJob(DefinedCommonJob, BaseModel):
 
 
 class DefinedScheduledJob(DefinedCommonJob, BaseModel):
+    cmd: str
     job_type: Literal[JobType.SCHEDULED] = CoreScheduledJob.model_fields[
         "job_type"
     ].default
@@ -403,6 +406,7 @@ class DefinedScheduledJob(DefinedCommonJob, BaseModel):
 
 
 class DefinedContinuousJob(DefinedCommonJob, BaseModel):
+    cmd: str
     job_type: Literal[JobType.CONTINUOUS] = CoreContinuousJob.model_fields[
         "job_type"
     ].default

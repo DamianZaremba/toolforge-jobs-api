@@ -163,7 +163,6 @@ AnyJobStatus = OneOffJobStatus | ContinuousJobStatus | ScheduledJobStatus
 
 
 class CommonJob(PydanticBaseModel):
-    cmd: str
     filelog: bool = False
     filelog_stderr: Path | None = None
     filelog_stdout: Path | None = None
@@ -264,6 +263,7 @@ class CommonJob(PydanticBaseModel):
 
 
 class OneOffJob(CommonJob, BaseModel):
+    cmd: str
     job_type: Literal[JobType.ONE_OFF] = JobType.ONE_OFF
     retry: Annotated[int, Field(ge=0, le=5)] = 0
     status: OneOffJobStatus = OneOffJobStatus()
@@ -275,6 +275,7 @@ class OneOffJob(CommonJob, BaseModel):
 
 
 class ScheduledJob(CommonJob, BaseModel):
+    cmd: str
     job_type: Literal[JobType.SCHEDULED] = JobType.SCHEDULED
     schedule: CronExpression
     retry: Annotated[int, Field(ge=0, le=5)] = 0
@@ -288,6 +289,7 @@ class ScheduledJob(CommonJob, BaseModel):
 
 
 class ContinuousJob(CommonJob, BaseModel):
+    cmd: str
     job_type: Literal[JobType.CONTINUOUS] = JobType.CONTINUOUS
     port: Annotated[int, Field(ge=1, le=65535)] | None = None
     port_protocol: PortProtocol = PortProtocol.TCP

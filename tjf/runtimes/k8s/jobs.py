@@ -456,6 +456,41 @@ def format_logs(entry: LogEntry) -> str:
     return f"{dumped}\n"
 
 
+def _get_command_from_k8s_object(
+    k8s_object: dict[str, Any], job_type: JobType
+) -> Command:
+    spec = k8s_object["spec"]
+    metadata = k8s_object["metadata"]
+
+    podspec = spec
+    if job_type == JobType.SCHEDULED:
+        podspec = spec["jobTemplate"]["spec"]
+
+    k8s_command = podspec["template"]["spec"]["containers"][0]["command"]
+    k8s_arguments = podspec["template"]["spec"]["containers"][0].get("args", [])
+    try:
+        command = get_command_from_k8s(
+            k8s_metadata=metadata, k8s_command=k8s_command, k8s_arguments=k8s_arguments
+        )
+    except Exception:
+        LOGGER.exception(
+            f"Unable to get command from k8s, \nk8s_metadata={metadata}\nk8s_command={k8s_command}\nk8s_arguments={k8s_arguments}"
+        )
+        raise
+
+    return command
+
+
+def _strip_launcher(command: Command, image: Image) -> str:
+    # TODO: remove once we store the user command in storage, as we will not need to generate from k8s
+    if image.type == ImageType.BUILDSERVICE and command.user_command.startswith(
+        "launcher "
+    ):
+        return command.user_command.split(" ", 1)[-1]
+
+    return command.user_command
+
+
 def get_common_job_from_k8s(
     k8s_object: dict[str, Any],
     job_type: JobType,
@@ -507,31 +542,12 @@ def get_common_job_from_k8s(
     else:
         cpu = cpu_limit
 
-    k8s_command = podspec["template"]["spec"]["containers"][0]["command"]
-    k8s_arguments = podspec["template"]["spec"]["containers"][0].get("args", [])
-    try:
-        command = get_command_from_k8s(
-            k8s_metadata=metadata, k8s_command=k8s_command, k8s_arguments=k8s_arguments
-        )
-    except Exception:
-        LOGGER.exception(
-            f"Unable to get command from k8s, \nk8s_metadata={metadata}\nk8s_command={k8s_command}\nk8s_arguments={k8s_arguments}"
-        )
-        raise
-
-    # TODO: remove once we store the user command in storage, as we will not need to generate from k8s
-    if image.type == ImageType.BUILDSERVICE and command.user_command.startswith(
-        "launcher "
-    ):
-        user_command = command.user_command.split(" ", 1)[-1]
-    else:
-        user_command = command.user_command
+    command = _get_command_from_k8s_object(k8s_object=k8s_object, job_type=job_type)
 
     namespace = metadata["namespace"]
     tool_name = "".join(namespace.split("-", 1)[1:])
     params = {
         "job_name": job_name,
-        "cmd": user_command,
         "k8s_object": k8s_object,
         "tool_name": tool_name,
         "image": image,
@@ -558,6 +574,11 @@ def get_one_off_job_from_k8s_object(
         tool_name=tool_name,
     )
     set_common_params = common_job.model_dump(exclude_unset=True)
+    command = _get_command_from_k8s_object(
+        k8s_object=k8s_object, job_type=JobType.ONE_OFF
+    )
+    user_command = _strip_launcher(command=command, image=common_job.image)
+
     podspec = dict_get_object(k8s_object, "spec")
     if not podspec:
         raise TjfError(
@@ -565,7 +586,12 @@ def get_one_off_job_from_k8s_object(
             data={"k8s_object": k8s_object},
         )
     retry = podspec.get("backoffLimit", 0)
-    params = {"job_type": JobType.ONE_OFF, "retry": retry, **set_common_params}
+    params = {
+        "job_type": JobType.ONE_OFF,
+        "retry": retry,
+        "cmd": user_command,
+        **set_common_params,
+    }
     my_job = OneOffJob.model_validate(params)
 
     return my_job
@@ -593,6 +619,10 @@ def get_scheduled_job_from_k8s_object(
         tool_name=tool_name,
     )
     set_common_params = common_job.model_dump(exclude_unset=True)
+    command = _get_command_from_k8s_object(
+        k8s_object=k8s_object, job_type=JobType.SCHEDULED
+    )
+    user_command = _strip_launcher(command=command, image=common_job.image)
 
     if "annotations" in metadata:
         configured_schedule_str = metadata["annotations"].get(
@@ -634,6 +664,7 @@ def get_scheduled_job_from_k8s_object(
         "schedule": schedule,
         "timeout": timeout,
         "retry": retry,
+        "cmd": user_command,
         **set_common_params,
     }
 
@@ -688,6 +719,10 @@ def get_continuous_job_from_k8s_object(
         tool_name=tool_account.name,
     )
     set_common_params = common_job.model_dump(exclude_unset=True)
+    command = _get_command_from_k8s_object(
+        k8s_object=k8s_object, job_type=JobType.CONTINUOUS
+    )
+    user_command = _strip_launcher(command=command, image=common_job.image)
 
     httproute_selector = labels_selector(
         job_name=common_job.job_name,
@@ -704,6 +739,7 @@ def get_continuous_job_from_k8s_object(
         "job_type": JobType.CONTINUOUS,
         "health_check": health_check,
         "replicas": replicas,
+        "cmd": user_command,
         **set_common_params,
     }
 
