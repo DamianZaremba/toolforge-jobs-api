@@ -1,5 +1,5 @@
 from typing import Protocol
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 from helpers.fakes import (
@@ -23,6 +23,7 @@ from tjf.core.models import (
     StatusShort,
 )
 from tjf.runtimes.exceptions import NotFoundInRuntime
+from tjf.runtimes.k8s.k8s_errors import K8sAlreadyExists
 from tjf.settings import Settings
 
 
@@ -449,6 +450,41 @@ class TestCore:
             )
             storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
 
+        def test_returns_scheduled_job_with_up_to_date_true_when_runtime_is_up_to_date(
+            self,
+            get_my_core: GetMyCore,
+            storage_k8s_cli: MagicMock,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            storage_job = get_dummy_scheduled_job()
+            my_core = get_my_core()
+            mock_storage_get_job = MagicMock(
+                spec=my_core.storage.get_job, return_value=storage_job
+            )
+            mock_runtime_get_scheduled_job = MagicMock(
+                spec=my_core.runtime.get_scheduled_job,
+                return_value=storage_job.get_resolved_core_job(),
+            )
+            monkeypatch.setattr(my_core.storage, "get_job", mock_storage_get_job)
+            monkeypatch.setattr(
+                my_core.runtime, "get_scheduled_job", mock_runtime_get_scheduled_job
+            )
+
+            gotten_job = my_core.get_job(
+                tool_name=storage_job.tool_name, name=storage_job.job_name
+            )
+
+            assert gotten_job
+            assert gotten_job.model_dump() == storage_job.model_dump()
+            assert gotten_job.status.up_to_date
+            mock_storage_get_job.assert_called_once_with(
+                job_name=storage_job.job_name, tool_name=storage_job.tool_name
+            )
+            mock_runtime_get_scheduled_job.assert_called_once_with(
+                job_name=storage_job.job_name, tool_name=storage_job.tool_name
+            )
+            storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
+
     class TestDeleteJob:
         def test_does_not_raise_if_it_does_not_exist_in_runtime(
             self,
@@ -760,24 +796,85 @@ class TestCore:
             )
 
     class TestCreateJob:
-        def test_deletes_job_when_theres_a_failure_in_runtime_and_raises_TjfError(
+        def test_skips_storage_for_one_off_jobs(
             self,
             get_my_core: GetMyCore,
             monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_one_off_job()
+            my_core = get_my_core()
+            mock_storage_create_job = MagicMock(spec=my_core.storage.create_job)
+            mock_runtime_create_job = MagicMock(spec=my_core.runtime.create_job)
+            monkeypatch.setattr(my_core.storage, "create_job", mock_storage_create_job)
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+
+            my_core.create_job(job=job)
+
+            mock_storage_create_job.assert_not_called()
+            mock_runtime_create_job.assert_called_once_with(
+                job=job.get_resolved_core_job()
+            )
+
+        @cases(
+            ["storage_exception", "expected_error_message"],
+            [
+                "Wraps unknown exception in TjfError",
+                [Exception("some storage bug"), "Unable to save job"],
+            ],
+            [
+                "Reraises TjfError from storage",
+                [TjfError("some storage error"), "some storage error"],
+            ],
+        )
+        def test_raises_tjf_error_when_storage_fails(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+            storage_exception: Exception,
+            expected_error_message: str,
         ):
             job = get_dummy_continuous_job()
             my_core = get_my_core()
             mock_storage_create_job = MagicMock(
                 spec=my_core.storage.create_job,
-                return_value=job,
+                side_effect=storage_exception,
             )
+            mock_runtime_create_job = MagicMock(spec=my_core.runtime.create_job)
+            monkeypatch.setattr(my_core.storage, "create_job", mock_storage_create_job)
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
 
-            class CustomError(Exception):
-                pass
+            with pytest.raises(TjfError, match=expected_error_message):
+                my_core.create_job(job=job)
 
+            mock_storage_create_job.assert_called_once_with(job=job)
+            mock_runtime_create_job.assert_not_called()
+
+        @cases(
+            ["runtime_exception", "expected_error_message"],
+            [
+                "Wraps unknown exception in TjfError",
+                [Exception("Unable to create job in runtime"), "Unable to start job"],
+            ],
+            [
+                "Reraises TjfError from runtime",
+                [TjfError("some runtime error"), "some runtime error"],
+            ],
+        )
+        def test_raises_tjf_error_when_runtime_fails(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+            runtime_exception: Exception,
+            expected_error_message: str,
+        ):
+            job = get_dummy_continuous_job()
+            my_core = get_my_core()
+            mock_storage_create_job = MagicMock(
+                spec=my_core.storage.create_job, side_effect=lambda job: job
+            )
             mock_runtime_create_job = MagicMock(
                 spec=my_core.runtime.create_job,
-                side_effect=CustomError("Unable to create job in runtime"),
+                side_effect=runtime_exception,
             )
             mock_storage_delete_job = MagicMock(spec=my_core.storage.delete_job)
             mock_runtime_delete_job = MagicMock(spec=my_core.runtime.delete_job)
@@ -786,7 +883,7 @@ class TestCore:
             monkeypatch.setattr(my_core.storage, "delete_job", mock_storage_delete_job)
             monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete_job)
 
-            with pytest.raises(TjfError):
+            with pytest.raises(TjfError, match=expected_error_message):
                 my_core.create_job(job=job)
 
             mock_storage_create_job.assert_called_once_with(job=job)
@@ -795,6 +892,81 @@ class TestCore:
             )
             mock_storage_delete_job.assert_called_once_with(job=job)
             mock_runtime_delete_job.assert_called_once_with(job=job)
+
+        def test_recreates_in_runtime_when_job_already_exists(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_continuous_job()
+            my_core = get_my_core()
+            mock_storage_create_job = MagicMock(
+                spec=my_core.storage.create_job, side_effect=lambda job: job
+            )
+            mock_runtime_create_job = MagicMock(
+                spec=my_core.runtime.create_job,
+                side_effect=[K8sAlreadyExists("already exists"), None],
+            )
+            mock_runtime_delete_job = MagicMock(spec=my_core.runtime.delete_job)
+            monkeypatch.setattr(my_core.storage, "create_job", mock_storage_create_job)
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+            monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete_job)
+
+            my_core.create_job(job=job)
+
+            mock_storage_create_job.assert_called_once_with(job=job)
+            assert mock_runtime_create_job.call_args_list == [
+                call(job=job.get_resolved_core_job()),
+                call(job=job.get_resolved_core_job()),
+            ]
+            mock_runtime_delete_job.assert_called_once_with(
+                job=job.get_resolved_core_job()
+            )
+
+        @cases(
+            ["recreate_exception", "expected_error_message"],
+            [
+                "Reraises TjfError when recreating",
+                [TjfError("nope"), "nope"],
+            ],
+            [
+                "Wraps unknown exception when recreating",
+                [Exception("boom"), "Unable to start job"],
+            ],
+        )
+        def test_raises_tjf_error_when_recreate_in_runtime_fails(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+            recreate_exception: Exception,
+            expected_error_message: str,
+        ):
+            job = get_dummy_continuous_job()
+            my_core = get_my_core()
+            mock_storage_create_job = MagicMock(
+                spec=my_core.storage.create_job, side_effect=lambda job: job
+            )
+            mock_runtime_create_job = MagicMock(
+                spec=my_core.runtime.create_job,
+                side_effect=[K8sAlreadyExists("already exists"), recreate_exception],
+            )
+            mock_runtime_delete_job = MagicMock(spec=my_core.runtime.delete_job)
+            monkeypatch.setattr(my_core.storage, "create_job", mock_storage_create_job)
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+            monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete_job)
+
+            with pytest.raises(TjfError, match=expected_error_message):
+                my_core.create_job(job=job)
+
+            mock_storage_create_job.assert_called_once_with(job=job)
+            assert mock_runtime_create_job.call_args_list == [
+                call(job=job.get_resolved_core_job()),
+                call(job=job.get_resolved_core_job()),
+            ]
+            assert mock_runtime_delete_job.call_args_list == [
+                call(job=job.get_resolved_core_job()),
+                call(job=job),
+            ]
 
     class TestGetJobs:
         def test_returns_storage_job_not_up_to_date_on_error_when_retrieving_from_runtime(
@@ -839,4 +1011,199 @@ class TestCore:
             mock_runtime_get_continuous_job.assert_called_once_with(
                 job_name="my-job", tool_name="some-tool"
             )
+            mock_runtime_get_one_off_jobs.assert_called_once_with(tool_name="some-tool")
             storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
+
+        def test_returns_continuous_job_with_up_to_date_true_when_runtime_is_up_to_date(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            storage_job = get_dummy_continuous_job(job_name="my-job")
+            my_core = get_my_core()
+            mock_storage_get_jobs = MagicMock(
+                spec=my_core.storage.get_jobs,
+                return_value=[storage_job],
+            )
+            mock_runtime_get_continuous_job = MagicMock(
+                spec=my_core.runtime.get_continuous_job,
+                return_value=storage_job.get_resolved_core_job(),
+            )
+            mock_runtime_get_one_off_jobs = MagicMock(
+                spec=my_core.runtime.get_one_off_jobs, return_value=[]
+            )
+            monkeypatch.setattr(my_core.storage, "get_jobs", mock_storage_get_jobs)
+            monkeypatch.setattr(
+                my_core.runtime, "get_continuous_job", mock_runtime_get_continuous_job
+            )
+            monkeypatch.setattr(
+                my_core.runtime, "get_one_off_jobs", mock_runtime_get_one_off_jobs
+            )
+
+            gotten_jobs = my_core.get_jobs(tool_name="some-tool")
+
+            mock_storage_get_jobs.assert_called_once_with(tool_name="some-tool")
+            mock_runtime_get_one_off_jobs.assert_called_once_with(tool_name="some-tool")
+            mock_runtime_get_continuous_job.assert_called_once_with(
+                job_name="my-job", tool_name="some-tool"
+            )
+            assert len(gotten_jobs) == 1
+            assert gotten_jobs[0].job_name == "my-job"
+            assert gotten_jobs[0].status.up_to_date
+
+        def test_returns_scheduled_job_with_up_to_date_true_when_runtime_is_up_to_date(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            storage_job = get_dummy_scheduled_job(job_name="my-job")
+            my_core = get_my_core()
+            mock_storage_get_jobs = MagicMock(
+                spec=my_core.storage.get_jobs,
+                return_value=[storage_job],
+            )
+            mock_runtime_get_scheduled_job = MagicMock(
+                spec=my_core.runtime.get_scheduled_job,
+                return_value=storage_job.get_resolved_core_job(),
+            )
+            mock_runtime_get_one_off_jobs = MagicMock(
+                spec=my_core.runtime.get_one_off_jobs, return_value=[]
+            )
+            monkeypatch.setattr(my_core.storage, "get_jobs", mock_storage_get_jobs)
+            monkeypatch.setattr(
+                my_core.runtime, "get_scheduled_job", mock_runtime_get_scheduled_job
+            )
+            monkeypatch.setattr(
+                my_core.runtime, "get_one_off_jobs", mock_runtime_get_one_off_jobs
+            )
+
+            gotten_jobs = my_core.get_jobs(tool_name="some-tool")
+
+            mock_storage_get_jobs.assert_called_once_with(tool_name="some-tool")
+            mock_runtime_get_one_off_jobs.assert_called_once_with(tool_name="some-tool")
+            mock_runtime_get_scheduled_job.assert_called_once_with(
+                job_name="my-job", tool_name="some-tool"
+            )
+            assert len(gotten_jobs) == 1
+            assert gotten_jobs[0].job_name == "my-job"
+            assert gotten_jobs[0].status.up_to_date
+
+        def test_returns_one_off_jobs_from_runtime_with_up_to_date_true(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            one_off_job = get_dummy_one_off_job(job_name="one-off-job")
+            my_core = get_my_core()
+            mock_storage_get_jobs = MagicMock(
+                spec=my_core.storage.get_jobs,
+                return_value=[],
+            )
+            mock_runtime_get_one_off_jobs = MagicMock(
+                spec=my_core.runtime.get_one_off_jobs, return_value=[one_off_job]
+            )
+            monkeypatch.setattr(my_core.storage, "get_jobs", mock_storage_get_jobs)
+            monkeypatch.setattr(
+                my_core.runtime, "get_one_off_jobs", mock_runtime_get_one_off_jobs
+            )
+
+            gotten_jobs = my_core.get_jobs(tool_name="some-tool")
+
+            assert len(gotten_jobs) == 1
+            assert gotten_jobs[0].job_name == "one-off-job"
+            assert gotten_jobs[0].status.up_to_date
+            mock_storage_get_jobs.assert_called_once_with(tool_name="some-tool")
+            mock_runtime_get_one_off_jobs.assert_called_once_with(tool_name="some-tool")
+
+    class TestUpdateJobInStorage:
+        class TestContinuousJob:
+            def test_recreates_storage_record_when_job_changed(
+                self,
+                get_my_core: GetMyCore,
+                monkeypatch: pytest.MonkeyPatch,
+            ):
+                existing_job = get_dummy_continuous_job(cmd="old command")
+                new_job = get_dummy_continuous_job(cmd="new command")
+                my_core = get_my_core()
+                mock_storage_delete_job = MagicMock(spec=my_core.storage.delete_job)
+                mock_storage_create_job = MagicMock(spec=my_core.storage.create_job)
+                monkeypatch.setattr(
+                    my_core.storage, "delete_job", mock_storage_delete_job
+                )
+                monkeypatch.setattr(
+                    my_core.storage, "create_job", mock_storage_create_job
+                )
+
+                changed = my_core._update_job_in_storage(
+                    existing_job=existing_job, new_job=new_job
+                )
+
+                assert changed is True
+                mock_storage_delete_job.assert_called_once_with(job=new_job)
+                mock_storage_create_job.assert_called_once_with(job=new_job)
+
+            def test_skips_storage_when_job_is_the_same(
+                self,
+                get_my_core: GetMyCore,
+                monkeypatch: pytest.MonkeyPatch,
+            ):
+                job = get_dummy_continuous_job()
+                my_core = get_my_core()
+                mock_storage_delete_job = MagicMock(spec=my_core.storage.delete_job)
+                monkeypatch.setattr(
+                    my_core.storage, "delete_job", mock_storage_delete_job
+                )
+
+                changed = my_core._update_job_in_storage(existing_job=job, new_job=job)
+
+                assert changed is False
+                mock_storage_delete_job.assert_not_called()
+
+        class TestOneOffJob:
+            @cases(
+                ["existing_job_cmd", "new_job_cmd"],
+                [
+                    "Same command",
+                    ["echo old", "echo old"],
+                ],
+                [
+                    "Changed command",
+                    ["echo old", "echo new"],
+                ],
+            )
+            def test_always_skips(
+                self,
+                get_my_core: GetMyCore,
+                monkeypatch: pytest.MonkeyPatch,
+                existing_job_cmd: str,
+                new_job_cmd: str,
+            ):
+                my_core = get_my_core()
+                mock_storage_delete_job = MagicMock(spec=my_core.storage.delete_job)
+                mock_storage_create_job = MagicMock(spec=my_core.storage.create_job)
+                monkeypatch.setattr(
+                    my_core.storage, "delete_job", mock_storage_delete_job
+                )
+                monkeypatch.setattr(
+                    my_core.storage, "create_job", mock_storage_create_job
+                )
+
+                changed = my_core._update_job_in_storage(
+                    existing_job=get_dummy_one_off_job(cmd=existing_job_cmd),
+                    new_job=get_dummy_one_off_job(cmd=new_job_cmd),
+                )
+
+                assert changed is False
+                mock_storage_delete_job.assert_not_called()
+                mock_storage_create_job.assert_not_called()
+
+    class TestUpdateJobInRuntime:
+        def test_raises_on_unknown_job_type(
+            self,
+            get_my_core: GetMyCore,
+        ):
+            my_core = get_my_core()
+            job = MagicMock(spec=get_dummy_continuous_job(), job_type="bogus-type")
+
+            with pytest.raises(TjfValidationError, match="Unknown job type"):
+                my_core._update_job_in_runtime(job=job)

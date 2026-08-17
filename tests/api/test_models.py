@@ -5,6 +5,7 @@ import pytest
 from toolforge_weld.kubernetes import MountOption
 
 from tests.helpers.fake_k8s import K8S_ONEOFF_JOB_OBJ
+from tests.utils import cases
 from tjf.api.models import (
     CommonJob,
     DefinedCommonJob,
@@ -16,6 +17,7 @@ from tjf.api.models import (
     NewScheduledJob,
 )
 from tjf.core.cron import CronExpression
+from tjf.core.error import TjfValidationError
 from tjf.core.images import Image, ImageType
 from tjf.core.models import CommonJob as CoreCommonJob
 from tjf.core.models import ContinuousJob as CoreContinuousJob
@@ -264,6 +266,15 @@ class TestNewOneOffJob:
 
         assert gotten_core_job.model_dump() == expected_core_job.model_dump()
 
+    @cases(
+        ["name", "expected_error_message"],
+        ["Invalid name", ["Invalid_Name", "Invalid job name"]],
+        ["Empty name", ["", "Job name is required"]],
+    )
+    def test_raises_on_invalid_name(self, name: str, expected_error_message: str):
+        with pytest.raises(TjfValidationError, match=expected_error_message):
+            get_dummy_new_one_off_job(name=name)
+
 
 class TestNewScheduledJob:
     def test_to_job_returns_expected_value_when_excluding_unset(self):
@@ -293,6 +304,12 @@ class TestNewScheduledJob:
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump() == expected_core_job.model_dump()
+
+    def test_to_job_raises_on_invalid_schedule(self):
+        my_job = get_dummy_new_scheduled_job(schedule="this is not a schedule")
+
+        with pytest.raises(TjfValidationError, match="Unable to parse cron expression"):
+            my_job.to_core_job(tool_name="some-tool")
 
 
 class TestNewContinuousJob:

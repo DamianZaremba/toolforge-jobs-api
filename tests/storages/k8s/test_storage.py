@@ -5,6 +5,7 @@ import kubernetes
 import pytest
 from fastapi import status
 
+from tests.utils import cases
 from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
@@ -12,7 +13,11 @@ from tjf.core.models import (
     ScheduledJob,
 )
 from tjf.settings import Settings
-from tjf.storages.exceptions import AlreadyExistsInStorage, NotFoundInStorage
+from tjf.storages.exceptions import (
+    AlreadyExistsInStorage,
+    NotFoundInStorage,
+    StorageError,
+)
 from tjf.storages.k8s import storage
 
 
@@ -214,6 +219,31 @@ class TestStorage:
                 get_scheduled_job(name="testsched1"),
             ]
             assert_jobs_get_k8s_calls(storage_k8s_cli=storage_k8s_cli)
+
+        @cases(
+            ["error_status", "expected_error_message"],
+            [
+                "CRDs not deployed",
+                [status.HTTP_404_NOT_FOUND, "are they deployed\\?"],
+            ],
+            [
+                "Other k8s errors",
+                [status.HTTP_500_INTERNAL_SERVER_ERROR, "internal bug"],
+            ],
+        )
+        def test_raises_storage_error_on_k8s_api_exceptions(
+            self,
+            storage_k8s_cli: MagicMock,
+            error_status: int,
+            expected_error_message: str,
+        ):
+            storage_k8s_cli.list_namespaced_custom_object.side_effect = (
+                kubernetes.client.ApiException(status=error_status)
+            )
+            my_storage = storage.K8sStorage(settings=Settings(debug=True))
+
+            with pytest.raises(StorageError, match=expected_error_message):
+                my_storage.get_jobs(tool_name="tf-test")
 
     class TestGetJob:
         def test_raises_notfoundinstorage_when_no_job_found(
