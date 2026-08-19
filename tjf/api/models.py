@@ -100,7 +100,10 @@ class CommonOptions(BaseModel):
             "image": image,
             **set_job_params,
         }
-        my_job = CoreCommonOptions.model_validate(params)
+        # We allow extras to not need to filter out params the common model
+        # does not care about, the full validation already happened by the
+        # children model, and will happen again later
+        my_job = CoreCommonOptions.model_validate(params, extra="ignore")
         LOGGER.debug(
             f"Got {self} (set fields {self.model_fields_set}), \ngenerated {my_job} (fields set {my_job.model_fields_set})"
         )

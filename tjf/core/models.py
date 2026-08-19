@@ -162,7 +162,7 @@ class ScheduledJobStatus(CommonJobStatus):
 AnyJobStatus = OneOffJobStatus | ContinuousJobStatus | ScheduledJobStatus
 
 
-class CommonOptions(PydanticBaseModel):
+class CommonOptions(BaseModel):
     filelog: bool = False
     filelog_stderr: Path | None = None
     filelog_stdout: Path | None = None
