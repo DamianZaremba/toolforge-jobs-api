@@ -1,4 +1,4 @@
-from fastapi import Request
+from starlette.datastructures import Headers
 
 from ..core.error import TjfClientError
 
@@ -11,11 +11,11 @@ class ToolAuthError(TjfClientError):
     http_status_code = 403
 
 
-def ensure_authenticated(request: Request) -> str:
+def ensure_authenticated(headers: Headers) -> str:
     """
     The gateway already checks that the path and the tool match, we only need to check that the tool header is set.
     """
-    tool_name = request.headers.get(TOOL_HEADER)
+    tool_name = headers.get(TOOL_HEADER)
 
     if not tool_name:
         raise ToolAuthError(f"missing '{TOOL_HEADER}' header")
