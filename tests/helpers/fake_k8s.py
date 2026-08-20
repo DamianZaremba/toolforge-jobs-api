@@ -13,9 +13,11 @@ from tests.helpers.fakes import (
 from tjf.core.cron import CronExpression
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
-    AnyJob,
+    ContinuousJob,
     HealthCheckType,
     JobType,
+    OneOffJob,
+    ScheduledJob,
     ScriptHealthCheck,
 )
 
@@ -1055,7 +1057,7 @@ K8S_ONEOFF_JOB_OBJ = json.loads(
 
 def get_continuous_job_with_health_check_fixture_as_job(
     add_status: bool = True, **overrides
-) -> AnyJob:
+) -> ContinuousJob:
     if "health_check" not in overrides:
         overrides["health_check"] = ScriptHealthCheck(
             script="./some_script.sh", type=HealthCheckType.SCRIPT
@@ -1065,7 +1067,9 @@ def get_continuous_job_with_health_check_fixture_as_job(
     return get_continuous_job_fixture_as_job(add_status=add_status, **overrides)
 
 
-def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
+def get_continuous_job_fixture_as_job(
+    add_status: bool = True, **overrides
+) -> ContinuousJob:
     """Returns a job matching the only fixture used in this suite.
 
     Pass a custom job_name to get a non-matching job instead.
@@ -1102,7 +1106,7 @@ def get_continuous_job_fixture_as_job(add_status: bool = True, **overrides) -> A
     return job
 
 
-def get_continuous_job_fixture_as_new_job(**overrides) -> AnyJob:
+def get_continuous_job_fixture_as_new_job(**overrides) -> ContinuousJob:
     """
     When checking if a job matches an existing one, the incoming job has no image and no statuses, this helper is to
     fetch a job that matches the fixture without those fields as if it was being created anew.
@@ -1111,7 +1115,7 @@ def get_continuous_job_fixture_as_new_job(**overrides) -> AnyJob:
     return new_job
 
 
-def get_one_off_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
+def get_one_off_job_fixture_as_job(add_status: bool = True, **overrides) -> OneOffJob:
     """Returns a job matching the only fixture used in this suite.
 
     Pass a custom job_name to get a non-matching job instead.
@@ -1156,7 +1160,9 @@ def get_one_off_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJ
     return get_dummy_one_off_job(**(params | optional_params | overrides))
 
 
-def get_scheduled_job_fixture_as_job(add_status: bool = True, **overrides) -> AnyJob:
+def get_scheduled_job_fixture_as_job(
+    add_status: bool = True, **overrides
+) -> ScheduledJob:
     """Returns a job matching the only fixture used in this suite.
 
     Pass a custom job_name to get a non-matching job instead.
