@@ -28,27 +28,32 @@ from ..core.models import (
 from ..core.models import AnyJob as AnyCoreJob
 from ..core.models import CommonOptions as CoreCommonOptions
 from ..core.models import ContinuousJob as CoreContinuousJob
+from ..core.models import FileLoggingOptions as CoreFileLoggingOptions
 from ..core.models import OneOffJob as CoreOneOffJob
 from ..core.models import ScheduledJob as CoreScheduledJob
+from ..core.models import StorageOptions as CoreStorageOptions
 
 LOGGER = getLogger(__name__)
+
+
+class FileLoggingOptions(BaseModel):
+    filelog: bool = CoreFileLoggingOptions.model_fields["filelog"].default
+    filelog_stdout: Path | None = CoreFileLoggingOptions.model_fields[
+        "filelog_stdout"
+    ].default
+    filelog_stderr: Path | None = CoreFileLoggingOptions.model_fields[
+        "filelog_stderr"
+    ].default
 
 
 class CommonOptions(BaseModel):
     name: str
     # TODO: replace imagename with image, note this will change the API
     imagename: str
-    filelog: bool = CoreCommonOptions.model_fields["filelog"].default
-    filelog_stdout: Path | None = CoreCommonOptions.model_fields[
-        "filelog_stdout"
-    ].default
-    filelog_stderr: Path | None = CoreCommonOptions.model_fields[
-        "filelog_stderr"
-    ].default
-    emails: EmailOption = CoreCommonOptions.model_fields["emails"].default
-    mount: MountOption = CoreCommonOptions.model_fields["mount"].default
+    mount: MountOption = CoreStorageOptions.model_fields["mount"].default
     memory: str = CoreCommonOptions.model_fields["memory"].default
     cpu: str = CoreCommonOptions.model_fields["cpu"].default
+    emails: EmailOption = CoreCommonOptions.model_fields["emails"].default
 
     @field_validator("name")
     @classmethod
@@ -133,7 +138,7 @@ class CommonOptions(BaseModel):
         return my_job
 
 
-class NewOneOffJob(CommonOptions, BaseModel):
+class NewOneOffJob(FileLoggingOptions, CommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.ONE_OFF] = CoreOneOffJob.model_fields["job_type"].default
     retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields[
@@ -167,7 +172,7 @@ class NewOneOffJob(CommonOptions, BaseModel):
         return my_job
 
 
-class NewScheduledJob(CommonOptions, BaseModel):
+class NewScheduledJob(FileLoggingOptions, CommonOptions, BaseModel):
     cmd: str
     schedule: str
     job_type: Literal[JobType.SCHEDULED] = CoreScheduledJob.model_fields[
@@ -220,7 +225,7 @@ class NewScheduledJob(CommonOptions, BaseModel):
         return my_job
 
 
-class NewContinuousJob(CommonOptions, BaseModel):
+class NewContinuousJob(FileLoggingOptions, CommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.CONTINUOUS] = CoreContinuousJob.model_fields[
         "job_type"
@@ -312,7 +317,7 @@ class DefinedCommonOptions(CommonOptions):
         return my_job
 
 
-class DefinedOneOffJob(DefinedCommonOptions, BaseModel):
+class DefinedOneOffJob(FileLoggingOptions, DefinedCommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.ONE_OFF] = CoreOneOffJob.model_fields["job_type"].default
     retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields[
@@ -353,7 +358,7 @@ class DefinedOneOffJob(DefinedCommonOptions, BaseModel):
         return my_job
 
 
-class DefinedScheduledJob(DefinedCommonOptions, BaseModel):
+class DefinedScheduledJob(FileLoggingOptions, DefinedCommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.SCHEDULED] = CoreScheduledJob.model_fields[
         "job_type"
@@ -412,7 +417,7 @@ class DefinedScheduledJob(DefinedCommonOptions, BaseModel):
         return my_job
 
 
-class DefinedContinuousJob(DefinedCommonOptions, BaseModel):
+class DefinedContinuousJob(FileLoggingOptions, DefinedCommonOptions, BaseModel):
     cmd: str
     job_type: Literal[JobType.CONTINUOUS] = CoreContinuousJob.model_fields[
         "job_type"

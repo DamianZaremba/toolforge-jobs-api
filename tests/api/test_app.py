@@ -462,8 +462,9 @@ class TestApiGetJob:
             "get_job",
             value=lambda *args, **kwargs: dummy_job,
         )
+        resolved_dummy_job = dummy_job.get_resolved_job()
         expected_response = JobResponse(
-            job=get_job_for_api(dummy_job.get_resolved_core_job()),
+            job=get_job_for_api(resolved_dummy_job),
             messages=ResponseMessages(),
         )
         gotten_response = client.get(
@@ -498,10 +499,11 @@ class TestApiUpdateJob:
         monkeypatch.setattr(
             app.core.storage, "get_job", value=lambda *args, **kwargs: dummy_job
         )
+        resolved_dummy_job = dummy_job.get_resolved_job()
         monkeypatch.setattr(
             app.core.runtime,
             "get_continuous_job",
-            value=lambda *args, **kwargs: dummy_job.get_resolved_core_job(),
+            value=lambda *args, **kwargs: resolved_dummy_job,
         )
 
         new_job = NewContinuousJob.model_validate(

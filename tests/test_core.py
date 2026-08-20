@@ -263,7 +263,7 @@ class TestCore:
             my_runtime_job = get_dummy_job(
                 job_name="my-job",
                 status=job_status,
-            ).get_resolved_core_job()
+            ).get_resolved_job()
             gotten_job = core._update_storage_job_status_from_runtime(
                 storage_job=my_storage_job, runtime_job=my_runtime_job
             )
@@ -463,7 +463,7 @@ class TestCore:
             )
             mock_runtime_get_scheduled_job = MagicMock(
                 spec=my_core.runtime.get_scheduled_job,
-                return_value=storage_job.get_resolved_core_job(),
+                return_value=storage_job.get_resolved_job(),
             )
             monkeypatch.setattr(my_core.storage, "get_job", mock_storage_get_job)
             monkeypatch.setattr(
@@ -531,12 +531,8 @@ class TestCore:
 
             gotten_change, gotten_message = my_core.update_job(job=job)
 
-            mock_runtime_update_job.assert_called_once_with(
-                job=job.get_resolved_core_job()
-            )
-            mock_runtime_create_job.assert_called_once_with(
-                job=job.get_resolved_core_job()
-            )
+            mock_runtime_update_job.assert_called_once_with(job=job.get_resolved_job())
+            mock_runtime_create_job.assert_called_once_with(job=job.get_resolved_job())
             mock_core_get_job.assert_called_once_with(
                 tool_name=job.tool_name, name=job.job_name
             )
@@ -566,9 +562,7 @@ class TestCore:
 
             gotten_change, gotten_message = my_core.update_job(job=job)
 
-            mock_runtime_update_job.assert_called_once_with(
-                job=job.get_resolved_core_job()
-            )
+            mock_runtime_update_job.assert_called_once_with(job=job.get_resolved_job())
             assert gotten_change
             assert gotten_message == "Job silly-job-name was updated in runtime only"
 
@@ -628,7 +622,7 @@ class TestCore:
                 existing_job=existing_job, new_job=updated_job
             )
             mock_update_job_in_runtime.assert_called_once_with(
-                job=updated_job.get_resolved_core_job()
+                job=updated_job.get_resolved_job()
             )
 
     class TestRestartJob:
@@ -658,9 +652,7 @@ class TestCore:
             my_core.restart_job(job=job)
 
             mock_runtime_restart_job.assert_called_once_with(job=job)
-            mock_runtime_create_job.assert_called_once_with(
-                job=job.get_resolved_core_job()
-            )
+            mock_runtime_create_job.assert_called_once_with(job=job.get_resolved_job())
             mock_storage_get_job.assert_called_once_with(
                 job_name=job.job_name, tool_name=job.tool_name
             )
@@ -691,9 +683,7 @@ class TestCore:
             my_core.restart_job(job=job)
 
             mock_runtime_restart_job.assert_called_once_with(job=job)
-            mock_runtime_create_job.assert_called_once_with(
-                job=job.get_resolved_core_job()
-            )
+            mock_runtime_create_job.assert_called_once_with(job=job.get_resolved_job())
             mock_storage_get_job.assert_called_once_with(
                 job_name=job.job_name, tool_name=job.tool_name
             )
@@ -744,9 +734,7 @@ class TestCore:
             my_core.restart_job(job=job)
 
             mock_runtime_restart_job.assert_called_once_with(job=job)
-            mock_runtime_create_job.assert_called_once_with(
-                job=job.get_resolved_core_job()
-            )
+            mock_runtime_create_job.assert_called_once_with(job=job.get_resolved_job())
             mock_storage_get_job.assert_called_once_with(
                 job_name=job.job_name, tool_name=job.tool_name
             )
@@ -811,9 +799,7 @@ class TestCore:
             my_core.create_job(job=job)
 
             mock_storage_create_job.assert_not_called()
-            mock_runtime_create_job.assert_called_once_with(
-                job=job.get_resolved_core_job()
-            )
+            mock_runtime_create_job.assert_called_once_with(job=job.get_resolved_job())
 
         @cases(
             ["storage_exception", "expected_error_message"],
@@ -887,9 +873,7 @@ class TestCore:
                 my_core.create_job(job=job)
 
             mock_storage_create_job.assert_called_once_with(job=job)
-            mock_runtime_create_job.assert_called_once_with(
-                job=job.get_resolved_core_job()
-            )
+            mock_runtime_create_job.assert_called_once_with(job=job.get_resolved_job())
             mock_storage_delete_job.assert_called_once_with(job=job)
             mock_runtime_delete_job.assert_called_once_with(job=job)
 
@@ -916,12 +900,10 @@ class TestCore:
 
             mock_storage_create_job.assert_called_once_with(job=job)
             assert mock_runtime_create_job.call_args_list == [
-                call(job=job.get_resolved_core_job()),
-                call(job=job.get_resolved_core_job()),
+                call(job=job.get_resolved_job()),
+                call(job=job.get_resolved_job()),
             ]
-            mock_runtime_delete_job.assert_called_once_with(
-                job=job.get_resolved_core_job()
-            )
+            mock_runtime_delete_job.assert_called_once_with(job=job.get_resolved_job())
 
         @cases(
             ["recreate_exception", "expected_error_message"],
@@ -960,11 +942,11 @@ class TestCore:
 
             mock_storage_create_job.assert_called_once_with(job=job)
             assert mock_runtime_create_job.call_args_list == [
-                call(job=job.get_resolved_core_job()),
-                call(job=job.get_resolved_core_job()),
+                call(job=job.get_resolved_job()),
+                call(job=job.get_resolved_job()),
             ]
             assert mock_runtime_delete_job.call_args_list == [
-                call(job=job.get_resolved_core_job()),
+                call(job=job.get_resolved_job()),
                 call(job=job),
             ]
 
@@ -1027,7 +1009,7 @@ class TestCore:
             )
             mock_runtime_get_continuous_job = MagicMock(
                 spec=my_core.runtime.get_continuous_job,
-                return_value=storage_job.get_resolved_core_job(),
+                return_value=storage_job.get_resolved_job(),
             )
             mock_runtime_get_one_off_jobs = MagicMock(
                 spec=my_core.runtime.get_one_off_jobs, return_value=[]
@@ -1064,7 +1046,7 @@ class TestCore:
             )
             mock_runtime_get_scheduled_job = MagicMock(
                 spec=my_core.runtime.get_scheduled_job,
-                return_value=storage_job.get_resolved_core_job(),
+                return_value=storage_job.get_resolved_job(),
             )
             mock_runtime_get_one_off_jobs = MagicMock(
                 spec=my_core.runtime.get_one_off_jobs, return_value=[]

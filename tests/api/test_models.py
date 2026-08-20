@@ -12,6 +12,7 @@ from tjf.api.models import (
     DefinedContinuousJob,
     DefinedOneOffJob,
     DefinedScheduledJob,
+    FileLoggingOptions,
     NewContinuousJob,
     NewOneOffJob,
     NewScheduledJob,
@@ -188,7 +189,9 @@ def get_dummy_defined_continuous_job(**overrides) -> DefinedContinuousJob:
 
 
 class TestCommonOptions:
-    def test_to_job_returns_expected_value_when_excluding_unset(self):
+    def test_to_job_returns_expected_value_when_excluding_unset(
+        self,
+    ):
         my_job = get_dummy_common_options()
         expected_core_job = get_dummy_core_common_options()
 
@@ -198,7 +201,9 @@ class TestCommonOptions:
             exclude_unset=True
         ) == expected_core_job.model_dump(exclude_unset=True)
 
-    def test_to_job_returns_expected_value_when_including_unset(self):
+    def test_to_job_returns_expected_value_when_including_unset(
+        self,
+    ):
         my_job = get_dummy_common_options()
         expected_core_job = get_dummy_core_common_options()
 
@@ -208,33 +213,48 @@ class TestCommonOptions:
             exclude_unset=False
         ) == expected_core_job.model_dump(exclude_unset=False)
 
-    def test_to_job_returns_expected_value_when_setting_all_fields(self):
+    def test_to_job_returns_expected_value_when_setting_all_fields(
+        self,
+    ):
         # similar as before, but leaving for consistency and in case we add fields to it
         my_job = get_dummy_common_options(
             cpu="1000m",
             memory="1G",
             mount=MountOption.ALL,
             emails=EmailOption.onfinish,
-            filelog=True,
-            filelog_stderr=Path("/path/to.log.err"),
-            filelog_stdout=Path("/path/to.log.out"),
         )
         expected_core_job = get_dummy_core_common_options(
             cpu="1000m",
             memory="1G",
             mount=MountOption.ALL,
             emails=EmailOption.onfinish,
-            filelog=True,
-            filelog_stderr=Path("/path/to.log.err"),
-            filelog_stdout=Path("/path/to.log.out"),
         )
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
         assert gotten_core_job.model_dump() == expected_core_job.model_dump()
 
 
+class TestFileLoggingOptions:
+    def test_serialization(self):
+        job = FileLoggingOptions.model_validate(
+            {
+                "filelog": True,
+                "filelog_stdout": "/path/to.log.out",
+                "filelog_stderr": "/path/to.log.err",
+            }
+        )
+
+        assert job.model_dump() == {
+            "filelog": True,
+            "filelog_stdout": Path("/path/to.log.out"),
+            "filelog_stderr": Path("/path/to.log.err"),
+        }
+
+
 class TestNewOneOffJob:
-    def test_to_job_returns_expected_value_when_excluding_unset(self):
+    def test_to_job_returns_expected_value_when_excluding_unset(
+        self,
+    ):
         my_job = get_dummy_new_one_off_job()
         expected_core_job = get_dummy_core_one_off_job()
 
@@ -244,7 +264,9 @@ class TestNewOneOffJob:
             exclude_unset=True
         ) == expected_core_job.model_dump(exclude_unset=True)
 
-    def test_to_job_returns_expected_value_when_including_unset(self):
+    def test_to_job_returns_expected_value_when_including_unset(
+        self,
+    ):
         my_job = get_dummy_new_one_off_job()
         expected_core_job = get_dummy_core_one_off_job()
 
@@ -254,7 +276,9 @@ class TestNewOneOffJob:
             exclude_unset=False
         ) == expected_core_job.model_dump(exclude_unset=False)
 
-    def test_to_job_returns_expected_value_when_setting_all_fields(self):
+    def test_to_job_returns_expected_value_when_setting_all_fields(
+        self,
+    ):
         # similar as before, but leaving for consistency and in case we add fields to it
         my_job = get_dummy_new_one_off_job()
         expected_core_job = get_dummy_core_one_off_job()
@@ -274,7 +298,9 @@ class TestNewOneOffJob:
 
 
 class TestNewScheduledJob:
-    def test_to_job_returns_expected_value_when_excluding_unset(self):
+    def test_to_job_returns_expected_value_when_excluding_unset(
+        self,
+    ):
         my_job = get_dummy_new_scheduled_job()
         expected_core_job = get_dummy_core_scheduled_job()
 
@@ -284,7 +310,9 @@ class TestNewScheduledJob:
             exclude_unset=True
         ) == expected_core_job.model_dump(exclude_unset=True)
 
-    def test_to_job_returns_expected_value_when_including_unset(self):
+    def test_to_job_returns_expected_value_when_including_unset(
+        self,
+    ):
         my_job = get_dummy_new_scheduled_job()
         expected_core_job = get_dummy_core_scheduled_job()
 
@@ -294,7 +322,9 @@ class TestNewScheduledJob:
             exclude_unset=False
         ) == expected_core_job.model_dump(exclude_unset=False)
 
-    def test_to_job_returns_expected_value_when_setting_all_fields(self):
+    def test_to_job_returns_expected_value_when_setting_all_fields(
+        self,
+    ):
         my_job = get_dummy_new_scheduled_job(timeout=120)
         expected_core_job = get_dummy_core_scheduled_job(timeout=120)
 
@@ -310,7 +340,9 @@ class TestNewScheduledJob:
 
 
 class TestNewContinuousJob:
-    def test_to_job_returns_expected_value_when_excluding_unset(self):
+    def test_to_job_returns_expected_value_when_excluding_unset(
+        self,
+    ):
         my_job = get_dummy_new_continuous_job()
         expected_core_job = get_dummy_core_continuous_job()
 
@@ -320,7 +352,9 @@ class TestNewContinuousJob:
             exclude_unset=True
         ) == expected_core_job.model_dump(exclude_unset=True)
 
-    def test_to_job_returns_expected_value_when_including_unset(self):
+    def test_to_job_returns_expected_value_when_including_unset(
+        self,
+    ):
         my_job = get_dummy_new_continuous_job()
         expected_core_job = get_dummy_core_continuous_job()
 
@@ -330,7 +364,9 @@ class TestNewContinuousJob:
             exclude_unset=False
         ) == expected_core_job.model_dump(exclude_unset=False)
 
-    def test_to_job_returns_expected_value_when_all_fields_set(self):
+    def test_to_job_returns_expected_value_when_all_fields_set(
+        self,
+    ):
         my_job = get_dummy_new_continuous_job(
             replicas=1,
             port=8080,
@@ -350,17 +386,11 @@ class TestNewContinuousJob:
 
 
 class TestDefinedCommonOptions:
-    def test_to_job_returns_expected_value_when_excluding_unset(self):
-        expected_defined_job = get_dummy_defined_common_options(
-            filelog=True,
-            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
-            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
-        )
-        core_job = get_dummy_core_common_options(
-            filelog=True,
-            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
-            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
-        )
+    def test_to_job_returns_expected_value_when_excluding_unset(
+        self,
+    ):
+        expected_defined_job = get_dummy_defined_common_options()
+        core_job = get_dummy_core_one_off_job()
 
         gotten_defined_job = DefinedCommonOptions.from_core_job(core_job=core_job)
 
@@ -368,17 +398,11 @@ class TestDefinedCommonOptions:
             exclude_unset=True
         ) == expected_defined_job.model_dump(exclude_unset=True)
 
-    def test_to_job_returns_expected_value_when_including_unset(self):
-        expected_defined_job = get_dummy_defined_common_options(
-            filelog=True,
-            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
-            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
-        )
-        core_job = get_dummy_core_common_options(
-            filelog=True,
-            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
-            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
-        )
+    def test_to_job_returns_expected_value_when_including_unset(
+        self,
+    ):
+        expected_defined_job = get_dummy_defined_common_options()
+        core_job = get_dummy_core_one_off_job()
 
         gotten_defined_job = DefinedCommonOptions.from_core_job(core_job=core_job)
 
@@ -386,26 +410,22 @@ class TestDefinedCommonOptions:
             exclude_unset=False
         ) == expected_defined_job.model_dump(exclude_unset=False)
 
-    def test_to_job_returns_expected_value_when_all_fields_set(self):
+    def test_to_job_returns_expected_value_when_all_fields_set(
+        self,
+    ):
         expected_defined_job = get_dummy_defined_common_options(
             image="python3.11",
             imagename="python3.11",
             image_state="stable",
             status_short="dummy status short",
             status_long="dummy status long",
-            filelog=True,
-            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
-            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
-        core_job = get_dummy_core_common_options(
+        core_job = get_dummy_core_one_off_job(
             image=Image.from_short_name_or_url(
                 url_or_name="python3.11", tool_name="some-tool"
             ),
             status_short="dummy status short",
             status_long="dummy status long",
-            filelog=True,
-            filelog_stderr="/data/project/some-tool/dummy-job-name.err",
-            filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
 
         gotten_defined_job = DefinedCommonOptions.from_core_job(core_job=core_job)
@@ -414,7 +434,9 @@ class TestDefinedCommonOptions:
 
 
 class TestDefinedOneOffJob:
-    def test_to_job_returns_expected_value_when_excluding_unset(self):
+    def test_to_job_returns_expected_value_when_excluding_unset(
+        self,
+    ):
         expected_defined_job = get_dummy_defined_one_off_job(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
@@ -433,7 +455,9 @@ class TestDefinedOneOffJob:
         ) == expected_defined_job.model_dump(exclude_unset=True)
         assert "job_type" in gotten_defined_job.model_dump(exclude_unset=True)
 
-    def test_to_job_returns_expected_value_when_including_unset(self):
+    def test_to_job_returns_expected_value_when_including_unset(
+        self,
+    ):
         expected_defined_job = get_dummy_defined_one_off_job(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
@@ -451,7 +475,9 @@ class TestDefinedOneOffJob:
             exclude_unset=False
         ) == expected_defined_job.model_dump(exclude_unset=False)
 
-    def test_to_job_returns_expected_value_when_all_fields_set(self):
+    def test_to_job_returns_expected_value_when_all_fields_set(
+        self,
+    ):
         expected_defined_job = get_dummy_defined_one_off_job(
             retry=5,
             filelog=True,
@@ -471,7 +497,9 @@ class TestDefinedOneOffJob:
 
 
 class TestDefinedScheduledJob:
-    def test_to_job_returns_expected_value_when_excluding_unset(self):
+    def test_to_job_returns_expected_value_when_excluding_unset(
+        self,
+    ):
         expected_defined_job = get_dummy_defined_scheduled_job(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
@@ -490,7 +518,9 @@ class TestDefinedScheduledJob:
         ) == expected_defined_job.model_dump(exclude_unset=True)
         assert "job_type" in gotten_defined_job.model_dump(exclude_unset=True)
 
-    def test_to_job_returns_expected_value_when_including_unset(self):
+    def test_to_job_returns_expected_value_when_including_unset(
+        self,
+    ):
         expected_defined_job = get_dummy_defined_scheduled_job(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
@@ -508,7 +538,9 @@ class TestDefinedScheduledJob:
             exclude_unset=False
         ) == expected_defined_job.model_dump(exclude_unset=False)
 
-    def test_to_job_returns_expected_value_when_all_fields_set(self):
+    def test_to_job_returns_expected_value_when_all_fields_set(
+        self,
+    ):
         expected_defined_job = get_dummy_defined_scheduled_job(
             timeout=120,
             filelog=True,
@@ -528,7 +560,9 @@ class TestDefinedScheduledJob:
 
 
 class TestDefinedContinuousJob:
-    def test_to_job_returns_expected_value_when_excluding_unset(self):
+    def test_to_job_returns_expected_value_when_excluding_unset(
+        self,
+    ):
         expected_defined_job = get_dummy_defined_continuous_job(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
@@ -548,7 +582,9 @@ class TestDefinedContinuousJob:
         assert "continuous" in gotten_defined_job.model_dump(exclude_unset=True)
         assert "job_type" in gotten_defined_job.model_dump(exclude_unset=True)
 
-    def test_to_job_returns_expected_value_when_including_unset(self):
+    def test_to_job_returns_expected_value_when_including_unset(
+        self,
+    ):
         expected_defined_job = get_dummy_defined_continuous_job(
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
@@ -566,7 +602,9 @@ class TestDefinedContinuousJob:
             exclude_unset=False
         ) == expected_defined_job.model_dump(exclude_unset=False)
 
-    def test_to_job_returns_expected_value_when_all_fields_set(self):
+    def test_to_job_returns_expected_value_when_all_fields_set(
+        self,
+    ):
         expected_defined_job = get_dummy_defined_continuous_job(
             replicas=2,
             port=8080,
@@ -596,9 +634,11 @@ class TestDefinedContinuousJob:
 
 
 class TestGetResolvedCoreJob:
-    def test_common_options_resolves_mount_and_filelog_for_standard_image(self):
-        job = get_dummy_core_common_options()
-        resolved = job.get_resolved_core_job()
+    def test_one_off_job_resolves_mount_and_filelog_for_standard_image(
+        self,
+    ):
+        job = get_dummy_core_one_off_job()
+        resolved = job.get_resolved_job()
         assert resolved.mount == MountOption.ALL
         assert resolved.filelog is True
         assert resolved.filelog_stdout == Path(
@@ -608,8 +648,10 @@ class TestGetResolvedCoreJob:
             "/data/project/some-tool/dummy-job-name.err"
         )
 
-    def test_common_options_resolves_mount_and_filelog_for_buildservice_image(self):
-        job = get_dummy_core_common_options(
+    def test_one_off_job_resolves_mount_and_filelog_for_buildservice_image(
+        self,
+    ):
+        job = get_dummy_core_one_off_job(
             image=Image(
                 short_name="tool-some-tool/myimage:latest",
                 type=ImageType.BUILDSERVICE,
@@ -617,14 +659,16 @@ class TestGetResolvedCoreJob:
                 path="tool-some-tool/myimage",
                 tag="latest",
                 state="stable",
-            )
+            ),
         )
-        resolved = job.get_resolved_core_job()
+        resolved = job.get_resolved_job()
         assert resolved.mount == MountOption.NONE
         assert resolved.filelog is False
 
-    def test_common_options_explicit_mount_not_overridden(self):
-        job = get_dummy_core_common_options(
+    def test_one_off_job_explicit_mount_not_overridden(
+        self,
+    ):
+        job = get_dummy_core_one_off_job(
             image=Image(
                 short_name="tool-some-tool/myimage:latest",
                 type=ImageType.BUILDSERVICE,
@@ -635,17 +679,21 @@ class TestGetResolvedCoreJob:
             ),
             mount=MountOption.ALL,
         )
-        resolved = job.get_resolved_core_job()
+        resolved = job.get_resolved_job()
         assert resolved.mount == MountOption.ALL
 
-    def test_explicit_filelog_false_not_overridden_no_paths(self):
-        job = get_dummy_core_common_options(filelog=False)
-        resolved = job.get_resolved_core_job()
+    def test_explicit_filelog_false_not_overridden_no_paths(
+        self,
+    ):
+        job = get_dummy_core_one_off_job(filelog=False)
+        resolved = job.get_resolved_job()
         assert resolved.filelog is False
         assert resolved.filelog_stdout is None
         assert resolved.filelog_stderr is None
 
-    def test_resolved_job_matches_k8s_job_unresolved_does_not(self):
+    def test_resolved_job_matches_k8s_job_unresolved_does_not(
+        self,
+    ):
         k8s_job = get_one_off_job_from_k8s_object(
             k8s_object=K8S_ONEOFF_JOB_OBJ,
             default_cpu_limit="1000m",
@@ -657,7 +705,7 @@ class TestGetResolvedCoreJob:
             job_name=k8s_job.job_name,
             tool_name=k8s_job.tool_name,
         )
-        resolved = unresolved.get_resolved_core_job()
+        resolved = unresolved.get_resolved_job()
 
         assert k8s_job.model_dump(exclude=["k8s_object"]) == resolved.model_dump(
             exclude=["k8s_object"]

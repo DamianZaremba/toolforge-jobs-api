@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from tests.helpers.fakes import (
 from tests.utils import cases
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
+    AnyJob,
     HealthCheckType,
     HttpHealthCheck,
 )
@@ -54,7 +56,7 @@ class TestCommonOptions:
         def test_filelog_defaults_to_true_with_default_paths_for_standard_images(
             self, get_dummy_job
         ):
-            resolved_job = get_dummy_job().get_resolved_core_job()
+            resolved_job = get_dummy_job().get_resolved_job()
 
             assert resolved_job.filelog is True
             assert resolved_job.filelog_stdout == Path(
@@ -73,7 +75,7 @@ class TestCommonOptions:
         def test_filelog_defaults_to_false_for_buildservice_images(self, get_dummy_job):
             resolved_job = get_dummy_job(
                 image=get_buildservice_image()
-            ).get_resolved_core_job()
+            ).get_resolved_job()
 
             assert resolved_job.filelog is False
             assert resolved_job.filelog_stdout is None
@@ -92,7 +94,7 @@ class TestCommonOptions:
                 filelog=True,
                 filelog_stdout=Path("custom.log"),
                 filelog_stderr=Path("custom.err"),
-            ).get_resolved_core_job()
+            ).get_resolved_job()
 
             assert resolved_job.filelog_stdout == Path(
                 "/data/project/some-tool/custom.log"
@@ -110,3 +112,36 @@ class TestContinuousJob:
                     path="/healthz", type=HealthCheckType.HTTP
                 ),
             )
+
+
+class TestResolvableOption:
+    class TestGetResolvedJob:
+        @cases(
+            "job_factory",
+            ["ContinuousJob", get_dummy_continuous_job],
+            ["ScheduledJob", get_dummy_scheduled_job],
+            ["OneOffJob", get_dummy_one_off_job],
+        )
+        def test_it_returns_a_new_instance(self, job_factory: Callable[..., AnyJob]):
+            original_job = job_factory()
+
+            gotten_job = original_job.get_resolved_job()
+
+            assert id(original_job) != id(gotten_job)
+
+        @cases(
+            "job_factory",
+            ["ContinuousJob", get_dummy_continuous_job],
+            ["ScheduledJob", get_dummy_scheduled_job],
+            ["OneOffJob", get_dummy_one_off_job],
+        )
+        def test_does_not_modify_the_original_job(
+            self, job_factory: Callable[..., AnyJob]
+        ):
+            original_job = job_factory()
+            original_copy = original_job.model_copy(deep=True)
+
+            original_job.get_resolved_job()
+
+            assert original_job == original_copy
+            assert original_job.model_fields_set == original_copy.model_fields_set

@@ -517,11 +517,11 @@ def get_common_options_from_k8s(
         podspec = spec["jobTemplate"]["spec"]
 
     job_name = metadata["name"]
-    emails = EmailOption(
-        metadata["labels"].get("jobs.toolforge.org/emails", EmailOption.none.value)
-    )
     mount = MountOption(
         metadata["labels"].get("toolforge.org/mount-storage", MountOption.NONE)
+    )
+    emails = EmailOption(
+        metadata["labels"].get("jobs.toolforge.org/emails", EmailOption.none.value)
     )
     imageurl = podspec["template"]["spec"]["containers"][0]["image"]
     image = Image.from_short_name_or_url(
@@ -546,8 +546,6 @@ def get_common_options_from_k8s(
     else:
         cpu = cpu_limit
 
-    command = _get_command_from_k8s_object(k8s_object=k8s_object, job_type=job_type)
-
     namespace = metadata["namespace"]
     tool_name = "".join(namespace.split("-", 1)[1:])
     params = {
@@ -555,17 +553,32 @@ def get_common_options_from_k8s(
         "k8s_object": k8s_object,
         "tool_name": tool_name,
         "image": image,
-        "filelog": command.filelog,
-        "filelog_stderr": command.filelog_stderr,
-        "filelog_stdout": command.filelog_stdout,
-        "emails": emails,
         "mount": mount,
+        "emails": emails,
         "memory": parse_and_format_mem(memory),
         "cpu": format_quantity(parse_quantity(cpu)),
     }
 
-    myjob = CommonOptions.model_validate(params)
-    return myjob
+    return CommonOptions.model_validate(params)
+
+
+def get_file_logging_params_from_k8s(
+    k8s_object: dict[str, Any], job_type: JobType
+) -> dict[str, Any]:
+    metadata = dict_get_object(k8s_object, "metadata")
+    if not metadata:
+        raise TjfError(
+            "Invalid k8s object, did not contain metadata",
+            data={"k8s_object": k8s_object},
+        )
+
+    command = _get_command_from_k8s_object(k8s_object=k8s_object, job_type=job_type)
+
+    return {
+        "filelog": command.filelog,
+        "filelog_stderr": command.filelog_stderr,
+        "filelog_stdout": command.filelog_stdout,
+    }
 
 
 def get_one_off_job_from_k8s_object(
@@ -577,7 +590,9 @@ def get_one_off_job_from_k8s_object(
         default_cpu_limit=default_cpu_limit,
         tool_name=tool_name,
     )
-    set_common_params = common_options.model_dump(exclude_unset=True)
+    file_logging_params = get_file_logging_params_from_k8s(
+        k8s_object=k8s_object, job_type=JobType.ONE_OFF
+    )
     command = _get_command_from_k8s_object(
         k8s_object=k8s_object, job_type=JobType.ONE_OFF
     )
@@ -594,7 +609,8 @@ def get_one_off_job_from_k8s_object(
         "job_type": JobType.ONE_OFF,
         "retry": retry,
         "cmd": user_command,
-        **set_common_params,
+        **common_options.model_dump(exclude_unset=True),
+        **file_logging_params,
     }
     my_job = OneOffJob.model_validate(params)
 
@@ -622,7 +638,9 @@ def get_scheduled_job_from_k8s_object(
         default_cpu_limit=default_cpu_limit,
         tool_name=tool_name,
     )
-    set_common_params = common_options.model_dump(exclude_unset=True)
+    file_logging_params = get_file_logging_params_from_k8s(
+        k8s_object=k8s_object, job_type=JobType.SCHEDULED
+    )
     command = _get_command_from_k8s_object(
         k8s_object=k8s_object, job_type=JobType.SCHEDULED
     )
@@ -669,7 +687,8 @@ def get_scheduled_job_from_k8s_object(
         "timeout": timeout,
         "retry": retry,
         "cmd": user_command,
-        **set_common_params,
+        **common_options.model_dump(exclude_unset=True),
+        **file_logging_params,
     }
 
     my_job = ScheduledJob.model_validate(params)
@@ -722,7 +741,9 @@ def get_continuous_job_from_k8s_object(
         default_cpu_limit=default_cpu_limit,
         tool_name=tool_account.name,
     )
-    set_common_params = common_options.model_dump(exclude_unset=True)
+    file_logging_params = get_file_logging_params_from_k8s(
+        k8s_object=k8s_object, job_type=JobType.CONTINUOUS
+    )
     command = _get_command_from_k8s_object(
         k8s_object=k8s_object, job_type=JobType.CONTINUOUS
     )
@@ -744,7 +765,8 @@ def get_continuous_job_from_k8s_object(
         "health_check": health_check,
         "replicas": replicas,
         "cmd": user_command,
-        **set_common_params,
+        **common_options.model_dump(exclude_unset=True),
+        **file_logging_params,
     }
 
     if port:

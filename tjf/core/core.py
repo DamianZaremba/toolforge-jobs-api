@@ -67,11 +67,12 @@ def _update_storage_job_status_from_runtime(
     ):
         runtime_job.cmd = f"launcher {runtime_job.cmd}"
 
+    resolved_storage_job = storage_job.get_resolved_job()
     if not runtime_job or runtime_job.model_dump(
         exclude=to_exclude
-    ) != storage_job.get_resolved_core_job().model_dump(exclude=to_exclude):
+    ) != resolved_storage_job.model_dump(exclude=to_exclude):
         LOGGER.info(
-            f"Found a different running version than in storage:\nSTORAGE: {storage_job.get_resolved_core_job().model_dump(exclude=to_exclude)}\nRUNTIME: {runtime_job and runtime_job.model_dump(exclude=to_exclude)}"
+            f"Found a different running version than in storage:\nSTORAGE: {resolved_storage_job.model_dump(exclude=to_exclude)}\nRUNTIME: {runtime_job and runtime_job.model_dump(exclude=to_exclude)}"
         )
         storage_job.status_long = OUT_OF_SYNC_JOB_WARNING_MESSAGE.format(
             job_name=storage_job.job_name
@@ -124,7 +125,7 @@ class Core:
                 raise TjfError("Unable to start job") from e
 
     def create_job(self, job: AnyJob) -> AnyJob:
-        resolved_job = job.get_resolved_core_job()
+        resolved_job = job.get_resolved_job()
         # we could make this function not return anything, as it does not really change the job at all
         job = self._create_storage_job(job=job)
         try:
@@ -152,7 +153,7 @@ class Core:
             LOGGER.info(message)
             return True, message
 
-        resolved_job = job.get_resolved_core_job()
+        resolved_job = job.get_resolved_job()
 
         LOGGER.debug(f"Updating job in storage {job.job_name}")
         changed_in_storage = self._update_job_in_storage(
@@ -382,5 +383,4 @@ class Core:
         try:
             self.runtime.restart_job(job=job)
         except NotFoundInRuntime:
-            core_job = storage_job.get_resolved_core_job()
-            self.runtime.create_job(job=core_job)
+            self.runtime.create_job(job=storage_job.get_resolved_job())

@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.14.0"
+  version: "4.15.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -576,53 +576,10 @@ components:
     ContinuousJobStatus:
       allOf:
         - $ref: "#/components/schemas/CommonJobStatus"
-    # common job fields
-    CommonOptions:
+    # common options fields
+    StorageOptions:
       type: object
-      required:
-        - name
-        - imagename
       properties:
-        name:
-          type: string
-          description: "Unique name that identifies the job."
-          # This is a restriction by Kubernetes:
-          # a lowercase RFC 1123 subdomain must consist of lower case alphanumeric
-          # characters, '-' or '.', and must start and end with an alphanumeric character
-          pattern: "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-          minLength: 1
-          maxLength: 52
-          example: "my-job"
-        imagename:
-          type: string
-          description: "Container image the job uses."
-          example: "tool-my-tool/tool-my-tool:latest"
-        filelog:
-          type: boolean
-          description: "Whether this job uses filelog or not."
-          example: false
-          default: false
-        filelog_stdout:
-          type:
-            - string
-            - "null"
-          description: "Path to the stdout file log."
-          example: "logs/my-job.out"
-        filelog_stderr:
-          type:
-            - string
-            - "null"
-          description: "Path to the stderr file log."
-          example: "logs/my-job.err"
-        emails:
-          $ref: "#/components/schemas/EmailOption"
-        retry:
-          type: integer
-          description: "Job retry policy. Zero means don't retry at all (the default)"
-          minimum: 0
-          maximum: 5
-          example: 0
-          default: 0
         mount:
           type: string
           description: "NFS mount configuration for the job."
@@ -631,21 +588,75 @@ components:
             - "none"
           example: "none"
           default: "all"
-        memory:
-          type:
-            - string
-            - "null"
-          description: "Job memory resource limit."
-          example: "1G"
-        cpu:
-          type:
-            - string
-            - "null"
-          description: "Job CPU resource limit."
-          example: "1"
+    CommonOptions:
+      allOf:
+        - $ref: "#/components/schemas/StorageOptions"
+        - type: object
+          required:
+            - name
+            - imagename
+          properties:
+            name:
+              type: string
+              description: "Unique name that identifies the job."
+              # This is a restriction by Kubernetes:
+              # a lowercase RFC 1123 subdomain must consist of lower case alphanumeric
+              # characters, '-' or '.', and must start and end with an alphanumeric character
+              pattern: "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+              minLength: 1
+              maxLength: 52
+              example: "my-job"
+            imagename:
+              type: string
+              description: "Container image the job uses."
+              example: "tool-my-tool/tool-my-tool:latest"
+            retry:
+              type: integer
+              description: "Job retry policy. Zero means don't retry at all (the default)"
+              minimum: 0
+              maximum: 5
+              example: 0
+              default: 0
+            memory:
+              type:
+                - string
+                - "null"
+              description: "Job memory resource limit."
+              example: "1G"
+            cpu:
+              type:
+                - string
+                - "null"
+              description: "Job CPU resource limit."
+              example: "1"
+            emails:
+              $ref: "#/components/schemas/EmailOption"
+    FileLoggingOptions:
+      allOf:
+        - $ref: "#/components/schemas/StorageOptions"
+        - type: object
+          properties:
+            filelog:
+              type: boolean
+              description: "Whether this job uses filelog or not."
+              example: false
+              default: false
+            filelog_stdout:
+              type:
+                - string
+                - "null"
+              description: "Path to the stdout file log."
+              example: "logs/my-job.out"
+            filelog_stderr:
+              type:
+                - string
+                - "null"
+              description: "Path to the stderr file log."
+              example: "logs/my-job.err"
     NewOneOffJob:
       allOf:
         - $ref: "#/components/schemas/CommonOptions"
+        - $ref: "#/components/schemas/FileLoggingOptions"
         - type: object
           required:
             - cmd
@@ -663,6 +674,7 @@ components:
     NewScheduledJob:
       allOf:
         - $ref: "#/components/schemas/CommonOptions"
+        - $ref: "#/components/schemas/FileLoggingOptions"
         - type: object
           required:
             - cmd
@@ -691,6 +703,7 @@ components:
     NewContinuousJob:
       allOf:
         - $ref: "#/components/schemas/CommonOptions"
+        - $ref: "#/components/schemas/FileLoggingOptions"
         - type: object
           required:
             - cmd
@@ -785,6 +798,7 @@ components:
     DefinedOneOffJob:
       allOf:
         - $ref: "#/components/schemas/DefinedCommonOptions"
+        - $ref: "#/components/schemas/FileLoggingOptions"
         - type: object
           required:
             - cmd
@@ -800,6 +814,7 @@ components:
     DefinedScheduledJob:
       allOf:
         - $ref: "#/components/schemas/DefinedCommonOptions"
+        - $ref: "#/components/schemas/FileLoggingOptions"
         - type: object
           required:
             - cmd
@@ -831,6 +846,7 @@ components:
     DefinedContinuousJob:
       allOf:
         - $ref: "#/components/schemas/DefinedCommonOptions"
+        - $ref: "#/components/schemas/FileLoggingOptions"
         - type: object
           required:
             - cmd

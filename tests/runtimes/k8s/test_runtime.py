@@ -313,7 +313,7 @@ class TestGetOneOffJob:
         monkeypatch.setattr(
             k8s_runtime,
             "get_one_off_job_status",
-            lambda *args, **kwargs: ScheduledJobStatus(),
+            lambda *args, **kwargs: OneOffJobStatus(),
         )
 
         gotten_job = my_runtime.get_one_off_job(
@@ -1421,8 +1421,9 @@ class TestRestartJob:
             )
             my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
             now = datetime.now(UTC)
+            resolved_job = job.get_resolved_job()
             expected_spec = get_k8s_deployment_object(
-                job=job.get_resolved_core_job(),
+                job=resolved_job,
                 default_cpu_limit=my_runtime.default_cpu_limit,
             )
             expected_spec["spec"]["template"]["metadata"]["annotations"] = {
@@ -1823,6 +1824,7 @@ class TestUpdateScheduledJob:
         error = requests.HTTPError("422 Unprocessable entity")
         error.response = MagicMock(status_code=422, text="Unprocessable entity")
         runtime_k8s_cli.replace_object.side_effect = error
+        runtime_k8s_cli.create_object.return_value = {}
         monkeypatch.setattr(
             k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
         )
@@ -1862,6 +1864,7 @@ class TestUpdateOneOffJob:
         monkeypatch: pytest.MonkeyPatch,
     ):
         job = get_one_off_job_fixture_as_job()
+        runtime_k8s_cli.create_object.return_value = {}
         monkeypatch.setattr(
             k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
         )

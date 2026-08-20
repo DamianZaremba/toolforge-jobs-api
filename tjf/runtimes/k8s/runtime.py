@@ -220,8 +220,9 @@ class K8sRuntime(BaseRuntime):
 
     def _restart_continuous_job(self, *, job: ContinuousJob) -> None:
         tool_account = ToolAccount(name=job.tool_name)
+        job = job.get_resolved_job()
         k8s_deployment = get_k8s_deployment_object(
-            job=job.get_resolved_core_job(), default_cpu_limit=self.default_cpu_limit
+            job=job, default_cpu_limit=self.default_cpu_limit
         )
         # Update the Deployment spec and let Kubernetes cycle the pods, this ensures a graceful restart
         if "annotations" not in k8s_deployment["spec"]["template"]["metadata"]:

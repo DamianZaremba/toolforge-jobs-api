@@ -64,7 +64,7 @@ OUT_OF_SYNC_JOB_WARNING_MESSAGE = "The running version of job '{job_name}' is di
 
 
 class BaseModel(PydanticBaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
 class EmailOption(str, Enum):
@@ -162,18 +162,105 @@ class ScheduledJobStatus(CommonJobStatus):
 AnyJobStatus = OneOffJobStatus | ContinuousJobStatus | ScheduledJobStatus
 
 
-class CommonOptions(BaseModel):
+class ResolvableOptions(BaseModel):
+    # needed as the base of the super() chain for all resolvable options classes
+    def get_resolved_job(self) -> Self:
+        return self.model_copy(deep=True)
+
+
+class NameOptions(ResolvableOptions):
+    job_name: str
+    tool_name: str
+
+
+class StorageOptions(ResolvableOptions):
+    mount: MountOption = MountOption.NONE
+
+
+class ImageOptions(StorageOptions):
+    image: Image
+
+    @model_validator(mode="after")
+    def validate_image_options(self) -> Self:
+        # we rely on the image having set the type even if we have not yet verified it's a valid one
+        # (see the model validation)
+        if (
+            self.image.type != ImageType.BUILDSERVICE
+            and "mount" in self.model_fields_set
+            and not self.mount.supports_non_buildservice
+        ):
+            raise ValueError(
+                f"Mount type {self.mount.value} is only supported for build service images"
+            )
+        return self
+
+    def get_resolved_job(self) -> Self:
+        resolved_job = super().get_resolved_job()
+        # we rely on the image having set the type even if we have not yet verified
+        # it's a valid one (see the model validation)
+        if (
+            "mount" not in resolved_job.model_fields_set
+            and resolved_job.image.type == ImageType.STANDARD
+        ):
+            LOGGER.debug("Found standard image with default mount, setting to all")
+            resolved_job.mount = MountOption.ALL
+
+        elif (
+            "mount" not in resolved_job.model_fields_set
+            and resolved_job.image.type == ImageType.BUILDSERVICE
+        ):
+            LOGGER.debug("Found buildservice image with default mount, setting to none")
+            resolved_job.mount = MountOption.NONE
+
+        return resolved_job
+
+
+class FileLoggingOptions(ImageOptions, NameOptions):
     filelog: bool = False
     filelog_stderr: Path | None = None
     filelog_stdout: Path | None = None
-    image: Image
-    job_name: str
-    tool_name: str
+
+    @model_validator(mode="after")
+    def validate_file_logging_options(self) -> Self:
+        if (
+            self.filelog
+            and "mount" in self.model_fields_set
+            and self.mount != MountOption.ALL
+        ):
+            raise ValueError("File logging is only available with --mount=all")
+        return self
+
+    def get_resolved_job(self) -> Self:
+        resolved_job = super().get_resolved_job()
+        if (
+            "filelog" not in resolved_job.model_fields_set
+            and resolved_job.image.type != ImageType.BUILDSERVICE
+        ):
+            # defaulting filelog to True image_type=standard.
+            # something to pay attention to in the future
+            resolved_job.filelog = True
+
+        if resolved_job.filelog:
+            tool_home = get_tool_home(name=self.tool_name)
+            resolved_job.filelog_stdout = resolve_filelog_path(
+                path=self.filelog_stdout,
+                home=tool_home,
+                default=Path(f"{self.job_name}.out"),
+            )
+            resolved_job.filelog_stderr = resolve_filelog_path(
+                path=self.filelog_stderr,
+                home=tool_home,
+                default=Path(f"{self.job_name}.err"),
+            )
+
+        return resolved_job
+
+
+class CommonOptions(ImageOptions, NameOptions):
     k8s_object: dict[str, Any] = {}
     memory: str = parse_and_format_mem(JOB_DEFAULT_MEMORY)
     cpu: str = format_quantity(parse_quantity(JOB_DEFAULT_CPU))
     emails: EmailOption = EmailOption.none
-    mount: MountOption = MountOption.NONE
     status_short: str | None = "Unknown"
     status_long: str | None = "Unknown"
 
@@ -187,82 +274,8 @@ class CommonOptions(BaseModel):
     def cpu_validator(cls: type["CommonOptions"], value: str) -> str | None:
         return value and format_quantity(quantity_value=parse_quantity(value))
 
-    @model_validator(mode="after")
-    def validate_common_options(self) -> Self:
-        LOGGER.debug(
-            f"Validating common job: {self} (set fields {self.model_fields_set})"
-        )
-        # we rely on the image having set the type even if we have not yet verified it's a valid one
-        # (see the model validation)
-        if (
-            self.image.type != ImageType.BUILDSERVICE
-            and "mount" in self.model_fields_set
-            and not self.mount.supports_non_buildservice
-        ):
-            raise ValueError(
-                f"Mount type {self.mount.value} is only supported for build service images"
-            )
-        if (
-            self.filelog
-            and "mount" in self.model_fields_set
-            and self.mount != MountOption.ALL
-        ):
-            raise ValueError("File logging is only available with --mount=all")
 
-        LOGGER.debug(
-            f"Validated common job, {self} (with set fields {self.model_fields_set})"
-        )
-        return self
-
-    def get_resolved_core_job(self) -> Self:
-        LOGGER.debug(
-            f"CommonOptions.get_resolved_core_job(): got {self} (set fields {self.model_fields_set})"
-        )
-        # we rely on the image having set the type even if we have not yet verified it's a valid one
-        common_options_params = self.model_dump(exclude_unset=True)
-
-        if (
-            "mount" not in common_options_params
-            and common_options_params["image"]["type"] == ImageType.STANDARD
-        ):
-            LOGGER.debug("Found standard image with default mount, setting to all")
-            common_options_params["mount"] = MountOption.ALL
-
-        elif (
-            "mount" not in common_options_params
-            and common_options_params["image"]["type"] == ImageType.BUILDSERVICE
-        ):
-            LOGGER.debug("Found buildservice image with default mount, setting to none")
-            common_options_params["mount"] = MountOption.NONE
-
-        if (
-            "filelog" not in common_options_params
-            and common_options_params["image"]["type"] != ImageType.BUILDSERVICE
-        ):
-            # defaulting filelog to True when mount=all and image_type=standard. something to pay attention to in the future
-            common_options_params["filelog"] = True
-
-        if common_options_params.get("filelog", None):
-            tool_home = get_tool_home(name=common_options_params["tool_name"])
-            common_options_params["filelog_stdout"] = resolve_filelog_path(
-                path=common_options_params.get("filelog_stdout", None),
-                home=tool_home,
-                default=Path(f"{common_options_params['job_name']}.out"),
-            )
-            common_options_params["filelog_stderr"] = resolve_filelog_path(
-                path=common_options_params.get("filelog_stderr", None),
-                home=tool_home,
-                default=Path(f"{common_options_params['job_name']}.err"),
-            )
-
-        resolved_job = self.model_validate(common_options_params)
-        LOGGER.debug(
-            f"Got {self} (set fields {self.model_fields_set}), \nresolved {resolved_job} (set fields {resolved_job.model_fields_set})"
-        )
-        return resolved_job
-
-
-class OneOffJob(CommonOptions, BaseModel):
+class OneOffJob(FileLoggingOptions, CommonOptions):
     cmd: str
     job_type: Literal[JobType.ONE_OFF] = JobType.ONE_OFF
     retry: Annotated[int, Field(ge=0, le=5)] = 0
@@ -274,7 +287,7 @@ class OneOffJob(CommonOptions, BaseModel):
         return self
 
 
-class ScheduledJob(CommonOptions, BaseModel):
+class ScheduledJob(FileLoggingOptions, CommonOptions):
     cmd: str
     job_type: Literal[JobType.SCHEDULED] = JobType.SCHEDULED
     schedule: CronExpression
@@ -288,7 +301,7 @@ class ScheduledJob(CommonOptions, BaseModel):
         return self
 
 
-class ContinuousJob(CommonOptions, BaseModel):
+class ContinuousJob(FileLoggingOptions, CommonOptions):
     cmd: str
     job_type: Literal[JobType.CONTINUOUS] = JobType.CONTINUOUS
     port: Annotated[int, Field(ge=1, le=65535)] | None = None
@@ -316,6 +329,7 @@ class ContinuousJob(CommonOptions, BaseModel):
             and not self.port
         ):
             raise ValueError("Port must be set for HTTP health checks")
+
         return self
 
 

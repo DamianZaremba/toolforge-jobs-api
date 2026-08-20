@@ -75,7 +75,7 @@ def api_get_jobs(
     # If the user requested all fields, we need to compute the missing fields
     # using the same logic we use during runtime creation.
     if include_unset:
-        user_jobs = [job.get_resolved_core_job() for job in user_jobs]
+        user_jobs = [job.get_resolved_job() for job in user_jobs]
 
     defined_jobs = [get_job_for_api(job) for job in user_jobs]
     response = JobListResponse(
@@ -177,7 +177,7 @@ def api_get_job(
     # If the user requested all fields, we need to compute the missing fields
     # using the same logic we use during runtime creation.
     if include_unset:
-        job = job.get_resolved_core_job()
+        job = job.get_resolved_job()
 
     defined_job = get_job_for_api(job)
     response = JobResponse(
