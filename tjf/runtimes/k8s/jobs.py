@@ -406,6 +406,8 @@ def get_k8s_job_object(job: OneOffJob, default_cpu_limit: str) -> K8S_OBJECT_TYP
             "backoffLimit": job.retry,
         },
     }
+    if job.timeout:
+        obj["spec"]["activeDeadlineSeconds"] = job.timeout
 
     return obj
 
@@ -605,13 +607,15 @@ def get_one_off_job_from_k8s_object(
             data={"k8s_object": k8s_object},
         )
     retry = podspec.get("backoffLimit", 0)
-    params = {
+    params: dict[str, Any] = {
         "job_type": JobType.ONE_OFF,
         "retry": retry,
         "cmd": user_command,
         **common_options.model_dump(exclude_unset=True),
         **file_logging_params,
     }
+    if "activeDeadlineSeconds" in podspec:
+        params["timeout"] = podspec["activeDeadlineSeconds"]
     my_job = OneOffJob.model_validate(params)
 
     return my_job

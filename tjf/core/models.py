@@ -279,6 +279,7 @@ class OneOffJob(FileLoggingOptions, CommonOptions):
     cmd: str
     job_type: Literal[JobType.ONE_OFF] = JobType.ONE_OFF
     retry: Annotated[int, Field(ge=0, le=5)] = 0
+    timeout: Annotated[int, Field(ge=0)] = 0
     status: OneOffJobStatus = OneOffJobStatus()
 
     @model_validator(mode="after")
