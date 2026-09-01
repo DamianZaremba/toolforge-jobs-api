@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.15.0"
+  version: "4.17.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -313,6 +313,38 @@ paths:
           $ref: "#/components/responses/not_found_error"
       security:
         - key: []
+  /v1/tool/{tool_name}/jobs/{id}/stop:
+    post:
+      operationId: "stop"
+      description: "stop a running job, while preserving its configuration in storage. the job can easily be resumed with 'restart'"
+      parameters:
+        - name: tool_name
+          in: path
+          description: "Tool name."
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          description: "Job name."
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Job has been stopped."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StopResponse"
+        "400":
+          $ref: "#/components/responses/bad_parameters_error"
+        "401":
+          $ref: "#/components/responses/unauthorized_error"
+        "404":
+          $ref: "#/components/responses/not_found_error"
+      security:
+        - key: []
   /openapi.json:
     get:
       operationId: "openapi"
@@ -426,6 +458,11 @@ components:
       properties:
         messages:
           $ref: "#/components/schemas/ResponseMessages"
+    StopResponse:
+      type: object
+      properties:
+        messages:
+          $ref: "#/components/schemas/ResponseMessages"
     DeleteResponse:
       type: object
       properties:
@@ -535,6 +572,7 @@ components:
         - succeeded
         - failed
         - unknown
+        - stopped
     CommonJobStatus:
       type: object
       required:

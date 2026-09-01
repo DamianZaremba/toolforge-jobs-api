@@ -1,6 +1,7 @@
 import http
 import json
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -21,6 +22,7 @@ from tjf.api.models import (
     JobResponse,
     NewContinuousJob,
     ResponseMessages,
+    StopResponse,
     UpdateResponse,
     get_job_for_api,
 )
@@ -480,6 +482,37 @@ class TestApiGetJob:
             == response_json
         )
 
+    def test_stopped_job_reports_stopped_status(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        # goes through the real core reconciliation and serialization, to make sure
+        # the stopped status is not dropped by the exclude_unset dumps in the api layer
+        dummy_job = get_dummy_continuous_job(job_name="my-job", tool_name="some-tool")
+
+        def raise_not_found(*args: Any, **kwargs: Any) -> None:
+            raise NotFoundInRuntime(f"{args}, {kwargs}")
+
+        monkeypatch.setattr(
+            app.core.storage, "get_job", value=lambda *args, **kwargs: dummy_job
+        )
+        monkeypatch.setattr(
+            app.core.runtime, "get_continuous_job", value=raise_not_found
+        )
+
+        gotten_response = client.get(
+            "/v1/tool/some-tool/jobs/my-job", headers=fake_auth_headers
+        )
+
+        assert gotten_response.status_code == http.HTTPStatus.OK
+        response_json = gotten_response.json()
+        assert response_json["job"]["status_short"] == "stopped"
+        assert response_json["job"]["status"]["short"] == "stopped"
+        assert response_json["job"]["status"]["up_to_date"] is True
+
 
 class TestApiUpdateJob:
     def test_job_with_no_changes(
@@ -626,3 +659,65 @@ class TestApiUpdateJob:
         assert (
             UpdateResponse.model_validate(actual_response.json()) == expected_response
         )
+
+
+class TestApiStopJob:
+    def test_stop_existing_job(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_continuous_job(job_name="my-job", tool_name="some-tool")
+        monkeypatch.setattr(
+            app.core, "get_job", value=lambda *args, **kwargs: dummy_job
+        )
+        mock_stop = MagicMock()
+        monkeypatch.setattr(app.core, "stop_job", mock_stop)
+
+        actual_response = client.post(
+            "/v1/tool/some-tool/jobs/my-job/stop", headers=fake_auth_headers
+        )
+
+        assert StopResponse.model_validate(actual_response.json()) == StopResponse(
+            messages=ResponseMessages()
+        )
+        mock_stop.assert_called_once_with(job=dummy_job)
+
+    def test_stop_nonexistent_returns_404(
+        self,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        monkeypatch.setattr(app.core, "get_job", lambda *args, **kwargs: None)
+
+        response = client.post(
+            "/v1/tool/some-tool/jobs/nope/stop", headers=fake_auth_headers
+        )
+
+        assert response.status_code == 404
+
+    @pytest.mark.parametrize("trailing_slash", ["", "/"])
+    def test_stop_supports_trailing_slash(
+        self,
+        trailing_slash: str,
+        client: TestClient,
+        app: JobsApi,
+        monkeypatch: MonkeyPatch,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        dummy_job = get_dummy_continuous_job(job_name="my-job", tool_name="some-tool")
+        monkeypatch.setattr(
+            app.core, "get_job", value=lambda *args, **kwargs: dummy_job
+        )
+        monkeypatch.setattr(app.core, "stop_job", MagicMock())
+
+        response = client.post(
+            f"/v1/tool/some-tool/jobs/my-job/stop{trailing_slash}",
+            headers=fake_auth_headers,
+        )
+
+        assert response.status_code == 200

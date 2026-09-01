@@ -15,6 +15,7 @@ from tjf.core.error import TjfError, TjfValidationError
 from tjf.core.images import Image, ImageType
 from tjf.core.models import (
     OUT_OF_SYNC_JOB_WARNING_MESSAGE,
+    STOPPED_JOB_MESSAGE,
     AnyJobStatus,
     ContinuousJobStatus,
     JobType,
@@ -92,7 +93,7 @@ class TestCore:
             ["Continuous job", [get_dummy_continuous_job]],
             ["Scheduled job", [get_dummy_scheduled_job]],
         )
-        def test_returns_recreate_message_if_only_exists_in_storage(
+        def test_returns_stopped_if_only_exists_in_storage(
             self,
             get_my_core: GetMyCore,
             storage_k8s_cli: MagicMock,
@@ -103,9 +104,12 @@ class TestCore:
             my_storage_job = get_dummy_job()
             my_runtime_job = None
             expected_job = get_dummy_job(
-                status={"up_to_date": False},
+                status={"short": StatusShort.STOPPED, "up_to_date": True},
             )
-            expected_job.status_long = f"The running version of job '{expected_job.job_name}' is different from what was configured, please recreate or redeploy."
+            expected_job.status_short = StatusShort.STOPPED.value
+            expected_job.status_long = STOPPED_JOB_MESSAGE.format(
+                job_name=expected_job.job_name
+            )
             my_core = get_my_core()
 
             mock_runtime_create_job = MagicMock(
@@ -188,7 +192,7 @@ class TestCore:
             ["Continuous job", [get_dummy_continuous_job]],
             ["Scheduled job", [get_dummy_scheduled_job]],
         )
-        def test_no_runtime_job_but_storage_job_updates_only_long_status_and_sets_up_to_date_false(
+        def test_no_runtime_job_but_storage_job_reports_stopped(
             self,
             get_dummy_job,
         ):
@@ -198,8 +202,12 @@ class TestCore:
                 storage_job=my_storage_job, runtime_job=my_runtime_job
             )
 
-            assert not gotten_job.status.up_to_date
-            assert "is different" in gotten_job.status_long
+            assert gotten_job.status.up_to_date
+            assert gotten_job.status.short == StatusShort.STOPPED
+            assert gotten_job.status_short == StatusShort.STOPPED.value
+            assert gotten_job.status_long == STOPPED_JOB_MESSAGE.format(
+                job_name="job-from-storage"
+            )
 
         @cases(
             ["get_dummy_job", "job_status"],
@@ -438,8 +446,9 @@ class TestCore:
 
             assert gotten_job
             assert gotten_job.job_name == storage_job.job_name
-            assert gotten_job.status.up_to_date is False
-            assert gotten_job.status_long == OUT_OF_SYNC_JOB_WARNING_MESSAGE.format(
+            assert gotten_job.status.up_to_date is True
+            assert gotten_job.status.short == StatusShort.STOPPED
+            assert gotten_job.status_long == STOPPED_JOB_MESSAGE.format(
                 job_name=storage_job.job_name
             )
             mock_storage_get_job.assert_called_once_with(
@@ -985,8 +994,9 @@ class TestCore:
 
             assert len(gotten_jobs) == 1
             assert gotten_jobs[0].job_name == storage_job.job_name
-            assert gotten_jobs[0].status.up_to_date is False
-            assert gotten_jobs[0].status_long == OUT_OF_SYNC_JOB_WARNING_MESSAGE.format(
+            assert gotten_jobs[0].status.up_to_date is True
+            assert gotten_jobs[0].status.short == StatusShort.STOPPED
+            assert gotten_jobs[0].status_long == STOPPED_JOB_MESSAGE.format(
                 job_name=storage_job.job_name
             )
             mock_storage_get_jobs.assert_called_once_with(tool_name="some-tool")
@@ -1189,3 +1199,112 @@ class TestCore:
 
             with pytest.raises(TjfValidationError, match="Unknown job type"):
                 my_core._update_job_in_runtime(job=job)
+
+    class TestStopJob:
+        def test_stop_deletes_runtime_but_keeps_storage(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_continuous_job()
+            my_core = get_my_core()
+            mock_runtime_delete = MagicMock(spec=my_core.runtime.delete_job)
+            mock_storage_delete = MagicMock(spec=my_core.storage.delete_job)
+            monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete)
+            monkeypatch.setattr(my_core.storage, "delete_job", mock_storage_delete)
+
+            my_core.stop_job(job=job)
+
+            mock_runtime_delete.assert_called_once_with(job=job)
+            mock_storage_delete.assert_not_called()
+
+        def test_stop_is_idempotent_when_runtime_missing(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_continuous_job()
+            my_core = get_my_core()
+            mock_runtime_delete = MagicMock(
+                spec=my_core.runtime.delete_job,
+                side_effect=NotFoundInRuntime("not found"),
+            )
+            monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete)
+
+            my_core.stop_job(job=job)
+
+            mock_runtime_delete.assert_called_once_with(job=job)
+
+        def test_stop_one_off_deletes_runtime_only(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_one_off_job()
+            my_core = get_my_core()
+            mock_runtime_delete = MagicMock(spec=my_core.runtime.delete_job)
+            mock_storage_delete = MagicMock(spec=my_core.storage.delete_job)
+            monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete)
+            monkeypatch.setattr(my_core.storage, "delete_job", mock_storage_delete)
+
+            my_core.stop_job(job=job)
+
+            mock_runtime_delete.assert_called_once_with(job=job)
+            mock_storage_delete.assert_not_called()
+
+        def test_stopped_job_shows_stopped_status_with_up_to_date_true(
+            self,
+        ):
+            storage_job = get_dummy_continuous_job(job_name="my-job")
+            gotten = core._update_storage_job_status_from_runtime(
+                storage_job=storage_job, runtime_job=None
+            )
+
+            assert gotten.status.short == StatusShort.STOPPED
+            assert gotten.status_short == StatusShort.STOPPED.value
+            assert gotten.status_long == STOPPED_JOB_MESSAGE.format(job_name="my-job")
+            assert gotten.status.up_to_date is True
+
+        def test_runtime_differs_still_reports_out_of_sync(
+            self,
+        ):
+            storage_job = get_dummy_continuous_job(job_name="my-job")
+            runtime_job = get_dummy_continuous_job(
+                job_name="my-job",
+                cmd="different command",
+                status=ContinuousJobStatus(short=StatusShort.RUNNING),
+            )
+            gotten = core._update_storage_job_status_from_runtime(
+                storage_job=storage_job, runtime_job=runtime_job
+            )
+
+            assert gotten.status.up_to_date is False
+            assert gotten.status_long == OUT_OF_SYNC_JOB_WARNING_MESSAGE.format(
+                job_name="my-job"
+            )
+
+        def test_restart_on_stopped_job_recreates_runtime(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+            fake_tool_account_uid: None,
+        ):
+            job = get_dummy_continuous_job()
+            my_core = get_my_core()
+            mock_restart = MagicMock(
+                spec=my_core.runtime.restart_job,
+                side_effect=NotFoundInRuntime("not found"),
+            )
+            mock_create = MagicMock(spec=my_core.runtime.create_job)
+            mock_storage_get = MagicMock(spec=my_core.storage.get_job, return_value=job)
+            monkeypatch.setattr(my_core.runtime, "restart_job", mock_restart)
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_create)
+            monkeypatch.setattr(my_core.storage, "get_job", mock_storage_get)
+
+            my_core.restart_job(job=job)
+
+            mock_restart.assert_called_once_with(job=job)
+            mock_create.assert_called_once_with(job=job.get_resolved_job())
+            mock_storage_get.assert_called_once_with(
+                job_name=job.job_name, tool_name=job.tool_name
+            )

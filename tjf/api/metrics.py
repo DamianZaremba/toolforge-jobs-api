@@ -12,11 +12,6 @@ DEPRECATED_USAGE_COUNTER = Counter(
     labelnames=["path", "method", "deprecation_id", "user_agent"],
 )
 
-ONLY_IN_STORAGE_COUNTER = Counter(
-    name="toolforge_only_in_storage",
-    documentation="Counts the times we found something in the storage that was not in runtime",
-    labelnames=["tool_name"],
-)
 ONLY_IN_RUNTIME_COUNTER = Counter(
     name="toolforge_only_in_runtime",
     documentation="Counts the times we found something in the runtime that was not in storage",
