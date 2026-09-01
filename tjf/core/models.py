@@ -61,6 +61,9 @@ JOB_DEFAULT_MEMORY = "512Mi"
 JOB_DEFAULT_CPU = "100m"
 JOB_DEFAULT_REPLICAS = 1
 OUT_OF_SYNC_JOB_WARNING_MESSAGE = "The running version of job '{job_name}' is different from what was configured, please recreate or redeploy."
+STOPPED_JOB_MESSAGE = (
+    "Job is stopped. Start it again with 'toolforge jobs restart {job_name}'"
+)
 
 
 class BaseModel(PydanticBaseModel):
@@ -137,6 +140,7 @@ class StatusShort(str, Enum):
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     UNKNOWN = "unknown"
+    STOPPED = "stopped"
 
 
 class CommonJobStatus(BaseModel):
