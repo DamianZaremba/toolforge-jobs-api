@@ -119,6 +119,10 @@ def _extract_container_statuses(
             reverse=True,
         )
         last_condition = conditions[0] if len(conditions) > 0 else {}
+        pod_ready = any(
+            condition.get("type") == "Ready" and condition.get("status") == "True"
+            for condition in conditions
+        )
 
         # Map pod phase + container state to status, with contextual messages.
         # See: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-states
@@ -137,6 +141,17 @@ def _extract_container_statuses(
                     CommonJobStatus(
                         short=StatusShort.PENDING,
                         messages=messages,
+                        duration=default_duration,
+                        up_to_date=True,
+                    )
+                )
+
+            # running + not Ready: container is up but its healthcheck is failing most likely
+            elif phase == "running" and state.get("running", None) and not pod_ready:
+                aggregated_statuses["initializing"].append(
+                    CommonJobStatus(
+                        short=StatusShort.PENDING,
+                        messages=["initializing"],
                         duration=default_duration,
                         up_to_date=True,
                     )

@@ -50,6 +50,9 @@ POD_SCHEDULING = (
     fake_k8s.FIXTURES_PATH / "pods" / "pod_pending_scheduling.json"
 ).read_text()
 POD_RUNNING = (fake_k8s.FIXTURES_PATH / "pods" / "pod_running.json").read_text()
+POD_RUNNING_NOT_READY = (
+    fake_k8s.FIXTURES_PATH / "pods" / "pod_running_not_ready.json"
+).read_text()
 POD_SUCCEEDED = (fake_k8s.FIXTURES_PATH / "pods" / "pod_succeeded.json").read_text()
 POD_FAILED = (fake_k8s.FIXTURES_PATH / "pods" / "pod_failed.json").read_text()
 
@@ -872,6 +875,19 @@ def test_get_scheduled_job_status(
             DEPLOYMENT_RUNNING,
             POD_RUNNING,
             ContinuousJobStatus(short="running", duration="0s", up_to_date=True),
+        ],
+    ],
+    [
+        "Deployment running but pod healthcheck failing status from k8s_pod",
+        [
+            DEPLOYMENT_RUNNING,
+            POD_RUNNING_NOT_READY,
+            ContinuousJobStatus(
+                short="pending",
+                messages=["initializing"],
+                duration="0s",
+                up_to_date=True,
+            ),
         ],
     ],
     [
