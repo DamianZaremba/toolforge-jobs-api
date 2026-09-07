@@ -33,6 +33,7 @@ from .models import (
     JobResponse,
     ResponseMessages,
     RestartResponse,
+    StopResponse,
     UpdateResponse,
     get_job_for_api,
 )
@@ -141,6 +142,8 @@ def api_update_job(
     job = new_job.to_core_job(tool_name=tool_name)
     LOGGER.debug(f"Generated CoreJob: {job} (set fields {job.model_fields_set})")
 
+    # Note that updating a stopped job only resumes it if the configuration changed:
+    # an unchanged update leaves it stopped, use restart to resume it.
     job_changed, message = core.update_job(job=job)
     messages = ResponseMessages(info=[message])
     return UpdateResponse(job_changed=job_changed, messages=messages)
@@ -253,3 +256,18 @@ def api_restart_job(request: Request, tool_name: str, name: str) -> RestartRespo
     current_app(request).core.restart_job(job=job)
 
     return RestartResponse(messages=ResponseMessages())
+
+
+@jobs.post("/{name}/stop")
+@jobs.post("/{name}/stop/", include_in_schema=False)
+def api_stop_job(request: Request, tool_name: str, name: str) -> StopResponse:
+    ensure_authenticated(request=request)
+    core = current_app(request).core
+
+    job = core.get_job(tool_name=tool_name, name=name)
+    if not job:
+        raise TjfValidationError(f"Job '{name}' does not exist", http_status_code=404)
+
+    core.stop_job(job=job)
+
+    return StopResponse(messages=ResponseMessages())

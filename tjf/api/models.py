@@ -531,6 +531,10 @@ class DeleteResponse(BaseModel):
     messages: ResponseMessages
 
 
+class StopResponse(BaseModel):
+    messages: ResponseMessages
+
+
 class UpdateResponse(BaseModel):
     messages: ResponseMessages
     job_changed: bool

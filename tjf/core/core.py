@@ -20,7 +20,7 @@ from collections.abc import AsyncIterator, Mapping
 from pydantic.main import IncEx
 from toolforge_weld.utils import apeek
 
-from tjf.api.metrics import ONLY_IN_RUNTIME_COUNTER, ONLY_IN_STORAGE_COUNTER
+from tjf.api.metrics import ONLY_IN_RUNTIME_COUNTER
 from tjf.runtimes.k8s.k8s_errors import K8sAlreadyExists
 
 from ..runtimes.exceptions import NotFoundInRuntime
@@ -35,10 +35,12 @@ from .error import (
 from .images import Image, ImageType
 from .models import (
     OUT_OF_SYNC_JOB_WARNING_MESSAGE,
+    STOPPED_JOB_MESSAGE,
     AnyJob,
     JobType,
     OneOffJob,
     QuotaData,
+    StatusShort,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -47,10 +49,19 @@ LOGGER = logging.getLogger(__name__)
 def _update_storage_job_status_from_runtime(
     storage_job: AnyJob, runtime_job: AnyJob | None
 ) -> AnyJob:
-    if runtime_job:
-        storage_job.status_short = runtime_job.status_short
-        storage_job.status_long = runtime_job.status_long
-        storage_job.status = runtime_job.status.model_copy()
+    if not runtime_job:
+        storage_job.status_short = StatusShort.STOPPED.value
+        storage_job.status_long = STOPPED_JOB_MESSAGE.format(
+            job_name=storage_job.job_name
+        )
+        storage_job.status = storage_job.status.model_copy(
+            update={"short": StatusShort.STOPPED, "up_to_date": True}
+        )
+        return storage_job
+
+    storage_job.status_short = runtime_job.status_short
+    storage_job.status_long = runtime_job.status_long
+    storage_job.status = runtime_job.status.model_copy()
 
     to_exclude: Mapping[str, IncEx | bool] = {
         "k8s_object": True,
@@ -60,19 +71,17 @@ def _update_storage_job_status_from_runtime(
 
     # Hack due to us manually adding `launcher` to the runtime if not there
     # for buildservice images
-    if (
-        storage_job.image.type == ImageType.BUILDSERVICE
-        and storage_job.cmd.startswith("launcher ")
-        and runtime_job
+    if storage_job.image.type == ImageType.BUILDSERVICE and storage_job.cmd.startswith(
+        "launcher "
     ):
         runtime_job.cmd = f"launcher {runtime_job.cmd}"
 
     resolved_storage_job = storage_job.get_resolved_job()
-    if not runtime_job or runtime_job.model_dump(
+    if runtime_job.model_dump(exclude=to_exclude) != resolved_storage_job.model_dump(
         exclude=to_exclude
-    ) != resolved_storage_job.model_dump(exclude=to_exclude):
+    ):
         LOGGER.info(
-            f"Found a different running version than in storage:\nSTORAGE: {resolved_storage_job.model_dump(exclude=to_exclude)}\nRUNTIME: {runtime_job and runtime_job.model_dump(exclude=to_exclude)}"
+            f"Found a different running version than in storage:\nSTORAGE: {resolved_storage_job.model_dump(exclude=to_exclude)}\nRUNTIME: {runtime_job.model_dump(exclude=to_exclude)}"
         )
         storage_job.status_long = OUT_OF_SYNC_JOB_WARNING_MESSAGE.format(
             job_name=storage_job.job_name
@@ -351,10 +360,6 @@ class Core:
                 ONLY_IN_RUNTIME_COUNTER.labels(tool_name=runtime_job.tool_name).inc()
             return None
 
-        if not runtime_job:
-            ONLY_IN_STORAGE_COUNTER.labels(tool_name=storage_job.tool_name).inc()
-            LOGGER.warning(f"Found a job in storage but not in runtime: {storage_job}")
-
         storage_job = _update_storage_job_status_from_runtime(
             storage_job=storage_job, runtime_job=runtime_job
         )
@@ -369,6 +374,12 @@ class Core:
             if not isinstance(job, OneOffJob):
                 raise TjfError("Unable to delete job") from error
 
+        try:
+            self.runtime.delete_job(job=job)
+        except NotFoundInRuntime:
+            pass
+
+    def stop_job(self, job: AnyJob) -> None:
         try:
             self.runtime.delete_job(job=job)
         except NotFoundInRuntime:
