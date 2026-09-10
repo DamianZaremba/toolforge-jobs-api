@@ -279,9 +279,8 @@ class TestNewOneOffJob:
     def test_to_job_returns_expected_value_when_setting_all_fields(
         self,
     ):
-        # similar as before, but leaving for consistency and in case we add fields to it
-        my_job = get_dummy_new_one_off_job()
-        expected_core_job = get_dummy_core_one_off_job()
+        my_job = get_dummy_new_one_off_job(retry=5, timeout=120)
+        expected_core_job = get_dummy_core_one_off_job(retry=5, timeout=120)
 
         gotten_core_job = my_job.to_core_job(tool_name="some-tool")
 
@@ -480,12 +479,14 @@ class TestDefinedOneOffJob:
     ):
         expected_defined_job = get_dummy_defined_one_off_job(
             retry=5,
+            timeout=120,
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",
         )
         core_job = get_dummy_core_one_off_job(
             retry=5,
+            timeout=120,
             filelog=True,
             filelog_stderr="/data/project/some-tool/dummy-job-name.err",
             filelog_stdout="/data/project/some-tool/dummy-job-name.out",

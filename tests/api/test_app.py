@@ -42,7 +42,6 @@ class Silly(BaseModel):
 
 @pytest.fixture()
 def error_generating_app():
-
     app = FastAPI()
     app.add_exception_handler(Exception, error_handler)
 
@@ -293,14 +292,22 @@ class TestJobsEndpoint:
         assert response_json["jobs"][0]["port"] == expected_port
         assert response_json["jobs"][0]["port_protocol"] == expected_protocol
 
+    @cases(
+        "get_dummy_job,job_params",
+        ["Continuous job", [get_dummy_continuous_job, {}]],
+        ["One-off job without timeout", [get_dummy_one_off_job, {}]],
+        ["One-off job with timeout", [get_dummy_one_off_job, {"timeout": 120}]],
+    )
     def test_with_include_unset_false_returns_only_set_fields(
         self,
         client: TestClient,
         app: JobsApi,
         monkeypatch: MonkeyPatch,
         fake_auth_headers: dict[str, str],
+        get_dummy_job,
+        job_params: dict[str, Any],
     ) -> None:
-        dummy_job = get_dummy_continuous_job()
+        dummy_job = get_dummy_job(**job_params)
         monkeypatch.setattr(
             app.core,
             "get_jobs",

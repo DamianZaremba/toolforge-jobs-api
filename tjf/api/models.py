@@ -144,6 +144,7 @@ class NewOneOffJob(FileLoggingOptions, CommonOptions, BaseModel):
     retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields[
         "retry"
     ].default
+    timeout: Annotated[int, Field(ge=0)] = CoreOneOffJob.model_fields["timeout"].default
     continuous: Literal[False] = False
 
     @model_validator(mode="after")
@@ -323,6 +324,7 @@ class DefinedOneOffJob(FileLoggingOptions, DefinedCommonOptions, BaseModel):
     retry: Annotated[int, Field(ge=0, le=5)] = CoreOneOffJob.model_fields[
         "retry"
     ].default
+    timeout: Annotated[int, Field(ge=0)] = CoreOneOffJob.model_fields["timeout"].default
     status: OneOffJobStatus = CoreOneOffJob.model_fields["status"].default
 
     @classmethod

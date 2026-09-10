@@ -101,10 +101,12 @@ class TestJobFromK8s:
 
         def test_all_fields(self):
             k8s_object = patch_spec(
-                spec=K8S_ONEOFF_JOB_OBJ, patch={"spec": {"backoffLimit": 5}}
+                spec=K8S_ONEOFF_JOB_OBJ,
+                patch={"spec": {"activeDeadlineSeconds": 120, "backoffLimit": 5}},
             )
             expected_job = get_one_off_job_fixture_as_job(
                 retry=5,
+                timeout=120,
                 k8s_object=k8s_object,
                 mount=MountOption.ALL,
                 status_long="Unknown",
@@ -284,6 +286,43 @@ class TestJobFromK8s:
 
 class TestGetJobForK8s:
     # most of this is tested already in test_runtime.TestGetJob
+    class TestOneOffJob:
+        @cases(
+            "input_params,match",
+            [
+                "Timeout unset",
+                [{}, lambda k8s_obj: "activeDeadlineSeconds" not in k8s_obj["spec"]],
+            ],
+            [
+                "Timeout zero",
+                [
+                    {"timeout": 0},
+                    lambda k8s_obj: "activeDeadlineSeconds" not in k8s_obj["spec"],
+                ],
+            ],
+            [
+                "Timeout set",
+                [
+                    {"timeout": 120},
+                    lambda k8s_obj: k8s_obj["spec"]["activeDeadlineSeconds"] == 120,
+                ],
+            ],
+        )
+        def test_generates_expected_k8s_object(
+            self,
+            monkeypatch: MonkeyPatch,
+            input_params: dict[str, Any],
+            match: Callable[[dict[str, Any]], bool],
+        ):
+            my_job = get_one_off_job_fixture_as_job(add_status=False, **input_params)
+            monkeypatch.setattr(
+                jobs, "_get_tool_account_uid", lambda *args, **kwargs: "12345"
+            )
+
+            gotten_k8s_obj = jobs.get_job_for_k8s(job=my_job, default_cpu_limit="1000m")
+
+            assert match(gotten_k8s_obj)
+
     class TestContinuousJob:
         @cases(
             "input_params,match",

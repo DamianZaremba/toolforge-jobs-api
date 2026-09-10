@@ -3,7 +3,7 @@
 openapi: "3.1.0"
 info:
   title: "Toolforge jobs framework API"
-  version: "4.15.0"
+  version: "4.16.0"
 servers:
   - url: "http://127.0.0.1:8000"
     description: "Local direct development server."
@@ -671,6 +671,11 @@ components:
             job_type:
               type: string
               enum: ["one-off"]
+            timeout:
+              type: integer
+              description: "Maximum amount of seconds the job will be allowed to run before it is failed"
+              minimum: 0
+              example: 120
     NewScheduledJob:
       allOf:
         - $ref: "#/components/schemas/CommonOptions"
@@ -811,6 +816,11 @@ components:
             job_type:
               type: string
               enum: ["one-off"]
+            timeout:
+              type: integer
+              description: "Maximum amount of seconds the job will be allowed to run before it is failed"
+              minimum: 0
+              example: 120
     DefinedScheduledJob:
       allOf:
         - $ref: "#/components/schemas/DefinedCommonOptions"
