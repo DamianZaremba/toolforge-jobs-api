@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from ..core.error import TjfValidationError
 from ..core.models import OUT_OF_SYNC_JOB_WARNING_MESSAGE
+from ..core.models import FileLoggingOptions as CoreFileLoggingOptions
 from .auth import ensure_authenticated
 from .models import (
     AnyDefinedJob,
@@ -223,7 +224,8 @@ async def api_get_logs(request: Request, tool_name: str, name: str) -> Response:
     job_name = CommonOptions.validate_job_name(name)
 
     job = core.get_job(tool_name=tool_name, name=job_name)
-    if job and job.filelog:
+
+    if job and isinstance(job, CoreFileLoggingOptions) and job.filelog:
         raise TjfValidationError(
             f"Job '{job_name}' has file logging enabled, which is incompatible with the logs command",
             http_status_code=404,

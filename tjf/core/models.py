@@ -33,6 +33,7 @@ from pydantic import (
 from toolforge_weld.kubernetes import MountOption, parse_quantity
 
 from .cron import CronExpression
+from .error import TjfValidationError
 from .images import Image, ImageType
 from .utils import (
     format_quantity,
@@ -60,6 +61,7 @@ JOB_DEFAULT_MEMORY = "512Mi"
 # This is set to more or less the mean usage in the cluster
 JOB_DEFAULT_CPU = "100m"
 JOB_DEFAULT_REPLICAS = 1
+DEFAULT_PORT = 8000
 OUT_OF_SYNC_JOB_WARNING_MESSAGE = "The running version of job '{job_name}' is different from what was configured, please recreate or redeploy."
 
 
@@ -87,6 +89,7 @@ class JobType(str, Enum):
     ONE_OFF = "one-off"
     SCHEDULED = "scheduled"
     CONTINUOUS = "continuous"
+    WEBSERVICE = "webservice"
 
 
 class HealthCheckType(str, Enum):
@@ -151,6 +154,10 @@ class OneOffJobStatus(CommonJobStatus):
 
 
 class ContinuousJobStatus(CommonJobStatus):
+    pass
+
+
+class WebserviceJobStatus(ContinuousJobStatus):
     pass
 
 
@@ -333,7 +340,82 @@ class ContinuousJob(FileLoggingOptions, CommonOptions):
         return self
 
 
-AnyJob = OneOffJob | ContinuousJob | ScheduledJob
+class WebserviceJob(CommonOptions, BaseModel):
+    cmd: str = ""
+    job_type: Literal[JobType.WEBSERVICE] = JobType.WEBSERVICE
+    replicas: int = Field(default=JOB_DEFAULT_REPLICAS, ge=0)
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
+        default=None,
+        discriminator="health_check_type",
+    )
+    status: WebserviceJobStatus = WebserviceJobStatus()
+
+    def _resolve_command(self, command: str | None, port: int) -> str | None:
+        if self.image.type == ImageType.BUILDSERVICE:
+            return command or "web"
+
+        if self.image.type == ImageType.STANDARD:
+            default_command = self.image.webservice_defaults.get("command")
+            default_command_str = (
+                " ".join(default_command).format(port=str(port))
+                if default_command
+                else None
+            )
+            if not command:
+                return default_command_str or ""
+
+            # we are doing both "startswith" and "in" because
+            # both "DB_PATH=xxxx /usr/bin/webservice-runner --type generic start-server"
+            # and "/usr/bin/webservice-runner --type generic start-server"
+            # are perfectly valid commands a user can specify
+            command_is_extra_arg = (
+                " /usr/bin/webservice-runner " not in command
+                and not command.startswith("/usr/bin/webservice-runner ")
+            )
+            if default_command_str and command_is_extra_arg:
+                return f"{default_command_str} {command}"
+
+        return command
+
+    def get_resolved_job(self) -> Self:
+        resolved_job = super().get_resolved_job()
+
+        if "memory" not in self.model_fields_set:
+            memory = self.image.webservice_defaults.get("memory")
+            if memory:
+                resolved_job.memory = memory
+
+        command = None
+        if "cmd" in self.model_fields_set:
+            command = self.cmd
+
+        command = self._resolve_command(
+            command=command,
+            port=self.image.webservice_defaults.get("port", DEFAULT_PORT),
+        )
+        if not command:
+            raise TjfValidationError(
+                "selected image requires that you specify a command"
+            )
+
+        resolved_job.cmd = command
+
+        return resolved_job
+
+    def to_continuous_job(self) -> ContinuousJob:
+        resolved_job = self.get_resolved_job()
+        continuous_job_params: dict[str, Any] = {
+            **resolved_job.model_dump(exclude_unset=True),
+            "job_type": JobType.CONTINUOUS,
+            "publish": "/",
+            "port": self.image.webservice_defaults.get("port", DEFAULT_PORT),
+            "filelog": False,
+        }
+        return ContinuousJob.model_validate(continuous_job_params)
+
+
+AnyJob = OneOffJob | ContinuousJob | ScheduledJob | WebserviceJob
+AnyFileLogJob = OneOffJob | ContinuousJob | ScheduledJob
 
 
 class QuotaCategoryType(Enum):

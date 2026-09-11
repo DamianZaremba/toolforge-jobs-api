@@ -12,7 +12,6 @@ from tjf.runtimes.k8s.labels import labels_selector
 
 from ...core.images import ImageType
 from ...core.models import (
-    AnyJob,
     Command,
     CommonJobStatus,
     ContinuousJob,
@@ -347,7 +346,7 @@ def _get_automatically_triggered_job(
     return None
 
 
-def _are_commands_equal(job: AnyJob, k8s_job_spec: dict[str, Any]) -> bool:
+def _are_commands_equal(job: ScheduledJob, k8s_job_spec: dict[str, Any]) -> bool:
     manual_k8s_job_container = k8s_job_spec["spec"]["template"]["spec"]["containers"][0]
     # manual k8s_job_spec comes from k8s so if we can't get command, let things blow up.
     # because in that case something is seriously wrong
@@ -370,7 +369,7 @@ def _are_commands_equal(job: AnyJob, k8s_job_spec: dict[str, Any]) -> bool:
 
 
 def _get_manually_triggered_job(
-    job: AnyJob, cronjob_uid: str, k8s_job_spec: dict[str, Any]
+    job: ScheduledJob, cronjob_uid: str, k8s_job_spec: dict[str, Any]
 ) -> dict[str, Any] | None:
     instantiate = (
         k8s_job_spec.get("metadata", {})
@@ -405,7 +404,7 @@ def _get_manually_triggered_job(
 
 
 def _get_latest_k8s_cronjob_job(
-    job: AnyJob, k8s_cronjob: dict[str, Any], k8s_jobs: list[dict[str, Any]]
+    job: ScheduledJob, k8s_cronjob: dict[str, Any], k8s_jobs: list[dict[str, Any]]
 ) -> dict[str, Any] | None:
     """
     This function tries to retrieve the most recent auto and manually triggered jobs,

@@ -32,6 +32,7 @@ from ..core.models import FileLoggingOptions as CoreFileLoggingOptions
 from ..core.models import OneOffJob as CoreOneOffJob
 from ..core.models import ScheduledJob as CoreScheduledJob
 from ..core.models import StorageOptions as CoreStorageOptions
+from ..core.models import WebserviceJob as CoreWebserviceJob
 
 LOGGER = getLogger(__name__)
 
@@ -275,7 +276,48 @@ class NewContinuousJob(FileLoggingOptions, CommonOptions, BaseModel):
         return my_job
 
 
-AnyNewJob = NewOneOffJob | NewScheduledJob | NewContinuousJob
+class NewWebserviceJob(CommonOptions, BaseModel):
+    cmd: str = ""
+    job_type: Literal[JobType.WEBSERVICE] = CoreWebserviceJob.model_fields[
+        "job_type"
+    ].default
+    replicas: int = Field(
+        default=CoreWebserviceJob.model_fields["replicas"].default, ge=0
+    )
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
+        default=CoreWebserviceJob.model_fields["health_check"].default,
+        discriminator="health_check_type",
+    )
+
+    @model_validator(mode="after")
+    def job_type_validator(self) -> Self:
+        """Job_type is always set as it defines the model we have to use."""
+        self.model_fields_set.add("job_type")
+        return self
+
+    def to_core_job(self, tool_name: str) -> CoreWebserviceJob:
+        LOGGER.debug(
+            f"NewWebserviceJob.to_core_job: got {self} (with set fields {self.model_fields_set})"
+        )
+        common_core_fields = (
+            super().to_core_job(tool_name=tool_name).model_dump(exclude_unset=True)
+        )
+        set_fields = self.model_dump(exclude_unset=True)
+
+        # remove fields that don't belong in this model
+        for field in list(set_fields.keys()):
+            if field not in CoreWebserviceJob.model_fields:
+                set_fields.pop(field)
+
+        all_fields = {**set_fields, **common_core_fields}
+        my_job = CoreWebserviceJob.model_validate(all_fields)
+        LOGGER.debug(
+            f"Got {self} (set fields {self.model_fields_set}), \ngenerated {my_job} (fields set {my_job.model_fields_set})"
+        )
+        return my_job
+
+
+AnyNewJob = NewOneOffJob | NewScheduledJob | NewContinuousJob | NewWebserviceJob
 
 
 class DefinedCommonOptions(CommonOptions):
@@ -475,7 +517,55 @@ class DefinedContinuousJob(FileLoggingOptions, DefinedCommonOptions, BaseModel):
         return my_job
 
 
-AnyDefinedJob = DefinedOneOffJob | DefinedScheduledJob | DefinedContinuousJob
+class DefinedWebserviceJob(DefinedCommonOptions, BaseModel):
+    cmd: str = ""
+    job_type: Literal[JobType.WEBSERVICE] = CoreWebserviceJob.model_fields[
+        "job_type"
+    ].default
+    replicas: Annotated[int, Field(ge=0)] | None = CoreWebserviceJob.model_fields[
+        "replicas"
+    ].default
+    health_check: ScriptHealthCheck | HttpHealthCheck | None = Field(
+        default=CoreWebserviceJob.model_fields["health_check"].default,
+        discriminator="health_check_type",
+    )
+    status: ContinuousJobStatus = CoreWebserviceJob.model_fields["status"].default
+
+    @classmethod
+    def from_core_job(cls, core_job: AnyCoreJob) -> "DefinedWebserviceJob":
+        if not isinstance(core_job, CoreWebserviceJob):
+            raise TjfValidationError(
+                "DefinedWebserviceJob can only be created from a CoreWebserviceJob"
+            )
+        defined_common_options = DefinedCommonOptions.from_core_job(core_job=core_job)
+        common_params = defined_common_options.model_dump(exclude_unset=True)
+        set_core_params = core_job.model_dump(exclude_unset=True)
+        image_state = set_core_params.pop("image")["state"]
+
+        # remove fields that don't belong in this model
+        for field in list(set_core_params.keys()):
+            if field not in cls.model_fields:
+                set_core_params.pop(field)
+
+        params: dict[str, Any] = {
+            "job_type": JobType.WEBSERVICE,
+            "image_state": image_state,
+            **set_core_params,
+            **common_params,
+        }
+        my_job = cls.model_validate(params)
+        # remove fields that should be skipped when excluding_unset
+        for field in ["status_short", "status_long", "status", "image_state"]:
+            if field in my_job.model_fields_set:
+                my_job.model_fields_set.remove(field)
+        LOGGER.debug(f"Got {core_job}, \ngenerated {my_job}")
+        LOGGER.debug(f"Without unset: {my_job.model_dump(exclude_unset=True)}")
+        return my_job
+
+
+AnyDefinedJob = (
+    DefinedOneOffJob | DefinedScheduledJob | DefinedContinuousJob | DefinedWebserviceJob
+)
 
 
 class HealthState(str, Enum):
@@ -553,5 +643,7 @@ def get_job_for_api(job: AnyCoreJob) -> AnyDefinedJob:
             return DefinedScheduledJob.from_core_job(job)
         case JobType.CONTINUOUS:
             return DefinedContinuousJob.from_core_job(job)
+        case JobType.WEBSERVICE:
+            return DefinedWebserviceJob.from_core_job(job)
         case _:
             raise TjfValidationError(f'Invalid job type "{job.job_type}"')
