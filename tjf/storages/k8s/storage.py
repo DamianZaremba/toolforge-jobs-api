@@ -20,14 +20,20 @@ import kubernetes  # type: ignore
 from tjf.settings import Settings
 
 from ...core import models
-from ...core.models import AnyJob, ContinuousJob, OneOffJob, ScheduledJob
+from ...core.models import (
+    AnyJob,
+    ContinuousJob,
+    OneOffJob,
+    ScheduledJob,
+    WebserviceJob,
+)
 from ..base import BaseStorage
 from ..exceptions import NotFoundInStorage, StorageError, get_storage_error
 
 LOGGER = getLogger(__name__)
 
 
-type AnyJobClass = type[ContinuousJob | ScheduledJob | OneOffJob]
+type AnyJobClass = type[ContinuousJob | ScheduledJob | OneOffJob | WebserviceJob]
 API_GROUP = "jobs-api.toolforge.org"
 API_VERSION = "v1"
 
@@ -63,6 +69,8 @@ def _get_kind_and_plural_from_job_class(*, job_class: AnyJobClass) -> tuple[str,
             return ("ScheduledJob", "scheduled-jobs")
         case models.OneOffJob:
             return ("OneOffJob", "one-off-jobs")
+        case models.WebserviceJob:
+            return ("WebserviceJob", "webservice-jobs")
 
     raise StorageError(f"Unknown job type {job_class}")
 
@@ -78,7 +86,7 @@ class K8sStorage(BaseStorage):
     def _get_jobs(
         self,
         *,
-        job_class: type[ContinuousJob] | type[ScheduledJob] | type[OneOffJob],
+        job_class: AnyJobClass,
         tool_name: str,
     ) -> list[AnyJob]:
         _, k8s_plural = _get_kind_and_plural_from_job_class(job_class=job_class)
@@ -128,6 +136,7 @@ class K8sStorage(BaseStorage):
         jobs: list[AnyJob] = []
         jobs.extend(self._get_jobs(tool_name=tool_name, job_class=ContinuousJob))
         jobs.extend(self._get_jobs(tool_name=tool_name, job_class=ScheduledJob))
+        jobs.extend(self._get_jobs(tool_name=tool_name, job_class=WebserviceJob))
         # TODO: get also one-off jobs when they are supported in storage
 
         LOGGER.debug(f"Got jobs {jobs} for tool {tool_name}")

@@ -5,6 +5,7 @@ from tjf.core.models import (
     JobType,
     OneOffJob,
     ScheduledJob,
+    WebserviceJob,
 )
 
 FAKE_HARBOR_HOST = "harbor.example.org"
@@ -60,3 +61,17 @@ def get_dummy_continuous_job(**overrides) -> ContinuousJob:
             url_or_name="python3.11", tool_name="some-tool"
         )
     return ContinuousJob.model_validate(params)
+
+
+def get_dummy_webservice_job(**overrides) -> WebserviceJob:
+    params = {
+        "job_name": "dummy-job-name",
+        "tool_name": "some-tool",
+        "job_type": JobType.WEBSERVICE,
+    }
+    params.update(overrides)
+    if "image" not in params:
+        params["image"] = Image.from_short_name_or_url(
+            url_or_name="python3.11", tool_name="some-tool"
+        )
+    return WebserviceJob.model_validate(params)
