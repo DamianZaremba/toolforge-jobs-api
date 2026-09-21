@@ -41,5 +41,5 @@ def get_storage_error(
         )
 
     return StorageError(
-        "Failed to {action}, likely an internal bug in the jobs api.", data=error_data
+        f"Failed to {action}, likely an internal bug in the jobs api.", data=error_data
     )

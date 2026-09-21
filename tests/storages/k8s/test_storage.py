@@ -6,6 +6,7 @@ import pytest
 from fastapi import status
 
 from tests.helpers.fakes import (
+    get_dummy_one_off_job,
     get_dummy_webservice_job,
 )
 from tests.utils import cases
@@ -604,6 +605,17 @@ class TestStorage:
                 namespace="tool-tf-test",
                 name="testcont2",
             )
+
+        def test_does_not_try_to_delete_oneoff_jobs_from_k8s(
+            self, storage_k8s_cli: MagicMock
+        ):
+            my_storage = storage.K8sStorage(settings=Settings(debug=True))
+            expected_job = get_dummy_one_off_job()
+
+            gotten_job = my_storage.delete_job(job=expected_job)
+
+            assert gotten_job == expected_job
+            storage_k8s_cli.delete_namespaced_custom_object.assert_not_called()
 
         def test_deletes_webservice_job_if_found(self, storage_k8s_cli: MagicMock):
             my_storage = storage.K8sStorage(settings=Settings(debug=True))

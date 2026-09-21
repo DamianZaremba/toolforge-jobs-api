@@ -155,7 +155,9 @@ class K8sStorage(BaseStorage):
                 body=body,
             )
         except kubernetes.client.ApiException as error:
-            raise get_storage_error(error=error, spec=body, action="create a job")
+            raise get_storage_error(
+                error=error, spec=body, action="create a job"
+            ) from error
 
         return job
 
@@ -169,6 +171,9 @@ class K8sStorage(BaseStorage):
     def delete_job(self, *, job: AnyJob) -> AnyJob:
         LOGGER.debug("Deleting job %s for tool %s", job.job_name, job.tool_name)
         _, k8s_plural = _get_kind_and_plural_from_job_class(job_class=job.__class__)
+        if isinstance(job, OneOffJob):
+            LOGGER.debug("Skip deleting one-off job %s", job.job_name)
+            return job
 
         try:
             self.k8s_cli.delete_namespaced_custom_object(
@@ -183,6 +188,6 @@ class K8sStorage(BaseStorage):
                 error=error,
                 spec={"name": job.job_name},
                 action=f"delete job {job.job_name}",
-            )
+            ) from error
 
         return job
