@@ -392,11 +392,10 @@ class Core:
 
     def delete_job(self, job: AnyJob) -> None:
         try:
+            # one-off jobs always return ok (not stored yet)
             self.storage.delete_job(job=job)
         except NotFoundInStorage as error:
-            # TODO: also fail for one-offs when we have them in storage
-            if not isinstance(job, OneOffJob):
-                raise TjfError("Unable to delete job") from error
+            raise TjfError("Unable to delete job") from error
 
         try:
             self.runtime.delete_job(job=_get_runtime_job(job=job))
