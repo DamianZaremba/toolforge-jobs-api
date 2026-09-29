@@ -1,6 +1,5 @@
 #!/bin/bash
-# TODO: remove this file, no longer used for any reason.
-# local deployment only
+# local deployment only, used by lima-kilo to deploy from your computer
 set -o errexit
 set -o nounset
 set -o pipefail
