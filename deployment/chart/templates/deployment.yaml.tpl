@@ -59,6 +59,12 @@ spec:
             value: "{{ .Values.webservice.default_cpu_limit }}"
           - name: "PUBLIC_DOMAIN"
             value: "{{ .Values.webservice.public_domain }}"
+          - name: "TOOLFORGE_API_URL"
+            value: "{{ .Values.webservice.toolforge_api_url }}"
+          - name: "VERIFY_TOOLFORGE_API_CERT"
+            value: "{{ .Values.webservice.verify_toolforge_api_cert }}"
+          - name: "NAMESPACE"
+            value: "{{ .Values.webservice.namespace }}"
           {{- with .Values.loki.url }}
           - name: "LOKI_URL"
             value: "{{ . }}"

@@ -36,12 +36,17 @@ from .images import Image, ImageType
 from .models import (
     OUT_OF_SYNC_JOB_WARNING_MESSAGE,
     AnyJob,
+    JobCreated,
+    JobDeleted,
+    JobRestarted,
     JobType,
+    JobUpdated,
     OneOffJob,
     QuotaData,
     WebserviceJob,
     WebserviceJobStatus,
 )
+from .notifier import LogsApiNotifier
 
 LOGGER = logging.getLogger(__name__)
 
@@ -100,10 +105,16 @@ def _update_storage_job_status_from_runtime(
 
 
 class Core:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self, settings: Settings, notifier: LogsApiNotifier | None = None
+    ) -> None:
         self.runtime = K8sRuntime(settings=settings)
         self.storage = K8sStorage(settings=settings)
         self.settings = settings
+        self.notifier = notifier or LogsApiNotifier(settings=settings)
+
+    def close(self) -> None:
+        self.notifier.close()
 
     def _create_storage_job(self, job: AnyJob) -> AnyJob:
         LOGGER.debug(f"Creating job in storage: {job}")
@@ -153,6 +164,16 @@ class Core:
             self.delete_job(job=job)
             raise
 
+        self.notifier.notify(
+            events=[
+                JobCreated(
+                    job_name=job.job_name,
+                    message=job.model_dump_json(exclude_unset=True),
+                )
+            ],
+            tool_name=job.tool_name,
+        )
+
         return job
 
     def update_job(self, job: AnyJob) -> tuple[bool, str]:
@@ -195,6 +216,15 @@ class Core:
         else:
             message += "is already up to date"
 
+        self.notifier.notify(
+            events=[
+                JobUpdated(
+                    job_name=job.job_name,
+                    message=job.model_dump_json(exclude_unset=True),
+                )
+            ],
+            tool_name=job.tool_name,
+        )
         return (changed_in_storage or changed_in_runtime, message)
 
     def _update_job_in_storage(self, existing_job: AnyJob, new_job: AnyJob) -> bool:
@@ -328,6 +358,16 @@ class Core:
         all_jobs.extend(self.runtime.get_one_off_jobs(tool_name=tool_name))
         # one-off jobs live only in the runtime for now
         self.runtime.delete_jobs(tool_name=tool_name, jobs=all_jobs)
+        for job in all_jobs:
+            self.notifier.notify(
+                events=[
+                    JobDeleted(
+                        job_name=job.job_name,
+                        message=job.model_dump_json(exclude_unset=True),
+                    )
+                ],
+                tool_name=job.tool_name,
+            )
 
     def get_job(self, tool_name: str, name: str) -> AnyJob | None:
         try:
@@ -402,6 +442,16 @@ class Core:
         except NotFoundInRuntime:
             pass
 
+        self.notifier.notify(
+            events=[
+                JobDeleted(
+                    job_name=job.job_name,
+                    message=job.model_dump_json(exclude_unset=True),
+                )
+            ],
+            tool_name=job.tool_name,
+        )
+
     def restart_job(self, job: AnyJob) -> None:
         if not isinstance(job, OneOffJob):
             # check that it exists
@@ -412,3 +462,7 @@ class Core:
             self.runtime.restart_job(job=_get_runtime_job(job=job))
         except NotFoundInRuntime:
             self.runtime.create_job(job=_get_runtime_job(job=storage_job))
+
+        self.notifier.notify(
+            events=[JobRestarted(job_name=job.job_name)], tool_name=job.tool_name
+        )

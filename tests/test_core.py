@@ -1,5 +1,5 @@
 from typing import Protocol
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, create_autospec
 
 import pytest
 from helpers.fakes import (
@@ -18,12 +18,17 @@ from tjf.core.models import (
     OUT_OF_SYNC_JOB_WARNING_MESSAGE,
     AnyJobStatus,
     ContinuousJobStatus,
+    JobCreated,
+    JobDeleted,
+    JobRestarted,
     JobType,
+    JobUpdated,
     OneOffJobStatus,
     ScheduledJobStatus,
     StatusShort,
     WebserviceJobStatus,
 )
+from tjf.core.notifier import LogsApiNotifier
 from tjf.runtimes.exceptions import NotFoundInRuntime
 from tjf.runtimes.k8s.k8s_errors import K8sAlreadyExists
 from tjf.settings import Settings
@@ -42,7 +47,8 @@ def get_my_core(storage_k8s_cli: MagicMock) -> GetMyCore:
             debug=True,
             skip_metrics=False,
         )
-        my_core = core.Core(settings=settings)
+        notifier = create_autospec(LogsApiNotifier, spec_set=True, instance=True)
+        my_core = core.Core(settings=settings, notifier=notifier)
         return my_core
 
     return make_core
@@ -492,6 +498,38 @@ class TestCore:
             storage_k8s_cli.create_namespaced_custom_object.assert_not_called()
 
     class TestDeleteJob:
+        def test_notifies_in_background_after_deletion(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_continuous_job()
+            my_core = get_my_core()
+            monkeypatch.setattr(
+                my_core.storage,
+                "delete_job",
+                create_autospec(my_core.storage.delete_job),
+            )
+            monkeypatch.setattr(
+                my_core.runtime,
+                "delete_job",
+                create_autospec(my_core.runtime.delete_job),
+            )
+
+            my_core.delete_job(job=job)
+
+            my_core.notifier.notify.assert_called_once()
+            notification = my_core.notifier.notify.call_args
+            events = notification.kwargs["events"]
+            assert notification.kwargs["tool_name"] == job.tool_name
+            assert events == [
+                JobDeleted(
+                    job_name=job.job_name,
+                    datetime=events[0].datetime,
+                    message=job.model_dump_json(exclude_unset=True),
+                )
+            ]
+
         def test_does_not_raise_if_it_does_not_exist_in_runtime(
             self,
             get_my_core: GetMyCore,
@@ -635,6 +673,48 @@ class TestCore:
                 job=updated_job.get_resolved_job()
             )
 
+        def test_notifies_in_background_after_update(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            existing_job = get_dummy_continuous_job(job_name="my-job")
+            updated_job = get_dummy_continuous_job(
+                job_name="my-job", cmd="different command"
+            )
+            my_core = get_my_core()
+            monkeypatch.setattr(
+                my_core,
+                "get_job",
+                create_autospec(my_core.get_job, return_value=existing_job),
+            )
+            monkeypatch.setattr(
+                my_core,
+                "_update_job_in_storage",
+                create_autospec(
+                    my_core._update_job_in_storage,
+                    return_value=True,
+                ),
+            )
+            monkeypatch.setattr(
+                my_core,
+                "_update_job_in_runtime",
+                create_autospec(my_core._update_job_in_runtime),
+            )
+            my_core.update_job(job=updated_job)
+
+            my_core.notifier.notify.assert_called_once()
+            notification = my_core.notifier.notify.call_args
+            events = notification.kwargs["events"]
+            assert notification.kwargs["tool_name"] == updated_job.tool_name
+            assert events == [
+                JobUpdated(
+                    job_name=updated_job.job_name,
+                    datetime=events[0].datetime,
+                    message=updated_job.model_dump_json(exclude_unset=True),
+                )
+            ]
+
     class TestRestartJob:
         def test_creates_continuous_job_in_runtime_if_it_does_not_exist(
             self,
@@ -749,6 +829,37 @@ class TestCore:
                 job_name=job.job_name, tool_name=job.tool_name
             )
 
+        def test_notifies_in_background_after_restart(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_continuous_job()
+            my_core = get_my_core()
+            monkeypatch.setattr(
+                my_core.storage,
+                "get_job",
+                create_autospec(my_core.storage.get_job, return_value=job),
+            )
+            monkeypatch.setattr(
+                my_core.runtime,
+                "restart_job",
+                create_autospec(my_core.runtime.restart_job),
+            )
+
+            my_core.restart_job(job=job)
+
+            my_core.notifier.notify.assert_called_once()
+            notification = my_core.notifier.notify.call_args
+            events = notification.kwargs["events"]
+            assert notification.kwargs["tool_name"] == job.tool_name
+            assert events == [
+                JobRestarted(
+                    job_name=job.job_name,
+                    datetime=events[0].datetime,
+                )
+            ]
+
     class TestFlushJob:
         def test_deletes_in_storage_and_runtime(
             self,
@@ -797,7 +908,137 @@ class TestCore:
                 ],
             )
 
+        def test_notifies_in_background_for_each_flushed_job(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            continuous_job = get_dummy_continuous_job(job_name="continuous-job")
+            scheduled_job = get_dummy_scheduled_job(job_name="scheduled-job")
+            one_off_job = get_dummy_one_off_job(job_name="one-off-job")
+            storage_jobs = [continuous_job, scheduled_job]
+            my_core = get_my_core()
+            monkeypatch.setattr(
+                my_core.storage,
+                "get_jobs",
+                create_autospec(
+                    my_core.storage.get_jobs,
+                    return_value=storage_jobs,
+                ),
+            )
+            monkeypatch.setattr(
+                my_core.storage,
+                "delete_jobs",
+                create_autospec(my_core.storage.delete_jobs),
+            )
+            monkeypatch.setattr(
+                my_core.runtime,
+                "get_one_off_jobs",
+                create_autospec(
+                    my_core.runtime.get_one_off_jobs,
+                    return_value=[one_off_job],
+                ),
+            )
+            monkeypatch.setattr(
+                my_core.runtime,
+                "delete_jobs",
+                create_autospec(my_core.runtime.delete_jobs),
+            )
+            my_core.flush_jobs(tool_name="some-tool")
+
+            notified_jobs = [
+                continuous_job.get_resolved_job(),
+                scheduled_job.get_resolved_job(),
+                one_off_job,
+            ]
+            assert my_core.notifier.notify.call_count == len(notified_jobs)
+            for notification, notified_job in zip(
+                my_core.notifier.notify.call_args_list, notified_jobs, strict=True
+            ):
+                events = notification.kwargs["events"]
+                assert notification.kwargs["tool_name"] == notified_job.tool_name
+                assert events == [
+                    JobDeleted(
+                        job_name=notified_job.job_name,
+                        datetime=events[0].datetime,
+                        message=notified_job.model_dump_json(exclude_unset=True),
+                    )
+                ]
+
     class TestCreateJob:
+        def test_notifies_in_background_after_creation(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_continuous_job()
+            my_core = get_my_core()
+            monkeypatch.setattr(
+                my_core.storage,
+                "create_job",
+                create_autospec(my_core.storage.create_job, return_value=job),
+            )
+            monkeypatch.setattr(
+                my_core.runtime,
+                "create_job",
+                create_autospec(my_core.runtime.create_job),
+            )
+
+            result = my_core.create_job(job=job)
+
+            assert result == job
+            my_core.notifier.notify.assert_called_once()
+            notification = my_core.notifier.notify.call_args
+            events = notification.kwargs["events"]
+            assert notification.kwargs["tool_name"] == job.tool_name
+            assert events == [
+                JobCreated(
+                    job_name=job.job_name,
+                    datetime=events[0].datetime,
+                    message=job.model_dump_json(exclude_unset=True),
+                )
+            ]
+
+        def test_does_not_notify_created_when_creation_fails(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            job = get_dummy_continuous_job()
+            my_core = get_my_core()
+            monkeypatch.setattr(
+                my_core.storage,
+                "create_job",
+                create_autospec(my_core.storage.create_job, return_value=job),
+            )
+            monkeypatch.setattr(
+                my_core.runtime,
+                "create_job",
+                create_autospec(
+                    my_core.runtime.create_job,
+                    side_effect=TjfError("runtime failed"),
+                ),
+            )
+            monkeypatch.setattr(
+                my_core.storage,
+                "delete_job",
+                create_autospec(my_core.storage.delete_job),
+            )
+            monkeypatch.setattr(
+                my_core.runtime,
+                "delete_job",
+                create_autospec(my_core.runtime.delete_job),
+            )
+
+            with pytest.raises(TjfError, match="runtime failed"):
+                my_core.create_job(job=job)
+
+            assert not any(
+                isinstance(event, JobCreated)
+                for notification_call in my_core.notifier.notify.call_args_list
+                for event in notification_call.kwargs["events"]
+            )
+
         def test_skips_storage_for_one_off_jobs(
             self,
             get_my_core: GetMyCore,
