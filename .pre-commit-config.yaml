@@ -3,14 +3,14 @@ default_language_version:
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.5
+    rev: v0.16.9
     hooks:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.3.0
+    rev: 7.4.1
     hooks:
       - id: flake8
 
@@ -55,6 +55,6 @@ repos:
       - id: openapi-spec-validator
 
   - repo: https://gitlab.wikimedia.org/repos/cloud/cicd/gitlab-ci
-    rev: 7a734400de5df4f1277e69fafe5ad847d7f96b0d
+    rev: c7eb68fc0d7cad91b987c7a66f3e517e8bb2e339
     hooks:
       - id: check-openapi-version-bump
