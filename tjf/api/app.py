@@ -15,6 +15,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from ..core.core import Core
 from ..settings import Settings, get_settings
@@ -37,6 +39,13 @@ def healthz() -> HealthResponse:
     )
 
 
+@asynccontextmanager
+async def lifespan(app: JobsApi) -> AsyncIterator[None]:
+    """This is needed in order to stop the background event notifier."""
+    yield
+    app.core.close()
+
+
 def create_app(settings: Settings | None = None) -> JobsApi:
     if not settings:
         settings = get_settings()
@@ -53,7 +62,7 @@ def create_app(settings: Settings | None = None) -> JobsApi:
     logging.root.setLevel(level=level)
     LOGGER.debug("Got settings: %r", settings)
 
-    app = JobsApi()
+    app = JobsApi(lifespan=lifespan)
     app.set_core(core=Core(settings=settings))
 
     app.add_exception_handler(Exception, error_handler)

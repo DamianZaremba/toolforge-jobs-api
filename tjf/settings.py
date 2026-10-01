@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     skip_metrics: bool = False
     skip_images: bool = False
     loki_url: AnyHttpUrl = AnyHttpUrl("http://loki-tools.loki.svc:3100/loki")
+    toolforge_api_url: AnyHttpUrl = AnyHttpUrl("https://api-gateway.api-gateway.svc")
+    verify_toolforge_api_cert: bool = True
+    namespace: str = "jobs-api"
     # default cpu limit is mainly needed to be configurable for lima-kilo
     default_cpu_limit: str = "4000m"
     public_domain: str = os.getenv("PUBLIC_DOMAIN", "local")

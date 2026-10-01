@@ -18,18 +18,21 @@
 import logging
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel as PydanticBaseModel
 from pydantic import (
+    AwareDatetime,
     ConfigDict,
     Field,
     StringConstraints,
     field_validator,
     model_validator,
 )
+from pydantic import BaseModel as PydanticBaseModel
 from toolforge_weld.kubernetes import MountOption, parse_quantity
 
 from .cron import CronExpression
@@ -468,3 +471,32 @@ class Quota(BaseModel):
                     )
             quota.categories.append(category)
         return quota
+
+
+class JobEvent(BaseModel):
+    source: Literal["jobs"] = "jobs"
+    job_name: str
+    datetime: AwareDatetime = Field(default_factory=partial(datetime.now, tz=UTC))
+    user_name: str = ""
+
+
+class JobRestarted(JobEvent):
+    event_type: Literal["restarted"] = "restarted"
+
+
+class JobCreated(JobEvent):
+    event_type: Literal["created"] = "created"
+    message_format: Literal["json"] = "json"
+    message: str
+
+
+class JobDeleted(JobEvent):
+    event_type: Literal["deleted"] = "deleted"
+    message_format: Literal["json"] = "json"
+    message: str
+
+
+class JobUpdated(JobEvent):
+    event_type: Literal["updated"] = "updated"
+    message_format: Literal["json"] = "json"
+    message: str
