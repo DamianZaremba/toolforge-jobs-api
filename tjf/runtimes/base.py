@@ -74,5 +74,7 @@ class BaseRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_images(self, tool_name: str) -> list[Image]:
+    def get_images(
+        self, tool_name: str, include_deprecated: bool = False
+    ) -> list[Image]:
         raise NotImplementedError

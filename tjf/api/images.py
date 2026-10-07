@@ -37,10 +37,14 @@ images = APIRouter(prefix="/v1/tool/{tool_name}/images", redirect_slashes=False)
     response_model_exclude_unset=True,
     include_in_schema=False,
 )
-def api_get_images(request: Request, tool_name: str) -> ImageListResponse:
+def api_get_images(
+    request: Request, tool_name: str, include_deprecated: bool = False
+) -> ImageListResponse:
     ensure_authenticated(request=request)
 
-    images_data = current_app(request).core.get_images(tool_name=tool_name)
+    images_data = current_app(request).core.get_images(
+        tool_name=tool_name, include_deprecated=include_deprecated
+    )
     return ImageListResponse(
         images=[Image.from_image_data(image_data) for image_data in images_data],
         messages=ResponseMessages(),

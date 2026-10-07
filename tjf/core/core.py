@@ -294,8 +294,12 @@ class Core:
 
         return logs
 
-    def get_images(self, tool_name: str) -> list[Image]:
-        return self.runtime.get_images(tool_name=tool_name)
+    def get_images(
+        self, tool_name: str, include_deprecated: bool = False
+    ) -> list[Image]:
+        return self.runtime.get_images(
+            tool_name=tool_name, include_deprecated=include_deprecated
+        )
 
     def get_quotas(self, tool_name: str) -> list[QuotaData]:
         # TODO: we might want to keep quotas also on the storage side, though if "everything worked perfectly"
