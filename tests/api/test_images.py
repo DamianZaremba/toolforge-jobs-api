@@ -65,6 +65,24 @@ class TestGetImages:
         for image_name in expected_deprecated_images:
             assert image_name not in gotten_image_names
 
+    def test_include_deprecated_returns_deprecated_images(
+        self,
+        fake_images: dict[str, Any],
+        client: TestClient,
+        fake_auth_headers: dict[str, str],
+    ) -> None:
+        response = client.get(
+            "/v1/tool/some-tool/images/",
+            params={"include_deprecated": "true"},
+            headers=fake_auth_headers,
+        )
+        assert response.status_code == 200
+        gotten_image_states = [
+            image["state"] for image in response.json()["images"] or []
+        ]
+        # Here we always assume that we have deprecated images in fake_images
+        assert any(state == "deprecated" for state in gotten_image_states)
+
     def test_gets_tool_harbor_images(
         self,
         fake_harbor_content: dict[str, Any],

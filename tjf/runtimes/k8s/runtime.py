@@ -656,11 +656,13 @@ class K8sRuntime(BaseRuntime):
         async for log in source.query(selector=selector, follow=follow, lines=lines):
             yield format_logs(log)
 
-    def get_images(self, tool_name: str) -> list[Image]:
+    def get_images(
+        self, tool_name: str, include_deprecated: bool = False
+    ) -> list[Image]:
         images = get_images(tool_name=tool_name)
         images = [
             image
             for image in sorted(images, key=lambda image: image.short_name)
-            if image.state == "stable"
+            if include_deprecated or image.state == "stable"
         ]
         return images
