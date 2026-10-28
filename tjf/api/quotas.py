@@ -35,7 +35,7 @@ quotas = APIRouter(prefix="/v1/tool/{tool_name}/quotas", redirect_slashes=False)
     include_in_schema=False,
 )
 def api_get_quota(request: Request, tool_name: str) -> QuotaResponse:
-    ensure_authenticated(request=request)
+    ensure_authenticated(headers=request.headers)
     quota_data = current_app(request).core.get_quotas(tool_name=tool_name)
 
     return QuotaResponse(

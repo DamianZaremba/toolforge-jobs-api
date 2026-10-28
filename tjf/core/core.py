@@ -18,6 +18,7 @@ import logging
 from collections.abc import AsyncIterator, Mapping
 
 from pydantic.main import IncEx
+from starlette.websockets import WebSocket
 from toolforge_weld.utils import apeek
 
 from tjf.api.metrics import ONLY_IN_RUNTIME_COUNTER, ONLY_IN_STORAGE_COUNTER
@@ -465,4 +466,23 @@ class Core:
 
         self.notifier.notify(
             events=[JobRestarted(job_name=job.job_name)], tool_name=job.tool_name
+        )
+
+    async def shell_job(
+        self,
+        *,
+        websocket: WebSocket,
+        job: AnyJob,
+        tool: str,
+        replica_index: int,
+        command: str | None,
+        tty: bool = True,
+    ) -> None:
+        await self.runtime.shell_job(
+            websocket=websocket,
+            job=_get_runtime_job(job=job),
+            tool=tool,
+            replica_index=replica_index,
+            command=command,
+            tty=tty,
         )
