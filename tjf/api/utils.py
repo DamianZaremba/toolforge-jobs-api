@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import cast
 
 from fastapi import FastAPI
-from starlette.requests import Request
+from starlette.requests import HTTPConnection
 from starlette.types import Lifespan
 
 from ..core.core import Core
@@ -26,5 +26,5 @@ class JobsApi(FastAPI):
         self.core = core
 
 
-def current_app(request: Request) -> JobsApi:
-    return cast(JobsApi, request.app)
+def current_app(connection: HTTPConnection) -> JobsApi:
+    return cast(JobsApi, connection.app)
