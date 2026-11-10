@@ -45,6 +45,17 @@ data:
                 proxy_pass_header "X-Accel-Buffering";
             }
 
+            location ~ /shell$ {
+                proxy_pass http://127.0.0.1:8000;
+                # WebSocket upgrade support
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
+                # shell sessions can be long-lived
+                proxy_read_timeout 1h;
+                proxy_pass_header "X-Accel-Buffering";
+            }
+
             # Support both old and new metrics endpoints
             location = /metrics {
                 proxy_pass http://127.0.0.1:8000/metrics;
