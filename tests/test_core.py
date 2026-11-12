@@ -570,12 +570,15 @@ class TestCore:
                 my_core.runtime, "update_continuous_job", mock_runtime_update_job
             )
             monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+            mock_runtime_delete_job = MagicMock(spec=my_core.runtime.delete_job)
+            monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete_job)
             mock_core_get_job = MagicMock(spec=my_core.get_job, return_value=job)
             monkeypatch.setattr(my_core, "get_job", mock_core_get_job)
 
             gotten_change, gotten_message = my_core.update_job(job=job)
 
             mock_runtime_update_job.assert_called_once_with(job=job.get_resolved_job())
+            mock_runtime_delete_job.assert_called_once_with(job=job.get_resolved_job())
             mock_runtime_create_job.assert_called_once_with(job=job.get_resolved_job())
             mock_core_get_job.assert_called_once_with(
                 tool_name=job.tool_name, name=job.job_name
@@ -601,12 +604,15 @@ class TestCore:
                 my_core.runtime, "update_scheduled_job", mock_runtime_update_job
             )
             monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+            mock_runtime_delete_job = MagicMock(spec=my_core.runtime.delete_job)
+            monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete_job)
             mock_core_get_job = MagicMock(spec=my_core.get_job, return_value=job)
             monkeypatch.setattr(my_core, "get_job", mock_core_get_job)
 
             gotten_change, gotten_message = my_core.update_job(job=job)
 
             mock_runtime_update_job.assert_called_once_with(job=job.get_resolved_job())
+            mock_runtime_delete_job.assert_called_once_with(job=job.get_resolved_job())
             assert gotten_change
             assert gotten_message == "Job silly-job-name was updated in runtime only"
             mock_core_get_job.assert_called_once_with(
@@ -670,6 +676,51 @@ class TestCore:
                 existing_job=existing_job, new_job=updated_job
             )
             mock_update_job_in_runtime.assert_called_once_with(
+                job=updated_job.get_resolved_job()
+            )
+
+        def test_replaces_existing_runtime_job_when_runtime_kind_changes(
+            self,
+            get_my_core: GetMyCore,
+            monkeypatch: pytest.MonkeyPatch,
+        ):
+            existing_job = get_dummy_continuous_job()
+            updated_job = get_dummy_scheduled_job()
+            my_core = get_my_core()
+            mock_get_job = MagicMock(spec=my_core.get_job, return_value=existing_job)
+            mock_update_job_in_storage = MagicMock(
+                spec=my_core._update_job_in_storage, return_value=True
+            )
+            mock_update_job_in_runtime = MagicMock(
+                spec=my_core._update_job_in_runtime,
+                side_effect=NotFoundInRuntime("Not found in runtime"),
+            )
+            mock_runtime_delete_job = MagicMock(spec=my_core.runtime.delete_job)
+            mock_runtime_create_job = MagicMock(spec=my_core.runtime.create_job)
+            monkeypatch.setattr(my_core, "get_job", mock_get_job)
+            monkeypatch.setattr(
+                my_core, "_update_job_in_storage", mock_update_job_in_storage
+            )
+            monkeypatch.setattr(
+                my_core, "_update_job_in_runtime", mock_update_job_in_runtime
+            )
+            monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete_job)
+            monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+
+            gotten_change, gotten_message = my_core.update_job(job=updated_job)
+
+            assert gotten_change
+            assert (
+                gotten_message
+                == "Job dummy-job-name was updated in storage and runtime"
+            )
+            mock_update_job_in_runtime.assert_called_once_with(
+                job=updated_job.get_resolved_job()
+            )
+            mock_runtime_delete_job.assert_called_once_with(
+                job=existing_job.get_resolved_job()
+            )
+            mock_runtime_create_job.assert_called_once_with(
                 job=updated_job.get_resolved_job()
             )
 
@@ -1625,6 +1676,8 @@ class TestCore:
                 my_core.runtime, "update_continuous_job", mock_runtime_update_job
             )
             monkeypatch.setattr(my_core.runtime, "create_job", mock_runtime_create_job)
+            mock_runtime_delete_job = MagicMock(spec=my_core.runtime.delete_job)
+            monkeypatch.setattr(my_core.runtime, "delete_job", mock_runtime_delete_job)
             mock_core_get_job = MagicMock(spec=my_core.get_job, return_value=job)
             monkeypatch.setattr(my_core, "get_job", mock_core_get_job)
 
@@ -1632,6 +1685,7 @@ class TestCore:
 
             derived_job = job.to_continuous_job()
             mock_runtime_update_job.assert_called_once_with(job=derived_job)
+            mock_runtime_delete_job.assert_called_once_with(job=derived_job)
             mock_runtime_create_job.assert_called_once_with(job=derived_job)
             assert gotten_change
             assert gotten_message == "Job silly-job-name was updated in runtime only"
@@ -1680,7 +1734,7 @@ class TestCore:
                 )
 
                 assert changed is True
-                mock_storage_delete_job.assert_called_once_with(job=new_job)
+                mock_storage_delete_job.assert_called_once_with(job=existing_job)
                 mock_storage_create_job.assert_called_once_with(job=new_job)
 
             def test_skips_storage_when_job_is_the_same(

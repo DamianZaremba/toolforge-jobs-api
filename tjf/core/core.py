@@ -190,8 +190,6 @@ class Core:
             LOGGER.info(message)
             return True, message
 
-        runtime_job = _get_runtime_job(job=job)
-
         LOGGER.debug(f"Updating job in storage {job.job_name}")
         changed_in_storage = self._update_job_in_storage(
             existing_job=maybe_fresh_job, new_job=job
@@ -200,10 +198,15 @@ class Core:
         changed_in_runtime = False
         if changed_in_storage or not maybe_fresh_job.status.up_to_date:
             LOGGER.debug(f"Updating job in runtime {job.job_name}")
+            old_runtime_job = _get_runtime_job(job=maybe_fresh_job)
+            new_runtime_job = _get_runtime_job(job=job)
             try:
-                self._update_job_in_runtime(job=runtime_job)
+                self._update_job_in_runtime(job=new_runtime_job)
             except NotFoundInRuntime:
-                self._create_runtime_job(job=runtime_job)
+                # NotFoundInRuntime could be raised for cases where the existing and the new job records are of different type.
+                # in that case you'd want to completely remove the old record if that is the case.
+                self.runtime.delete_job(job=old_runtime_job)
+                self._create_runtime_job(job=new_runtime_job)
             changed_in_runtime = True
 
         message = f"Job {job.job_name} "
@@ -246,7 +249,8 @@ class Core:
             f"\nNEW JOB:      {new_job.model_dump(exclude_unset=True, exclude=to_exclude, mode='json')}"
         )
         LOGGER.debug(f"Updating job {new_job.job_name}")
-        self.storage.delete_job(job=new_job)
+        # if the job type changed, the existing job is stored as a different kind
+        self.storage.delete_job(job=existing_job)
         self.storage.create_job(job=new_job)
         LOGGER.info(f"Job {new_job.job_name} updated in storage")
 
