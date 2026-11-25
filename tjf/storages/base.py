@@ -36,6 +36,10 @@ class BaseStorage(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def update_job(self, *, job: AnyJob) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
     def delete_jobs(self, *, tool_name: str, jobs: list[AnyJob]) -> list[AnyJob]:
         raise NotImplementedError
 
