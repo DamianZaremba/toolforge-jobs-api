@@ -1441,6 +1441,32 @@ class TestRestartJob:
             assert expected_kind == gotten_params["kind"]
 
 
+class TestUpdateJob:
+    def test_updates_a_job_whose_type_changed(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        fake_tool_account: ToolAccount,
+        runtime_k8s_cli: MagicMock,
+    ):
+        runtime_k8s_cli.get_objects.return_value = []
+        monkeypatch.setattr(
+            k8s_runtime, "ToolAccount", MagicMock(return_value=fake_tool_account)
+        )
+        my_runtime = K8sRuntime(settings=get_settings(default_cpu_limit="1000m"))
+        existing_job = get_continuous_job_fixture_as_job()
+        monkeypatch.setattr(my_runtime, "get_job", MagicMock(return_value=existing_job))
+        mock_delete_job = MagicMock()
+        mock_create_job = MagicMock()
+        monkeypatch.setattr(my_runtime, "delete_job", mock_delete_job)
+        monkeypatch.setattr(my_runtime, "create_job", mock_create_job)
+        job = get_scheduled_job_fixture_as_job()
+
+        my_runtime.update_job(job=job)
+
+        mock_delete_job.assert_called_once_with(job=existing_job)
+        mock_create_job.assert_called_once_with(job=job)
+
+
 class TestUpdateContinuousJob:
     def test_raises_NotFoundInRunitme_when_it_does_not_exist(
         self,

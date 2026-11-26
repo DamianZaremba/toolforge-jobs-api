@@ -34,9 +34,17 @@ class BaseRuntime(ABC):
     def get_continuous_job(self, *, job_name: str, tool_name: str) -> ContinuousJob:
         raise NotImplementedError
 
+    @abstractmethod
+    def get_job(self, *, job_name: str, tool_name: str) -> AnyJob:
+        raise NotImplementedError
+
     # TODO: Job already has the tool name within it, maybe we don't need it as extra parameter, or inside each Job
     @abstractmethod
     def create_job(self, *, job: AnyJob) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_job(self, *, job: AnyJob) -> None:
         raise NotImplementedError
 
     @abstractmethod

@@ -161,6 +161,39 @@ class K8sStorage(BaseStorage):
 
         return job
 
+    def update_job(self, *, job: AnyJob) -> bool:
+        LOGGER.debug("Updating job %s for tool %s", job.job_name, job.tool_name)
+        try:
+            stored_job: AnyJob | None = self.get_job(
+                job_name=job.job_name, tool_name=job.tool_name
+            )
+        except NotFoundInStorage:
+            stored_job = None
+
+        if stored_job is not None:
+            to_exclude = {"status_short", "status_long", "status", "k8s_object"}
+            are_the_same = stored_job.model_dump(
+                exclude_unset=True, exclude=to_exclude
+            ) == job.model_dump(exclude_unset=True, exclude=to_exclude)
+            if are_the_same:
+                LOGGER.debug("Got the same job, skipping storage")
+                return False
+
+            LOGGER.debug(
+                "Got two different jobs:"
+                f"\nEXISTING JOB: {stored_job.model_dump(exclude_unset=True, exclude=to_exclude, mode='json')}"
+                f"\nNEW JOB:      {job.model_dump(exclude_unset=True, exclude=to_exclude, mode='json')}"
+            )
+            self.delete_job(job=stored_job)
+
+        if isinstance(job, OneOffJob):
+            LOGGER.debug("Skip storing one-off job %s", job.job_name)
+            return stored_job is not None
+
+        self.create_job(job=job)
+        LOGGER.info("Job %s updated in storage", job.job_name)
+        return True
+
     def delete_jobs(self, *, tool_name: str, jobs: list[AnyJob]) -> list[AnyJob]:
         LOGGER.debug(f"Deleting {len(jobs)} jobs for tool {tool_name}")
         for job in jobs:

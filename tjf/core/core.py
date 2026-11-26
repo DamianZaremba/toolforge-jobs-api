@@ -193,17 +193,20 @@ class Core:
         runtime_job = _get_runtime_job(job=job)
 
         LOGGER.debug(f"Updating job in storage {job.job_name}")
-        changed_in_storage = self._update_job_in_storage(
-            existing_job=maybe_fresh_job, new_job=job
-        )
+        changed_in_storage = self.storage.update_job(job=job)
 
         changed_in_runtime = False
         if changed_in_storage or not maybe_fresh_job.status.up_to_date:
             LOGGER.debug(f"Updating job in runtime {job.job_name}")
             try:
-                self._update_job_in_runtime(job=runtime_job)
-            except NotFoundInRuntime:
-                self._create_runtime_job(job=runtime_job)
+                self.runtime.update_job(job=runtime_job)
+            except Exception:
+                if changed_in_storage:
+                    LOGGER.exception(
+                        f"Failed to update job {job.job_name} in runtime, restoring the previous version in storage"
+                    )
+                    self.storage.update_job(job=maybe_fresh_job)
+                raise
             changed_in_runtime = True
 
         message = f"Job {job.job_name} "
@@ -226,43 +229,6 @@ class Core:
             tool_name=job.tool_name,
         )
         return (changed_in_storage or changed_in_runtime, message)
-
-    def _update_job_in_storage(self, existing_job: AnyJob, new_job: AnyJob) -> bool:
-        if isinstance(new_job, OneOffJob):
-            LOGGER.debug("Skipping updating one-off job in storage.")
-            return False
-
-        to_exclude = {"status_short", "status_long", "status", "k8s_object"}
-        are_the_same = existing_job.model_dump(
-            exclude_unset=True, exclude=to_exclude
-        ) == new_job.model_dump(exclude_unset=True, exclude=to_exclude)
-        if are_the_same:
-            LOGGER.debug("Got the same job, skipping storage")
-            return False
-
-        LOGGER.debug(
-            "Got two different jobs:"
-            f"\nEXISTING JOB: {existing_job.model_dump(exclude_unset=True, exclude=to_exclude, mode='json')}"
-            f"\nNEW JOB:      {new_job.model_dump(exclude_unset=True, exclude=to_exclude, mode='json')}"
-        )
-        LOGGER.debug(f"Updating job {new_job.job_name}")
-        self.storage.delete_job(job=new_job)
-        self.storage.create_job(job=new_job)
-        LOGGER.info(f"Job {new_job.job_name} updated in storage")
-
-        return True
-
-    def _update_job_in_runtime(self, job: AnyJob) -> None:
-        LOGGER.debug(f"Updating job {job.job_name}")
-        match job.job_type:
-            case JobType.CONTINUOUS:
-                self.runtime.update_continuous_job(job=job)
-            case JobType.SCHEDULED:
-                self.runtime.update_scheduled_job(job=job)
-            case _:
-                raise TjfValidationError(f"Unknown job type {job.job_type}")
-
-        LOGGER.info(f"Job {job.job_name} updated in runtime")
 
     async def get_logs(
         self, tool_name: str, job_name: str, request_args: Mapping[str, str]

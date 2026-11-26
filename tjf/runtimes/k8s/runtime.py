@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from contextlib import suppress
 from datetime import UTC, datetime
 from http import HTTPStatus
 from logging import getLogger
@@ -49,6 +50,7 @@ from .jobs import (
     get_k8s_objects_by_job_name,
     get_one_off_job_from_k8s_object,
     get_scheduled_job_from_k8s_object,
+    job_exists_in_runtime,
 )
 from .k8s_errors import (
     K8sAlreadyExists,
@@ -218,6 +220,13 @@ class K8sRuntime(BaseRuntime):
 
         raise NotFoundInRuntime(f"Unable to find job {job_name} for tool {tool_name}.")
 
+    def get_job(self, *, job_name: str, tool_name: str) -> AnyJob:
+        with suppress(NotFoundInRuntime):
+            return self.get_continuous_job(job_name=job_name, tool_name=tool_name)
+        with suppress(NotFoundInRuntime):
+            return self.get_scheduled_job(job_name=job_name, tool_name=tool_name)
+        return self.get_one_off_job(job_name=job_name, tool_name=tool_name)
+
     def _restart_continuous_job(self, *, job: ContinuousJob) -> None:
         tool_account = ToolAccount(name=job.tool_name)
         job = job.get_resolved_job()
@@ -270,6 +279,35 @@ class K8sRuntime(BaseRuntime):
                 raise TjfValidationError("Unable to restart a one-off job")
 
         raise TjfError(f"Unable to restart unknown job type: {job}")
+
+    def update_job(self, *, job: AnyJob) -> None:
+        if isinstance(job, OneOffJob):
+            raise TjfValidationError("Unable to update a one-off job")
+
+        tool_account = ToolAccount(name=job.tool_name)
+        if not job_exists_in_runtime(job=job, tool_account=tool_account):
+            # validate the new job before deleting anything, so if it gets rejected (ex. over the limits) the old
+            # one is left running
+            if not job.image.exists:
+                raise TjfImageNotFoundError(
+                    f"No such image '{job.image.to_full_url()}'"
+                )
+            validate_job_limits(tool_account, job)
+            with suppress(NotFoundInRuntime):
+                existing_job = self.get_job(
+                    job_name=job.job_name, tool_name=job.tool_name
+                )
+                self.delete_job(job=existing_job)
+            self.create_job(job=job)
+            return
+
+        match job:
+            case ContinuousJob():
+                self.update_continuous_job(job=job)
+            case ScheduledJob():
+                self.update_scheduled_job(job=job)
+            case _:
+                raise TjfError(f"Unable to update unknown job type: {job}")
 
     def update_continuous_job(self, *, job: ContinuousJob) -> None:
         """

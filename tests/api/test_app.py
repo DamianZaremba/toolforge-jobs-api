@@ -550,8 +550,13 @@ class TestApiUpdateJob:
             ),
         )
         monkeypatch.setattr(
+            app.core.storage,
+            "update_job",
+            value=lambda *args, **kwargs: False,
+        )
+        monkeypatch.setattr(
             app.core.runtime,
-            "update_continuous_job",
+            "update_job",
             value=lambda *args, **kwargs: None,
         )
 

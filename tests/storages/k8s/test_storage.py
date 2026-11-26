@@ -647,6 +647,25 @@ class TestStorage:
             with pytest.raises(NotFoundInStorage):
                 my_storage.delete_job(job=expected_job)
 
+    class TestUpdateJob:
+        def test_creates_the_job_if_it_was_not_stored(
+            self, storage_k8s_cli: MagicMock, monkeypatch: pytest.MonkeyPatch
+        ):
+            my_storage = storage.K8sStorage(settings=Settings(debug=True))
+            monkeypatch.setattr(
+                my_storage,
+                "get_job",
+                MagicMock(
+                    spec=my_storage.get_job, side_effect=NotFoundInStorage("Not found")
+                ),
+            )
+
+            changed = my_storage.update_job(job=get_continuous_job(name="testjob"))
+
+            assert changed is True
+            storage_k8s_cli.delete_namespaced_custom_object.assert_not_called()
+            storage_k8s_cli.create_namespaced_custom_object.assert_called_once()
+
     class TestDeleteJobs:
         def test_returns_the_deleted_jobs(self, storage_k8s_cli: MagicMock):
             def _fake_list_objects(

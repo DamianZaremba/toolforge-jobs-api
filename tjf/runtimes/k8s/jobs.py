@@ -796,6 +796,27 @@ def get_k8s_objects_by_job_name(
     )
 
 
+def job_exists_in_runtime(job: AnyJob, tool_account: ToolAccount) -> bool:
+    match job.job_type:
+        case JobType.CONTINUOUS:
+            k8s_kind = K8sKind.DEPLOYMENTS
+        case JobType.SCHEDULED:
+            k8s_kind = K8sKind.CRONJOBS
+        case JobType.ONE_OFF:
+            k8s_kind = K8sKind.JOBS
+        case _:
+            raise TjfValidationError(f"Unknown job type {job.job_type}")
+
+    return bool(
+        get_k8s_objects_by_job_name(
+            job_name=job.job_name,
+            tool_account=tool_account,
+            k8s_kind=k8s_kind,
+            job_type=job.job_type,
+        )
+    )
+
+
 def create_k8s_object_for_job(
     tool_account: ToolAccount, kind: K8sKind, spec: dict[str, Any], job: AnyJob
 ) -> dict[str, Any]:
